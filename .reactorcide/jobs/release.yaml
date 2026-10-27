@@ -1,0 +1,13 @@
+name: catalystcal-release
+description: "Calculate the next version, push the tag, bump VERSION.txt and Chart.yaml, and publish the chart on a GitHub release"
+job:
+  image: containers.catalystsquad.com/public/reactorcide/runnerbase:latest
+  # Scripts run from the trusted CI checkout (/job/ci). They work on the
+  # source checkout ($REACTORCIDE_CODE_DIR, default /job/src).
+  command: "runnerlib run --job-command 'bash /job/ci/.reactorcide/jobs/scripts/release.sh'"
+  timeout: 900
+  priority: 15
+  working_dir: /job
+environment:
+  REACTORCIDE_REPO: "catalystcommunity/catalystcal"
+  GITHUB_PAT: "${secret:catalystcommunity/ci:githubpat}"

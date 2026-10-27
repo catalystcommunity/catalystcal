@@ -1,0 +1,16 @@
+# Runs on each merge to main. semver-tags decides if a release is due from
+# the conventional commits; when it is, the job pushes the vX.Y.Z tag, which
+# starts catalystcal-release (release.yaml).
+id: catalystcal-release-tag
+name: catalystcal Release Tag
+description: "Calculate and push the next release tag, bump the version files, and publish the Helm chart after a merge to main."
+
+on:
+  events:
+    - pull_request_merged
+  branches:
+    - main
+
+jobs:
+  release:
+    job_file: release.yaml

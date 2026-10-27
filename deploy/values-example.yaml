@@ -1,0 +1,76 @@
+# Example values for one catalystcal instance. Copy this file, change the host
+# names and domains, and deploy:
+#
+#   helm upgrade --install catalystcal ./helm_chart -n catalystcal --create-namespace \
+#     -f deploy/values-example.yaml
+#
+# This file holds NO secrets. Put secrets in a Secret that you make
+# (secrets.existingSecret, actAs.existingSecret), or pass them with
+# --set at deploy time. See docs/deploy.md.
+
+imagePullSecrets: []
+#  - name: regcred
+
+config:
+  env: prod
+  devAuthEnabled: false
+  publicUrl: "https://catalystcal.example.com"
+  # callbackUrl defaults to <publicUrl>/auth/callback.
+  allowedDomains: "example.com"
+  allowedUsers: ""
+  subscriptionAllowPrivate: false
+  linkkeys:
+    idpDomain: "example.com"
+    idpUrl: "https://linkkeys.example.com"
+    rpDomain: "catalystcal.example.com"
+
+secrets:
+  # A Secret with CATALYSTCAL_JWT_SECRET and CATALYSTCAL_LINKKEYS_PKI_API_KEY
+  # (the RP API key). Make it before the first install:
+  #   kubectl -n catalystcal create secret generic catalystcal-secrets \
+  #     --from-literal=CATALYSTCAL_JWT_SECRET="$(openssl rand -base64 48)" \
+  #     --from-literal=CATALYSTCAL_LINKKEYS_PKI_API_KEY="<RP API key>"
+  existingSecret: catalystcal-secrets
+
+# Use an existing LinkKeys instance as the relying party (RP) over
+# CSIL-RPC/TCP. Fingerprints and the address come from DNS when empty.
+linkkeysRp:
+  enabled: false
+  tcpAddr: ""
+  tcpFingerprints: ""
+
+# Act-as application keys. Turn on after you register catalystcal as a LinkKeys
+# application and make the Secret:
+#   kubectl -n catalystcal create secret generic catalystcal-act-as \
+#     --from-file=app-keys.json=./act-as-app-keys.json
+actAs:
+  enabled: false
+  existingSecret: catalystcal-act-as
+
+api:
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+
+web:
+  replicaCount: 2
+
+gateway:
+  httpRoute:
+    enabled: true
+    parentGateway: contour
+    parentNamespace: projectcontour
+    parentSection: https
+    hostnames:
+      - catalystcal.example.com
+
+ingress:
+  enabled: false
+
+backup:
+  enabled: true
+  schedule: "17 3 * * *"
+  keep: 14
+  persistence:
+    size: 5Gi

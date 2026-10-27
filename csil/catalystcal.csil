@@ -1,0 +1,717 @@
+options {
+    package: "catalystcal",
+    version: "v1alpha"
+}
+
+;; ============================================================
+;; catalystcal: a calendaring service. CSIL is the source of truth for the Go
+;; server and every generated client. Run ./csil/regenerate.sh after a change.
+;;
+;; Three ways one person can touch another person's calendar:
+;;
+;;   1. Ownership. The owner can do everything.
+;;   2. A share ("as themselves"). The owner gives another person a role on
+;;      one calendar. That person acts under their own name. An event they
+;;      create shows them as the creator and the organizer.
+;;   3. A delegation ("act as"). The principal gives a delegate a set of
+;;      scopes. The delegate calls AuthService.assume-principal and gets a
+;;      bearer that acts AS the principal: the organizer, the RSVP and the
+;;      sent invitations are the principal's. The audit log records the real
+;;      actor. A LinkKeys act-as grant to an application uses the same scope
+;;      words (AuthService.exchange-act-as-credential).
+;; ============================================================
+
+;; ---- Identifiers and scalars ------------------------------------------
+
+UserID        = text
+CalendarID    = text
+EventID       = text
+ShareID       = text
+DelegationID  = text
+AuditID       = text
+SessionID     = text
+;; RFC3339 UTC, whole seconds, "Z" suffix: 2026-10-15T17:00:00Z.
+Timestamp     = text
+;; A calendar date, YYYY-MM-DD. Used for all-day events.
+DateText      = text
+
+;; ---- Enumerations -----------------------------------------------------
+
+;; What a share lets the grantee do, in increasing order.
+;;   free_busy - see busy and free time only
+;;   read      - see event details
+;;   write     - create, change, and delete events
+;;   manage    - write, plus calendar settings and sharing
+ShareRole = "free_busy" / "read" / "write" / "manage"
+
+;; The effective access the caller has on a calendar. "owner" is the owner
+;; or a delegate with every needed scope.
+AccessRole = "none" / "free_busy" / "read" / "write" / "manage" / "owner"
+
+;; How the caller reaches a calendar.
+AccessPath = "owner" / "share" / "delegation" / "attendee"
+
+;; Delegation and act-as grant scopes. One vocabulary for both.
+;;   calendars.read    - see the principal's calendars and event details
+;;   freebusy.read     - see busy and free time
+;;   events.write      - create, change, and delete events as the principal
+;;   events.respond    - answer invitations as the principal
+;;   calendars.manage  - change calendar settings and sharing
+Scope = "calendars.read" / "freebusy.read" / "events.write" /
+        "events.respond" / "calendars.manage"
+
+CalendarKind = "local" / "subscription"
+
+EventStatus       = "confirmed" / "tentative" / "cancelled"
+EventTransparency = "opaque" / "transparent"
+EventVisibility   = "default" / "public" / "private" / "confidential"
+
+;; iCalendar PARTSTAT values that catalystcal supports.
+ParticipationStatus = "needs_action" / "accepted" / "declined" / "tentative" / "delegated"
+;; iCalendar ROLE values.
+AttendeeRole = "chair" / "required" / "optional" / "non_participant"
+
+ReminderMethod = "display" / "email"
+
+;; Which instances of a recurring series an edit or delete changes.
+;;   all             - the whole series (the master)
+;;   this            - one instance (an override with a RECURRENCE-ID)
+;;   this_and_future - split the series at this instance
+RecurrenceScope = "all" / "this" / "this_and_future"
+
+;; How the caller authenticated for the current bearer.
+ActingVia = "self" / "delegation" / "act_as_grant"
+
+;; ============================================================
+;; Identity
+;; ============================================================
+
+;; A LinkKeys identity. `user_id` is the LinkKeys subject: the stable account
+;; id at `domain`. It is NOT the catalystcal user id (PersonSummary.user_id).
+;; A request can name a person by `handle` instead; the server resolves the
+;; handle against people who have signed in to this catalystcal server.
+IdentityRef = {
+    domain: text,
+    ? user_id: text,
+    ? handle: text
+}
+
+User = {
+    @receive-only
+    user_id: UserID,
+
+    @receive-only
+    domain: text,
+
+    @receive-only
+    subject: text,
+
+    @receive-only
+    ? handle: text,
+
+    ? display_name: text,
+
+    @receive-only
+    ? email: text,
+
+    ;; IANA time zone name, for example "America/Denver".
+    ? timezone: text,
+
+    @receive-only
+    created_at: Timestamp,
+
+    @receive-only
+    updated_at: Timestamp
+}
+
+;; A short public view of a person. `user_id` is the catalystcal user id (a ULID);
+;; `subject` is the LinkKeys account id at `domain`.
+PersonSummary = {
+    user_id: UserID,
+    domain: text,
+    subject: text,
+    ? handle: text,
+    ? display_name: text
+}
+
+;; ============================================================
+;; Calendars
+;; ============================================================
+
+Calendar = {
+    @receive-only
+    calendar_id: CalendarID,
+
+    @receive-only
+    owner: PersonSummary,
+
+    name: text .size (1..256),
+    ? description: text,
+    ;; CSS color, for example "#3b82f6".
+    ? color: text,
+    ;; Default IANA time zone for new events.
+    ? timezone: text,
+
+    @receive-only
+    kind: CalendarKind,
+
+    ;; For kind = subscription: the remote iCalendar URL (http or https).
+    ? source_url: text,
+
+    @receive-only
+    ? last_synced_at: Timestamp,
+
+    @receive-only
+    ? sync_error: text,
+
+    @receive-only
+    is_default: bool,
+
+    ;; The caller's effective access and how they have it.
+    @receive-only
+    access: AccessRole,
+
+    @receive-only
+    access_path: AccessPath,
+
+    ;; Present only for a caller with manage access. Path of the secret
+    ;; iCalendar feed, for example "/ics/abcdef.ics". Absent when off.
+    @receive-only
+    ? feed_path: text,
+
+    @receive-only
+    created_at: Timestamp,
+
+    @receive-only
+    updated_at: Timestamp
+}
+
+CreateCalendarRequest = {
+    name: text .size (1..256),
+    ? description: text,
+    ? color: text,
+    ? timezone: text
+}
+
+UpdateCalendarRequest = {
+    calendar_id: CalendarID,
+    ? name: text .size (1..256),
+    ? description: text,
+    ? color: text,
+    ? timezone: text
+}
+
+SubscribeCalendarRequest = {
+    name: text .size (1..256),
+    source_url: text,
+    ? color: text
+}
+
+SetFeedRequest = {
+    calendar_id: CalendarID,
+    ;; true makes a new secret feed path (the old path stops working).
+    ;; false turns the feed off.
+    enabled: bool
+}
+
+CalendarList = {
+    calendars: [* Calendar]
+}
+
+;; ============================================================
+;; Shares ("edit my things as themselves")
+;; ============================================================
+
+Share = {
+    @receive-only
+    share_id: ShareID,
+
+    calendar_id: CalendarID,
+    grantee: IdentityRef,
+    role: ShareRole,
+
+    @receive-only
+    ? grantee_person: PersonSummary,
+
+    @receive-only
+    created_at: Timestamp
+}
+
+ShareList = {
+    shares: [* Share]
+}
+
+;; ============================================================
+;; Delegations ("act as me")
+;; ============================================================
+
+Delegation = {
+    @receive-only
+    delegation_id: DelegationID,
+
+    @receive-only
+    principal: PersonSummary,
+
+    delegate: IdentityRef,
+
+    @receive-only
+    ? delegate_person: PersonSummary,
+
+    scopes: [+ Scope],
+
+    ;; Limit the delegation to these calendars. Empty or absent means every
+    ;; calendar the principal owns, now and later.
+    ? calendar_ids: [* CalendarID],
+
+    ? note: text,
+    ? expires_at: Timestamp,
+
+    @receive-only
+    created_at: Timestamp,
+
+    @receive-only
+    ? revoked_at: Timestamp
+}
+
+DelegationList = {
+    delegations: [* Delegation]
+}
+
+AssumePrincipalRequest = {
+    principal_user_id: UserID
+}
+
+;; ============================================================
+;; Events
+;; ============================================================
+
+;; RFC 5545 recurrence. `rrule` is an RRULE value without the "RRULE:"
+;; prefix, for example "FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10".
+Recurrence = {
+    rrule: text,
+    ? exdates: [* Timestamp],
+    ? rdates: [* Timestamp]
+}
+
+Attendee = {
+    ;; A catalystcal user (by LinkKeys identity) or an email address, or both.
+    ? identity: IdentityRef,
+    ? email: text,
+    ? name: text,
+    ? role: AttendeeRole .default "required",
+    ? status: ParticipationStatus .default "needs_action",
+    ? rsvp: bool .default true,
+
+    @receive-only
+    ? person: PersonSummary,
+
+    ;; Present when someone answered for this attendee through a delegation.
+    @receive-only
+    ? responded_by: PersonSummary
+}
+
+Reminder = {
+    minutes_before: int,
+    ? method: ReminderMethod .default "display"
+}
+
+Event = {
+    @receive-only
+    event_id: EventID,
+
+    calendar_id: CalendarID,
+
+    ;; iCalendar UID. The server makes one when absent.
+    ? uid: text,
+
+    title: text .size (1..1024),
+    ? description: text,
+    ? location: text,
+    ? url: text,
+    ? conference_url: text,
+
+    ;; For a timed event: RFC3339 instants. For an all-day event: start_date
+    ;; and end_date (end is exclusive, as in iCalendar).
+    ? start: Timestamp,
+    ? end: Timestamp,
+    ? all_day: bool .default false,
+    ? start_date: DateText,
+    ? end_date: DateText,
+
+    ;; IANA zone the event was written in. Recurrence expands in this zone.
+    ? timezone: text,
+
+    ? status: EventStatus .default "confirmed",
+    ? transparency: EventTransparency .default "opaque",
+    ? visibility: EventVisibility .default "default",
+
+    ? recurrence: Recurrence,
+
+    ;; Set on an override of one instance of a series.
+    @receive-only
+    ? master_event_id: EventID,
+    @receive-only
+    ? recurrence_id: Timestamp,
+
+    ? attendees: [* Attendee],
+    ? reminders: [* Reminder],
+    ? categories: [* text],
+    ? color: text,
+
+    @receive-only
+    ? organizer: PersonSummary,
+
+    @receive-only
+    ? created_by: PersonSummary,
+
+    @receive-only
+    ? updated_by: PersonSummary,
+
+    ;; Set when the last change came from a delegate acting as the organizer.
+    @receive-only
+    ? updated_via: ActingVia,
+
+    @receive-only
+    sequence: int,
+
+    @receive-only
+    created_at: Timestamp,
+
+    @receive-only
+    updated_at: Timestamp
+}
+
+;; One instance in a time range. For an all-day event, start and end are
+;; 00:00:00Z of the instance's start date and exclusive end date (the
+;; event's start_date/end_date carry the same dates). A plain event has one instance. A series
+;; has one per occurrence; an override replaces the generated instance.
+Occurrence = {
+    event: Event,
+    start: Timestamp,
+    end: Timestamp,
+    ? recurrence_id: Timestamp,
+
+    ;; The caller's access on the calendar that holds the event.
+    access: AccessRole,
+
+    ;; True when the caller sees only busy time (free_busy role), so the
+    ;; event has no details.
+    busy_only: bool,
+
+    ;; True when the caller is an attendee, not an owner, delegate, or share.
+    invited: bool
+}
+
+ListEventsRequest = {
+    range_start: Timestamp,
+    range_end: Timestamp,
+    ;; Absent means every calendar the caller can see, plus invitations.
+    ? calendar_ids: [* CalendarID],
+    ? include_invitations: bool .default true
+}
+
+OccurrenceList = {
+    occurrences: [* Occurrence],
+    ;; True when the series expansion cap cut the list short.
+    truncated: bool
+}
+
+UpdateEventRequest = {
+    event: Event,
+    ? scope: RecurrenceScope .default "all",
+    ;; Needed for scope this / this_and_future: which instance.
+    ? recurrence_id: Timestamp
+}
+
+DeleteEventRequest = {
+    event_id: EventID,
+    ? scope: RecurrenceScope .default "all",
+    ? recurrence_id: Timestamp
+}
+
+MoveEventRequest = {
+    event_id: EventID,
+    calendar_id: CalendarID
+}
+
+RespondRequest = {
+    event_id: EventID,
+    status: ParticipationStatus,
+    ? recurrence_id: Timestamp,
+    ? comment: text
+}
+
+SearchEventsRequest = {
+    query: text .size (1..256),
+    ? limit: uint .default 50
+}
+
+EventList = {
+    events: [* Event]
+}
+
+;; ============================================================
+;; Free/busy
+;; ============================================================
+
+BusyInterval = {
+    start: Timestamp,
+    end: Timestamp,
+    ? tentative: bool
+}
+
+FreeBusyRequest = {
+    people: [+ IdentityRef],
+    range_start: Timestamp,
+    range_end: Timestamp
+}
+
+PersonFreeBusy = {
+    identity: IdentityRef,
+    ? person: PersonSummary,
+    busy: [* BusyInterval],
+    ;; False when the caller may not see this person's time.
+    visible: bool
+}
+
+FreeBusyResponse = {
+    people: [* PersonFreeBusy]
+}
+
+;; ============================================================
+;; iCalendar import and export
+;; ============================================================
+
+ImportIcsRequest = {
+    calendar_id: CalendarID,
+    ;; The complete text of an iCalendar (.ics) object.
+    ics: text
+}
+
+ImportResult = {
+    created: uint,
+    updated: uint,
+    skipped: uint,
+    ? warnings: [* text]
+}
+
+ExportCalendarRequest = {
+    calendar_id: CalendarID
+}
+
+ExportEventRequest = {
+    event_id: EventID,
+    ;; "publish" for a plain copy; "request" makes an iTIP invitation.
+    ? method: text
+}
+
+IcsDocument = {
+    ics: text,
+    filename: text
+}
+
+;; ============================================================
+;; Audit
+;; ============================================================
+
+AuditEntry = {
+    audit_id: AuditID,
+    at: Timestamp,
+    ;; The person who made the call.
+    actor: PersonSummary,
+    ;; The person whose authority the call used (same as actor for "self").
+    principal: PersonSummary,
+    via: ActingVia,
+    ;; For act_as_grant: the grantee application.
+    ? application: text,
+    operation: text,
+    ? target: text,
+    outcome: text
+}
+
+AuditQuery = {
+    ? limit: uint .default 100,
+    ;; Only entries where somebody else acted as the caller.
+    ? delegated_only: bool .default false
+}
+
+AuditList = {
+    entries: [* AuditEntry]
+}
+
+;; ============================================================
+;; Auth
+;; ============================================================
+
+;; The browser callback: the SPA posts the sealed token from the
+;; /auth/callback route. The api decrypts and verifies it through the RP.
+CompleteRequest = {
+    encrypted_token: text
+}
+
+LoginResponse = {
+    token: text,
+    expires_at: Timestamp,
+    user: PersonSummary,
+    ;; For a delegated bearer: whose authority the bearer uses.
+    ? acting_as: PersonSummary,
+    via: ActingVia,
+    ? scopes: [* Scope]
+}
+
+MeResponse = {
+    user: User,
+    ? acting_as: PersonSummary,
+    via: ActingVia,
+    ? scopes: [* Scope],
+    ;; People who gave the caller a delegation that is in effect now.
+    principals: [* PersonSummary]
+}
+
+;; A LinkKeys act-as credential from a grantee application. `credential`
+;; is CBOR(ActAsCredential) from the LinkKeys CSIL. The presentation's
+;; request digest is SHA-256 of the UTF-8 bytes of
+;; "catalystcal/AuthService/exchange-act-as-credential".
+ExchangeActAsCredentialRequest = {
+    credential: bytes
+}
+
+ScopeSetRequest = {
+    ;; The grantee application asking: LinkKeys ApplicationRef fields.
+    grantee_domain: text,
+    grantee_user_id: text,
+    grantee_application_id: text,
+    ? languages: [* text]
+}
+
+;; CBOR(SignedActAsScopeSet) from the LinkKeys CSIL.
+ScopeSetResponse = {
+    signed_scope_set: bytes
+}
+
+DevUser = {
+    user_id: UserID,
+    ? handle: text,
+    ? display_name: text,
+    domain: text
+}
+
+DevUsersResponse = {
+    users: [* DevUser]
+}
+
+DevLoginRequest = {
+    ;; Sign in as an existing user, or make one with this handle.
+    ? user_id: UserID,
+    ? handle: text,
+    ? display_name: text
+}
+
+LookupPersonRequest = {
+    identity: IdentityRef
+}
+
+UpdateProfileRequest = {
+    ? display_name: text,
+    ? timezone: text
+}
+
+;; ============================================================
+;; Common
+;; ============================================================
+
+EmptyRequest = {}
+EmptyResponse = {}
+
+ServiceError = {
+    code: uint,
+    message: text
+}
+
+;; ============================================================
+;; Services
+;; ============================================================
+
+;; complete, resume-session, end-session, and the dev ops are public.
+;; Every other op needs a bearer.
+service AuthService {
+    complete:       CompleteRequest -> LoginResponse / ServiceError,
+    resume-session: EmptyRequest    -> LoginResponse / ServiceError,
+    end-session:    EmptyRequest    -> EmptyResponse / ServiceError,
+    me:             EmptyRequest    -> MeResponse    / ServiceError,
+
+    ;; Delegations. assume-principal mints a bearer that acts as the
+    ;; principal with the delegation's scopes. The caller must use its own
+    ;; (self) bearer. release-principal mints a self bearer again.
+    assume-principal:  AssumePrincipalRequest -> LoginResponse / ServiceError,
+    release-principal: EmptyRequest           -> LoginResponse / ServiceError,
+
+    ;; LinkKeys act-as grants (catalystcal is the audience application).
+    exchange-act-as-credential: ExchangeActAsCredentialRequest -> LoginResponse    / ServiceError,
+    get-act-as-scope-set:       ScopeSetRequest                -> ScopeSetResponse / ServiceError
+}
+
+;; Registered only when CATALYSTCAL_DEV_AUTH_ENABLED=true and CATALYSTCAL_ENV is dev or nonprod.
+service DevAuthService {
+    list-dev-users: EmptyRequest    -> DevUsersResponse / ServiceError,
+    dev-login:      DevLoginRequest -> LoginResponse    / ServiceError
+}
+
+service UserService {
+    get-profile:    EmptyRequest         -> User          / ServiceError,
+    update-profile: UpdateProfileRequest -> User          / ServiceError,
+    lookup-person:  LookupPersonRequest  -> PersonSummary / ServiceError
+}
+
+service CalendarService {
+    list-calendars:        EmptyRequest             -> CalendarList  / ServiceError,
+    get-calendar:          CalendarID               -> Calendar      / ServiceError,
+    create-calendar:       CreateCalendarRequest    -> Calendar      / ServiceError,
+    update-calendar:       UpdateCalendarRequest    -> Calendar      / ServiceError,
+    delete-calendar:       CalendarID               -> EmptyResponse / ServiceError,
+    subscribe-calendar:    SubscribeCalendarRequest -> Calendar      / ServiceError,
+    refresh-subscription:  CalendarID               -> Calendar      / ServiceError,
+    set-feed:              SetFeedRequest           -> Calendar      / ServiceError
+}
+
+service ShareService {
+    list-shares:  CalendarID -> ShareList     / ServiceError,
+    put-share:    Share      -> Share         / ServiceError,
+    delete-share: ShareID    -> EmptyResponse / ServiceError
+}
+
+;; A delegate cannot make, change, or list delegations for the principal.
+;; Only a self bearer can call these.
+service DelegationService {
+    list-granted:      EmptyRequest -> DelegationList / ServiceError,
+    list-received:     EmptyRequest -> DelegationList / ServiceError,
+    create-delegation: Delegation   -> Delegation     / ServiceError,
+    update-delegation: Delegation   -> Delegation     / ServiceError,
+    revoke-delegation: DelegationID -> EmptyResponse  / ServiceError
+}
+
+service EventService {
+    list-events:   ListEventsRequest   -> OccurrenceList / ServiceError,
+    get-event:     EventID             -> Event          / ServiceError,
+    create-event:  Event               -> Event          / ServiceError,
+    update-event:  UpdateEventRequest  -> Event          / ServiceError,
+    delete-event:  DeleteEventRequest  -> EmptyResponse  / ServiceError,
+    move-event:    MoveEventRequest    -> Event          / ServiceError,
+    respond:       RespondRequest      -> Event          / ServiceError,
+    list-invitations: EmptyRequest     -> EventList      / ServiceError,
+    search-events: SearchEventsRequest -> EventList      / ServiceError
+}
+
+service FreeBusyService {
+    query: FreeBusyRequest -> FreeBusyResponse / ServiceError
+}
+
+service IcsService {
+    import-ics:      ImportIcsRequest      -> ImportResult / ServiceError,
+    export-calendar: ExportCalendarRequest -> IcsDocument  / ServiceError,
+    export-event:    ExportEventRequest    -> IcsDocument  / ServiceError
+}
+
+service AuditService {
+    list-audit: AuditQuery -> AuditList / ServiceError
+}

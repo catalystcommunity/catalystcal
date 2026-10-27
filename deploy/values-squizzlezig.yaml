@@ -1,0 +1,65 @@
+# catalystcal on the squizzlezig dev cluster: https://catalystcal.squizzlezig.com
+#
+# Squizzlezig is for development and tests only. It holds no real data.
+#
+#   helm upgrade --install catalystcal ./helm_chart -n catalystcal-squizzlezig \
+#     -f deploy/values-squizzlezig.yaml \
+#     --set image.api.tag=<tag> --set image.web.tag=<tag>
+#
+# This file holds NO secrets. The Secret catalystcal-secrets in the namespace holds
+# CATALYSTCAL_JWT_SECRET and CATALYSTCAL_LINKKEYS_PKI_API_KEY. The RP API key belongs to
+# the LinkKeys service account catalystcal-dev-rp (relation api_access only). A
+# copy is in the local Reactorcide store at
+# catalystcal/squizzlezig:linkkeys-rp-api-key.
+
+# The raspberrypi node is arm64. The images are amd64 only.
+nodeSelector:
+  kubernetes.io/arch: amd64
+
+config:
+  env: nonprod
+  devAuthEnabled: false
+  publicUrl: "https://catalystcal.squizzlezig.com"
+  allowedDomains: "squizzlezig.com"
+  linkkeys:
+    idpDomain: "squizzlezig.com"
+    idpUrl: "https://linkkeys.squizzlezig.com"
+    # Empty: the audience is the IDP domain, because the squizzlezig
+    # LinkKeys server is also the RP.
+    rpDomain: ""
+
+secrets:
+  existingSecret: catalystcal-secrets
+
+# The squizzlezig LinkKeys server is the RP. Use its in-cluster TCP
+# endpoint. The fingerprints are public: they are in the
+# _linkkeys.squizzlezig.com TXT record.
+linkkeysRp:
+  enabled: false
+  tcpAddr: "linkkeys-squizzlezig.linkkeys-squizzlezig.svc.cluster.local:4987"
+  tcpFingerprints: "cf7c3e009cd8dce388159203e7c3f544dc30688b37d4c515b7fa6fa35dee7b96,33638deca938b21a54e672b329713366a31853db11d74bb566b62f154451664a,d03fe7d96b7be18b0394475968880dbd9b4e94689dbea67bc38a4fd29ea5fc5d"
+
+actAs:
+  enabled: false
+
+api:
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: longhorn
+
+web:
+  replicaCount: 1
+
+# Cloudflare ends TLS. Contour receives plain HTTP.
+gateway:
+  httpRoute:
+    enabled: true
+    parentGateway: contour
+    parentNamespace: projectcontour
+    parentSection: http
+    hostnames:
+      - catalystcal.squizzlezig.com
+
+backup:
+  enabled: false

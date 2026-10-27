@@ -1,0 +1,43 @@
+# Go build output
+/api/catalystcal
+/api/api
+*.test
+*.out
+go.work
+go.work.sum
+
+# Local SQLite data (./tools dev and ad hoc runs)
+/.data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Node
+node_modules/
+/webapp/dist/
+
+# Local environment files (real values stay out of git)
+.env
+.env.local
+.env.dev
+
+# Local dev runtime
+/logs/
+
+# Helm
+helm_chart/charts/
+/dist/
+*.tgz
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Browser automation output
+/.playwright-mcp/

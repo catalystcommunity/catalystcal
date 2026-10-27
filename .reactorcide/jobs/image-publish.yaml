@@ -1,0 +1,18 @@
+name: catalystcal-image-publish
+description: "Build one release image (CATALYSTCAL_IMAGE=api|web) and push it to containers.catalystsquad.com/public/catalystcal"
+job:
+  image: containers.catalystsquad.com/public/reactorcide/runnerbase:latest
+  # Scripts run from the trusted CI checkout (/job/ci). They work on the
+  # source checkout ($REACTORCIDE_CODE_DIR, default /job/src).
+  command: "runnerlib run --job-command 'bash /job/ci/.reactorcide/jobs/scripts/image-publish.sh'"
+  timeout: 1800
+  priority: 15
+  working_dir: /job
+  capabilities:
+    - builder
+environment:
+  CATALYSTCAL_IMAGE: ""
+  REGISTRY: "containers.catalystsquad.com"
+  REGISTRY_PATH: "public/catalystcal"
+  REGISTRY_USER: "${secret:catalystcommunity/registry:user}"
+  REGISTRY_PASSWORD: "${secret:catalystcommunity/registry:password}"

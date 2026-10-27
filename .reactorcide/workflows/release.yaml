@@ -1,0 +1,23 @@
+# Runs when a v* tag is created (by catalystcal-release-tag). Builds and pushes:
+#   containers.catalystsquad.com/public/catalystcal/api:<version> (+ :latest)
+#   containers.catalystsquad.com/public/catalystcal/web:<version> (+ :latest)
+id: catalystcal-release
+name: catalystcal Release
+description: "Build and push the release images for a v* tag."
+
+on:
+  events:
+    - tag_created
+  branches:
+    - "v*"
+
+jobs:
+  image-publish-api:
+    job_file: image-publish.yaml
+    environment:
+      CATALYSTCAL_IMAGE: api
+
+  image-publish-web:
+    job_file: image-publish.yaml
+    environment:
+      CATALYSTCAL_IMAGE: web

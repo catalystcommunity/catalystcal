@@ -1,0 +1,31 @@
+{
+  "name": "catalystcal-webapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "catalystcal calendar web UI: SolidJS + Vite + CSIL-RPC",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest run",
+    "test:watch": "NODE_OPTIONS=--disable-warning=ExperimentalWarning vitest"
+  },
+  "dependencies": {
+    "@fontsource-variable/bricolage-grotesque": "5.2.10",
+    "@fontsource-variable/schibsted-grotesk": "5.2.8",
+    "@solidjs/router": "0.15.4",
+    "solid-js": "1.9.13"
+  },
+  "devDependencies": {
+    "@solidjs/testing-library": "0.8.10",
+    "@testing-library/jest-dom": "6.9.1",
+    "@types/node": "25.9.1",
+    "happy-dom": "20.9.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.2",
+    "vite-plugin-solid": "2.11.12",
+    "vitest": "4.1.6"
+  }
+}

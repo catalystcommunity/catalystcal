@@ -1,0 +1,294 @@
+# catalystcal Helm chart values.
+#
+# Read docs/deploy.md first. Important limits:
+#   - The API uses SQLite. SQLite has ONE writer. The chart always runs ONE
+#     API pod (strategy Recreate) on a ReadWriteOnce volume. There is no API
+#     autoscaler on purpose. Do not run a second API pod against the same file.
+#   - The web tier (static SPA + proxy) has no state. It can scale.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  api:
+    repository: containers.catalystsquad.com/public/catalystcal/api
+    pullPolicy: IfNotPresent
+    # Empty: use the chart appVersion.
+    tag: ""
+  web:
+    repository: containers.catalystsquad.com/public/catalystcal/web
+    pullPolicy: IfNotPresent
+    tag: ""
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ---------------------------------------------------------------------------
+# Non-secret API settings. These go into a ConfigMap as CATALYSTCAL_* variables.
+# An empty value is not written, so the API default applies.
+# ---------------------------------------------------------------------------
+config:
+  # dev | nonprod | prod
+  env: prod
+  # The dev sign-in page. The API accepts it only when env is dev or
+  # nonprod. Never set true for a public instance.
+  devAuthEnabled: false
+  # The public URL of this instance, for example https://catalystcal.example.com.
+  publicUrl: ""
+  # The SPA sign-in callback. Empty: <publicUrl>/auth/callback.
+  callbackUrl: ""
+  # Comma-separated. Limit sign-in to these LinkKeys domains or accounts.
+  allowedDomains: ""
+  allowedUsers: ""
+  bearerTTLSeconds: ""
+  sessionTTLHours: ""
+  # How often catalystcal fetches subscribed external calendars.
+  subscriptionRefreshMinutes: ""
+  # true lets subscriptions fetch private network addresses. Keep false on a
+  # shared instance: true lets a user make the server fetch internal URLs.
+  subscriptionAllowPrivate: false
+  actAsMaxPresentationAgeSeconds: ""
+  linkkeys:
+    # The LinkKeys identity provider (IDP) that people sign in with.
+    idpDomain: ""
+    idpUrl: ""
+    # This instance's relying-party (RP) domain: the audience of each
+    # sign-in assertion. Usually the host name of publicUrl.
+    rpDomain: ""
+  # More CATALYSTCAL_* variables, as a map. Values must be strings.
+  extraEnv: {}
+
+# ---------------------------------------------------------------------------
+# Secrets.
+# ---------------------------------------------------------------------------
+secrets:
+  # The name of a Secret that you make. When set, the chart makes no Secret
+  # and reads this one. Keys:
+  #   CATALYSTCAL_JWT_SECRET            (required, 32 bytes or more)
+  #   CATALYSTCAL_LINKKEYS_PKI_API_KEY  (the RP API key)
+  existingSecret: ""
+  # Used when existingSecret is empty. When jwtSecret is empty, the chart
+  # makes a random value on install and keeps it on upgrade.
+  # Make one with: openssl rand -base64 48
+  jwtSecret: ""
+
+# ---------------------------------------------------------------------------
+# Act-as application keys (optional). A JSON file with the catalystcal LinkKeys
+# application identity and its Ed25519 signing key seeds. The chart mounts
+# it read-only and sets CATALYSTCAL_ACT_AS_APP_KEYS_FILE.
+# ---------------------------------------------------------------------------
+actAs:
+  enabled: false
+  # Name of a Secret that holds the JSON file (recommended).
+  existingSecret: ""
+  # The key in that Secret.
+  secretKey: app-keys.json
+  # Inline JSON, used only when existingSecret is empty. This puts key
+  # seeds in your values file. Use existingSecret in production.
+  appKeysJson: ""
+  mountPath: /run/secrets/catalystcal/act-as
+
+# ---------------------------------------------------------------------------
+# LinkKeys relying party (RP). The API talks to the RP with CSIL-RPC over
+# TCP and TLS.
+#
+#   A) External RP (enabled: false). Set the tcp* values to a LinkKeys
+#      instance that serves RP endpoints, or leave them empty for DNS
+#      discovery. apiKey is an API key from
+#      `linkkeys user create catalystcal-api "catalystcal API" --api-key` on that instance.
+#
+#   B) In-cluster RP (enabled: true). The chart runs a LinkKeys container in
+#      RP mode with its own Service, and points the API at its TCP port.
+#      After the first deploy:
+#        1. exec into the RP pod and run `linkkeys domain init`.
+#        2. run `linkkeys user create catalystcal-api "catalystcal API" --api-key` and put
+#           the key in linkkeysRp.apiKey.
+#        3. publish the TXT record that `linkkeys domain dns-check` shows.
+#        4. put the fingerprints from that record in tcpFingerprints.
+# ---------------------------------------------------------------------------
+linkkeysRp:
+  enabled: false
+  image:
+    repository: containers.catalystsquad.com/public/catalystcommunity/linkkeys
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  # HTTPS port of the in-cluster RP (B).
+  port: 8443
+  # CSIL-RPC/TCP port of the in-cluster RP (B).
+  tcpPort: 4987
+  # API key for the RP (A or B). Goes into the API Secret as
+  # CATALYSTCAL_LINKKEYS_PKI_API_KEY. Ignored when secrets.existingSecret is set.
+  apiKey: ""
+  domainKeyPassphrase: ""
+  # host:port of the CSIL-RPC/TCP endpoint. Empty: the in-cluster RP (B),
+  # else DNS discovery (A).
+  tcpAddr: ""
+  # Comma-separated pinned SHA-256 SPKI fingerprints. Empty: DNS discovery.
+  tcpFingerprints: ""
+  # Skip fingerprint pinning. Dev clusters only.
+  tcpAllowInsecure: false
+  extraEnv: []
+  resources: {}
+
+# ---------------------------------------------------------------------------
+# API (one pod, SQLite on a PersistentVolumeClaim).
+# ---------------------------------------------------------------------------
+api:
+  port: 7080
+  opsPort: 7081
+  # Run `catalystcal migrate` in an init container before `catalystcal serve`.
+  migrateInitContainer: false
+  persistence:
+    # false uses an emptyDir: the database is lost when the pod goes away.
+    # Use false only for a throwaway test.
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    # ReadWriteOnce (not ReadWriteOncePod): the optional backup CronJob
+    # mounts the same claim on the same node.
+    accessMode: ReadWriteOnce
+    size: 2Gi
+    # "keep" stops `helm uninstall` from deleting the database.
+    resourcePolicy: keep
+    annotations: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: ops
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: ops
+    initialDelaySeconds: 2
+    periodSeconds: 5
+
+# ---------------------------------------------------------------------------
+# Web (Caddy serving the SPA, proxying /api and /ics to the API Service).
+# ---------------------------------------------------------------------------
+web:
+  replicaCount: 1
+  port: 8080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+autoscaling:
+  # Only the web tier scales. The API is always one pod (SQLite).
+  web:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+
+service:
+  api:
+    type: ClusterIP
+    port: 7080
+  web:
+    type: ClusterIP
+    port: 8080
+
+# ---------------------------------------------------------------------------
+# Routing. Use the Gateway API HTTPRoute OR the Ingress.
+# Both send /api and /ics to the API and everything else to the web tier.
+# /ics must be public: calendar apps fetch feeds without a session.
+# ---------------------------------------------------------------------------
+gateway:
+  httpRoute:
+    enabled: false
+    parentGateway: ""
+    parentNamespace: ""
+    parentSection: ""
+    hostnames: []
+    annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - catalystcal.local
+  tls: []
+  #  - secretName: catalystcal-tls
+  #    hosts:
+  #      - catalystcal.local
+
+# ---------------------------------------------------------------------------
+# SQLite backup CronJob (optional). See docs/deploy.md "Backups".
+#
+# The job runs `sqlite3 .backup` against the live database. This uses the
+# SQLite online backup API, which gives a consistent copy while the API
+# writes (WAL mode). The job pod must run on the node of the API pod,
+# because SQLite WAL shares memory (the -shm file) between processes; the
+# chart adds the pod affinity for this. Each run writes
+# catalystcal-<UTC time>.db to the backup volume, checks it with
+# `PRAGMA integrity_check`, and deletes the oldest copies after `keep`.
+# Copy the backup volume off the cluster on your own schedule.
+# ---------------------------------------------------------------------------
+backup:
+  enabled: false
+  schedule: "17 3 * * *"
+  keep: 14
+  image:
+    repository: keinos/sqlite3
+    tag: "3.53.4"
+    pullPolicy: IfNotPresent
+  persistence:
+    existingClaim: ""
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

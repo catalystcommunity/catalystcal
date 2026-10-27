@@ -1,0 +1,122 @@
+# Try catalystcal on one machine.
+#
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# This file is for a local try-out. It turns on the dev sign-in page
+# (CATALYSTCAL_ENV=dev, CATALYSTCAL_DEV_AUTH_ENABLED=true), so anyone who can reach the
+# port can sign in as anyone. Do not expose it to a network.
+#
+# Values come from a .env file next to this file (docker compose reads it
+# automatically), with the defaults below. For a production-style run, set
+# at least these in .env and see docs/deploy.md:
+#
+#   CATALYSTCAL_ENV=prod
+#   CATALYSTCAL_DEV_AUTH_ENABLED=false
+#   CATALYSTCAL_JWT_SECRET=<32 bytes or more: openssl rand -base64 48>
+#   CATALYSTCAL_PUBLIC_URL=https://catalystcal.example.com
+#   CATALYSTCAL_CALLBACK_URL=https://catalystcal.example.com/auth/callback
+#   CATALYSTCAL_ALLOWED_DOMAINS=example.com
+#   CATALYSTCAL_LINKKEYS_IDP_DOMAIN, CATALYSTCAL_LINKKEYS_IDP_URL, CATALYSTCAL_LINKKEYS_RP_DOMAIN,
+#   CATALYSTCAL_LINKKEYS_PKI_API_KEY, and the RP TCP settings (see below).
+#   CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE=false
+#
+# The SQLite database is in the `catalystcal_data` volume. `docker compose down`
+# keeps it. `docker compose down -v` deletes it.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        VERSION: ${CATALYSTCAL_VERSION:-dev}
+    image: catalystcal/api:${CATALYSTCAL_VERSION:-dev}
+    command: ["serve"]
+    restart: unless-stopped
+    environment:
+      CATALYSTCAL_ENV: ${CATALYSTCAL_ENV:-dev}
+      CATALYSTCAL_DEV_AUTH_ENABLED: ${CATALYSTCAL_DEV_AUTH_ENABLED:-true}
+      CATALYSTCAL_API_PORT: "7080"
+      CATALYSTCAL_OPS_PORT: "7081"
+      CATALYSTCAL_DB_PATH: /data/catalystcal.db
+      CATALYSTCAL_JWT_SECRET: ${CATALYSTCAL_JWT_SECRET:-compose-dev-only-jwt-secret-not-for-prod}
+      CATALYSTCAL_PUBLIC_URL: ${CATALYSTCAL_PUBLIC_URL:-http://localhost:8080}
+      CATALYSTCAL_CALLBACK_URL: ${CATALYSTCAL_CALLBACK_URL:-http://localhost:8080/auth/callback}
+      CATALYSTCAL_ALLOWED_DOMAINS: ${CATALYSTCAL_ALLOWED_DOMAINS:-}
+      CATALYSTCAL_ALLOWED_USERS: ${CATALYSTCAL_ALLOWED_USERS:-}
+      CATALYSTCAL_BEARER_TTL_SECONDS: ${CATALYSTCAL_BEARER_TTL_SECONDS:-3600}
+      CATALYSTCAL_SESSION_TTL_HOURS: ${CATALYSTCAL_SESSION_TTL_HOURS:-720}
+      CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES: ${CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES:-60}
+      CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE: ${CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE:-false}
+      # LinkKeys sign-in. Empty in the try-out: use the dev sign-in page.
+      # To use a real LinkKeys relying party (RP), set these in .env:
+      #   CATALYSTCAL_LINKKEYS_PKI_API_KEY is an API key from
+      #     `linkkeys user create <name> "<label>" --api-key` on a LinkKeys
+      #     instance with ENABLE_RP_ENDPOINTS=true.
+      #   CATALYSTCAL_LINKKEYS_TCP_ADDR (or DNS discovery) and the pinned
+      #     CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS select its CSIL-RPC/TCP endpoint.
+      CATALYSTCAL_LINKKEYS_IDP_DOMAIN: ${CATALYSTCAL_LINKKEYS_IDP_DOMAIN:-}
+      CATALYSTCAL_LINKKEYS_IDP_URL: ${CATALYSTCAL_LINKKEYS_IDP_URL:-}
+      CATALYSTCAL_LINKKEYS_RP_DOMAIN: ${CATALYSTCAL_LINKKEYS_RP_DOMAIN:-}
+      CATALYSTCAL_LINKKEYS_PKI_API_KEY: ${CATALYSTCAL_LINKKEYS_PKI_API_KEY:-}
+      CATALYSTCAL_LINKKEYS_TCP_ADDR: ${CATALYSTCAL_LINKKEYS_TCP_ADDR:-}
+      CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS: ${CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS:-}
+      CATALYSTCAL_LINKKEYS_TCP_ALLOW_INSECURE: ${CATALYSTCAL_LINKKEYS_TCP_ALLOW_INSECURE:-false}
+      # Act-as application keys. Optional. To use them, put the JSON file at
+      # ./.data/act-as-app-keys.json, uncomment the volume line below, and
+      # set CATALYSTCAL_ACT_AS_APP_KEYS_FILE=/run/secrets/catalystcal/act-as-app-keys.json
+      CATALYSTCAL_ACT_AS_APP_KEYS_FILE: ${CATALYSTCAL_ACT_AS_APP_KEYS_FILE:-}
+    volumes:
+      - catalystcal_data:/data
+      # - ./.data/act-as-app-keys.json:/run/secrets/catalystcal/act-as-app-keys.json:ro
+    ports:
+      # Direct API access is for debugging. The web service proxies
+      # /api and /ics, so the browser does not need these ports.
+      - "127.0.0.1:7080:7080"
+      - "127.0.0.1:7081:7081"
+    networks:
+      - catalystcal
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: catalystcal/web:${CATALYSTCAL_VERSION:-dev}
+    restart: unless-stopped
+    environment:
+      CATALYSTCAL_WEB_PORT: "8080"
+      CATALYSTCAL_API_UPSTREAM: api:7080
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - api
+    networks:
+      - catalystcal
+
+  # Optional: a LinkKeys relying-party (RP) container for local tests of the
+  # real sign-in flow. It is not part of the default try-out. Start it with
+  #   docker compose --profile linkkeys up
+  # Then run `linkkeys domain init` and `linkkeys user create ... --api-key`
+  # in it (see docs/deploy.md), and set CATALYSTCAL_LINKKEYS_PKI_API_KEY,
+  # CATALYSTCAL_LINKKEYS_TCP_ADDR=linkkeys-rp:4987, and
+  # CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS in .env. To use an RP that already runs
+  # somewhere else, do not start this profile: set the CATALYSTCAL_LINKKEYS_*
+  # values in .env to point at that RP.
+  linkkeys-rp:
+    profiles: ["linkkeys"]
+    image: containers.catalystsquad.com/public/catalystcommunity/linkkeys:latest
+    environment:
+      ENABLE_RP_ENDPOINTS: "true"
+      DISABLE_PASSWORD_AUTH: "true"
+    ports:
+      - "127.0.0.1:8443:8443"
+    networks:
+      - catalystcal
+
+networks:
+  catalystcal:
+    driver: bridge
+
+volumes:
+  catalystcal_data:

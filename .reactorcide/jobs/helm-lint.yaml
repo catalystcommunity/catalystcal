@@ -1,0 +1,11 @@
+name: catalystcal-helm-lint
+description: "helm lint and helm template for helm_chart/"
+job:
+  image: containers.catalystsquad.com/public/reactorcide/runnerbase:latest
+  # Scripts run from the trusted CI checkout (/job/ci). They work on the
+  # source checkout ($REACTORCIDE_CODE_DIR, default /job/src).
+  command: "runnerlib run --job-command 'bash /job/ci/.reactorcide/jobs/scripts/helm-lint.sh'"
+  timeout: 300
+  priority: 10
+  working_dir: /job
+

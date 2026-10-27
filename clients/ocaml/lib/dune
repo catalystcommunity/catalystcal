@@ -1,0 +1,3 @@
+(library
+ (name catalystcal_client)
+ (public_name catalystcal_client))

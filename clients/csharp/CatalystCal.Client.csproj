@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <PackageId>CatalystCal.Client</PackageId>
+    <Version>0.1.0</Version>
+    <RootNamespace>CatalystCal.Client</RootNamespace>
+  </PropertyGroup>
+</Project>

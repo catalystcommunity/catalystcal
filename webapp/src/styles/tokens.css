@@ -1,0 +1,112 @@
+/*
+ * Design tokens. Porcelain and ink, with one warm signal color (marigold)
+ * kept for "now": the current-time line, today, and the acting banner.
+ */
+:root {
+  --font-ui: "Schibsted Grotesk Variable", "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Bricolage Grotesque", var(--font-ui);
+
+  --fs-xs: 0.6875rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.875rem;
+  --fs-lg: 1rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.875rem;
+
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 14px;
+
+  --hour-h: 52px;
+  --sidebar-w: 264px;
+  --topbar-h: 56px;
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  color-scheme: light;
+  --bg: #eef1f5;
+  --surface: #fbfcfd;
+  --surface-2: #f3f5f8;
+  --surface-3: #e8ecf2;
+  --ink: #172133;
+  --ink-2: #48546b;
+  --ink-3: #78839a;
+  --line: #dde2ea;
+  --line-strong: #c3cbd7;
+  --accent: #2b47c4;
+  --accent-hover: #233ba6;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2e7fb;
+  --now: #e48f07;
+  --now-soft: #fdf0d6;
+  --danger: #b93434;
+  --danger-soft: #fbe7e7;
+  --ok: #26805a;
+  --ok-soft: #e1f3ea;
+  --focus: #2b47c4;
+  --shadow-pop: 0 1px 2px rgba(23, 33, 51, 0.08), 0 12px 32px -8px rgba(23, 33, 51, 0.22);
+  --scrim: rgba(18, 24, 36, 0.38);
+  --ev-mix: 15%;
+  --ev-mix-strong: 26%;
+  --hatch: rgba(23, 33, 51, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1219;
+    --surface: #151a23;
+    --surface-2: #1b212c;
+    --surface-3: #232a37;
+    --ink: #e6eaf1;
+    --ink-2: #a9b2c2;
+    --ink-3: #788398;
+    --line: #252d3a;
+    --line-strong: #364153;
+    --accent: #8fa2ff;
+    --accent-hover: #a7b6ff;
+    --accent-ink: #0e1219;
+    --accent-soft: #212a47;
+    --now: #f4a52a;
+    --now-soft: #3a2c12;
+    --danger: #ff8a8a;
+    --danger-soft: #3b1c1f;
+    --ok: #6fd3a4;
+    --ok-soft: #173327;
+    --focus: #8fa2ff;
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --ev-mix: 24%;
+    --ev-mix-strong: 38%;
+    --hatch: rgba(230, 234, 241, 0.09);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1219;
+  --surface: #151a23;
+  --surface-2: #1b212c;
+  --surface-3: #232a37;
+  --ink: #e6eaf1;
+  --ink-2: #a9b2c2;
+  --ink-3: #788398;
+  --line: #252d3a;
+  --line-strong: #364153;
+  --accent: #8fa2ff;
+  --accent-hover: #a7b6ff;
+  --accent-ink: #0e1219;
+  --accent-soft: #212a47;
+  --now: #f4a52a;
+  --now-soft: #3a2c12;
+  --danger: #ff8a8a;
+  --danger-soft: #3b1c1f;
+  --ok: #6fd3a4;
+  --ok-soft: #173327;
+  --focus: #8fa2ff;
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -8px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --ev-mix: 24%;
+  --ev-mix-strong: 38%;
+  --hatch: rgba(230, 234, 241, 0.09);
+}

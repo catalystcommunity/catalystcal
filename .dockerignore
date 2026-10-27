@@ -1,0 +1,23 @@
+# Keep the build context small and free of local state and secrets.
+.git
+.reactorcide
+.claude
+.data
+logs
+dist
+helm_chart
+deploy
+docs
+*.md
+.env
+.env.*
+**/node_modules
+webapp/dist
+api/catalystcal
+**/*.db
+**/*.db-wal
+**/*.db-shm
+# Only clients/typescript is used by the web image. The api image does not
+# read clients/ at all.
+clients/*
+!clients/typescript

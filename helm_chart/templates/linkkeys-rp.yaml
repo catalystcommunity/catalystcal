@@ -1,0 +1,107 @@
+{{- /*
+Optional in-cluster LinkKeys relying party (RP). Same shape as the longhouse
+chart: a LinkKeys container in RP mode, its own Secret, Deployment, and
+Service. The API reaches it with CSIL-RPC over TCP and TLS at
+<fullname>-linkkeys-rp:<tcpPort>.
+See the linkkeysRp comments in values.yaml for the first-deploy steps.
+*/ -}}
+{{- if .Values.linkkeysRp.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "catalystcal.fullname" . }}-linkkeys-rp
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: linkkeys-rp
+type: Opaque
+stringData:
+  {{- with .Values.linkkeysRp.apiKey }}
+  API_KEY: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.linkkeysRp.domainKeyPassphrase }}
+  DOMAIN_KEY_PASSPHRASE: {{ . | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "catalystcal.fullname" . }}-linkkeys-rp
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: linkkeys-rp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "catalystcal.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: linkkeys-rp
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "catalystcal.labels" . | nindent 8 }}
+        app.kubernetes.io/component: linkkeys-rp
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "catalystcal.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      containers:
+        - name: linkkeys-rp
+          image: "{{ .Values.linkkeysRp.image.repository }}:{{ .Values.linkkeysRp.image.tag }}"
+          imagePullPolicy: {{ .Values.linkkeysRp.image.pullPolicy }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.linkkeysRp.port }}
+              protocol: TCP
+            - name: csil-rpc
+              containerPort: {{ .Values.linkkeysRp.tcpPort }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ include "catalystcal.fullname" . }}-linkkeys-rp
+          env:
+            - name: ENABLE_RP_ENDPOINTS
+              value: "true"
+            - name: DISABLE_PASSWORD_AUTH
+              value: "true"
+            - name: HTTPS_PORT
+              value: {{ .Values.linkkeysRp.port | quote }}
+            - name: TCP_PORT
+              value: {{ .Values.linkkeysRp.tcpPort | quote }}
+            {{- with .Values.linkkeysRp.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.linkkeysRp.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "catalystcal.fullname" . }}-linkkeys-rp
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: linkkeys-rp
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.linkkeysRp.port }}
+      targetPort: https
+      protocol: TCP
+      name: https
+    - port: {{ .Values.linkkeysRp.tcpPort }}
+      targetPort: csil-rpc
+      protocol: TCP
+      name: csil-rpc
+  selector:
+    {{- include "catalystcal.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: linkkeys-rp
+{{- end }}

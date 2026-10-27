@@ -1,0 +1,11 @@
+name: catalystcal-csil-gen-check
+description: "Regenerate CSIL output with the pinned csilgen and fail on any difference"
+job:
+  image: containers.catalystsquad.com/public/reactorcide/runnerbase:latest
+  # Scripts run from the trusted CI checkout (/job/ci). They work on the
+  # source checkout ($REACTORCIDE_CODE_DIR, default /job/src).
+  command: "runnerlib run --job-command 'bash /job/ci/.reactorcide/jobs/scripts/csil-gen-check.sh'"
+  timeout: 1200
+  priority: 10
+  working_dir: /job
+

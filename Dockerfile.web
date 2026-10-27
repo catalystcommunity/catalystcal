@@ -1,0 +1,48 @@
+# catalystcal web image: the SolidJS SPA, served by Caddy.
+#
+# Two stages: a Node stage builds the Vite output, then Caddy serves it.
+# Caddy also proxies /api/* and /ics/* to the API (CATALYSTCAL_API_UPSTREAM,
+# default api:7080), so one hostname serves the whole app. The image holds
+# no app secrets.
+#
+# Build from the repo root. The context must hold:
+#   webapp/               the SPA source
+#   clients/typescript/   the generated client (webapp imports it through a
+#                         path alias to ../clients/typescript)
+#   version/VERSION.txt   the SPA build reads it to show the version
+#
+#   docker build -f Dockerfile.web -t catalystcal-web:0.1.0 .
+
+FROM node:24-alpine AS builder
+WORKDIR /build
+
+COPY webapp/package.json webapp/package-lock.json* ./webapp/
+RUN cd webapp && npm ci
+
+COPY version/ ./version/
+COPY clients/typescript/ ./clients/typescript/
+COPY webapp/ ./webapp/
+RUN cd webapp && npm run build
+
+FROM caddy:2-alpine
+
+COPY --from=builder /build/webapp/dist /usr/share/caddy
+COPY webapp/Caddyfile /etc/caddy/Caddyfile
+
+# The upstream caddy image adds cap_net_bind_service to /usr/bin/caddy. A
+# file capability stops the exec when the pod sets
+# allowPrivilegeEscalation: false (EPERM). catalystcal listens on 8080, so the
+# capability is not necessary. Remove it.
+RUN setcap -r /usr/bin/caddy || true
+
+# Caddy makes its XDG storage directories at start. With
+# readOnlyRootFilesystem the defaults are not writable, so use /tmp.
+ENV XDG_CONFIG_HOME=/tmp/caddy-config \
+    XDG_DATA_HOME=/tmp/caddy-data \
+    CATALYSTCAL_WEB_PORT=8080 \
+    CATALYSTCAL_API_UPSTREAM=api:7080
+
+EXPOSE 8080
+USER 1000:1000
+
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

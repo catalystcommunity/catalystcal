@@ -1,0 +1,345 @@
+#!/usr/bin/env bash
+# Developer tooling for catalystcal. Run `./tools help` for the command list.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_DIR="$SCRIPT_DIR/logs"
+DATA_DIR="$SCRIPT_DIR/.data"
+API_BIN="$LOG_DIR/catalystcal-api"
+IMAGE_PREFIX="${CATALYSTCAL_IMAGE_PREFIX:-catalystcal}"
+VITE_PORT="${CATALYSTCAL_VITE_PORT:-5180}"
+
+# Shared language toolchains (go, node, ...). Optional: when the bundle is
+# not installed, the tools on PATH are used.
+CATALYST_ENV="${CATALYST_TOOLS:-$HOME/.local/catalyst-tools}/env.sh"
+if [ -f "$CATALYST_ENV" ]; then
+    # shellcheck disable=SC1090
+    source "$CATALYST_ENV"
+fi
+
+usage() {
+    cat <<EOF
+Usage: ./tools <command> [args]
+
+Local development
+  dev [--no-tail]     Build and start the API (SQLite at .data/catalystcal.db) and the
+                      Vite dev server (http://localhost:${VITE_PORT}). Logs go to
+                      logs/. Without --no-tail, follows the logs (Ctrl-C stops
+                      the tail only).
+  dev-down            Stop the processes that 'dev' started.
+  run-api [args]      Run the API in the foreground (reads .env.dev).
+  run-web [args]      Run the Vite dev server in the foreground.
+  build               Build the API binary to api/catalystcal.
+
+Code generation
+  gen                 Regenerate api/internal/csil and clients/ from csil/catalystcal.csil.
+  gen-check           Regenerate, then fail if the committed generated code
+                      differs (changed or new files).
+
+Checks
+  test                test-api + test-web
+  test-api            go vet + go test for api/ and coredb/
+  test-web            npm ci (if needed), typecheck, test, build in webapp/
+  lint                gofmt -l, go vet, csilgen lint (style warnings ignored)
+  helm-lint           helm lint + helm template for helm_chart/
+
+Containers
+  build-images [tag]  docker build the api and web images (default tag: VERSION.txt)
+  compose-up          docker compose up --build -d (http://localhost:8080)
+  compose-down        docker compose down (keeps the data volume)
+
+Other
+  version             Print version/VERSION.txt
+  check-deps          Check that the necessary tools are installed
+  help                Show this text
+EOF
+}
+
+die() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+version() {
+    tr -d '[:space:]' < "$SCRIPT_DIR/version/VERSION.txt"
+}
+
+# load_dev_env exports the values in .env.dev, if the file exists.
+load_dev_env() {
+    local env_file="$SCRIPT_DIR/.env.dev"
+    if [ -f "$env_file" ]; then
+        set -a
+        # shellcheck disable=SC1090
+        source "$env_file"
+        set +a
+    else
+        echo "NOTE: .env.dev not found. Copy .env.dev.example to .env.dev to set local values." >&2
+    fi
+}
+
+check_deps() {
+    local missing=()
+    local tool
+    for tool in go node npm; do
+        command -v "$tool" >/dev/null 2>&1 || missing+=("$tool")
+    done
+    for tool in csilgen docker helm; do
+        command -v "$tool" >/dev/null 2>&1 || echo "optional tool not found: $tool"
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        die "missing required tools: ${missing[*]}"
+    fi
+    echo "Required tools are present."
+}
+
+build_api() {
+    local out="${1:-$SCRIPT_DIR/api/catalystcal}"
+    echo "▶ building API → ${out#"$SCRIPT_DIR"/}"
+    (cd "$SCRIPT_DIR/api" && CGO_ENABLED=0 go build \
+        -ldflags "-X main.Version=$(version)-dev" -o "$out" .)
+}
+
+run_api() {
+    load_dev_env
+    mkdir -p "$DATA_DIR"
+    : "${CATALYSTCAL_DB_PATH:=$DATA_DIR/catalystcal.db}"
+    export CATALYSTCAL_DB_PATH
+    build_api "$API_BIN"
+    cd "$SCRIPT_DIR"
+    exec "$API_BIN" serve "$@"
+}
+
+ensure_web_deps() {
+    if [ ! -d "$SCRIPT_DIR/webapp/node_modules" ]; then
+        echo "▶ webapp/node_modules missing: running npm ci"
+        (cd "$SCRIPT_DIR/webapp" && npm ci)
+    fi
+}
+
+run_web() {
+    ensure_web_deps
+    cd "$SCRIPT_DIR/webapp"
+    exec npm run dev -- --port "$VITE_PORT" "$@"
+}
+
+# dev starts the API and Vite in the background. Each one gets its own
+# process group (set -m), so dev-down can stop the process and its children.
+# `exec` in each subshell makes $! the PID of the real process.
+dev() {
+    local follow_logs=1
+    if [ "${1:-}" = "--no-tail" ]; then
+        follow_logs=0
+        shift
+    elif [ ! -t 1 ]; then
+        # Nobody reads the tail when stdout is not a terminal.
+        follow_logs=0
+    fi
+
+    load_dev_env
+    mkdir -p "$LOG_DIR" "$DATA_DIR"
+    : "${CATALYSTCAL_DB_PATH:=$DATA_DIR/catalystcal.db}"
+    export CATALYSTCAL_DB_PATH
+    local api_port="${CATALYSTCAL_API_PORT:-7080}"
+    local ops_port="${CATALYSTCAL_OPS_PORT:-7081}"
+
+    if [ -f "$LOG_DIR/api.pid" ] && kill -0 "$(cat "$LOG_DIR/api.pid")" 2>/dev/null; then
+        die "the dev stack is already running. Run './tools dev-down' first."
+    fi
+
+    # Build first, in the foreground, so a compile error shows here and
+    # not only in logs/api.log.
+    build_api "$API_BIN"
+    ensure_web_deps
+
+    set -m
+    echo "▶ api  → http://localhost:${api_port}  ops :${ops_port}  (logs: logs/api.log)"
+    ( cd "$SCRIPT_DIR" && exec "$API_BIN" serve ) >"$LOG_DIR/api.log" 2>&1 </dev/null &
+    echo $! > "$LOG_DIR/api.pid"
+
+    echo "▶ vite → http://localhost:${VITE_PORT}  (logs: logs/vite.log)"
+    ( cd "$SCRIPT_DIR/webapp" && exec npm run dev -- --port "$VITE_PORT" --strictPort ) \
+        >"$LOG_DIR/vite.log" 2>&1 </dev/null &
+    echo $! > "$LOG_DIR/vite.pid"
+    set +m
+
+    cat <<EOF
+
+Dev stack up.
+  SPA        http://localhost:${VITE_PORT}
+  API        http://localhost:${api_port}
+  Health     http://localhost:${ops_port}/healthz
+  Database   ${CATALYSTCAL_DB_PATH}
+  Logs       tail -f logs/api.log logs/vite.log
+  Stop       ./tools dev-down
+
+Ctrl-C stops the log tail only. The processes keep running.
+EOF
+    if [ "$follow_logs" = 1 ]; then
+        tail -f "$LOG_DIR/api.log" "$LOG_DIR/vite.log"
+    fi
+}
+
+dev_down() {
+    local name pid_file pid
+    for name in api vite; do
+        pid_file="$LOG_DIR/${name}.pid"
+        if [ -f "$pid_file" ]; then
+            pid="$(cat "$pid_file")"
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "▶ stopping $name (pid $pid)"
+                kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+            fi
+            rm -f "$pid_file"
+        fi
+    done
+
+    # Stop anything that still holds the dev ports (for example a process
+    # that lost its pid file).
+    if command -v fuser >/dev/null 2>&1; then
+        local port
+        for port in "${CATALYSTCAL_API_PORT:-7080}" "${CATALYSTCAL_OPS_PORT:-7081}" "$VITE_PORT"; do
+            fuser -k -TERM "${port}/tcp" 2>/dev/null || true
+        done
+    fi
+    echo "Dev stack down. The database in .data/ is kept."
+}
+
+gen() {
+    "$SCRIPT_DIR/csil/regenerate.sh"
+}
+
+# gen_check fails on changed files AND on new untracked files: csilgen can
+# add a file (for example the <spec>.csil-schema.cbor descriptor).
+gen_check() {
+    gen
+    local paths=(api/internal/csil clients)
+    local status
+    status="$(cd "$SCRIPT_DIR" && git status --porcelain -- "${paths[@]}")"
+    if [ -n "$status" ]; then
+        echo "$status"
+        (cd "$SCRIPT_DIR" && git --no-pager diff --stat -- "${paths[@]}") || true
+        die "generated code is stale. Run './tools gen' and commit the result, including new files."
+    fi
+    echo "Generated code matches csil/catalystcal.csil."
+}
+
+test_api() {
+    local mod
+    for mod in coredb api; do
+        echo "▶ go vet + go test: $mod/"
+        (cd "$SCRIPT_DIR/$mod" && go vet ./... && go test ./...)
+    done
+}
+
+test_web() {
+    cd "$SCRIPT_DIR/webapp"
+    [ -f package.json ] || die "webapp/package.json not found"
+    ensure_web_deps
+    npm run typecheck
+    npm test
+    npm run build
+}
+
+run_tests() {
+    test_api
+    (test_web)
+}
+
+lint() {
+    local fail=0 mod unformatted
+    echo "▶ gofmt -l"
+    unformatted="$(cd "$SCRIPT_DIR" && gofmt -l api coredb | grep -v "^api/internal/transport/" || true)"
+    if [ -n "$unformatted" ]; then
+        echo "$unformatted"
+        echo "gofmt: the files above need formatting (gofmt -w)." >&2
+        fail=1
+    fi
+    for mod in coredb api; do
+        echo "▶ go vet: $mod/"
+        (cd "$SCRIPT_DIR/$mod" && go vet ./...) || fail=1
+    done
+    if command -v csilgen >/dev/null 2>&1; then
+        # The house CSIL style gives many warnings. Only errors change the
+        # exit code, so -q keeps the output short and still fails on errors.
+        echo "▶ csilgen lint csil/"
+        csilgen lint -q "$SCRIPT_DIR/csil" || fail=1
+    else
+        echo "csilgen not found: CSIL lint skipped" >&2
+    fi
+    [ "$fail" = 0 ] || die "lint failed"
+    echo "Lint OK."
+}
+
+helm_lint() {
+    command -v helm >/dev/null 2>&1 || die "helm not found"
+    local chart="$SCRIPT_DIR/helm_chart"
+    helm lint "$chart"
+    helm lint "$chart" -f "$SCRIPT_DIR/deploy/values-example.yaml"
+    echo "▶ helm template (defaults)"
+    helm template catalystcal "$chart" >/dev/null
+    echo "▶ helm template (deploy/values-example.yaml)"
+    helm template catalystcal "$chart" -f "$SCRIPT_DIR/deploy/values-example.yaml" >/dev/null
+    echo "▶ helm template (all optional parts on)"
+    helm template catalystcal "$chart" \
+        --set ingress.enabled=true \
+        --set gateway.httpRoute.enabled=true \
+        --set gateway.httpRoute.parentGateway=gw \
+        --set autoscaling.web.enabled=true \
+        --set backup.enabled=true \
+        --set linkkeysRp.enabled=true \
+        --set actAs.enabled=true \
+        --set actAs.existingSecret=catalystcal-act-as \
+        --set secrets.existingSecret=catalystcal-secrets >/dev/null
+    echo "Helm chart OK."
+}
+
+build_images() {
+    local tag="${1:-$(version)}"
+    cd "$SCRIPT_DIR"
+    echo "▶ ${IMAGE_PREFIX}/api:${tag}"
+    docker build -f Dockerfile.api --build-arg "VERSION=${tag}" -t "${IMAGE_PREFIX}/api:${tag}" .
+    echo "▶ ${IMAGE_PREFIX}/web:${tag}"
+    docker build -f Dockerfile.web -t "${IMAGE_PREFIX}/web:${tag}" .
+}
+
+compose_up() {
+    cd "$SCRIPT_DIR"
+    CATALYSTCAL_VERSION="${CATALYSTCAL_VERSION:-$(version)}" docker compose up --build -d "$@"
+    echo "catalystcal is on http://localhost:8080 (docker compose logs -f to follow)"
+}
+
+compose_down() {
+    cd "$SCRIPT_DIR"
+    docker compose down "$@"
+}
+
+clean() {
+    rm -f "$SCRIPT_DIR/api/catalystcal" "$API_BIN"
+    rm -rf "$SCRIPT_DIR/webapp/dist"
+    echo "Removed build output. .data/ (the dev database) is kept."
+}
+
+cmd="${1:-help}"
+shift || true
+case "$cmd" in
+    dev)          dev "$@" ;;
+    dev-down)     dev_down ;;
+    run-api)      run_api "$@" ;;
+    run-web)      run_web "$@" ;;
+    build)        build_api ;;
+    gen)          gen ;;
+    gen-check)    gen_check ;;
+    test)         run_tests ;;
+    test-api)     test_api ;;
+    test-web)     test_web ;;
+    lint)         lint ;;
+    helm-lint)    helm_lint ;;
+    build-images) build_images "$@" ;;
+    compose-up)   compose_up "$@" ;;
+    compose-down) compose_down "$@" ;;
+    version)      version; echo ;;
+    check-deps)   check_deps ;;
+    clean)        clean ;;
+    help|-h|--help) usage ;;
+    *)            usage; exit 1 ;;
+esac

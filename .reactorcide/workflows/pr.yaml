@@ -1,0 +1,51 @@
+# `id` is the workflow's security identity. The coordinator CI policy names
+# it. Do not change it without a change to the stored policy. (The policy
+# itself is coordinator state: never commit a policy file to this repo.)
+id: catalystcal-pr
+name: catalystcal PR
+description: "Check commits, generated CSIL code, API and web tests, the Helm chart, and both image builds for pull requests."
+
+on:
+  events:
+    - pull_request_opened
+    - pull_request_updated
+  branches:
+    - main
+
+jobs:
+  conventional-commits:
+    job_file: conventional-commits.yaml
+
+  csil-gen-check:
+    job_file: csil-gen-check.yaml
+    depends_on:
+      - conventional-commits
+
+  api-test:
+    job_file: api-test.yaml
+    depends_on:
+      - conventional-commits
+
+  web-test:
+    job_file: web-test.yaml
+    depends_on:
+      - conventional-commits
+
+  helm-lint:
+    job_file: helm-lint.yaml
+    depends_on:
+      - conventional-commits
+
+  image-build-api:
+    job_file: image-build-test.yaml
+    depends_on:
+      - conventional-commits
+    environment:
+      CATALYSTCAL_IMAGE: api
+
+  image-build-web:
+    job_file: image-build-test.yaml
+    depends_on:
+      - conventional-commits
+    environment:
+      CATALYSTCAL_IMAGE: web

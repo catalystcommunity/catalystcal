@@ -1,0 +1,41 @@
+catalystcal {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.gateway.httpRoute.enabled }}
+
+Routing: HTTPRoute {{ include "catalystcal.fullname" . }} ({{ join ", " .Values.gateway.httpRoute.hostnames }}).
+{{- else if .Values.ingress.enabled }}
+
+Routing: Ingress {{ include "catalystcal.fullname" . }} ({{ join ", " .Values.ingress.hosts }}).
+{{- else }}
+
+No HTTPRoute or Ingress is enabled. To open catalystcal from your workstation:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "catalystcal.fullname" . }}-web {{ .Values.service.web.port }}:{{ .Values.service.web.port }}
+  then open http://localhost:{{ .Values.service.web.port }}
+{{- end }}
+
+Public paths: /api/* and /ics/* go to the API. Everything else goes to the web UI.
+Calendar apps fetch /ics/<token> without a session, so /ics must be public.
+
+API health:
+  kubectl -n {{ .Release.Namespace }} port-forward deploy/{{ include "catalystcal.fullname" . }}-api {{ .Values.api.opsPort }}:{{ .Values.api.opsPort }}
+  curl http://localhost:{{ .Values.api.opsPort }}/readyz
+
+The API is ONE pod with SQLite on a ReadWriteOnce volume (strategy Recreate).
+Each upgrade has a short API outage. Do not scale the API Deployment.
+{{- if not .Values.api.persistence.enabled }}
+
+WARNING: api.persistence.enabled is false. The database is on an emptyDir and
+is lost when the pod goes away.
+{{- end }}
+{{- if .Values.backup.enabled }}
+
+Backups: CronJob {{ include "catalystcal.fullname" . }}-backup ("{{ .Values.backup.schedule }}") writes to
+PVC {{ include "catalystcal.backupClaimName" . }}. Copy the backups off the cluster. See docs/deploy.md.
+{{- else }}
+
+Backups are off (backup.enabled=false). See docs/deploy.md "Backups".
+{{- end }}
+{{- if and (eq (.Values.config.env | default "prod") "prod") (not .Values.config.publicUrl) }}
+
+WARNING: config.publicUrl is empty. Feed URLs and the sign-in callback need it.
+{{- end }}

@@ -1,0 +1,25 @@
+{{- if and .Values.api.persistence.enabled (not .Values.api.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "catalystcal.dataClaimName" . }}
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  annotations:
+    {{- with .Values.api.persistence.resourcePolicy }}
+    helm.sh/resource-policy: {{ . }}
+    {{- end }}
+    {{- with .Values.api.persistence.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes:
+    - {{ .Values.api.persistence.accessMode }}
+  {{- with .Values.api.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.api.persistence.size }}
+{{- end }}

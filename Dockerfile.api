@@ -1,0 +1,57 @@
+# catalystcal API image.
+#
+# Two stages: a Go build stage, then a distroless static image. The API uses
+# SQLite through modernc.org/sqlite (pure Go), so CGO_ENABLED=0 works and the
+# binary needs no C library.
+#
+# Build from the repo root (the context must hold api/ and coredb/):
+#   docker build -f Dockerfile.api --build-arg VERSION=0.1.0 -t catalystcal-api:0.1.0 .
+#
+# The golang image tag must be at or above the `go` directive in api/go.mod
+# and coredb/go.mod, or `go mod download` fails with
+# "go.mod requires go >= X (running go Y; GOTOOLCHAIN=local)".
+
+FROM golang:1.26-alpine AS builder
+
+ARG VERSION=dev
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+# Module files first, so the dependency download stays cached when only
+# source files change. api/go.mod has `replace ... => ../coredb`, so coredb
+# must be at /build/coredb.
+COPY coredb/go.mod coredb/go.sum* ./coredb/
+COPY api/go.mod api/go.sum ./api/
+RUN cd api && go mod download
+
+COPY coredb/ ./coredb/
+COPY api/ ./api/
+
+RUN cd api && CGO_ENABLED=0 GOOS=linux go build \
+        -trimpath \
+        -ldflags "-s -w -X main.Version=${VERSION}" \
+        -o /out/catalystcal . \
+    && /out/catalystcal version
+
+# The SQLite database lives on /data. Make the directory here, owned by the
+# distroless nonroot user (65532), because the final image has no shell.
+RUN mkdir -p /out/data
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /out/catalystcal /usr/local/bin/catalystcal
+COPY --from=builder --chown=65532:65532 /out/data /data
+
+ENV CATALYSTCAL_DB_PATH=/data/catalystcal.db \
+    CATALYSTCAL_API_PORT=7080 \
+    CATALYSTCAL_OPS_PORT=7081
+
+VOLUME ["/data"]
+EXPOSE 7080 7081
+USER 65532:65532
+
+ENTRYPOINT ["/usr/local/bin/catalystcal"]
+CMD ["serve"]

@@ -1,0 +1,68 @@
+{{- if and .Values.config.devAuthEnabled (not (has .Values.config.env (list "dev" "nonprod"))) }}
+{{- fail "config.devAuthEnabled needs config.env dev or nonprod. Never enable dev sign-in on a production instance." }}
+{{- end }}
+{{- $c := .Values.config -}}
+{{- $rp := .Values.linkkeysRp -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "catalystcal.fullname" . }}
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+data:
+  CATALYSTCAL_ENV: {{ $c.env | default "prod" | quote }}
+  CATALYSTCAL_DEV_AUTH_ENABLED: {{ $c.devAuthEnabled | toString | quote }}
+  CATALYSTCAL_API_PORT: {{ .Values.api.port | toString | quote }}
+  CATALYSTCAL_OPS_PORT: {{ .Values.api.opsPort | toString | quote }}
+  CATALYSTCAL_DB_PATH: "/data/catalystcal.db"
+  {{- with $c.publicUrl }}
+  CATALYSTCAL_PUBLIC_URL: {{ . | quote }}
+  {{- end }}
+  {{- with (include "catalystcal.callbackUrl" .) }}
+  CATALYSTCAL_CALLBACK_URL: {{ . | quote }}
+  {{- end }}
+  {{- with $c.allowedDomains }}
+  CATALYSTCAL_ALLOWED_DOMAINS: {{ . | quote }}
+  {{- end }}
+  {{- with $c.allowedUsers }}
+  CATALYSTCAL_ALLOWED_USERS: {{ . | quote }}
+  {{- end }}
+  {{- with $c.bearerTTLSeconds }}
+  CATALYSTCAL_BEARER_TTL_SECONDS: {{ . | toString | quote }}
+  {{- end }}
+  {{- with $c.sessionTTLHours }}
+  CATALYSTCAL_SESSION_TTL_HOURS: {{ . | toString | quote }}
+  {{- end }}
+  {{- with $c.subscriptionRefreshMinutes }}
+  CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES: {{ . | toString | quote }}
+  {{- end }}
+  CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE: {{ $c.subscriptionAllowPrivate | toString | quote }}
+  {{- with $c.actAsMaxPresentationAgeSeconds }}
+  CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS: {{ . | toString | quote }}
+  {{- end }}
+  {{- with $c.linkkeys.idpDomain }}
+  CATALYSTCAL_LINKKEYS_IDP_DOMAIN: {{ . | quote }}
+  {{- end }}
+  {{- with $c.linkkeys.idpUrl }}
+  CATALYSTCAL_LINKKEYS_IDP_URL: {{ . | quote }}
+  {{- end }}
+  {{- with $c.linkkeys.rpDomain }}
+  CATALYSTCAL_LINKKEYS_RP_DOMAIN: {{ . | quote }}
+  {{- end }}
+  {{- if $rp.tcpAddr }}
+  CATALYSTCAL_LINKKEYS_TCP_ADDR: {{ $rp.tcpAddr | quote }}
+  {{- else if $rp.enabled }}
+  CATALYSTCAL_LINKKEYS_TCP_ADDR: "{{ include "catalystcal.fullname" . }}-linkkeys-rp:{{ $rp.tcpPort }}"
+  {{- end }}
+  {{- with $rp.tcpFingerprints }}
+  CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS: {{ . | quote }}
+  {{- end }}
+  {{- if $rp.tcpAllowInsecure }}
+  CATALYSTCAL_LINKKEYS_TCP_ALLOW_INSECURE: "true"
+  {{- end }}
+  {{- if .Values.actAs.enabled }}
+  CATALYSTCAL_ACT_AS_APP_KEYS_FILE: {{ printf "%s/%s" (trimSuffix "/" .Values.actAs.mountPath) .Values.actAs.secretKey | quote }}
+  {{- end }}
+  {{- range $k, $v := $c.extraEnv }}
+  {{ $k }}: {{ $v | toString | quote }}
+  {{- end }}

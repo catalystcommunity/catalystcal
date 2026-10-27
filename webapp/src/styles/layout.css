@@ -1,0 +1,455 @@
+/* ---------- App frame ---------- */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -40px;
+  z-index: 100;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: var(--r-md);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* The acting banner: the one loud element in the UI. */
+.acting-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 8px 28px;
+  background:
+    repeating-linear-gradient(-45deg, #1b1405 0 8px, var(--now) 8px 16px) left / 14px 100% no-repeat,
+    var(--now);
+  color: #1b1405;
+  font-size: var(--fs-md);
+  flex: none;
+}
+.acting-text {
+  flex: 1;
+  min-width: 0;
+}
+.acting-text strong {
+  font-weight: 700;
+}
+.acting-stop {
+  background: #1b1405;
+  color: #fff4dc;
+  border-color: #1b1405;
+}
+.acting-stop:hover:not(:disabled) {
+  background: #3a2c0c;
+}
+.acting-banner :focus-visible {
+  outline-color: #1b1405;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--topbar-h);
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex: none;
+}
+.app.is-acting .topbar {
+  box-shadow: inset 0 -2px 0 var(--now);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+  width: calc(var(--sidebar-w) - 28px);
+}
+.brand-mark {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+}
+.brand-mark circle {
+  fill: var(--now);
+  stroke: none;
+}
+.drawer-btn {
+  display: none;
+}
+.topbar-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px 3px 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+}
+.account-btn:hover {
+  background: var(--surface-2);
+}
+.menu-account {
+  padding: 6px 10px;
+}
+
+/* ---------- Search ---------- */
+.search {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 32px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  background: var(--surface-3);
+}
+.search-input:focus {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+.search-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 300px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
+  z-index: 45;
+  max-height: 60vh;
+  overflow: auto;
+}
+.search-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.search-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.search-opt[aria-selected="true"] {
+  background: var(--surface-3);
+}
+
+/* ---------- Body: sidebar + main ---------- */
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+.sidebar-wrap {
+  width: var(--sidebar-w);
+  flex: none;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  overflow-y: auto;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  outline: none;
+}
+.drawer-scrim {
+  display: none;
+}
+
+.sidebar {
+  display: grid;
+  gap: 18px;
+  padding: 14px 12px 24px;
+}
+.sidebar-nav {
+  display: grid;
+  gap: 1px;
+}
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+  text-decoration: none;
+  font-weight: 500;
+}
+.side-link:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.side-link.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mini-month {
+  padding: 0 2px;
+}
+.mini-head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.mini-title {
+  flex: 1;
+  font-weight: 600;
+  padding-left: 6px;
+}
+.icon-btn-sm {
+  width: 26px;
+  height: 26px;
+}
+.mini-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.mini-grid th {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--ink-3);
+  padding: 2px 0 4px;
+}
+.mini-grid td {
+  padding: 1px;
+  text-align: center;
+}
+.mini-day {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.mini-day:hover {
+  background: var(--surface-3);
+}
+.mini-day.is-other {
+  color: var(--ink-3);
+}
+.mini-day.in-range {
+  background: var(--surface-3);
+  border-radius: 6px;
+}
+.mini-day.is-selected {
+  background: var(--ink);
+  color: var(--surface);
+}
+.mini-day.is-today {
+  color: #1b1405;
+  background: var(--now);
+  font-weight: 700;
+}
+
+.cal-group {
+  display: grid;
+  gap: 2px;
+}
+.cal-group-title {
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  font-weight: 600;
+  padding: 0 8px 4px;
+}
+.cal-group-title.is-acting {
+  color: color-mix(in srgb, var(--now) 75%, var(--ink));
+}
+.cal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cal-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--r-md);
+  padding-right: 2px;
+}
+.cal-item:hover {
+  background: var(--surface-2);
+}
+.cal-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.cal-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.cal-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 2px solid var(--sw);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex: none;
+}
+.cal-box svg {
+  opacity: 0;
+  stroke-width: 3;
+}
+.cal-toggle input:checked + .cal-box {
+  background: var(--sw);
+}
+.cal-toggle input:checked + .cal-box svg {
+  opacity: 1;
+}
+.cal-toggle input:focus-visible + .cal-box {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.cal-name {
+  font-size: var(--fs-md);
+}
+.cal-gear {
+  opacity: 0;
+}
+.cal-item:hover .cal-gear,
+.cal-gear:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .cal-gear {
+    opacity: 1;
+  }
+}
+.cal-empty {
+  padding: 4px 8px;
+}
+.side-actions {
+  display: grid;
+  gap: 1px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.side-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink-2);
+  text-align: left;
+}
+.side-action:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+.side-action:disabled {
+  opacity: 0.45;
+}
+
+.center-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.center-card {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  max-width: 420px;
+}
+
+/* ---------- Narrow screens: the sidebar becomes a drawer ---------- */
+@media (max-width: 900px) {
+  .drawer-btn {
+    display: inline-grid;
+  }
+  .brand {
+    width: auto;
+  }
+  .sidebar-wrap {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    transform: translateX(-100%);
+    transition: transform 0.2s var(--ease);
+    box-shadow: var(--shadow-pop);
+    visibility: hidden;
+  }
+  .sidebar-wrap.open {
+    transform: none;
+    visibility: visible;
+  }
+  .drawer-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    background: var(--scrim);
+  }
+}
+@media (max-width: 560px) {
+  .brand span {
+    display: none;
+  }
+  .topbar {
+    gap: 6px;
+    padding: 0 8px;
+  }
+  .acting-banner {
+    font-size: var(--fs-sm);
+    padding-left: 22px;
+  }
+}

@@ -1,0 +1,119 @@
+{{- /*
+Optional SQLite backup CronJob. See values.yaml "backup" and docs/deploy.md.
+
+`sqlite3 <db> ".backup <file>"` uses the SQLite online backup API. It reads
+a consistent snapshot while the API keeps writing (WAL mode). WAL readers
+share memory with the writer through the -shm file, so this pod must run on
+the same node as the API pod: the required pod affinity below does that, and
+it also lets the ReadWriteOnce data volume mount here.
+*/ -}}
+{{- if .Values.backup.enabled }}
+{{- if not .Values.api.persistence.enabled }}
+{{- fail "backup.enabled needs api.persistence.enabled" }}
+{{- end }}
+{{- if not .Values.backup.persistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "catalystcal.backupClaimName" . }}
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ .Values.backup.persistence.accessMode }}
+  {{- with .Values.backup.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.persistence.size }}
+---
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "catalystcal.fullname" . }}-backup
+  labels:
+    {{- include "catalystcal.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.backup.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.backup.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "catalystcal.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: {{ include "catalystcal.serviceAccountName" . }}
+          automountServiceAccountToken: false
+          securityContext:
+            {{- toYaml .Values.api.podSecurityContext | nindent 12 }}
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      {{- include "catalystcal.selectorLabels" . | nindent 22 }}
+                      app.kubernetes.io/component: api
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: backup
+              image: "{{ .Values.backup.image.repository }}:{{ .Values.backup.image.tag }}"
+              imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.api.securityContext | nindent 16 }}
+              env:
+                - name: KEEP
+                  value: {{ .Values.backup.keep | toString | quote }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  ts="$(date -u +%Y%m%dT%H%M%SZ)"
+                  out="/backup/catalystcal-${ts}.db"
+                  sqlite3 /data/catalystcal.db ".timeout 30000" ".backup '${out}.partial'"
+                  check="$(sqlite3 "${out}.partial" "PRAGMA integrity_check;")"
+                  if [ "$check" != "ok" ]; then
+                    echo "integrity_check failed: $check" >&2
+                    rm -f "${out}.partial"
+                    exit 1
+                  fi
+                  mv "${out}.partial" "$out"
+                  echo "backup written: $out ($(wc -c < "$out") bytes)"
+                  ls -1t /backup/catalystcal-*.db | tail -n "+$((KEEP + 1))" | while read -r old; do
+                    echo "removing old backup: $old"
+                    rm -f "$old"
+                  done
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: backup
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "catalystcal.dataClaimName" . }}
+            - name: backup
+              persistentVolumeClaim:
+                claimName: {{ include "catalystcal.backupClaimName" . }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

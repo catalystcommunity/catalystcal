@@ -1,0 +1,10 @@
+apiVersion: v2
+name: catalystcal
+description: catalystcal calendar service (API with SQLite, SolidJS web UI, iCalendar feeds)
+type: application
+
+# Chart version. The release job sets it to the release version.
+version: 0.1.0
+
+# Application version. The release job sets it from version/VERSION.txt.
+appVersion: "0.1.0"

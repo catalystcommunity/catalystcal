@@ -1,0 +1,14 @@
+name: catalystcal-image-build-test
+description: "Build one container image without a push (CATALYSTCAL_IMAGE=api|web)"
+job:
+  image: containers.catalystsquad.com/public/reactorcide/runnerbase:latest
+  # Scripts run from the trusted CI checkout (/job/ci). They work on the
+  # source checkout ($REACTORCIDE_CODE_DIR, default /job/src).
+  command: "runnerlib run --job-command 'bash /job/ci/.reactorcide/jobs/scripts/image-build-test.sh'"
+  timeout: 1200
+  priority: 10
+  working_dir: /job
+  capabilities:
+    - builder
+environment:
+  CATALYSTCAL_IMAGE: ""
