@@ -581,7 +581,7 @@ public struct Attendee: Equatable, Sendable {
     /// wire key: responded_by
     public let respondedBy: PersonSummary?
 
-    public init(identity: IdentityRef? = nil, email: String? = nil, name: String? = nil, role: AttendeeRole? = "required", status: ParticipationStatus? = "needs_action", rsvp: Bool? = true, person: PersonSummary? = nil, respondedBy: PersonSummary? = nil) {
+    public init(identity: IdentityRef? = nil, email: String? = nil, name: String? = nil, role: AttendeeRole? = .required, status: ParticipationStatus? = .needsAction, rsvp: Bool? = true, person: PersonSummary? = nil, respondedBy: PersonSummary? = nil) {
         self.identity = identity
         self.email = email
         self.name = name
@@ -611,7 +611,7 @@ public struct Reminder: Equatable, Sendable {
     public let minutesBefore: Int64
     public let method: ReminderMethod?
 
-    public init(minutesBefore: Int64, method: ReminderMethod? = "display") {
+    public init(minutesBefore: Int64, method: ReminderMethod? = .display) {
         self.minutesBefore = minutesBefore
         self.method = method
     }
@@ -670,7 +670,7 @@ public struct Event: Equatable, Sendable {
     /// wire key: updated_at
     public let updatedAt: Timestamp
 
-    public init(eventId: EventId, calendarId: CalendarId, uid: String? = nil, title: String, description: String? = nil, location: String? = nil, url: String? = nil, conferenceUrl: String? = nil, start: Timestamp? = nil, end: Timestamp? = nil, allDay: Bool? = false, startDate: DateText? = nil, endDate: DateText? = nil, timezone: String? = nil, status: EventStatus? = "confirmed", transparency: EventTransparency? = "opaque", visibility: EventVisibility? = "default", recurrence: Recurrence? = nil, masterEventId: EventId? = nil, recurrenceId: Timestamp? = nil, attendees: [Attendee]? = nil, reminders: [Reminder]? = nil, categories: [String]? = nil, color: String? = nil, organizer: PersonSummary? = nil, createdBy: PersonSummary? = nil, updatedBy: PersonSummary? = nil, updatedVia: ActingVia? = nil, sequence: Int64, createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(eventId: EventId, calendarId: CalendarId, uid: String? = nil, title: String, description: String? = nil, location: String? = nil, url: String? = nil, conferenceUrl: String? = nil, start: Timestamp? = nil, end: Timestamp? = nil, allDay: Bool? = false, startDate: DateText? = nil, endDate: DateText? = nil, timezone: String? = nil, status: EventStatus? = .confirmed, transparency: EventTransparency? = .opaque, visibility: EventVisibility? = .`default`, recurrence: Recurrence? = nil, masterEventId: EventId? = nil, recurrenceId: Timestamp? = nil, attendees: [Attendee]? = nil, reminders: [Reminder]? = nil, categories: [String]? = nil, color: String? = nil, organizer: PersonSummary? = nil, createdBy: PersonSummary? = nil, updatedBy: PersonSummary? = nil, updatedVia: ActingVia? = nil, sequence: Int64, createdAt: Timestamp, updatedAt: Timestamp) {
         self.eventId = eventId
         self.calendarId = calendarId
         self.uid = uid
@@ -835,7 +835,7 @@ public struct UpdateEventRequest: Equatable, Sendable {
     /// wire key: recurrence_id
     public let recurrenceId: Timestamp?
 
-    public init(event: Event, scope: RecurrenceScope? = "all", recurrenceId: Timestamp? = nil) {
+    public init(event: Event, scope: RecurrenceScope? = .all, recurrenceId: Timestamp? = nil) {
         self.event = event
         self.scope = scope
         self.recurrenceId = recurrenceId
@@ -857,7 +857,7 @@ public struct DeleteEventRequest: Equatable, Sendable {
     /// wire key: recurrence_id
     public let recurrenceId: Timestamp?
 
-    public init(eventId: EventId, scope: RecurrenceScope? = "all", recurrenceId: Timestamp? = nil) {
+    public init(eventId: EventId, scope: RecurrenceScope? = .all, recurrenceId: Timestamp? = nil) {
         self.eventId = eventId
         self.scope = scope
         self.recurrenceId = recurrenceId
@@ -1202,14 +1202,17 @@ public struct AuditList: Equatable, Sendable {
 public struct CompleteRequest: Equatable, Sendable {
     /// wire key: encrypted_token
     public let encryptedToken: String
+    public let domain: String?
 
-    public init(encryptedToken: String) {
+    public init(encryptedToken: String, domain: String? = nil) {
         self.encryptedToken = encryptedToken
+        self.domain = domain
     }
 
     /// CBOR wire keys (verbatim) keyed by Swift property name.
     public static let wireKeys: [String: String] = [
-        "encryptedToken": "encrypted_token"
+        "encryptedToken": "encrypted_token",
+        "domain": "domain"
     ]
 }
 

@@ -359,6 +359,7 @@ pub const AuditList = struct {
 /// CompleteRequest is a structured data type.
 pub const CompleteRequest = struct {
     encrypted_token: []const u8,
+    domain: ?[]const u8 = null,
 };
 
 /// ExchangeActAsCredentialRequest is a structured data type.

@@ -1959,14 +1959,22 @@ public final class CsilCbor {
     }
 
     static CborValue encCompleteRequest(CompleteRequest v) {
-        List<CborEntry> csilEntries = new ArrayList<>(1);
+        List<CborEntry> csilEntries = new ArrayList<>(2);
+        if (v.domain() != null) {
+            csilEntries.add(new CborEntry(new CborText("domain"), new CborText(v.domain())));
+        }
         csilEntries.add(new CborEntry(new CborText("encrypted_token"), new CborText(v.encryptedToken())));
         return new CborMap(csilEntries);
     }
 
     static CompleteRequest decCompleteRequest(CborValue csilRoot) {
         String encryptedToken = asText(require(csilRoot, "encrypted_token"));
-        return new CompleteRequest(encryptedToken);
+        String domain;
+        {
+            CborValue csilField = mapGet(csilRoot, "domain");
+            domain = csilField != null ? asText(csilField) : null;
+        }
+        return new CompleteRequest(encryptedToken, domain);
     }
 
     public static byte[] encodeCompleteRequest(CompleteRequest v) {

@@ -94,7 +94,7 @@ final class HttpRpcCarrier implements Transport {
 public final class RpcExample {
     public static void main(String[] args) {
         AuthClient client = new AuthClient(new HttpRpcCarrier("http://localhost:5080"));
-        LoginResponse resp = client.complete(new CompleteRequest("example"));
+        LoginResponse resp = client.complete(new CompleteRequest("example", null));
         System.out.println(resp);
     }
 }
@@ -204,7 +204,7 @@ public final class DatagramsExample {
         DatagramSocket socket = new DatagramSocket();
         socket.connect(new InetSocketAddress("localhost", 9000));
         DatagramCarrier carrier = new UdpDatagramCarrier(socket);
-        sendRequest(carrier, new CompleteRequest("example"));
+        sendRequest(carrier, new CompleteRequest("example", null));
         // No synchronous reply: a response datagram may arrive later, or never.
         LoginResponse resp = recvResponse(carrier);
         System.out.println(resp);

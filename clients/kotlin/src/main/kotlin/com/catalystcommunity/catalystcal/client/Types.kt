@@ -466,7 +466,8 @@ data class AuditList(
 /** CompleteRequest record. */
 data class CompleteRequest(
     // wire key: encrypted_token
-    val encryptedToken: String
+    val encryptedToken: String,
+    val domain: String? = null
 )
 
 /** LoginResponse record. */

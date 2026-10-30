@@ -153,7 +153,10 @@ public enum CsilCbor {
         case 3:
             guard arg <= UInt64(b.count - pos) else { throw CsilCborError.malformed }
             let n = Int(arg)
-            guard let s = String(validating: b[pos..<pos + n], as: UTF8.self) else { throw CsilCborError.malformed }
+            let bytes = b[pos..<pos + n]
+            let s = String(decoding: bytes, as: UTF8.self)
+            // Reject repaired bytes. This also accepts valid embedded NUL bytes.
+            guard s.utf8.elementsEqual(bytes) else { throw CsilCborError.malformed }
             pos += n
             return .text(s)
         case 4:
@@ -204,7 +207,7 @@ public enum CsilCbor {
         case (.uint(let x), .uint(let y)): return x == y
         case (.int(let x), .int(let y)): return x == y
         case (.bool(let x), .bool(let y)): return x == y
-        case (.float(let x), .float(let y)): return x == y
+        case (.double(let x), .double(let y)): return x == y
         case (.null, .null): return true
         case (.text(let x), .text(let y)): return x == y
         case (.bytes(let x), .bytes(let y)): return x == y
@@ -525,9 +528,9 @@ public extension IdentityRef {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("domain", .text(self.domain)))
-        if let csilV = self.handle { csilEntries.append(("handle", .text(csilV))) }
-        if let csilV = self.userId { csilEntries.append(("user_id", .text(csilV))) }
+        csilEntries.append((.text("domain"), .text(self.domain)))
+        if let csilV = self.handle { csilEntries.append((.text("handle"), .text(csilV))) }
+        if let csilV = self.userId { csilEntries.append((.text("user_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -550,15 +553,15 @@ public extension User {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.email { csilEntries.append(("email", .text(csilV))) }
-        csilEntries.append(("domain", .text(self.domain)))
-        if let csilV = self.handle { csilEntries.append(("handle", .text(csilV))) }
-        csilEntries.append(("subject", .text(self.subject)))
-        csilEntries.append(("user_id", .text(self.userId)))
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        csilEntries.append(("created_at", .text(self.createdAt)))
-        csilEntries.append(("updated_at", .text(self.updatedAt)))
-        if let csilV = self.displayName { csilEntries.append(("display_name", .text(csilV))) }
+        if let csilV = self.email { csilEntries.append((.text("email"), .text(csilV))) }
+        csilEntries.append((.text("domain"), .text(self.domain)))
+        if let csilV = self.handle { csilEntries.append((.text("handle"), .text(csilV))) }
+        csilEntries.append((.text("subject"), .text(self.subject)))
+        csilEntries.append((.text("user_id"), .text(self.userId)))
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -587,11 +590,11 @@ public extension PersonSummary {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("domain", .text(self.domain)))
-        if let csilV = self.handle { csilEntries.append(("handle", .text(csilV))) }
-        csilEntries.append(("subject", .text(self.subject)))
-        csilEntries.append(("user_id", .text(self.userId)))
-        if let csilV = self.displayName { csilEntries.append(("display_name", .text(csilV))) }
+        csilEntries.append((.text("domain"), .text(self.domain)))
+        if let csilV = self.handle { csilEntries.append((.text("handle"), .text(csilV))) }
+        csilEntries.append((.text("subject"), .text(self.subject)))
+        csilEntries.append((.text("user_id"), .text(self.userId)))
+        if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -616,22 +619,22 @@ public extension Calendar {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("kind", self.kind.toCborValue()))
-        csilEntries.append(("name", .text(self.name)))
-        if let csilV = self.color { csilEntries.append(("color", .text(csilV))) }
-        csilEntries.append(("owner", self.owner.toCborValue()))
-        csilEntries.append(("access", self.access.toCborValue()))
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        if let csilV = self.feedPath { csilEntries.append(("feed_path", .text(csilV))) }
-        csilEntries.append(("created_at", .text(self.createdAt)))
-        csilEntries.append(("is_default", .bool(self.isDefault)))
-        if let csilV = self.sourceUrl { csilEntries.append(("source_url", .text(csilV))) }
-        if let csilV = self.syncError { csilEntries.append(("sync_error", .text(csilV))) }
-        csilEntries.append(("updated_at", .text(self.updatedAt)))
-        csilEntries.append(("access_path", self.accessPath.toCborValue()))
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
-        if let csilV = self.description { csilEntries.append(("description", .text(csilV))) }
-        if let csilV = self.lastSyncedAt { csilEntries.append(("last_synced_at", .text(csilV))) }
+        csilEntries.append((.text("kind"), self.kind.toCborValue()))
+        csilEntries.append((.text("name"), .text(self.name)))
+        if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
+        csilEntries.append((.text("owner"), self.owner.toCborValue()))
+        csilEntries.append((.text("access"), self.access.toCborValue()))
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        if let csilV = self.feedPath { csilEntries.append((.text("feed_path"), .text(csilV))) }
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("is_default"), .bool(self.isDefault)))
+        if let csilV = self.sourceUrl { csilEntries.append((.text("source_url"), .text(csilV))) }
+        if let csilV = self.syncError { csilEntries.append((.text("sync_error"), .text(csilV))) }
+        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        csilEntries.append((.text("access_path"), self.accessPath.toCborValue()))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
+        if let csilV = self.lastSyncedAt { csilEntries.append((.text("last_synced_at"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -667,10 +670,10 @@ public extension CreateCalendarRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("name", .text(self.name)))
-        if let csilV = self.color { csilEntries.append(("color", .text(csilV))) }
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        if let csilV = self.description { csilEntries.append(("description", .text(csilV))) }
+        csilEntries.append((.text("name"), .text(self.name)))
+        if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -694,11 +697,11 @@ public extension UpdateCalendarRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.name { csilEntries.append(("name", .text(csilV))) }
-        if let csilV = self.color { csilEntries.append(("color", .text(csilV))) }
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
-        if let csilV = self.description { csilEntries.append(("description", .text(csilV))) }
+        if let csilV = self.name { csilEntries.append((.text("name"), .text(csilV))) }
+        if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -723,9 +726,9 @@ public extension SubscribeCalendarRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("name", .text(self.name)))
-        if let csilV = self.color { csilEntries.append(("color", .text(csilV))) }
-        csilEntries.append(("source_url", .text(self.sourceUrl)))
+        csilEntries.append((.text("name"), .text(self.name)))
+        if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
+        csilEntries.append((.text("source_url"), .text(self.sourceUrl)))
         return .map(csilEntries)
     }
 
@@ -748,8 +751,8 @@ public extension SetFeedRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("enabled", .bool(self.enabled)))
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
+        csilEntries.append((.text("enabled"), .bool(self.enabled)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         return .map(csilEntries)
     }
 
@@ -771,7 +774,7 @@ public extension CalendarList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("calendars", CsilCborValue.array(self.calendars.map { $0.toCborValue() })))
+        csilEntries.append((.text("calendars"), CsilCborValue.array(self.calendars.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -792,12 +795,12 @@ public extension Share {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("role", self.role.toCborValue()))
-        csilEntries.append(("grantee", self.grantee.toCborValue()))
-        csilEntries.append(("share_id", .text(self.shareId)))
-        csilEntries.append(("created_at", .text(self.createdAt)))
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
-        if let csilV = self.granteePerson { csilEntries.append(("grantee_person", csilV.toCborValue())) }
+        csilEntries.append((.text("role"), self.role.toCborValue()))
+        csilEntries.append((.text("grantee"), self.grantee.toCborValue()))
+        csilEntries.append((.text("share_id"), .text(self.shareId)))
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        if let csilV = self.granteePerson { csilEntries.append((.text("grantee_person"), csilV.toCborValue())) }
         return .map(csilEntries)
     }
 
@@ -823,7 +826,7 @@ public extension ShareList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("shares", CsilCborValue.array(self.shares.map { $0.toCborValue() })))
+        csilEntries.append((.text("shares"), CsilCborValue.array(self.shares.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -844,16 +847,16 @@ public extension Delegation {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.note { csilEntries.append(("note", .text(csilV))) }
-        csilEntries.append(("scopes", CsilCborValue.array(self.scopes.map { $0.toCborValue() })))
-        csilEntries.append(("delegate", self.delegate.toCborValue()))
-        csilEntries.append(("principal", self.principal.toCborValue()))
-        csilEntries.append(("created_at", .text(self.createdAt)))
-        if let csilV = self.expiresAt { csilEntries.append(("expires_at", .text(csilV))) }
-        if let csilV = self.revokedAt { csilEntries.append(("revoked_at", .text(csilV))) }
-        if let csilV = self.calendarIds { csilEntries.append(("calendar_ids", CsilCborValue.array(csilV.map { .text($0) }))) }
-        csilEntries.append(("delegation_id", .text(self.delegationId)))
-        if let csilV = self.delegatePerson { csilEntries.append(("delegate_person", csilV.toCborValue())) }
+        if let csilV = self.note { csilEntries.append((.text("note"), .text(csilV))) }
+        csilEntries.append((.text("scopes"), CsilCborValue.array(self.scopes.map { $0.toCborValue() })))
+        csilEntries.append((.text("delegate"), self.delegate.toCborValue()))
+        csilEntries.append((.text("principal"), self.principal.toCborValue()))
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        if let csilV = self.expiresAt { csilEntries.append((.text("expires_at"), .text(csilV))) }
+        if let csilV = self.revokedAt { csilEntries.append((.text("revoked_at"), .text(csilV))) }
+        if let csilV = self.calendarIds { csilEntries.append((.text("calendar_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        csilEntries.append((.text("delegation_id"), .text(self.delegationId)))
+        if let csilV = self.delegatePerson { csilEntries.append((.text("delegate_person"), csilV.toCborValue())) }
         return .map(csilEntries)
     }
 
@@ -883,7 +886,7 @@ public extension DelegationList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("delegations", CsilCborValue.array(self.delegations.map { $0.toCborValue() })))
+        csilEntries.append((.text("delegations"), CsilCborValue.array(self.delegations.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -904,7 +907,7 @@ public extension AssumePrincipalRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("principal_user_id", .text(self.principalUserId)))
+        csilEntries.append((.text("principal_user_id"), .text(self.principalUserId)))
         return .map(csilEntries)
     }
 
@@ -925,9 +928,9 @@ public extension Recurrence {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("rrule", .text(self.rrule)))
-        if let csilV = self.rdates { csilEntries.append(("rdates", CsilCborValue.array(csilV.map { .text($0) }))) }
-        if let csilV = self.exdates { csilEntries.append(("exdates", CsilCborValue.array(csilV.map { .text($0) }))) }
+        csilEntries.append((.text("rrule"), .text(self.rrule)))
+        if let csilV = self.rdates { csilEntries.append((.text("rdates"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        if let csilV = self.exdates { csilEntries.append((.text("exdates"), CsilCborValue.array(csilV.map { .text($0) }))) }
         return .map(csilEntries)
     }
 
@@ -950,14 +953,14 @@ public extension Attendee {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.name { csilEntries.append(("name", .text(csilV))) }
-        if let csilV = self.role { csilEntries.append(("role", csilV.toCborValue())) }
-        if let csilV = self.rsvp { csilEntries.append(("rsvp", .bool(csilV))) }
-        if let csilV = self.email { csilEntries.append(("email", .text(csilV))) }
-        if let csilV = self.person { csilEntries.append(("person", csilV.toCborValue())) }
-        if let csilV = self.status { csilEntries.append(("status", csilV.toCborValue())) }
-        if let csilV = self.identity { csilEntries.append(("identity", csilV.toCborValue())) }
-        if let csilV = self.respondedBy { csilEntries.append(("responded_by", csilV.toCborValue())) }
+        if let csilV = self.name { csilEntries.append((.text("name"), .text(csilV))) }
+        if let csilV = self.role { csilEntries.append((.text("role"), csilV.toCborValue())) }
+        if let csilV = self.rsvp { csilEntries.append((.text("rsvp"), .bool(csilV))) }
+        if let csilV = self.email { csilEntries.append((.text("email"), .text(csilV))) }
+        if let csilV = self.person { csilEntries.append((.text("person"), csilV.toCborValue())) }
+        if let csilV = self.status { csilEntries.append((.text("status"), csilV.toCborValue())) }
+        if let csilV = self.identity { csilEntries.append((.text("identity"), csilV.toCborValue())) }
+        if let csilV = self.respondedBy { csilEntries.append((.text("responded_by"), csilV.toCborValue())) }
         return .map(csilEntries)
     }
 
@@ -985,8 +988,8 @@ public extension Reminder {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.method { csilEntries.append(("method", csilV.toCborValue())) }
-        csilEntries.append(("minutes_before", .int(self.minutesBefore)))
+        if let csilV = self.method { csilEntries.append((.text("method"), csilV.toCborValue())) }
+        csilEntries.append((.text("minutes_before"), .int(self.minutesBefore)))
         return .map(csilEntries)
     }
 
@@ -1008,37 +1011,37 @@ public extension Event {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.end { csilEntries.append(("end", .text(csilV))) }
-        if let csilV = self.uid { csilEntries.append(("uid", .text(csilV))) }
-        if let csilV = self.url { csilEntries.append(("url", .text(csilV))) }
-        if let csilV = self.color { csilEntries.append(("color", .text(csilV))) }
-        if let csilV = self.start { csilEntries.append(("start", .text(csilV))) }
-        csilEntries.append(("title", .text(self.title)))
-        if let csilV = self.status { csilEntries.append(("status", csilV.toCborValue())) }
-        if let csilV = self.allDay { csilEntries.append(("all_day", .bool(csilV))) }
-        if let csilV = self.endDate { csilEntries.append(("end_date", .text(csilV))) }
-        csilEntries.append(("event_id", .text(self.eventId)))
-        if let csilV = self.location { csilEntries.append(("location", .text(csilV))) }
-        csilEntries.append(("sequence", .int(self.sequence)))
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        if let csilV = self.attendees { csilEntries.append(("attendees", CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
-        if let csilV = self.organizer { csilEntries.append(("organizer", csilV.toCborValue())) }
-        if let csilV = self.reminders { csilEntries.append(("reminders", CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
-        if let csilV = self.categories { csilEntries.append(("categories", CsilCborValue.array(csilV.map { .text($0) }))) }
-        csilEntries.append(("created_at", .text(self.createdAt)))
-        if let csilV = self.createdBy { csilEntries.append(("created_by", csilV.toCborValue())) }
-        if let csilV = self.recurrence { csilEntries.append(("recurrence", csilV.toCborValue())) }
-        if let csilV = self.startDate { csilEntries.append(("start_date", .text(csilV))) }
-        csilEntries.append(("updated_at", .text(self.updatedAt)))
-        if let csilV = self.updatedBy { csilEntries.append(("updated_by", csilV.toCborValue())) }
-        if let csilV = self.visibility { csilEntries.append(("visibility", csilV.toCborValue())) }
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
-        if let csilV = self.description { csilEntries.append(("description", .text(csilV))) }
-        if let csilV = self.updatedVia { csilEntries.append(("updated_via", csilV.toCborValue())) }
-        if let csilV = self.transparency { csilEntries.append(("transparency", csilV.toCborValue())) }
-        if let csilV = self.recurrenceId { csilEntries.append(("recurrence_id", .text(csilV))) }
-        if let csilV = self.conferenceUrl { csilEntries.append(("conference_url", .text(csilV))) }
-        if let csilV = self.masterEventId { csilEntries.append(("master_event_id", .text(csilV))) }
+        if let csilV = self.end { csilEntries.append((.text("end"), .text(csilV))) }
+        if let csilV = self.uid { csilEntries.append((.text("uid"), .text(csilV))) }
+        if let csilV = self.url { csilEntries.append((.text("url"), .text(csilV))) }
+        if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
+        if let csilV = self.start { csilEntries.append((.text("start"), .text(csilV))) }
+        csilEntries.append((.text("title"), .text(self.title)))
+        if let csilV = self.status { csilEntries.append((.text("status"), csilV.toCborValue())) }
+        if let csilV = self.allDay { csilEntries.append((.text("all_day"), .bool(csilV))) }
+        if let csilV = self.endDate { csilEntries.append((.text("end_date"), .text(csilV))) }
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.location { csilEntries.append((.text("location"), .text(csilV))) }
+        csilEntries.append((.text("sequence"), .int(self.sequence)))
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        if let csilV = self.attendees { csilEntries.append((.text("attendees"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
+        if let csilV = self.organizer { csilEntries.append((.text("organizer"), csilV.toCborValue())) }
+        if let csilV = self.reminders { csilEntries.append((.text("reminders"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
+        if let csilV = self.categories { csilEntries.append((.text("categories"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        if let csilV = self.createdBy { csilEntries.append((.text("created_by"), csilV.toCborValue())) }
+        if let csilV = self.recurrence { csilEntries.append((.text("recurrence"), csilV.toCborValue())) }
+        if let csilV = self.startDate { csilEntries.append((.text("start_date"), .text(csilV))) }
+        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        if let csilV = self.updatedBy { csilEntries.append((.text("updated_by"), csilV.toCborValue())) }
+        if let csilV = self.visibility { csilEntries.append((.text("visibility"), csilV.toCborValue())) }
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
+        if let csilV = self.updatedVia { csilEntries.append((.text("updated_via"), csilV.toCborValue())) }
+        if let csilV = self.transparency { csilEntries.append((.text("transparency"), csilV.toCborValue())) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.conferenceUrl { csilEntries.append((.text("conference_url"), .text(csilV))) }
+        if let csilV = self.masterEventId { csilEntries.append((.text("master_event_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1089,13 +1092,13 @@ public extension Occurrence {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("end", .text(self.end)))
-        csilEntries.append(("event", self.event.toCborValue()))
-        csilEntries.append(("start", .text(self.start)))
-        csilEntries.append(("access", self.access.toCborValue()))
-        csilEntries.append(("invited", .bool(self.invited)))
-        csilEntries.append(("busy_only", .bool(self.busyOnly)))
-        if let csilV = self.recurrenceId { csilEntries.append(("recurrence_id", .text(csilV))) }
+        csilEntries.append((.text("end"), .text(self.end)))
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        csilEntries.append((.text("start"), .text(self.start)))
+        csilEntries.append((.text("access"), self.access.toCborValue()))
+        csilEntries.append((.text("invited"), .bool(self.invited)))
+        csilEntries.append((.text("busy_only"), .bool(self.busyOnly)))
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1122,10 +1125,10 @@ public extension ListEventsRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("range_end", .text(self.rangeEnd)))
-        csilEntries.append(("range_start", .text(self.rangeStart)))
-        if let csilV = self.calendarIds { csilEntries.append(("calendar_ids", CsilCborValue.array(csilV.map { .text($0) }))) }
-        if let csilV = self.includeInvitations { csilEntries.append(("include_invitations", .bool(csilV))) }
+        csilEntries.append((.text("range_end"), .text(self.rangeEnd)))
+        csilEntries.append((.text("range_start"), .text(self.rangeStart)))
+        if let csilV = self.calendarIds { csilEntries.append((.text("calendar_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        if let csilV = self.includeInvitations { csilEntries.append((.text("include_invitations"), .bool(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1149,8 +1152,8 @@ public extension OccurrenceList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("truncated", .bool(self.truncated)))
-        csilEntries.append(("occurrences", CsilCborValue.array(self.occurrences.map { $0.toCborValue() })))
+        csilEntries.append((.text("truncated"), .bool(self.truncated)))
+        csilEntries.append((.text("occurrences"), CsilCborValue.array(self.occurrences.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1172,9 +1175,9 @@ public extension UpdateEventRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("event", self.event.toCborValue()))
-        if let csilV = self.scope { csilEntries.append(("scope", csilV.toCborValue())) }
-        if let csilV = self.recurrenceId { csilEntries.append(("recurrence_id", .text(csilV))) }
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        if let csilV = self.scope { csilEntries.append((.text("scope"), csilV.toCborValue())) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1197,9 +1200,9 @@ public extension DeleteEventRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.scope { csilEntries.append(("scope", csilV.toCborValue())) }
-        csilEntries.append(("event_id", .text(self.eventId)))
-        if let csilV = self.recurrenceId { csilEntries.append(("recurrence_id", .text(csilV))) }
+        if let csilV = self.scope { csilEntries.append((.text("scope"), csilV.toCborValue())) }
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1222,8 +1225,8 @@ public extension MoveEventRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("event_id", .text(self.eventId)))
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         return .map(csilEntries)
     }
 
@@ -1245,10 +1248,10 @@ public extension RespondRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("status", self.status.toCborValue()))
-        if let csilV = self.comment { csilEntries.append(("comment", .text(csilV))) }
-        csilEntries.append(("event_id", .text(self.eventId)))
-        if let csilV = self.recurrenceId { csilEntries.append(("recurrence_id", .text(csilV))) }
+        csilEntries.append((.text("status"), self.status.toCborValue()))
+        if let csilV = self.comment { csilEntries.append((.text("comment"), .text(csilV))) }
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1272,8 +1275,8 @@ public extension SearchEventsRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.limit { csilEntries.append(("limit", .uint(csilV))) }
-        csilEntries.append(("query", .text(self.query)))
+        if let csilV = self.limit { csilEntries.append((.text("limit"), .uint(csilV))) }
+        csilEntries.append((.text("query"), .text(self.query)))
         return .map(csilEntries)
     }
 
@@ -1295,7 +1298,7 @@ public extension EventList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("events", CsilCborValue.array(self.events.map { $0.toCborValue() })))
+        csilEntries.append((.text("events"), CsilCborValue.array(self.events.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1316,9 +1319,9 @@ public extension BusyInterval {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("end", .text(self.end)))
-        csilEntries.append(("start", .text(self.start)))
-        if let csilV = self.tentative { csilEntries.append(("tentative", .bool(csilV))) }
+        csilEntries.append((.text("end"), .text(self.end)))
+        csilEntries.append((.text("start"), .text(self.start)))
+        if let csilV = self.tentative { csilEntries.append((.text("tentative"), .bool(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1341,9 +1344,9 @@ public extension FreeBusyRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("people", CsilCborValue.array(self.people.map { $0.toCborValue() })))
-        csilEntries.append(("range_end", .text(self.rangeEnd)))
-        csilEntries.append(("range_start", .text(self.rangeStart)))
+        csilEntries.append((.text("people"), CsilCborValue.array(self.people.map { $0.toCborValue() })))
+        csilEntries.append((.text("range_end"), .text(self.rangeEnd)))
+        csilEntries.append((.text("range_start"), .text(self.rangeStart)))
         return .map(csilEntries)
     }
 
@@ -1366,10 +1369,10 @@ public extension PersonFreeBusy {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("busy", CsilCborValue.array(self.busy.map { $0.toCborValue() })))
-        if let csilV = self.person { csilEntries.append(("person", csilV.toCborValue())) }
-        csilEntries.append(("visible", .bool(self.visible)))
-        csilEntries.append(("identity", self.identity.toCborValue()))
+        csilEntries.append((.text("busy"), CsilCborValue.array(self.busy.map { $0.toCborValue() })))
+        if let csilV = self.person { csilEntries.append((.text("person"), csilV.toCborValue())) }
+        csilEntries.append((.text("visible"), .bool(self.visible)))
+        csilEntries.append((.text("identity"), self.identity.toCborValue()))
         return .map(csilEntries)
     }
 
@@ -1393,7 +1396,7 @@ public extension FreeBusyResponse {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("people", CsilCborValue.array(self.people.map { $0.toCborValue() })))
+        csilEntries.append((.text("people"), CsilCborValue.array(self.people.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1414,8 +1417,8 @@ public extension ImportIcsRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("ics", .text(self.ics)))
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
+        csilEntries.append((.text("ics"), .text(self.ics)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         return .map(csilEntries)
     }
 
@@ -1437,10 +1440,10 @@ public extension ImportResult {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("created", .uint(self.created)))
-        csilEntries.append(("skipped", .uint(self.skipped)))
-        csilEntries.append(("updated", .uint(self.updated)))
-        if let csilV = self.warnings { csilEntries.append(("warnings", CsilCborValue.array(csilV.map { .text($0) }))) }
+        csilEntries.append((.text("created"), .uint(self.created)))
+        csilEntries.append((.text("skipped"), .uint(self.skipped)))
+        csilEntries.append((.text("updated"), .uint(self.updated)))
+        if let csilV = self.warnings { csilEntries.append((.text("warnings"), CsilCborValue.array(csilV.map { .text($0) }))) }
         return .map(csilEntries)
     }
 
@@ -1464,7 +1467,7 @@ public extension ExportCalendarRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("calendar_id", .text(self.calendarId)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         return .map(csilEntries)
     }
 
@@ -1485,8 +1488,8 @@ public extension ExportEventRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.method { csilEntries.append(("method", .text(csilV))) }
-        csilEntries.append(("event_id", .text(self.eventId)))
+        if let csilV = self.method { csilEntries.append((.text("method"), .text(csilV))) }
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
         return .map(csilEntries)
     }
 
@@ -1508,8 +1511,8 @@ public extension IcsDocument {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("ics", .text(self.ics)))
-        csilEntries.append(("filename", .text(self.filename)))
+        csilEntries.append((.text("ics"), .text(self.ics)))
+        csilEntries.append((.text("filename"), .text(self.filename)))
         return .map(csilEntries)
     }
 
@@ -1531,15 +1534,15 @@ public extension AuditEntry {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("at", .text(self.at)))
-        csilEntries.append(("via", self.via.toCborValue()))
-        csilEntries.append(("actor", self.`actor`.toCborValue()))
-        if let csilV = self.target { csilEntries.append(("target", .text(csilV))) }
-        csilEntries.append(("outcome", .text(self.outcome)))
-        csilEntries.append(("audit_id", .text(self.auditId)))
-        csilEntries.append(("operation", .text(self.operation)))
-        csilEntries.append(("principal", self.principal.toCborValue()))
-        if let csilV = self.application { csilEntries.append(("application", .text(csilV))) }
+        csilEntries.append((.text("at"), .text(self.at)))
+        csilEntries.append((.text("via"), self.via.toCborValue()))
+        csilEntries.append((.text("actor"), self.`actor`.toCborValue()))
+        if let csilV = self.target { csilEntries.append((.text("target"), .text(csilV))) }
+        csilEntries.append((.text("outcome"), .text(self.outcome)))
+        csilEntries.append((.text("audit_id"), .text(self.auditId)))
+        csilEntries.append((.text("operation"), .text(self.operation)))
+        csilEntries.append((.text("principal"), self.principal.toCborValue()))
+        if let csilV = self.application { csilEntries.append((.text("application"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1568,8 +1571,8 @@ public extension AuditQuery {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.limit { csilEntries.append(("limit", .uint(csilV))) }
-        if let csilV = self.delegatedOnly { csilEntries.append(("delegated_only", .bool(csilV))) }
+        if let csilV = self.limit { csilEntries.append((.text("limit"), .uint(csilV))) }
+        if let csilV = self.delegatedOnly { csilEntries.append((.text("delegated_only"), .bool(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1591,7 +1594,7 @@ public extension AuditList {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("entries", CsilCborValue.array(self.entries.map { $0.toCborValue() })))
+        csilEntries.append((.text("entries"), CsilCborValue.array(self.entries.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1612,14 +1615,16 @@ public extension CompleteRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("encrypted_token", .text(self.encryptedToken)))
+        if let csilV = self.domain { csilEntries.append((.text("domain"), .text(csilV))) }
+        csilEntries.append((.text("encrypted_token"), .text(self.encryptedToken)))
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let encryptedToken = try CsilCbor.asText((try CsilCbor.require(cborValue, "encrypted_token")))
-        self.init(encryptedToken: encryptedToken)
+        let domain: String? = if let csilV = CsilCbor.mapGet(cborValue, "domain") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(encryptedToken: encryptedToken, domain: domain)
     }
 
     /// Encode this record to canonical CSIL CBOR bytes.
@@ -1633,12 +1638,12 @@ public extension LoginResponse {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("via", self.via.toCborValue()))
-        csilEntries.append(("user", self.user.toCborValue()))
-        csilEntries.append(("token", .text(self.token)))
-        if let csilV = self.scopes { csilEntries.append(("scopes", CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
-        if let csilV = self.actingAs { csilEntries.append(("acting_as", csilV.toCborValue())) }
-        csilEntries.append(("expires_at", .text(self.expiresAt)))
+        csilEntries.append((.text("via"), self.via.toCborValue()))
+        csilEntries.append((.text("user"), self.user.toCborValue()))
+        csilEntries.append((.text("token"), .text(self.token)))
+        if let csilV = self.scopes { csilEntries.append((.text("scopes"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
+        if let csilV = self.actingAs { csilEntries.append((.text("acting_as"), csilV.toCborValue())) }
+        csilEntries.append((.text("expires_at"), .text(self.expiresAt)))
         return .map(csilEntries)
     }
 
@@ -1664,11 +1669,11 @@ public extension MeResponse {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("via", self.via.toCborValue()))
-        csilEntries.append(("user", self.user.toCborValue()))
-        if let csilV = self.scopes { csilEntries.append(("scopes", CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
-        if let csilV = self.actingAs { csilEntries.append(("acting_as", csilV.toCborValue())) }
-        csilEntries.append(("principals", CsilCborValue.array(self.principals.map { $0.toCborValue() })))
+        csilEntries.append((.text("via"), self.via.toCborValue()))
+        csilEntries.append((.text("user"), self.user.toCborValue()))
+        if let csilV = self.scopes { csilEntries.append((.text("scopes"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
+        if let csilV = self.actingAs { csilEntries.append((.text("acting_as"), csilV.toCborValue())) }
+        csilEntries.append((.text("principals"), CsilCborValue.array(self.principals.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1693,7 +1698,7 @@ public extension ExchangeActAsCredentialRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("credential", .bytes(self.credential)))
+        csilEntries.append((.text("credential"), .bytes(self.credential)))
         return .map(csilEntries)
     }
 
@@ -1714,10 +1719,10 @@ public extension ScopeSetRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.languages { csilEntries.append(("languages", CsilCborValue.array(csilV.map { .text($0) }))) }
-        csilEntries.append(("grantee_domain", .text(self.granteeDomain)))
-        csilEntries.append(("grantee_user_id", .text(self.granteeUserId)))
-        csilEntries.append(("grantee_application_id", .text(self.granteeApplicationId)))
+        if let csilV = self.languages { csilEntries.append((.text("languages"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        csilEntries.append((.text("grantee_domain"), .text(self.granteeDomain)))
+        csilEntries.append((.text("grantee_user_id"), .text(self.granteeUserId)))
+        csilEntries.append((.text("grantee_application_id"), .text(self.granteeApplicationId)))
         return .map(csilEntries)
     }
 
@@ -1741,7 +1746,7 @@ public extension ScopeSetResponse {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("signed_scope_set", .bytes(self.signedScopeSet)))
+        csilEntries.append((.text("signed_scope_set"), .bytes(self.signedScopeSet)))
         return .map(csilEntries)
     }
 
@@ -1762,10 +1767,10 @@ public extension DevUser {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("domain", .text(self.domain)))
-        if let csilV = self.handle { csilEntries.append(("handle", .text(csilV))) }
-        csilEntries.append(("user_id", .text(self.userId)))
-        if let csilV = self.displayName { csilEntries.append(("display_name", .text(csilV))) }
+        csilEntries.append((.text("domain"), .text(self.domain)))
+        if let csilV = self.handle { csilEntries.append((.text("handle"), .text(csilV))) }
+        csilEntries.append((.text("user_id"), .text(self.userId)))
+        if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1789,7 +1794,7 @@ public extension DevUsersResponse {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("users", CsilCborValue.array(self.users.map { $0.toCborValue() })))
+        csilEntries.append((.text("users"), CsilCborValue.array(self.users.map { $0.toCborValue() })))
         return .map(csilEntries)
     }
 
@@ -1810,9 +1815,9 @@ public extension DevLoginRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.handle { csilEntries.append(("handle", .text(csilV))) }
-        if let csilV = self.userId { csilEntries.append(("user_id", .text(csilV))) }
-        if let csilV = self.displayName { csilEntries.append(("display_name", .text(csilV))) }
+        if let csilV = self.handle { csilEntries.append((.text("handle"), .text(csilV))) }
+        if let csilV = self.userId { csilEntries.append((.text("user_id"), .text(csilV))) }
+        if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1835,7 +1840,7 @@ public extension LookupPersonRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("identity", self.identity.toCborValue()))
+        csilEntries.append((.text("identity"), self.identity.toCborValue()))
         return .map(csilEntries)
     }
 
@@ -1856,8 +1861,8 @@ public extension UpdateProfileRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.timezone { csilEntries.append(("timezone", .text(csilV))) }
-        if let csilV = self.displayName { csilEntries.append(("display_name", .text(csilV))) }
+        if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
+        if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         return .map(csilEntries)
     }
 
@@ -1917,8 +1922,8 @@ public extension ServiceError {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append(("code", .uint(self.code)))
-        csilEntries.append(("message", .text(self.message)))
+        csilEntries.append((.text("code"), .uint(self.code)))
+        csilEntries.append((.text("message"), .text(self.message)))
         return .map(csilEntries)
     }
 

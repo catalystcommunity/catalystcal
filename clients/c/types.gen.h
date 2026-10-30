@@ -543,6 +543,7 @@ typedef struct AuditList {
 /* CompleteRequest is a structured data type. */
 typedef struct CompleteRequest {
     char *encrypted_token;
+    char *domain;
 } CompleteRequest;
 
 /* LoginResponse is a structured data type. */

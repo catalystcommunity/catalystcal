@@ -162,6 +162,15 @@
 .login-btn {
   justify-self: start;
 }
+.login-form {
+  display: grid;
+  gap: 10px;
+  max-width: 380px;
+}
+.login-remember {
+  color: var(--ink-2);
+  cursor: pointer;
+}
 .login-art {
   background: var(--ink);
   position: relative;

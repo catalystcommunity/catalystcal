@@ -2963,7 +2963,10 @@ pub fn decode_audit_list(csil_data: &[u8]) -> Result<AuditList, CsilCborError> {
 
 /// Build the canonical CBOR value tree for a CompleteRequest.
 fn csil_enc_complete_request(csil_v: &CompleteRequest) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
+    if let Some(csil_inner) = &csil_v.domain {
+        csil_entries.push((cbor_text("domain"), cbor_text(csil_inner)));
+    }
     csil_entries.push((
         cbor_text("encrypted_token"),
         cbor_text(&csil_v.encrypted_token),
@@ -2978,7 +2981,17 @@ fn csil_dec_complete_request(csil_root: &CsilCborValue) -> Result<CompleteReques
         let csil_decode = cbor_as_text;
         csil_decode(csil_field)?
     };
-    Ok(CompleteRequest { encrypted_token })
+    let domain = match cbor_map_get(csil_root, "domain") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(CompleteRequest {
+        encrypted_token,
+        domain,
+    })
 }
 
 /// Encode a CompleteRequest to canonical CSIL CBOR bytes.

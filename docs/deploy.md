@@ -55,8 +55,8 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_ALLOWED_USERS` | no | Comma-separated LinkKeys accounts that can sign in |
 | `CATALYSTCAL_BEARER_TTL_SECONDS` | no | Bearer token lifetime |
 | `CATALYSTCAL_SESSION_TTL_HOURS` | no | Browser session lifetime |
-| `CATALYSTCAL_LINKKEYS_IDP_DOMAIN` | no | The LinkKeys identity domain |
-| `CATALYSTCAL_LINKKEYS_IDP_URL` | no | The LinkKeys IDP base URL |
+| `CATALYSTCAL_LINKKEYS_IDP_DOMAIN` | no | The default LinkKeys identity domain, for a sign-in with no login name |
+| `CATALYSTCAL_LINKKEYS_IDP_URL` | no | The base URL of the default IDP. Other domains use DNS. |
 | `CATALYSTCAL_LINKKEYS_RP_DOMAIN` | no | This instance's relying-party domain |
 | `CATALYSTCAL_LINKKEYS_PKI_API_KEY` | **yes** | RP API key |
 | `CATALYSTCAL_LINKKEYS_TCP_ADDR` | no | RP CSIL-RPC/TCP `host:port`. Empty: DNS discovery. |
@@ -159,9 +159,22 @@ curl https://catalystcal.example.com/api/health
 catalystcal is a LinkKeys relying party (RP). People sign in at their LinkKeys
 identity provider (IDP). The API needs an RP to verify each sign-in.
 
+A person types a login name, for example `tod@todandlorna.com`, on the sign-in
+page. The API finds the LinkKeys server of that domain from the `https=` value
+of the `_linkkeys_apis.<domain>` TXT record (else `https://<domain>`) and
+sends the browser there. The callback URL carries `?domain=<domain>`, and the
+API accepts only an assertion that the keys of that domain signed. Each domain
+that people sign in from must be in `CATALYSTCAL_ALLOWED_DOMAINS` (or have a
+person in `CATALYSTCAL_ALLOWED_USERS`), unless both lists are empty.
+
+The sign-in page has a "Remember my login name" box. It keeps the name in the
+browser `localStorage` only.
+
 Set these values (Helm `config.linkkeys.*`):
 
-- IDP domain and IDP URL: the LinkKeys instance where people have accounts.
+- IDP domain and IDP URL: the default LinkKeys instance. The API uses it for a
+  sign-in with no login name, and uses the IDP URL in place of DNS for that
+  domain. Both are optional.
 - RP domain: the domain of the RP that signs the sign-in requests.
   LinkKeys binds each assertion to this audience. When the RP is an
   existing LinkKeys instance (the usual setup), this is the domain of that

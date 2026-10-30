@@ -173,6 +173,27 @@ func (c *Config) SignInAllowed(domain, subject string) bool {
 	return false
 }
 
+// DomainMayStart reports whether a sign-in from domain can start. It is true
+// when SignInAllowed can be true for some person of that domain. The
+// callback applies the full check.
+func (c *Config) DomainMayStart(domain string) bool {
+	if len(c.AllowedDomains) == 0 {
+		return true
+	}
+	domain = strings.ToLower(domain)
+	for _, d := range c.AllowedDomains {
+		if d == domain {
+			return true
+		}
+	}
+	for _, u := range c.AllowedUsers {
+		if strings.HasSuffix(u, "@"+domain) {
+			return true
+		}
+	}
+	return false
+}
+
 type reader struct {
 	getenv func(string) string
 	err    error

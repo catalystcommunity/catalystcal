@@ -3,6 +3,7 @@
 package com.catalystcommunity.catalystcal.client;
 
 public record CompleteRequest(
-    String encryptedToken /* wire: "encrypted_token" */
+    String encryptedToken /* wire: "encrypted_token" */,
+    String domain /* wire: "domain" */
 ) {
 }

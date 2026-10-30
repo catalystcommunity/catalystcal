@@ -59,7 +59,10 @@ config:
   subscriptionAllowPrivate: false
   actAsMaxPresentationAgeSeconds: ""
   linkkeys:
-    # The LinkKeys identity provider (IDP) that people sign in with.
+    # The default LinkKeys identity provider (IDP). People type a login name
+    # (you@example.com) and sign in at the LinkKeys server of that domain.
+    # The default applies to a sign-in with no login name. idpUrl replaces the
+    # DNS lookup for idpDomain.
     idpDomain: ""
     idpUrl: ""
     # This instance's relying-party (RP) domain: the audience of each

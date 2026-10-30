@@ -1,11 +1,13 @@
 /**
  * /auth/callback: LinkKeys sends the browser here with a sealed
  * `encrypted_token`. AuthService.complete opens it and returns our bearer.
+ * `domain` is the identity domain that /api/v1/auth/start put on the
+ * callback URL.
  */
 import { Show, createSignal, onMount } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
 import { authClient } from "~/data/clients";
-import { AUTH_START_URL, finishLogin, takeAuthReturnTo } from "~/lib/session";
+import { finishLogin, takeAuthReturnTo } from "~/lib/session";
 import { errorMessage } from "~/transport/csilrpc";
 
 export function AuthCallback() {
@@ -20,7 +22,8 @@ export function AuthCallback() {
       return;
     }
     try {
-      const resp = await authClient.complete({ encryptedToken: token });
+      const domain = typeof params.domain === "string" && params.domain !== "" ? params.domain : undefined;
+      const resp = await authClient.complete({ encryptedToken: token, domain });
       await finishLogin(resp);
       navigate(takeAuthReturnTo(), { replace: true });
     } catch (e) {
@@ -45,7 +48,7 @@ export function AuthCallback() {
             <p class="alert" role="alert">
               {msg()}
             </p>
-            <a class="btn btn-primary" href={AUTH_START_URL} rel="external">
+            <a class="btn btn-primary" href="/login">
               Try again
             </a>
           </div>

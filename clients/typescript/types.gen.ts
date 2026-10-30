@@ -338,6 +338,7 @@ export interface AuditList {
 
 export interface CompleteRequest {
   encryptedToken: string;
+  domain?: string;
 }
 
 export interface LoginResponse {

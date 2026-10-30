@@ -204,9 +204,9 @@ func TestTCPClient_FetchUserInfo_RoundTrip(t *testing.T) {
 		return transport.Reply("UserInfo", b)
 	}
 	addr := startTestRPCServer(t, tlsCert, handler)
-	c, _ := NewTCPClient(TCPConfig{Addr: addr, Insecure: true, APIBase: "https://idp.example", Domain: "idp.example"})
+	c, _ := NewTCPClient(TCPConfig{Addr: addr, Insecure: true, Domain: "idp.example"})
 
-	info, err := c.FetchUserInfo("tok", "") // empty domain falls back to client domain
+	info, err := c.FetchUserInfo("tok", "", "https://idp.example") // empty domain falls back to client domain
 	if err != nil {
 		t.Fatalf("FetchUserInfo: %v", err)
 	}

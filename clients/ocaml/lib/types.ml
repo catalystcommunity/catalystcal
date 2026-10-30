@@ -278,7 +278,7 @@ and audit_entry = {
 
 and audit_query = { limit : int64 option; delegated_only : bool option }
 and audit_list = { entries : audit_entry list }
-and complete_request = { encrypted_token : string }
+and complete_request = { encrypted_token : string; domain : string option }
 
 and login_response = {
   token : string;

@@ -8,7 +8,7 @@
 #
 # This file holds NO secrets. The Secret catalystcal-secrets in the namespace holds
 # CATALYSTCAL_JWT_SECRET and CATALYSTCAL_LINKKEYS_PKI_API_KEY. The RP API key belongs to
-# the LinkKeys service account catalystcal-dev-rp (relation api_access only). A
+# a LinkKeys service account with the relation api_access only. A
 # copy is in the local Reactorcide store at
 # catalystcal/squizzlezig:linkkeys-rp-api-key.
 
@@ -20,7 +20,8 @@ config:
   env: nonprod
   devAuthEnabled: false
   publicUrl: "https://catalystcal.squizzlezig.com"
-  allowedDomains: "squizzlezig.com"
+  # todandlorna.com is a trusted personal LinkKeys domain.
+  allowedDomains: "squizzlezig.com,todandlorna.com"
   linkkeys:
     idpDomain: "squizzlezig.com"
     idpUrl: "https://linkkeys.squizzlezig.com"

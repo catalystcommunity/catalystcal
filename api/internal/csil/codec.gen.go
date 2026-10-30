@@ -3871,7 +3871,10 @@ func DecodeAuditList(csilData []byte) (AuditList, error) {
 
 // csilEncCompleteRequest builds the canonical CBOR value tree for a CompleteRequest.
 func csilEncCompleteRequest(csilV CompleteRequest) cborValue {
-	csilEntries := make(cborMap, 0, 1)
+	csilEntries := make(cborMap, 0, 2)
+	if csilV.Domain != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("domain"), cborText((*csilV.Domain))})
+	}
 	csilEntries = append(csilEntries, cborEntry{cborText("encrypted_token"), cborText(csilV.EncryptedToken)})
 	return csilEntries
 }
@@ -3889,6 +3892,13 @@ func csilDecCompleteRequest(csilRoot cborValue) (CompleteRequest, error) {
 			return csilOut, csilErr
 		}
 		csilOut.EncryptedToken = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "domain"); csilOk {
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Domain = &csilVal
 	}
 	return csilOut, nil
 }

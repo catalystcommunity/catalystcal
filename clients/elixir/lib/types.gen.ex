@@ -3351,13 +3351,14 @@ defmodule Csilgen.Generated.CompleteRequest do
   @moduledoc "Generated struct for the CompleteRequest type."
 
   @enforce_keys [:encrypted_token]
-  defstruct [:encrypted_token]
+  defstruct [:encrypted_token, :domain]
 
   @type t :: %__MODULE__{
-          encrypted_token: String.t()
+          encrypted_token: String.t(),
+          domain: String.t() | nil
         }
 
-  @wire_keys [encrypted_token: "encrypted_token"]
+  @wire_keys [encrypted_token: "encrypted_token", domain: "domain"]
   @doc "Maps struct field atoms to their verbatim CBOR wire keys."
   @spec wire_keys() :: keyword()
   def wire_keys, do: @wire_keys
@@ -3368,6 +3369,7 @@ defmodule Csilgen.Generated.CompleteRequest do
     {:map,
      Enum.reject(
        [
+         if(is_nil(v.domain), do: nil, else: {{:text, "domain"}, {:text, v.domain}}),
          {{:text, "encrypted_token"}, {:text, v.encrypted_token}}
        ],
        &is_nil/1
@@ -3380,6 +3382,11 @@ defmodule Csilgen.Generated.CompleteRequest do
     csil_fields = Map.new(csil_kvs)
 
     %__MODULE__{
+      domain:
+        case Map.get(csil_fields, {:text, "domain"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end,
       encrypted_token:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "encrypted_token"}))
     }

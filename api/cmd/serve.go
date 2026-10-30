@@ -233,7 +233,6 @@ func buildPKI(cfg *config.Config) services.PKIClient {
 	}
 	c, err := linkkeys.NewTCPClient(linkkeys.TCPConfig{
 		Domain:       cfg.LinkkeysIDPDomain,
-		APIBase:      cfg.LinkkeysIDPURL,
 		APIKey:       cfg.LinkkeysPKIAPIKey,
 		Addr:         cfg.LinkkeysTCPAddr,
 		Fingerprints: cfg.LinkkeysTCPFingerprints,
