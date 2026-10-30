@@ -4,7 +4,7 @@ description: catalystcal calendar service (API with SQLite, SolidJS web UI, iCal
 type: application
 
 # Chart version. The release job sets it to the release version.
-version: 0.1.0
+version: 0.1.1
 
 # Application version. The release job sets it from version/VERSION.txt.
-appVersion: "0.1.0"
+appVersion: "0.1.1"
