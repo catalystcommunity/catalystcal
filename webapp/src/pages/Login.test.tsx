@@ -24,16 +24,44 @@ describe("LoginPage", () => {
   beforeEach(() => {
     // The session signal outlives a test; a signed-in session redirects away.
     signOut();
+    localStorage.clear();
     listDevUsers.mockReset();
     devLogin.mockReset();
   });
 
-  it("starts the LinkKeys sign-in", async () => {
+  it("starts the LinkKeys sign-in at the login name's domain", async () => {
     listDevUsers.mockRejectedValue(new Error("unknown service"));
     const assign = vi.spyOn(window.location, "assign").mockImplementation(() => {});
     renderLogin();
+    const button = screen.getByRole("button", { name: "Sign in with LinkKeys" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.input(screen.getByLabelText("LinkKeys login name"), { target: { value: " tod@todandlorna.com " } });
+    fireEvent.click(button);
+    expect(assign).toHaveBeenCalledWith("/api/v1/auth/start?identity=tod%40todandlorna.com");
+    expect(localStorage.getItem("catalystcal.login.name")).toBeNull();
+    assign.mockRestore();
+  });
+
+  it("remembers the login name when asked", async () => {
+    listDevUsers.mockRejectedValue(new Error("unknown service"));
+    const assign = vi.spyOn(window.location, "assign").mockImplementation(() => {});
+    const first = renderLogin();
+    fireEvent.input(screen.getByLabelText("LinkKeys login name"), { target: { value: "tod@todandlorna.com" } });
+    fireEvent.click(screen.getByLabelText("Remember my login name"));
     fireEvent.click(screen.getByRole("button", { name: "Sign in with LinkKeys" }));
-    expect(assign).toHaveBeenCalledWith("/api/v1/auth/start");
+    expect(localStorage.getItem("catalystcal.login.name")).toBe("tod@todandlorna.com");
+    first.unmount();
+
+    // The next visit fills the name in and keeps the box checked.
+    renderLogin();
+    expect((screen.getByLabelText("LinkKeys login name") as HTMLInputElement).value).toBe("tod@todandlorna.com");
+    const box = screen.getByLabelText("Remember my login name") as HTMLInputElement;
+    expect(box.checked).toBe(true);
+
+    // Clearing the box forgets the name at the next sign-in.
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with LinkKeys" }));
+    expect(localStorage.getItem("catalystcal.login.name")).toBeNull();
     assign.mockRestore();
   });
 

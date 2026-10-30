@@ -748,6 +748,8 @@ public sealed record CompleteRequest
 {
     // CBOR key: encrypted_token
     public required string EncryptedToken { get; init; }
+    // CBOR key: domain
+    public string? Domain { get; init; }
 }
 
 public sealed record LoginResponse

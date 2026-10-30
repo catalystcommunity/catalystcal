@@ -12,7 +12,7 @@ code, files, and docs. Do not use other spellings or abbreviations.
 
 - **csil/catalystcal.csil** is the source of truth for the API. It drives the Go
   server code (`api/internal/csil`) and every client (`clients/<lang>/`).
-  `csil/regenerate.sh` pins csilgen (`CSILGEN_PIN`, now 0.2.9) and stops
+  `csil/regenerate.sh` pins csilgen (`CSILGEN_PIN`, now 0.2.10) and stops
   when a different csilgen is on PATH.
 - **api/** is the Go module `github.com/catalystcommunity/catalystcal/api`.
   `main.go` holds `var Version = "dev"`. Builds set it with

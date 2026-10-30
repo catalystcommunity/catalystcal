@@ -1,8 +1,8 @@
 import { For, Show, createSignal, onMount } from "solid-js";
-import { Navigate, useNavigate } from "@solidjs/router";
+import { Navigate, useNavigate, useSearchParams } from "@solidjs/router";
 import type { DevUser } from "@catalystcal/client";
 import { devAuthClient } from "~/data/clients";
-import { finishLogin, startLinkKeysLogin, takeAuthReturnTo } from "~/lib/session";
+import { finishLogin, rememberedLoginName, setRememberedLoginName, startLinkKeysLogin, takeAuthReturnTo } from "~/lib/session";
 import { useSession } from "~/stores/auth";
 import { errorMessage } from "~/transport/csilrpc";
 
@@ -117,6 +117,57 @@ export function DevLoginPanel() {
   );
 }
 
+/** The LinkKeys sign-in: a login name such as you@example.com. */
+function LinkKeysLoginForm() {
+  const [params] = useSearchParams();
+  const fromQuery = typeof params.identity === "string" ? params.identity : "";
+  const saved = rememberedLoginName();
+  const [name, setName] = createSignal(fromQuery || saved);
+  const [remember, setRemember] = createSignal(saved !== "");
+  const loginError = () => (typeof params.login_error === "string" ? params.login_error : "");
+
+  return (
+    <form
+      class="login-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const value = name().trim();
+        if (!value) return;
+        setRememberedLoginName(value, remember());
+        startLinkKeysLogin(value);
+      }}
+    >
+      <label for="login-name" class="field-label">
+        LinkKeys login name
+      </label>
+      <input
+        id="login-name"
+        class="input"
+        type="text"
+        name="identity"
+        autocomplete="username"
+        autocapitalize="off"
+        spellcheck={false}
+        placeholder="you@example.com"
+        value={name()}
+        onInput={(e) => setName(e.currentTarget.value)}
+      />
+      <label class="row small login-remember">
+        <input type="checkbox" checked={remember()} onChange={(e) => setRemember(e.currentTarget.checked)} />
+        Remember my login name
+      </label>
+      <Show when={loginError()}>
+        <p class="alert" role="alert">
+          {loginError()}
+        </p>
+      </Show>
+      <button type="submit" class="btn btn-primary btn-lg login-btn" disabled={!name().trim()}>
+        Sign in with LinkKeys
+      </button>
+    </form>
+  );
+}
+
 export function LoginPage() {
   const session = useSession();
   return (
@@ -135,9 +186,7 @@ export function LoginPage() {
           <p class="login-lede">
             Share a calendar so someone can work with it as themselves, or let a person act for you. Every change made in your name shows in your activity.
           </p>
-          <button type="button" class="btn btn-primary btn-lg login-btn" onClick={() => startLinkKeysLogin()}>
-            Sign in with LinkKeys
-          </button>
+          <LinkKeysLoginForm />
           <p class="small muted">You sign in at your own LinkKeys domain. CatalystCal does not see your password.</p>
           <DevLoginPanel />
         </main>

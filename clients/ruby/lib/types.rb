@@ -440,7 +440,12 @@ end
 AuditList = Data.define(:entries)
 
 # encrypted_token [String]
-CompleteRequest = Data.define(:encrypted_token)
+# domain [String]
+CompleteRequest = Data.define(:encrypted_token, :domain) do
+  def initialize(encrypted_token:, domain: nil)
+    super
+  end
+end
 
 # token [String]
 # expires_at [Timestamp]

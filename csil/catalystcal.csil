@@ -545,8 +545,12 @@ AuditList = {
 
 ;; The browser callback: the SPA posts the sealed token from the
 ;; /auth/callback route. The api decrypts and verifies it through the RP.
+;; domain is the identity domain of the sign-in. /api/v1/auth/start puts it
+;; on the callback URL as ?domain=. Without it the api uses
+;; CATALYSTCAL_LINKKEYS_IDP_DOMAIN.
 CompleteRequest = {
-    encrypted_token: text
+    encrypted_token: text,
+    ? domain: text
 }
 
 LoginResponse = {

@@ -1491,6 +1491,7 @@ class CompleteRequest
 
   def csil_to_tree
     csil_map = {}
+    csil_map["domain"] = domain unless domain.nil?
     csil_map["encrypted_token"] = encrypted_token
     csil_map
   end
@@ -1501,7 +1502,8 @@ class CompleteRequest
 
   def self.csil_from_tree(node)
     new(
-      encrypted_token: node["encrypted_token"]
+      encrypted_token: node["encrypted_token"],
+      domain: (node.key?("domain") ? node["domain"] : nil)
     )
   end
 end

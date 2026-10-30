@@ -32,7 +32,7 @@ fi
 
 # The pinned csilgen release. A different CLI (or its generators) changes the
 # generated code silently, so stop here instead.
-CSILGEN_PIN="0.2.9"
+CSILGEN_PIN="0.2.10"
 if [ "$(csilgen --version 2>/dev/null)" != "csilgen $CSILGEN_PIN" ]; then
     echo "ERROR: need csilgen $CSILGEN_PIN, found: $(csilgen --version 2>&1)" >&2
     exit 1

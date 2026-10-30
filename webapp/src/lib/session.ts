@@ -135,8 +135,34 @@ export function takeAuthReturnTo(): string {
 
 export const AUTH_START_URL = "/api/v1/auth/start";
 
-/** Leave the app for the LinkKeys sign-in. */
-export function startLinkKeysLogin(returnTo?: string): void {
+const LOGIN_NAME_KEY = "catalystcal.login.name";
+
+/** The login name saved with "Remember my login name", or "". */
+export function rememberedLoginName(): string {
+  try {
+    return localStorage.getItem(LOGIN_NAME_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Save the login name, or forget it when remember is false. */
+export function setRememberedLoginName(name: string, remember: boolean): void {
+  try {
+    if (remember && name) localStorage.setItem(LOGIN_NAME_KEY, name);
+    else localStorage.removeItem(LOGIN_NAME_KEY);
+  } catch {
+    // localStorage is not available.
+  }
+}
+
+/** The auth start URL for a login name such as "you@example.com". */
+export function authStartUrl(identity: string): string {
+  return `${AUTH_START_URL}?${new URLSearchParams({ identity }).toString()}`;
+}
+
+/** Leave the app for the LinkKeys sign-in at the login name's own domain. */
+export function startLinkKeysLogin(identity: string, returnTo?: string): void {
   if (returnTo) rememberAuthReturnTo(returnTo);
-  window.location.assign(AUTH_START_URL);
+  window.location.assign(authStartUrl(identity));
 }

@@ -78,7 +78,7 @@ impl Transport for HttpRpcCarrier {
 
 fn main() {
     let client = AuthClient::new(HttpRpcCarrier::new("http://localhost:5080"));
-    let resp = client.complete(CompleteRequest { encrypted_token: "example".to_string() });
+    let resp = client.complete(CompleteRequest { encrypted_token: "example".to_string(), domain: None });
     match resp {
         Ok(value) => println!("{value:?}"),
         Err(err) => eprintln!("call failed: {err}"),
@@ -179,7 +179,7 @@ const OP_ORD: u64 = 1;
 // response type MAY arrive later — or never — so the caller must tolerate loss and
 // reordering.
 fn run_datagrams(carrier: &mut impl DatagramCarrier) -> Result<(), Box<dyn std::error::Error>> {
-    let req = CompleteRequest { encrypted_token: "example".to_string() };
+    let req = CompleteRequest { encrypted_token: "example".to_string(), domain: None };
     // seq 0 marks an unsequenced datagram.
     carrier.send_datagram(&Datagram::new(OP_ORD, 0, encode_complete_request(&req)).encode()?)?;
 

@@ -599,6 +599,7 @@ pub struct AuditList {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompleteRequest {
     pub encrypted_token: String,
+    pub domain: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

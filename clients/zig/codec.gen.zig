@@ -2727,7 +2727,13 @@ fn dec_AuditList(alloc: std.mem.Allocator, m: Value, out: *types.AuditList) Code
 }
 
 fn enc_CompleteRequest(out: *std.ArrayList(u8), v: *const types.CompleteRequest) CodecError!void {
-    try w_map_head(out, 1);
+    var csil_n: usize = 1;
+    if (v.domain != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.domain) |csil_x| {
+        try w_text(out, "domain");
+        try w_text(out, csil_x);
+    }
     try w_text(out, "encrypted_token");
     try w_text(out, v.encrypted_token);
 }
@@ -2735,6 +2741,13 @@ fn enc_CompleteRequest(out: *std.ArrayList(u8), v: *const types.CompleteRequest)
 fn dec_CompleteRequest(alloc: std.mem.Allocator, m: Value, out: *types.CompleteRequest) CodecError!void {
     _ = alloc;
     if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "domain")) |csil_fv| {
+            out.domain = try as_text(csil_fv);
+        } else {
+            out.domain = null;
+        }
+    }
     {
         const csil_fv = try req(m, "encrypted_token");
         out.encrypted_token = try as_text(csil_fv);

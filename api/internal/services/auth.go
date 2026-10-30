@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,7 +33,57 @@ type PKIClient interface {
 
 // UserInfoFetcher is the optional claims call (linkkeys.TCPClient has it).
 type UserInfoFetcher interface {
-	FetchUserInfo(token, domain string) (*linkkeys.UserInfo, error)
+	FetchUserInfo(token, domain, apiBase string) (*linkkeys.UserInfo, error)
+}
+
+// LoginError is a sign-in start that the person can fix, such as a bad login
+// name or a domain that this server does not accept.
+type LoginError struct{ Msg string }
+
+func (e *LoginError) Error() string { return e.Msg }
+
+// BrowserBase is the https base of domain's LinkKeys server. The configured
+// IDP URL wins for the configured IDP domain. Other domains use DNS.
+func (d *Deps) BrowserBase(domain string) string {
+	if d.Cfg.LinkkeysIDPURL != "" && strings.EqualFold(domain, d.Cfg.LinkkeysIDPDomain) {
+		return d.Cfg.LinkkeysIDPURL
+	}
+	return linkkeys.ResolveBrowserBase(domain)
+}
+
+// BeginLogin starts a LinkKeys browser sign-in for identity
+// ("[username@]domain") and returns the IDP URL to send the browser to. An
+// empty identity uses CATALYSTCAL_LINKKEYS_IDP_DOMAIN. The callback URL
+// carries ?domain=, so Complete knows which domain must have signed the
+// assertion.
+func (d *Deps) BeginLogin(identity string) (string, error) {
+	var username, domain string
+	if strings.TrimSpace(identity) == "" {
+		domain = d.Cfg.LinkkeysIDPDomain
+		if domain == "" {
+			return "", &LoginError{Msg: "Enter your LinkKeys login name, for example you@example.com."}
+		}
+	} else {
+		var err error
+		if username, domain, err = linkkeys.ParseIdentity(identity); err != nil {
+			return "", &LoginError{Msg: "Enter your LinkKeys login name, for example you@example.com."}
+		}
+	}
+	if !d.Cfg.DomainMayStart(domain) {
+		return "", &LoginError{Msg: "This CatalystCal server does not accept sign-in from " + domain + "."}
+	}
+	callback, err := url.Parse(d.Cfg.CallbackURL)
+	if err != nil {
+		return "", fmt.Errorf("bad callback URL: %w", err)
+	}
+	q := callback.Query()
+	q.Set("domain", domain)
+	callback.RawQuery = q.Encode()
+	signed, err := d.PKI.SignRequest(callback.String(), auth.MintNonce(d.Secret))
+	if err != nil {
+		return "", fmt.Errorf("RP sign-request: %w", err)
+	}
+	return linkkeys.AuthorizeURL(d.BrowserBase(domain), signed, username)
 }
 
 // SessionCookie is the browser session cookie name.
@@ -183,10 +235,23 @@ func (s *AuthService) Complete(ctx context.Context, req csil.CompleteRequest) (c
 		log.WithError(err).Error("auth.Complete: decrypt-token failed")
 		return csil.LoginResponse{}, csilrpc.NewError(http.StatusBadGateway, "could not decrypt token")
 	}
-	a, err := s.PKI.VerifyAssertion(signed, s.Cfg.LinkkeysIDPDomain)
+	domain := s.Cfg.LinkkeysIDPDomain
+	if req.Domain != nil && strings.TrimSpace(*req.Domain) != "" {
+		domain = strings.ToLower(strings.TrimSpace(*req.Domain))
+	}
+	if domain == "" {
+		return csil.LoginResponse{}, csilrpc.BadRequest("domain is required")
+	}
+	if !s.Cfg.DomainMayStart(domain) {
+		return csil.LoginResponse{}, csilrpc.Forbidden("this catalystcal server does not accept sign-in from " + domain)
+	}
+	a, err := s.PKI.VerifyAssertion(signed, domain)
 	if err != nil {
 		log.WithError(err).Info("auth.Complete: assertion refused")
 		return csil.LoginResponse{}, csilrpc.Unauthorized("assertion verification failed")
+	}
+	if !strings.EqualFold(a.Domain, domain) {
+		return csil.LoginResponse{}, csilrpc.Unauthorized("assertion domain mismatch")
 	}
 	if err := auth.VerifyNonce(s.Secret, a.Nonce); err != nil {
 		return csil.LoginResponse{}, csilrpc.Unauthorized("login nonce invalid or expired")
@@ -219,7 +284,7 @@ func (s *AuthService) fetchClaims(token string, a *linkkeys.Assertion) map[strin
 	if !ok {
 		return nil
 	}
-	info, err := f.FetchUserInfo(token, a.Domain)
+	info, err := f.FetchUserInfo(token, a.Domain, s.BrowserBase(a.Domain))
 	if err != nil || info == nil {
 		if err != nil {
 			log.WithError(err).Warn("auth: userinfo-fetch failed; continuing without claims")

@@ -2092,6 +2092,10 @@ public static class Codec
     public static CborValue CompleteRequestToCborValue(CompleteRequest value)
     {
         var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Domain is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("domain"), new CborValue.Text(csilV0)));
+        }
         csilEntries.Add((new CborValue.Text("encrypted_token"), new CborValue.Text(value.EncryptedToken)));
         return new CborValue.Map(csilEntries);
     }
@@ -2100,9 +2104,11 @@ public static class Codec
     public static CompleteRequest CompleteRequestFromCborValue(CborValue value)
     {
         var csilField0 = Cbor.AsText(Cbor.Require(value, "encrypted_token"));
+        string? csilField1 = Cbor.MapGet(value, "domain") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
         return new CompleteRequest
         {
             EncryptedToken = csilField0,
+            Domain = csilField1,
         };
     }
 

@@ -12,7 +12,7 @@ You need:
 
 You need these tools only for some tasks:
 
-- csilgen 0.2.9 (`./tools gen`, `./tools gen-check`, `./tools lint`)
+- csilgen 0.2.10 (`./tools gen`, `./tools gen-check`, `./tools lint`)
 - Docker with the compose plugin (`./tools build-images`, `./tools compose-up`)
 - helm 3 (`./tools helm-lint`)
 
@@ -107,9 +107,9 @@ party.
 Do not edit generated files. They are `api/internal/csil/`, `clients/`,
 and each `*.gen.*` file. The next `./tools gen` replaces them.
 
-`csil/regenerate.sh` requires csilgen 0.2.9 exactly. A different version
+`csil/regenerate.sh` requires csilgen 0.2.10 exactly. A different version
 can change the generated code without a schema change. If you have more than
-one csilgen version, use an isolated install: put the 0.2.9 CLI first on
+one csilgen version, use an isolated install: put the 0.2.10 CLI first on
 `PATH` and its generators in `$HOME/.csilgen/generators` of a separate
 `HOME`. `.reactorcide/jobs/scripts/lib.sh` (`install_csilgen`) shows how.
 

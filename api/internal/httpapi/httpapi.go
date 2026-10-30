@@ -1,7 +1,7 @@
 // Package httpapi assembles the public HTTP surface of catalystcal:
 //
 //	POST /csil/v1/rpc, POST /api/csil/v1/rpc   the CSIL-RPC carrier
-//	GET  /api/v1/auth/start                    302 to the LinkKeys IDP
+//	GET  /api/v1/auth/start                    302 to the LinkKeys server of ?identity=
 //	GET  /api/health                           liveness for the API port
 //	GET  /ics/{token}, GET /api/ics/{token}    the public iCalendar feed
 package httpapi
@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/catalystcommunity/catalystcal/api/internal/auth"
 	"github.com/catalystcommunity/catalystcal/api/internal/csilrpc"
 	"github.com/catalystcommunity/catalystcal/api/internal/services"
 	"github.com/rs/cors"
@@ -45,25 +44,33 @@ func Handler(deps *services.Deps, devAuth bool) http.Handler {
 	return c.Handler(mux)
 }
 
-// authStart signs a LinkKeys auth request bound to the callback URL and a
-// self-verifying login nonce, then sends the browser to the IDP.
+// authStart sends the browser to the LinkKeys server of the login name in
+// ?identity= ("[username@]domain"), with a signed auth request bound to the
+// callback URL and a self-verifying login nonce. A login name the server
+// cannot use goes back to /login with ?login_error=.
 func authStart(deps *services.Deps) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg := deps.Cfg
-		if deps.PKI == nil || cfg == nil || cfg.LinkkeysIDPURL == "" || cfg.CallbackURL == "" {
+		if deps.PKI == nil || cfg == nil || cfg.CallbackURL == "" {
 			http.Error(w, "browser login is not configured on this server", http.StatusServiceUnavailable)
 			return
 		}
-		nonce := auth.MintNonce(deps.Secret)
-		signed, err := deps.PKI.SignRequest(cfg.CallbackURL, nonce)
+		identity := r.URL.Query().Get("identity")
+		target, err := deps.BeginLogin(identity)
+		var loginErr *services.LoginError
+		if errors.As(err, &loginErr) {
+			q := url.Values{}
+			q.Set("login_error", loginErr.Msg)
+			q.Set("identity", identity)
+			http.Redirect(w, r, "/login?"+q.Encode(), http.StatusFound)
+			return
+		}
 		if err != nil {
-			log.WithError(err).Error("auth/start: RP sign-request failed")
+			log.WithError(err).Error("auth/start: begin login failed")
 			http.Error(w, "could not reach identity service", http.StatusBadGateway)
 			return
 		}
-		q := url.Values{}
-		q.Set("signed_request", signed)
-		http.Redirect(w, r, cfg.LinkkeysIDPURL+"/auth/authorize?"+q.Encode(), http.StatusFound)
+		http.Redirect(w, r, target, http.StatusFound)
 	})
 }
 

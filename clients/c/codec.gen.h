@@ -3076,7 +3076,12 @@ static inline int csilc_dec_AuditList(const csilc_value *m, CsilCodecArena *a, A
 /* csilc_enc_CompleteRequest writes CompleteRequest as a canonical CBOR map. */
 static inline int csilc_enc_CompleteRequest(csilc_buf *b, const CompleteRequest *v) {
     size_t csilc_n = 1;
+    if (v->domain) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->domain) {
+        if (csilc_w_text(b, "domain", 6)) return -1;
+        if (csilc_w_text(b, (v->domain), (v->domain) ? strlen(v->domain) : 0)) return -1;
+    }
     if (csilc_w_text(b, "encrypted_token", 15)) return -1;
     if (csilc_w_text(b, (v->encrypted_token), (v->encrypted_token) ? strlen(v->encrypted_token) : 0)) return -1;
     return 0;
@@ -3087,6 +3092,8 @@ static inline int csilc_dec_CompleteRequest(const csilc_value *m, CsilCodecArena
     (void)a;
     const csilc_value *csilc_f;
     if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "domain");
+    out->domain = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "encrypted_token");
     if (!csilc_get_text(csilc_f, &(out->encrypted_token))) return -1;
     return 0;

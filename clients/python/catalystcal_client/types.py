@@ -1426,17 +1426,20 @@ class AuditList:
 @dataclass
 class CompleteRequest:
     encrypted_token: str
+    domain: Optional[str] = None
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {}
         if hasattr(self, 'encrypted_token') and self.encrypted_token is not None:
             result['encrypted_token'] = self.encrypted_token
+        if hasattr(self, 'domain') and self.domain is not None:
+            result['domain'] = self.domain
         return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'CompleteRequest':
         """Create instance from dictionary."""
-        return cls(encrypted_token=data.get('encrypted_token'))
+        return cls(encrypted_token=data.get('encrypted_token'), domain=data.get('domain'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""

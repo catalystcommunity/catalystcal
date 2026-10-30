@@ -400,7 +400,8 @@ type AuditList struct {
 
 // CompleteRequest represents a structured data type
 type CompleteRequest struct {
-	EncryptedToken string `json:"encrypted_token" yaml:"encrypted_token"`
+	EncryptedToken string  `json:"encrypted_token" yaml:"encrypted_token"`
+	Domain         *string `json:"domain,omitempty" yaml:"domain,omitempty"`
 }
 
 // LoginResponse represents a structured data type

@@ -46,8 +46,7 @@ const (
 // empty they are discovered from DNS off Domain (the IDP identity domain) via
 // the _linkkeys_apis / _linkkeys TXT records linkkeys publishes.
 type TCPConfig struct {
-	Domain       string   // IDP/user identity domain (audience for userinfo, DNS discovery root)
-	APIBase      string   // IDP https API base (userinfo-fetch api_base; self-call detection)
+	Domain       string   // default identity domain (DNS discovery root for the RP endpoint)
 	APIKey       string   // RP API key, presented in the envelope auth field
 	Addr         string   // optional host:port override (else DNS-discovered)
 	Fingerprints []string // optional pinned SPKI sha256 hex (else DNS-discovered)
@@ -66,7 +65,6 @@ type TCPClient struct {
 	fingerprints []string
 	apiKey       string
 	insecure     bool
-	apiBase      string
 	domain       string
 	dialTimeout  time.Duration
 	ioTimeout    time.Duration
@@ -175,7 +173,6 @@ func NewTCPClient(cfg TCPConfig) (*TCPClient, error) {
 		fingerprints: fingerprints,
 		apiKey:       cfg.APIKey,
 		insecure:     cfg.Insecure,
-		apiBase:      cfg.APIBase,
 		domain:       cfg.Domain,
 		dialTimeout:  dialTimeout,
 		ioTimeout:    ioTimeout,
@@ -270,10 +267,12 @@ func (c *TCPClient) VerifyAssertion(signedAssertion, expectedDomain string) (*As
 
 // FetchUserInfo redeems a signed assertion token for the full UserInfo (display
 // name + released claims). domain is the user's identity domain (the assertion
-// domain); it lets linkkeys resolve the home IDP's tcp endpoint. The RP handles
-// the mTLS + proof-of-possession to the IDP internally — we only present our
-// API key, so this works for an RP that holds no domain key of its own.
-func (c *TCPClient) FetchUserInfo(token, domain string) (*UserInfo, error) {
+// domain); it lets linkkeys resolve the home IDP's tcp endpoint. apiBase is
+// that IDP's https base (ResolveBrowserBase); the RP uses it only to see that
+// the IDP is itself. The RP handles the mTLS + proof-of-possession to the IDP
+// internally — we only present our API key, so this works for an RP that
+// holds no domain key of its own.
+func (c *TCPClient) FetchUserInfo(token, domain, apiBase string) (*UserInfo, error) {
 	if domain == "" {
 		domain = c.domain
 	}
@@ -282,7 +281,7 @@ func (c *TCPClient) FetchUserInfo(token, domain string) (*UserInfo, error) {
 		Token   string `cbor:"token"`
 		APIBase string `cbor:"api_base"`
 		Domain  string `cbor:"domain"`
-	}{token, c.apiBase, domain}
+	}{token, apiBase, domain}
 	if err := c.call(opUserInfo, in, &out); err != nil {
 		return nil, err
 	}

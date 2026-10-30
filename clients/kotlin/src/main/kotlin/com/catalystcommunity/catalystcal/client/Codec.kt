@@ -1547,6 +1547,7 @@ fun auditListFromCbor(bytes: ByteArray): AuditList = auditListFromCborValue(Csil
 /** The CBOR value tree for a CompleteRequest (deep, canonical key order). */
 fun CompleteRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.domain?.let { csilV -> csilEntries.add(CborValue.CText("domain") to CborValue.CText(csilV)) }
     csilEntries.add(CborValue.CText("encrypted_token") to CborValue.CText(this.encryptedToken))
     return CborValue.CMap(csilEntries)
 }
@@ -1557,7 +1558,8 @@ fun CompleteRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a CompleteRequest from a decoded CBOR value tree. */
 fun completeRequestFromCborValue(cbor: CborValue): CompleteRequest {
     val encryptedToken = CsilCbor.asText(CsilCbor.require(cbor, "encrypted_token"))
-    return CompleteRequest(encryptedToken = encryptedToken)
+    val domain = CsilCbor.mapGet(cbor, "domain")?.let { csilV -> CsilCbor.asText(csilV) }
+    return CompleteRequest(encryptedToken = encryptedToken, domain = domain)
 }
 
 /** Decode CSIL CBOR bytes into a CompleteRequest. */

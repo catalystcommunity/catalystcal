@@ -1685,6 +1685,9 @@ AuditList.from_cbor = staticmethod(_audit_list_from_cbor)
 
 def _encode_complete_request_value(v: "CompleteRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
+    csil_x = v.domain
+    if csil_x is not None:
+        csil_m["domain"] = csil_x
     csil_m["encrypted_token"] = v.encrypted_token
     return csil_m
 
@@ -1692,6 +1695,7 @@ def _decode_complete_request_value(tree: Any) -> "CompleteRequest":
     tree = _csil_expect_map(tree)
     return CompleteRequest(
         encrypted_token=_csil_expect_text(tree["encrypted_token"]),
+        domain=(None if tree.get("domain") is None else _csil_expect_text(tree["domain"])),
     )
 
 

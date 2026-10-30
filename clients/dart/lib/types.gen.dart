@@ -3226,39 +3226,48 @@ final class AuditList {
 
 final class CompleteRequest {
   final String encryptedToken;
+  final String? domain;
 
-  const CompleteRequest({required this.encryptedToken});
+  const CompleteRequest({required this.encryptedToken, this.domain});
 
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['encrypted_token'] = encryptedToken;
+    if (domain != null) map['domain'] = domain;
     return map;
   }
 
   factory CompleteRequest.fromMap(Map<String, Object?> map) {
-    return CompleteRequest(encryptedToken: map['encrypted_token'] as String);
+    return CompleteRequest(
+      encryptedToken: map['encrypted_token'] as String,
+      domain: map['domain'] as String?,
+    );
   }
 
   @override
   bool operator ==(Object other) {
     if (other is! CompleteRequest) return false;
-    return encryptedToken == other.encryptedToken;
+    return encryptedToken == other.encryptedToken && domain == other.domain;
   }
 
   @override
-  int get hashCode => Object.hashAll([encryptedToken]);
+  int get hashCode => Object.hashAll([encryptedToken, domain]);
 
   /// The CBOR-encodable dynamic tree for this record (deep).
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['encrypted_token'] = encryptedToken;
+    if (domain != null) map['domain'] = domain!;
     return map;
   }
 
   /// Reconstruct this record from a decoded CBOR dynamic tree.
   factory CompleteRequest.fromCborValue(Object? cbor) {
     final map = cbor as Map;
-    return CompleteRequest(encryptedToken: map['encrypted_token'] as String);
+    return CompleteRequest(
+      encryptedToken: map['encrypted_token'] as String,
+      domain: map['domain'] == null ? null : map['domain'] as String,
+    );
   }
 
   /// Encode this record to canonical CSIL CBOR bytes.

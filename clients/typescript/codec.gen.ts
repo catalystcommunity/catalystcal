@@ -1390,6 +1390,7 @@ export function fromAuditListCbor(bytes: Uint8Array): AuditList {
 
 export function toCompleteRequestCborValue(v: CompleteRequest): CborValue {
   const csilMap = new Map<CborValue, CborValue>();
+  if (v.domain !== undefined) csilMap.set("domain", v.domain);
   csilMap.set("encrypted_token", v.encryptedToken);
   return csilMap;
 }
@@ -1397,6 +1398,7 @@ export function toCompleteRequestCborValue(v: CompleteRequest): CborValue {
 export function fromCompleteRequestCborValue(value: CborValue): CompleteRequest {
   return {
     encryptedToken: asString(requireKey(value, "encrypted_token")),
+    domain: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "domain")),
   };
 }
 

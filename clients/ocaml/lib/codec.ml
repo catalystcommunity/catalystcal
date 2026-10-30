@@ -497,6 +497,7 @@ and encode_complete_request (v : complete_request) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
+         (match v.domain with Some csil_x -> Some (Cbor.Text "domain", (Cbor.Text csil_x)) | None -> None);
          Some (Cbor.Text "encrypted_token", (Cbor.Text v.encrypted_token));
        ])
 
@@ -1300,6 +1301,7 @@ and decode_complete_request (csil_c : Cbor.t) : complete_request =
       in
       ignore csil_req;
       {
+        domain = (match csil_field "domain" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         encrypted_token = (Cbor.to_text (csil_req "encrypted_token"));
       }
   | _ -> failwith "csilgen: expected map for complete_request"
