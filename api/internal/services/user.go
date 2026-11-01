@@ -60,7 +60,7 @@ func (s *UserService) LookupPerson(ctx context.Context, req csil.LookupPersonReq
 	if _, err := requireIdentity(ctx); err != nil {
 		return csil.PersonSummary{}, err
 	}
-	_, _, u, err := s.resolveRef(ctx, req.Identity)
+	_, u, err := s.resolveRef(ctx, req.Identity)
 	if err != nil {
 		return csil.PersonSummary{}, err
 	}

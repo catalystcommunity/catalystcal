@@ -17,12 +17,42 @@ finds the handle only among people who signed in to this server. If the
 server cannot find the handle, it returns 404 with the message "that person
 has not signed in to this catalystcal server yet; use their account id".
 
+## Application principals
+
+An application principal is a LinkKeys application of an account: the
+domain, the account id, and the application id. It is a different
+principal from the person with the same account id. It signs in with an
+application presentation (see [deploy.md](deploy.md), "Application
+principals") and gets a self bearer. It owns calendars and groups like a
+person does. It gets no default calendar.
+
+## Groups
+
+A group is a list of identities or other groups. One owner keeps it. LinkKeys
+has no groups: catalystcal keeps them.
+
+- A member is a person or an application principal, by domain and account
+  id. A request can name a member by handle only when that person signed in
+  here. The output shows the handle when catalystcal knows it.
+- A member group must have the same owner. A group cannot contain itself,
+  directly or through other groups. The longest chain is 8 groups.
+- Only the owner can see or change a group, with a self bearer. Another
+  caller gets 404.
+- Each change raises the group revision. `set-members` with
+  `expected_revision` fails with 409 when the group changed after the
+  caller read it. Use it to keep a sync from an old list from writing over
+  a new list.
+- A share can name a group of the calendar owner. Membership is read at each
+  call. A removed member loses the access at the next call. No bearer keeps
+  it.
+- Deleting a group deletes its shares and removes it from other groups.
+
 ## Three access paths
 
 | Path | Who | Acts under the name of | Set by |
 | --- | --- | --- | --- |
 | Owner | The calendar owner | Owner | Calendar creation |
-| Share | A grantee with a `ShareRole` on one calendar | The grantee | `ShareService.put-share` |
+| Share | A grantee (an identity or a group) with a `ShareRole` on one calendar | The grantee | `ShareService.put-share` |
 | Delegation | A delegate with scopes from a principal | The principal | `DelegationService.create-delegation` |
 
 An attendee also sees an event that names them, on any calendar, with read
@@ -30,13 +60,15 @@ access to that one event only.
 
 ### Shares: "as themselves"
 
-Roles, from low to high: `free_busy`, `read`, `write`, `manage`.
+Roles, from low to high: `free_busy`, `read`, `contribute`, `write`,
+`manage`.
 
 | Role | Can do |
 | --- | --- |
 | `free_busy` | See busy time only. Events come back with `busy_only = true` and no title, description, location, attendees, or reminders. |
 | `read` | See event details. A `private` or `confidential` event shows as busy only. |
-| `write` | `read`, plus create, change, move, and delete events. |
+| `contribute` | `read`, plus create events, and change, move, and delete the events that the grantee created. An override follows its series. |
+| `write` | `read`, plus create, change, move, and delete all events. An iCalendar import needs `write`. |
 | `manage` | `write`, plus change the calendar settings, the feed, and the shares. Cannot delete the calendar. |
 
 An event that a share grantee creates has `created_by` and `organizer` set to
@@ -118,10 +150,10 @@ For a calendar `c` and a caller identity `id`, effective access is:
      `calendars.manage` + `events.write` → `owner` minus delete-calendar;
      `events.write` → `write`; `calendars.read` → `read` (private events
      visible); `freebusy.read` → `free_busy`; else `none`.
-2. Else a share for the actor's identity on `c` → that role. A delegated
-   bearer does not use the principal's shares on other people's calendars
-   unless the scopes allow it: `calendars.read` for read, `events.write`
-   for write.
+2. Else the shares on `c` for the effective identity, directly or through
+   a group that contains it → the highest role. A delegated bearer does
+   not use the principal's shares on other people's calendars unless the
+   scopes allow it: `calendars.read` for read, `events.write` for write.
 3. Else `none`.
 
 Additional rules:
@@ -133,7 +165,8 @@ Additional rules:
 - A delegated bearer sees the principal's invitations only with
   `calendars.read` or `events.respond`.
 - `ShareService.put-share` creates the share or changes its role.
-- The grantee of a share can delete that share.
+- The grantee of a direct share can delete that share. A group share can
+  be deleted only by a manager of the calendar.
 - Search never returns an event that the caller can see only as busy.
 
 The services call one shared function for this (`api/internal/access`).
@@ -147,4 +180,4 @@ They do not repeat the rules.
 | Calendar or event does not exist, or the caller has `none` access | 404 (do not reveal existence) |
 | The caller can see it but cannot do this | 403 |
 | Bad input | 400 |
-| Conflict, for example a duplicate share | 409 |
+| Conflict, for example a duplicate group name or an old group revision | 409 |

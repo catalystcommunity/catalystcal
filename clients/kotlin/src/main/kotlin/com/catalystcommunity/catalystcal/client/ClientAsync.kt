@@ -40,6 +40,12 @@ class AuthAsyncClient(private val transport: AsyncTransport) {
     suspend fun getActAsScopeSet(request: ScopeSetRequest): ScopeSetResponse {
         return decode<ScopeSetResponse>(transport.call("AuthService", "get-act-as-scope-set", encode(request)))
     }
+    suspend fun getApplicationIdentity(request: EmptyRequest): ApplicationIdentityResponse {
+        return decode<ApplicationIdentityResponse>(transport.call("AuthService", "get-application-identity", encode(request)))
+    }
+    suspend fun exchangeApplicationPresentation(request: ExchangeApplicationPresentationRequest): LoginResponse {
+        return decode<LoginResponse>(transport.call("AuthService", "exchange-application-presentation", encode(request)))
+    }
 }
 
 /** Typed client for the DevAuthService service. The client owns (de)serialization;
@@ -107,6 +113,29 @@ class ShareAsyncClient(private val transport: AsyncTransport) {
     }
     suspend fun deleteShare(request: ShareID): EmptyResponse {
         return decode<EmptyResponse>(transport.call("ShareService", "delete-share", encodeShareDeleteShareRequest(request)))
+    }
+}
+
+/** Typed client for the GroupService service. The client owns (de)serialization;
+ * the carrier only moves bytes. */
+class GroupAsyncClient(private val transport: AsyncTransport) {
+    suspend fun listGroups(request: EmptyRequest): GroupList {
+        return decode<GroupList>(transport.call("GroupService", "list-groups", encode(request)))
+    }
+    suspend fun getGroup(request: GroupID): Group {
+        return decode<Group>(transport.call("GroupService", "get-group", encodeGroupGetGroupRequest(request)))
+    }
+    suspend fun createGroup(request: CreateGroupRequest): Group {
+        return decode<Group>(transport.call("GroupService", "create-group", encode(request)))
+    }
+    suspend fun updateGroup(request: UpdateGroupRequest): Group {
+        return decode<Group>(transport.call("GroupService", "update-group", encode(request)))
+    }
+    suspend fun setMembers(request: SetGroupMembersRequest): Group {
+        return decode<Group>(transport.call("GroupService", "set-members", encode(request)))
+    }
+    suspend fun deleteGroup(request: GroupID): EmptyResponse {
+        return decode<EmptyResponse>(transport.call("GroupService", "delete-group", encodeGroupDeleteGroupRequest(request)))
     }
 }
 

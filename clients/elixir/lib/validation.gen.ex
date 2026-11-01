@@ -70,6 +70,56 @@ defmodule Csilgen.Generated.Validation do
     end
   end
 
+  @spec validate_group(Csilgen.Generated.Group.t()) :: :ok | {:error, String.t()}
+  def validate_group(%Csilgen.Generated.Group{} = v) do
+    with :ok <-
+           if(String.length(v.name) >= 1,
+             do: :ok,
+             else: {:error, "field 'name' must have at least 1 elements"}
+           ),
+         :ok <-
+           if(String.length(v.name) <= 256,
+             do: :ok,
+             else: {:error, "field 'name' must have at most 256 elements"}
+           ) do
+      :ok
+    end
+  end
+
+  @spec validate_create_group_request(Csilgen.Generated.CreateGroupRequest.t()) ::
+          :ok | {:error, String.t()}
+  def validate_create_group_request(%Csilgen.Generated.CreateGroupRequest{} = v) do
+    with :ok <-
+           if(String.length(v.name) >= 1,
+             do: :ok,
+             else: {:error, "field 'name' must have at least 1 elements"}
+           ),
+         :ok <-
+           if(String.length(v.name) <= 256,
+             do: :ok,
+             else: {:error, "field 'name' must have at most 256 elements"}
+           ) do
+      :ok
+    end
+  end
+
+  @spec validate_update_group_request(Csilgen.Generated.UpdateGroupRequest.t()) ::
+          :ok | {:error, String.t()}
+  def validate_update_group_request(%Csilgen.Generated.UpdateGroupRequest{} = v) do
+    with :ok <-
+           if(is_nil(v.name) or String.length(v.name) >= 1,
+             do: :ok,
+             else: {:error, "field 'name' must have at least 1 elements"}
+           ),
+         :ok <-
+           if(is_nil(v.name) or String.length(v.name) <= 256,
+             do: :ok,
+             else: {:error, "field 'name' must have at most 256 elements"}
+           ) do
+      :ok
+    end
+  end
+
   @spec validate_event(Csilgen.Generated.Event.t()) :: :ok | {:error, String.t()}
   def validate_event(%Csilgen.Generated.Event{} = v) do
     with :ok <-

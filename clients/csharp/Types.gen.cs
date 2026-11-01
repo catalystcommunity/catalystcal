@@ -9,6 +9,7 @@ global using EventID = string;
 global using ShareID = string;
 global using DelegationID = string;
 global using AuditID = string;
+global using GroupID = string;
 global using SessionID = string;
 global using Timestamp = string;
 global using DateText = string;
@@ -21,6 +22,8 @@ public enum ShareRole
     FreeBusy,
     // wire value: read
     Read,
+    // wire value: contribute
+    Contribute,
     // wire value: write
     Write,
     // wire value: manage
@@ -35,6 +38,8 @@ public enum AccessRole
     FreeBusy,
     // wire value: read
     Read,
+    // wire value: contribute
+    Contribute,
     // wire value: write
     Write,
     // wire value: manage
@@ -169,6 +174,8 @@ public sealed record IdentityRef
     public string? UserId { get; init; }
     // CBOR key: handle
     public string? Handle { get; init; }
+    // CBOR key: application_id
+    public string? ApplicationId { get; init; }
 }
 
 public sealed record User
@@ -179,6 +186,8 @@ public sealed record User
     public required string Domain { get; init; }
     // CBOR key: subject
     public required string Subject { get; init; }
+    // CBOR key: application_id
+    public string? ApplicationId { get; init; }
     // CBOR key: handle
     public string? Handle { get; init; }
     // CBOR key: display_name
@@ -201,6 +210,8 @@ public sealed record PersonSummary
     public required string Domain { get; init; }
     // CBOR key: subject
     public required string Subject { get; init; }
+    // CBOR key: application_id
+    public string? ApplicationId { get; init; }
     // CBOR key: handle
     public string? Handle { get; init; }
     // CBOR key: display_name
@@ -355,11 +366,15 @@ public sealed record Share
     // CBOR key: calendar_id
     public required CalendarID CalendarId { get; init; }
     // CBOR key: grantee
-    public required IdentityRef Grantee { get; init; }
+    public IdentityRef? Grantee { get; init; }
+    // CBOR key: grantee_group_id
+    public GroupID? GranteeGroupId { get; init; }
     // CBOR key: role
     public required ShareRole Role { get; init; }
     // CBOR key: grantee_person
     public PersonSummary? GranteePerson { get; init; }
+    // CBOR key: grantee_group_name
+    public string? GranteeGroupName { get; init; }
     // CBOR key: created_at
     public required Timestamp CreatedAt { get; init; }
 }
@@ -368,6 +383,116 @@ public sealed record ShareList
 {
     // CBOR key: shares
     public required System.Collections.Generic.List<Share> Shares { get; init; }
+}
+
+public sealed record GroupMember
+{
+    // CBOR key: identity
+    public IdentityRef? Identity { get; init; }
+    // CBOR key: group_id
+    public GroupID? GroupId { get; init; }
+    // CBOR key: person
+    public PersonSummary? Person { get; init; }
+    // CBOR key: group_name
+    public string? GroupName { get; init; }
+}
+
+public sealed record Group
+{
+    // CBOR key: group_id
+    public required GroupID GroupId { get; init; }
+    // CBOR key: owner
+    public required PersonSummary Owner { get; init; }
+    // CBOR key: name
+    public required string Name { get; init; }
+    // CBOR key: description
+    public string? Description { get; init; }
+    // CBOR key: revision
+    public required ulong Revision { get; init; }
+    // CBOR key: members
+    public required System.Collections.Generic.List<GroupMember> Members { get; init; }
+    // CBOR key: created_at
+    public required Timestamp CreatedAt { get; init; }
+    // CBOR key: updated_at
+    public required Timestamp UpdatedAt { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (Name.Length < 1)
+        {
+            throw new System.ArgumentException("field 'Name' must have at least 1 elements");
+        }
+        if (Name.Length > 256)
+        {
+            throw new System.ArgumentException("field 'Name' must have at most 256 elements");
+        }
+    }
+}
+
+public sealed record CreateGroupRequest
+{
+    // CBOR key: name
+    public required string Name { get; init; }
+    // CBOR key: description
+    public string? Description { get; init; }
+    // CBOR key: members
+    public System.Collections.Generic.List<GroupMember>? Members { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (Name.Length < 1)
+        {
+            throw new System.ArgumentException("field 'Name' must have at least 1 elements");
+        }
+        if (Name.Length > 256)
+        {
+            throw new System.ArgumentException("field 'Name' must have at most 256 elements");
+        }
+    }
+}
+
+public sealed record UpdateGroupRequest
+{
+    // CBOR key: group_id
+    public required GroupID GroupId { get; init; }
+    // CBOR key: name
+    public string? Name { get; init; }
+    // CBOR key: description
+    public string? Description { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (Name is { } nameValue)
+        {
+            if (nameValue.Length < 1)
+            {
+                throw new System.ArgumentException("field 'Name' must have at least 1 elements");
+            }
+            if (nameValue.Length > 256)
+            {
+                throw new System.ArgumentException("field 'Name' must have at most 256 elements");
+            }
+        }
+    }
+}
+
+public sealed record SetGroupMembersRequest
+{
+    // CBOR key: group_id
+    public required GroupID GroupId { get; init; }
+    // CBOR key: expected_revision
+    public ulong? ExpectedRevision { get; init; }
+    // CBOR key: members
+    public required System.Collections.Generic.List<GroupMember> Members { get; init; }
+}
+
+public sealed record GroupList
+{
+    // CBOR key: groups
+    public required System.Collections.Generic.List<Group> Groups { get; init; }
 }
 
 public sealed record Delegation
@@ -804,6 +929,54 @@ public sealed record ScopeSetResponse
 {
     // CBOR key: signed_scope_set
     public required byte[] SignedScopeSet { get; init; }
+}
+
+public sealed record ApplicationRef
+{
+    // CBOR key: subject_user_id
+    public required string SubjectUserId { get; init; }
+    // CBOR key: subject_domain
+    public required string SubjectDomain { get; init; }
+    // CBOR key: application_id
+    public required string ApplicationId { get; init; }
+}
+
+public sealed record ApplicationPresentation
+{
+    // CBOR key: signer
+    public required ApplicationRef Signer { get; init; }
+    // CBOR key: signer_instance_id
+    public required string SignerInstanceId { get; init; }
+    // CBOR key: audience
+    public required ApplicationRef Audience { get; init; }
+    // CBOR key: request_digest
+    public required byte[] RequestDigest { get; init; }
+    // CBOR key: presented_at
+    public required Timestamp PresentedAt { get; init; }
+    // CBOR key: nonce
+    public required byte[] Nonce { get; init; }
+}
+
+public sealed record SignedApplicationPresentation
+{
+    // CBOR key: presentation
+    public required byte[] Presentation { get; init; }
+    // CBOR key: signed_by_key_id
+    public required string SignedByKeyId { get; init; }
+    // CBOR key: signature
+    public required byte[] Signature { get; init; }
+}
+
+public sealed record ExchangeApplicationPresentationRequest
+{
+    // CBOR key: presentation
+    public required SignedApplicationPresentation Presentation { get; init; }
+}
+
+public sealed record ApplicationIdentityResponse
+{
+    // CBOR key: audience
+    public required ApplicationRef Audience { get; init; }
 }
 
 public sealed record DevUser

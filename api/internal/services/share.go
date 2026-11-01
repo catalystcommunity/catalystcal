@@ -20,20 +20,32 @@ func (s *ShareService) shareOut(ctx context.Context, sh store.Share) (csil.Share
 	out := csil.Share{
 		ShareId:    csil.ShareID(sh.ID),
 		CalendarId: csil.CalendarID(sh.CalendarID),
-		Grantee:    csil.IdentityRef{Domain: sh.GranteeDomain, UserId: ptr(sh.GranteeSubject)},
 		Role:       csil.ShareRole(sh.Role),
 		CreatedAt:  ts(sh.CreatedAt),
 	}
-	u, err := s.Store.GetUserByIdentity(ctx, sh.GranteeDomain, sh.GranteeSubject)
+	if sh.GranteeGroupID != "" {
+		gid := csil.GroupID(sh.GranteeGroupID)
+		out.GranteeGroupId = &gid
+		g, err := s.Store.GetGroup(ctx, sh.GranteeGroupID)
+		if err == nil {
+			out.GranteeGroupName = ptr(g.Name)
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return csil.Share{}, internal(err, "load grantee group")
+		}
+		return out, nil
+	}
+	g := sh.Grantee()
+	u, err := s.Store.GetPrincipal(ctx, g.Domain, g.Subject, g.Application)
+	var found *store.User
 	if err == nil {
 		p := person(u)
 		out.GranteePerson = &p
-		if u.Handle != "" {
-			out.Grantee.Handle = ptr(u.Handle)
-		}
+		found = &u
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return csil.Share{}, internal(err, "load grantee")
 	}
+	ref := identityRef(g, found)
+	out.Grantee = &ref
 	return out, nil
 }
 
@@ -89,22 +101,39 @@ func (s *ShareService) PutShare(ctx context.Context, req csil.Share) (csil.Share
 		return csil.Share{}, err
 	}
 	if access.FromShareRole(string(req.Role)) == access.None {
-		return csil.Share{}, badReq("role must be free_busy, read, write, or manage")
+		return csil.Share{}, badReq("role must be free_busy, read, contribute, write, or manage")
 	}
-	domain, subject, _, err := s.resolveRef(ctx, req.Grantee)
-	if err != nil {
-		return csil.Share{}, err
+	row := store.Share{CalendarID: c.ID, Role: string(req.Role), CreatedBy: id.EffectiveUserID()}
+	switch {
+	case req.Grantee != nil && req.GranteeGroupId != nil:
+		return csil.Share{}, badReq("give grantee or grantee_group_id, not both")
+	case req.GranteeGroupId != nil:
+		g, err := s.Store.GetGroup(ctx, string(*req.GranteeGroupId))
+		// A group of another owner is 404: group ids do not leak.
+		if errors.Is(err, store.ErrNotFound) || (err == nil && g.OwnerID != c.OwnerID) {
+			return csil.Share{}, errNotFound("group")
+		}
+		if err != nil {
+			return csil.Share{}, internal(err, "load group")
+		}
+		row.GranteeGroupID = g.ID
+	case req.Grantee != nil:
+		who, _, err := s.resolveRef(ctx, *req.Grantee)
+		if err != nil {
+			return csil.Share{}, err
+		}
+		owner, err := s.Store.GetUser(ctx, c.OwnerID)
+		if err != nil {
+			return csil.Share{}, internal(err, "load owner")
+		}
+		if strings.EqualFold(owner.Domain, who.Domain) && owner.Subject == who.Subject && owner.ApplicationID == who.Application {
+			return csil.Share{}, badReq("the owner already has every right on this calendar")
+		}
+		row.GranteeDomain, row.GranteeSubject, row.GranteeApplication = who.Domain, who.Subject, who.Application
+	default:
+		return csil.Share{}, badReq("grantee or grantee_group_id is required")
 	}
-	owner, err := s.Store.GetUser(ctx, c.OwnerID)
-	if err != nil {
-		return csil.Share{}, internal(err, "load owner")
-	}
-	if strings.EqualFold(owner.Domain, domain) && owner.Subject == subject {
-		return csil.Share{}, badReq("the owner already has every right on this calendar")
-	}
-	sh, err := s.Store.PutShare(ctx, store.Share{
-		CalendarID: c.ID, GranteeDomain: domain, GranteeSubject: subject, Role: string(req.Role), CreatedBy: id.EffectiveUserID(),
-	})
+	sh, err := s.Store.PutShare(ctx, row)
 	if err != nil {
 		return csil.Share{}, internal(err, "put share")
 	}
@@ -113,7 +142,8 @@ func (s *ShareService) PutShare(ctx context.Context, req csil.Share) (csil.Share
 }
 
 // DeleteShare removes a share. A manager of the calendar can, and so can
-// the grantee (leaving a calendar).
+// the grantee of a direct share (leaving a calendar). A group share can
+// only be removed by a manager.
 func (s *ShareService) DeleteShare(ctx context.Context, req csil.ShareID) (csil.EmptyResponse, error) {
 	id, err := requireIdentity(ctx)
 	if err != nil {
@@ -131,7 +161,8 @@ func (s *ShareService) DeleteShare(ctx context.Context, req csil.ShareID) (csil.
 	if err != nil {
 		return csil.EmptyResponse{}, err
 	}
-	self := !id.IsDelegated() && strings.EqualFold(sh.GranteeDomain, r.effDomain) && sh.GranteeSubject == r.effSubject
+	self := !id.IsDelegated() && sh.GranteeGroupID == "" && strings.EqualFold(sh.GranteeDomain, r.effDomain) &&
+		sh.GranteeSubject == r.effSubject && sh.GranteeApplication == r.effApp
 	if !self {
 		if _, err := s.managed(ctx, sh.CalendarID); err != nil {
 			return csil.EmptyResponse{}, err

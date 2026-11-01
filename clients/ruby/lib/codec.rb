@@ -175,6 +175,7 @@ class IdentityRef
     csil_map["domain"] = domain
     csil_map["handle"] = handle unless handle.nil?
     csil_map["user_id"] = user_id unless user_id.nil?
+    csil_map["application_id"] = application_id unless application_id.nil?
     csil_map
   end
 
@@ -186,7 +187,8 @@ class IdentityRef
     new(
       domain: node["domain"],
       user_id: (node.key?("user_id") ? node["user_id"] : nil),
-      handle: (node.key?("handle") ? node["handle"] : nil)
+      handle: (node.key?("handle") ? node["handle"] : nil),
+      application_id: (node.key?("application_id") ? node["application_id"] : nil)
     )
   end
 end
@@ -209,6 +211,7 @@ class User
     csil_map["created_at"] = created_at
     csil_map["updated_at"] = updated_at
     csil_map["display_name"] = display_name unless display_name.nil?
+    csil_map["application_id"] = application_id unless application_id.nil?
     csil_map
   end
 
@@ -221,6 +224,7 @@ class User
       user_id: node["user_id"],
       domain: node["domain"],
       subject: node["subject"],
+      application_id: (node.key?("application_id") ? node["application_id"] : nil),
       handle: (node.key?("handle") ? node["handle"] : nil),
       display_name: (node.key?("display_name") ? node["display_name"] : nil),
       email: (node.key?("email") ? node["email"] : nil),
@@ -245,6 +249,7 @@ class PersonSummary
     csil_map["subject"] = subject
     csil_map["user_id"] = user_id
     csil_map["display_name"] = display_name unless display_name.nil?
+    csil_map["application_id"] = application_id unless application_id.nil?
     csil_map
   end
 
@@ -257,6 +262,7 @@ class PersonSummary
       user_id: node["user_id"],
       domain: node["domain"],
       subject: node["subject"],
+      application_id: (node.key?("application_id") ? node["application_id"] : nil),
       handle: (node.key?("handle") ? node["handle"] : nil),
       display_name: (node.key?("display_name") ? node["display_name"] : nil)
     )
@@ -317,6 +323,7 @@ end),
 when "none" then "none"
 when "free_busy" then "free_busy"
 when "read" then "read"
+when "contribute" then "contribute"
 when "write" then "write"
 when "manage" then "manage"
 when "owner" then "owner"
@@ -488,11 +495,13 @@ class Share
   def csil_to_tree
     csil_map = {}
     csil_map["role"] = (role)
-    csil_map["grantee"] = (grantee).csil_to_tree
+    csil_map["grantee"] = (grantee).csil_to_tree unless grantee.nil?
     csil_map["share_id"] = share_id
     csil_map["created_at"] = created_at
     csil_map["calendar_id"] = calendar_id
     csil_map["grantee_person"] = (grantee_person).csil_to_tree unless grantee_person.nil?
+    csil_map["grantee_group_id"] = grantee_group_id unless grantee_group_id.nil?
+    csil_map["grantee_group_name"] = grantee_group_name unless grantee_group_name.nil?
     csil_map
   end
 
@@ -504,16 +513,19 @@ class Share
     new(
       share_id: node["share_id"],
       calendar_id: node["calendar_id"],
-      grantee: IdentityRef.csil_from_tree(node["grantee"]),
+      grantee: (node.key?("grantee") ? IdentityRef.csil_from_tree(node["grantee"]) : nil),
+      grantee_group_id: (node.key?("grantee_group_id") ? node["grantee_group_id"] : nil),
       role: (case (node["role"])
 when "free_busy" then "free_busy"
 when "read" then "read"
+when "contribute" then "contribute"
 when "write" then "write"
 when "manage" then "manage"
 else
   raise ArgumentError, "csilgen: unknown inline literal #{(node["role"]).inspect}"
 end),
       grantee_person: (node.key?("grantee_person") ? PersonSummary.csil_from_tree(node["grantee_person"]) : nil),
+      grantee_group_name: (node.key?("grantee_group_name") ? node["grantee_group_name"] : nil),
       created_at: node["created_at"]
     )
   end
@@ -539,6 +551,182 @@ class ShareList
   def self.csil_from_tree(node)
     new(
       shares: (node["shares"]).map { |csil_e| Share.csil_from_tree(csil_e) }
+    )
+  end
+end
+
+# CBOR codec for GroupMember: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class GroupMember
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["person"] = (person).csil_to_tree unless person.nil?
+    csil_map["group_id"] = group_id unless group_id.nil?
+    csil_map["identity"] = (identity).csil_to_tree unless identity.nil?
+    csil_map["group_name"] = group_name unless group_name.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      identity: (node.key?("identity") ? IdentityRef.csil_from_tree(node["identity"]) : nil),
+      group_id: (node.key?("group_id") ? node["group_id"] : nil),
+      person: (node.key?("person") ? PersonSummary.csil_from_tree(node["person"]) : nil),
+      group_name: (node.key?("group_name") ? node["group_name"] : nil)
+    )
+  end
+end
+
+# CBOR codec for Group: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class Group
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["name"] = name
+    csil_map["owner"] = (owner).csil_to_tree
+    csil_map["members"] = (members_).map { |csil_e| (csil_e).csil_to_tree }
+    csil_map["group_id"] = group_id
+    csil_map["revision"] = revision
+    csil_map["created_at"] = created_at
+    csil_map["updated_at"] = updated_at
+    csil_map["description"] = description unless description.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      group_id: node["group_id"],
+      owner: PersonSummary.csil_from_tree(node["owner"]),
+      name: node["name"],
+      description: (node.key?("description") ? node["description"] : nil),
+      revision: node["revision"],
+      members_: (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) },
+      created_at: node["created_at"],
+      updated_at: node["updated_at"]
+    )
+  end
+end
+
+# CBOR codec for CreateGroupRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class CreateGroupRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["name"] = name
+    csil_map["members"] = (members_).map { |csil_e| (csil_e).csil_to_tree } unless members_.nil?
+    csil_map["description"] = description unless description.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      name: node["name"],
+      description: (node.key?("description") ? node["description"] : nil),
+      members_: (node.key?("members") ? (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) } : nil)
+    )
+  end
+end
+
+# CBOR codec for UpdateGroupRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class UpdateGroupRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["name"] = name unless name.nil?
+    csil_map["group_id"] = group_id
+    csil_map["description"] = description unless description.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      group_id: node["group_id"],
+      name: (node.key?("name") ? node["name"] : nil),
+      description: (node.key?("description") ? node["description"] : nil)
+    )
+  end
+end
+
+# CBOR codec for SetGroupMembersRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SetGroupMembersRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["members"] = (members_).map { |csil_e| (csil_e).csil_to_tree }
+    csil_map["group_id"] = group_id
+    csil_map["expected_revision"] = expected_revision unless expected_revision.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      group_id: node["group_id"],
+      expected_revision: (node.key?("expected_revision") ? node["expected_revision"] : nil),
+      members_: (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) }
+    )
+  end
+end
+
+# CBOR codec for GroupList: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class GroupList
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["groups"] = (groups).map { |csil_e| (csil_e).csil_to_tree }
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      groups: (node["groups"]).map { |csil_e| Group.csil_from_tree(csil_e) }
     )
   end
 end
@@ -894,6 +1082,7 @@ class Occurrence
 when "none" then "none"
 when "free_busy" then "free_busy"
 when "read" then "read"
+when "contribute" then "contribute"
 when "write" then "write"
 when "manage" then "manage"
 when "owner" then "owner"
@@ -1676,6 +1865,144 @@ class ScopeSetResponse
   def self.csil_from_tree(node)
     new(
       signed_scope_set: node["signed_scope_set"]
+    )
+  end
+end
+
+# CBOR codec for ApplicationRef: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ApplicationRef
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["application_id"] = application_id
+    csil_map["subject_domain"] = subject_domain
+    csil_map["subject_user_id"] = subject_user_id
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      subject_user_id: node["subject_user_id"],
+      subject_domain: node["subject_domain"],
+      application_id: node["application_id"]
+    )
+  end
+end
+
+# CBOR codec for ApplicationPresentation: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ApplicationPresentation
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["nonce"] = (nonce).b
+    csil_map["signer"] = (signer).csil_to_tree
+    csil_map["audience"] = (audience).csil_to_tree
+    csil_map["presented_at"] = presented_at
+    csil_map["request_digest"] = (request_digest).b
+    csil_map["signer_instance_id"] = signer_instance_id
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      signer: ApplicationRef.csil_from_tree(node["signer"]),
+      signer_instance_id: node["signer_instance_id"],
+      audience: ApplicationRef.csil_from_tree(node["audience"]),
+      request_digest: node["request_digest"],
+      presented_at: node["presented_at"],
+      nonce: node["nonce"]
+    )
+  end
+end
+
+# CBOR codec for SignedApplicationPresentation: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SignedApplicationPresentation
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["signature"] = (signature).b
+    csil_map["presentation"] = (presentation).b
+    csil_map["signed_by_key_id"] = signed_by_key_id
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      presentation: node["presentation"],
+      signed_by_key_id: node["signed_by_key_id"],
+      signature: node["signature"]
+    )
+  end
+end
+
+# CBOR codec for ExchangeApplicationPresentationRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ExchangeApplicationPresentationRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["presentation"] = (presentation).csil_to_tree
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      presentation: SignedApplicationPresentation.csil_from_tree(node["presentation"])
+    )
+  end
+end
+
+# CBOR codec for ApplicationIdentityResponse: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ApplicationIdentityResponse
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["audience"] = (audience).csil_to_tree
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      audience: ApplicationRef.csil_from_tree(node["audience"])
     )
   end
 end

@@ -4,7 +4,10 @@
 #      decides the bump, and pushes the new tag (vX.Y.Z). The tag starts the
 #      catalystcal-release workflow, which builds and pushes the images.
 #   2. Write the version to version/VERSION.txt and helm_chart/Chart.yaml,
-#      commit, and push to main.
+#      regenerate the client packages (each manifest carries the version),
+#      commit, and push to main. Tag the bump commit clients/go/vX.Y.Z, so
+#      `go get github.com/catalystcommunity/catalystcal/clients/go@vX.Y.Z`
+#      resolves.
 #   3. Package the Helm chart and attach it to a GitHub release.
 #
 # SKIP_GITHUB=true (automatic under `reactorcide run-local`) skips every push
@@ -62,8 +65,17 @@ echo "$version" > version/VERSION.txt
 sed -i "s/^version: .*/version: ${version}/" helm_chart/Chart.yaml
 sed -i "s/^appVersion: .*/appVersion: \"${version}\"/" helm_chart/Chart.yaml
 
+log "Stamp the client packages with ${version}"
+setup_go
+scratch="$(mktemp -d /tmp/csilgen.XXXXXX)"
+real_home="$HOME"
+install_csilgen "$scratch"
+bash csil/regenerate.sh
+export HOME="$real_home"
+rm -rf "$scratch"
+
 if [ "$SKIP_GITHUB" != "true" ]; then
-    git add version/VERSION.txt helm_chart/Chart.yaml
+    git add version/VERSION.txt helm_chart/Chart.yaml api/internal/csil clients
     if git diff --cached --quiet; then
         echo "No version changes to commit"
     else
@@ -71,6 +83,10 @@ if [ "$SKIP_GITHUB" != "true" ]; then
         # Explicit refspec: `checkout -B` sets no upstream.
         git push origin HEAD:main
     fi
+    go_tag="clients/go/v${version}"
+    git tag "$go_tag"
+    git push origin "refs/tags/${go_tag}"
+    log "Tagged ${go_tag}"
 fi
 
 install_helm

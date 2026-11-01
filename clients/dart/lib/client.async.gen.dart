@@ -94,6 +94,28 @@ final class AuthAsyncClient {
     );
     return ScopeSetResponse.fromCborValue(CsilCbor.decode(csilResp));
   }
+
+  Future<ApplicationIdentityResponse> getApplicationIdentity(
+    EmptyRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'AuthService',
+      'get-application-identity',
+      request.toCbor(),
+    );
+    return ApplicationIdentityResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<LoginResponse> exchangeApplicationPresentation(
+    ExchangeApplicationPresentationRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'AuthService',
+      'exchange-application-presentation',
+      request.toCbor(),
+    );
+    return LoginResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
 }
 
 /// A typed, transport-agnostic client for the DevAuthService service. The client owns
@@ -262,6 +284,67 @@ final class ShareAsyncClient {
     final csilResp = await transport.call(
       'ShareService',
       'delete-share',
+      CsilCbor.encodeValue(request),
+    );
+    return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
+}
+
+/// A typed, transport-agnostic client for the GroupService service. The client owns
+/// (de)serialization; the carrier only moves bytes.
+final class GroupAsyncClient {
+  final AsyncCsilTransport transport;
+  const GroupAsyncClient(this.transport);
+
+  Future<GroupList> listGroups(EmptyRequest request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'list-groups',
+      request.toCbor(),
+    );
+    return GroupList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Group> getGroup(GroupId request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'get-group',
+      CsilCbor.encodeValue(request),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Group> createGroup(CreateGroupRequest request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'create-group',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Group> updateGroup(UpdateGroupRequest request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'update-group',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Group> setMembers(SetGroupMembersRequest request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'set-members',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<EmptyResponse> deleteGroup(GroupId request) async {
+    final csilResp = await transport.call(
+      'GroupService',
+      'delete-group',
       CsilCbor.encodeValue(request),
     );
     return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));

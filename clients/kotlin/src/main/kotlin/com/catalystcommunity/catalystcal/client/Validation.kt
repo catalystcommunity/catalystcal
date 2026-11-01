@@ -31,6 +31,28 @@ fun SubscribeCalendarRequest.validate() {
     require(name.length <= 256) { "field 'name' must have at most 256 characters" }
 }
 
+/** Validate a Group; throws IllegalArgumentException on a constraint breach. */
+fun Group.validate() {
+    require(name.length >= 1) { "field 'name' must have at least 1 characters" }
+    require(name.length <= 256) { "field 'name' must have at most 256 characters" }
+}
+
+/** Validate a CreateGroupRequest; throws IllegalArgumentException on a constraint breach. */
+fun CreateGroupRequest.validate() {
+    require(name.length >= 1) { "field 'name' must have at least 1 characters" }
+    require(name.length <= 256) { "field 'name' must have at most 256 characters" }
+}
+
+/** Validate a UpdateGroupRequest; throws IllegalArgumentException on a constraint breach. */
+fun UpdateGroupRequest.validate() {
+    name?.let { v ->
+        require(v.length >= 1) { "field 'name' must have at least 1 characters" }
+    }
+    name?.let { v ->
+        require(v.length <= 256) { "field 'name' must have at most 256 characters" }
+    }
+}
+
 /** Validate a Event; throws IllegalArgumentException on a constraint breach. */
 fun Event.validate() {
     require(title.length >= 1) { "field 'title' must have at least 1 characters" }

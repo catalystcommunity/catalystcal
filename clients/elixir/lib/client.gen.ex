@@ -140,6 +140,37 @@ defmodule Csilgen.Generated.AuthClient do
 
     Csilgen.Generated.ScopeSetResponse.from_cbor(resp)
   end
+
+  @spec get_application_identity(t(), Csilgen.Generated.EmptyRequest.t()) ::
+          Csilgen.Generated.ApplicationIdentityResponse.t()
+  def get_application_identity(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "AuthService",
+        "get-application-identity",
+        Csilgen.Generated.EmptyRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.ApplicationIdentityResponse.from_cbor(resp)
+  end
+
+  @spec exchange_application_presentation(
+          t(),
+          Csilgen.Generated.ExchangeApplicationPresentationRequest.t()
+        ) ::
+          Csilgen.Generated.LoginResponse.t()
+  def exchange_application_presentation(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "AuthService",
+        "exchange-application-presentation",
+        Csilgen.Generated.ExchangeApplicationPresentationRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.LoginResponse.from_cbor(resp)
+  end
 end
 
 defmodule Csilgen.Generated.DevAuthClient do
@@ -420,6 +451,104 @@ defmodule Csilgen.Generated.ShareClient do
   end
 
   defp encode_delete_share_request(req) do
+    Csilgen.Generated.Cbor.encode({:text, req})
+  end
+end
+
+defmodule Csilgen.Generated.GroupClient do
+  @moduledoc "Typed client for the GroupService service. The client owns (de)serialization via the codec; the transport only moves bytes."
+
+  @enforce_keys [:transport]
+  defstruct [:transport]
+  @type t :: %__MODULE__{transport: Csilgen.Generated.Transport.t()}
+
+  @spec new(Csilgen.Generated.Transport.t()) :: t()
+  def new(transport), do: %__MODULE__{transport: transport}
+
+  @spec list_groups(t(), Csilgen.Generated.EmptyRequest.t()) :: Csilgen.Generated.GroupList.t()
+  def list_groups(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "list-groups",
+        Csilgen.Generated.EmptyRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.GroupList.from_cbor(resp)
+  end
+
+  @spec get_group(t(), Csilgen.Generated.GroupID.t()) :: Csilgen.Generated.Group.t()
+  def get_group(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "get-group",
+        encode_get_group_request(req)
+      )
+
+    Csilgen.Generated.Group.from_cbor(resp)
+  end
+
+  @spec create_group(t(), Csilgen.Generated.CreateGroupRequest.t()) :: Csilgen.Generated.Group.t()
+  def create_group(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "create-group",
+        Csilgen.Generated.CreateGroupRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Group.from_cbor(resp)
+  end
+
+  @spec update_group(t(), Csilgen.Generated.UpdateGroupRequest.t()) :: Csilgen.Generated.Group.t()
+  def update_group(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "update-group",
+        Csilgen.Generated.UpdateGroupRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Group.from_cbor(resp)
+  end
+
+  @spec set_members(t(), Csilgen.Generated.SetGroupMembersRequest.t()) ::
+          Csilgen.Generated.Group.t()
+  def set_members(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "set-members",
+        Csilgen.Generated.SetGroupMembersRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Group.from_cbor(resp)
+  end
+
+  @spec delete_group(t(), Csilgen.Generated.GroupID.t()) :: Csilgen.Generated.EmptyResponse.t()
+  def delete_group(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "GroupService",
+        "delete-group",
+        encode_delete_group_request(req)
+      )
+
+    Csilgen.Generated.EmptyResponse.from_cbor(resp)
+  end
+
+  defp encode_get_group_request(req) do
+    Csilgen.Generated.Cbor.encode({:text, req})
+  end
+
+  defp encode_delete_group_request(req) do
     Csilgen.Generated.Cbor.encode({:text, req})
   end
 end

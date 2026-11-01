@@ -14,6 +14,8 @@
 
 # AuditId is an alias for String.
 
+# GroupId is an alias for String.
+
 # SessionId is an alias for String.
 
 # Timestamp is an alias for String.
@@ -49,8 +51,9 @@
 # domain [String]
 # user_id [String]
 # handle [String]
-IdentityRef = Data.define(:domain, :user_id, :handle) do
-  def initialize(domain:, user_id: nil, handle: nil)
+# application_id [String]
+IdentityRef = Data.define(:domain, :user_id, :handle, :application_id) do
+  def initialize(domain:, user_id: nil, handle: nil, application_id: nil)
     super
   end
 end
@@ -58,14 +61,15 @@ end
 # user_id [UserId]
 # domain [String]
 # subject [String]
+# application_id [String]
 # handle [String]
 # display_name [String]
 # email [String]
 # timezone [String]
 # created_at [Timestamp]
 # updated_at [Timestamp]
-User = Data.define(:user_id, :domain, :subject, :handle, :display_name, :email, :timezone, :created_at, :updated_at) do
-  def initialize(user_id:, domain:, subject:, created_at:, updated_at:, handle: nil, display_name: nil, email: nil, timezone: nil)
+User = Data.define(:user_id, :domain, :subject, :application_id, :handle, :display_name, :email, :timezone, :created_at, :updated_at) do
+  def initialize(user_id:, domain:, subject:, created_at:, updated_at:, application_id: nil, handle: nil, display_name: nil, email: nil, timezone: nil)
     super
   end
 end
@@ -73,10 +77,11 @@ end
 # user_id [UserId]
 # domain [String]
 # subject [String]
+# application_id [String]
 # handle [String]
 # display_name [String]
-PersonSummary = Data.define(:user_id, :domain, :subject, :handle, :display_name) do
-  def initialize(user_id:, domain:, subject:, handle: nil, display_name: nil)
+PersonSummary = Data.define(:user_id, :domain, :subject, :application_id, :handle, :display_name) do
+  def initialize(user_id:, domain:, subject:, application_id: nil, handle: nil, display_name: nil)
     super
   end
 end
@@ -171,17 +176,94 @@ CalendarList = Data.define(:calendars)
 # share_id [ShareId]
 # calendar_id [CalendarId]
 # grantee [IdentityRef]
+# grantee_group_id [GroupId]
 # role [ShareRole]
 # grantee_person [PersonSummary]
+# grantee_group_name [String]
 # created_at [Timestamp]
-Share = Data.define(:share_id, :calendar_id, :grantee, :role, :grantee_person, :created_at) do
-  def initialize(share_id:, calendar_id:, grantee:, role:, created_at:, grantee_person: nil)
+Share = Data.define(:share_id, :calendar_id, :grantee, :grantee_group_id, :role, :grantee_person, :grantee_group_name, :created_at) do
+  def initialize(share_id:, calendar_id:, role:, created_at:, grantee: nil, grantee_group_id: nil, grantee_person: nil, grantee_group_name: nil)
     super
   end
 end
 
 # shares [Array<Share>]
 ShareList = Data.define(:shares)
+
+# identity [IdentityRef]
+# group_id [GroupId]
+# person [PersonSummary]
+# group_name [String]
+GroupMember = Data.define(:identity, :group_id, :person, :group_name) do
+  def initialize(identity: nil, group_id: nil, person: nil, group_name: nil)
+    super
+  end
+end
+
+# group_id [GroupId]
+# owner [PersonSummary]
+# name [String]
+# description [String]
+# revision [Integer]
+# members [Array<GroupMember>] (Ruby member: members_)
+# created_at [Timestamp]
+# updated_at [Timestamp]
+Group = Data.define(:group_id, :owner, :name, :description, :revision, :members_, :created_at, :updated_at) do
+  def initialize(group_id:, owner:, name:, revision:, members_:, created_at:, updated_at:, description: nil)
+    super
+  end
+
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'name' must have at least 1 elements" if name.length < 1
+    raise ArgumentError, "field 'name' must have at most 256 elements" if name.length > 256
+    nil
+  end
+end
+
+# name [String]
+# description [String]
+# members [Array<GroupMember>] (Ruby member: members_)
+CreateGroupRequest = Data.define(:name, :description, :members_) do
+  def initialize(name:, description: nil, members_: nil)
+    super
+  end
+
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'name' must have at least 1 elements" if name.length < 1
+    raise ArgumentError, "field 'name' must have at most 256 elements" if name.length > 256
+    nil
+  end
+end
+
+# group_id [GroupId]
+# name [String]
+# description [String]
+UpdateGroupRequest = Data.define(:group_id, :name, :description) do
+  def initialize(group_id:, name: nil, description: nil)
+    super
+  end
+
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'name' must have at least 1 elements" if !name.nil? && name.length < 1
+    raise ArgumentError, "field 'name' must have at most 256 elements" if !name.nil? && name.length > 256
+    nil
+  end
+end
+
+# group_id [GroupId]
+# expected_revision [Integer]
+# members [Array<GroupMember>] (Ruby member: members_)
+SetGroupMembersRequest = Data.define(:group_id, :expected_revision, :members_) do
+  def initialize(group_id:, members_:, expected_revision: nil)
+    super
+  end
+end
+
+# groups [Array<Group>]
+GroupList = Data.define(:groups)
 
 # delegation_id [DelegationId]
 # principal [PersonSummary]
@@ -485,6 +567,30 @@ end
 
 # signed_scope_set [String]
 ScopeSetResponse = Data.define(:signed_scope_set)
+
+# subject_user_id [String]
+# subject_domain [String]
+# application_id [String]
+ApplicationRef = Data.define(:subject_user_id, :subject_domain, :application_id)
+
+# signer [ApplicationRef]
+# signer_instance_id [String]
+# audience [ApplicationRef]
+# request_digest [String]
+# presented_at [Timestamp]
+# nonce [String]
+ApplicationPresentation = Data.define(:signer, :signer_instance_id, :audience, :request_digest, :presented_at, :nonce)
+
+# presentation [String]
+# signed_by_key_id [String]
+# signature [String]
+SignedApplicationPresentation = Data.define(:presentation, :signed_by_key_id, :signature)
+
+# presentation [SignedApplicationPresentation]
+ExchangeApplicationPresentationRequest = Data.define(:presentation)
+
+# audience [ApplicationRef]
+ApplicationIdentityResponse = Data.define(:audience)
 
 # user_id [UserId]
 # handle [String]

@@ -420,13 +420,16 @@ fn cbor_as_map(v: &CsilCborValue) -> Result<&[(CsilCborValue, CsilCborValue)], C
 
 /// Build the canonical CBOR value tree for a IdentityRef.
 fn csil_enc_identity_ref(csil_v: &IdentityRef) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((cbor_text("domain"), cbor_text(&csil_v.domain)));
     if let Some(csil_inner) = &csil_v.handle {
         csil_entries.push((cbor_text("handle"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.user_id {
         csil_entries.push((cbor_text("user_id"), cbor_text(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.application_id {
+        csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
     CsilCborValue::Map(csil_entries)
 }
@@ -452,10 +455,18 @@ fn csil_dec_identity_ref(csil_root: &CsilCborValue) -> Result<IdentityRef, CsilC
         }
         None => None,
     };
+    let application_id = match cbor_map_get(csil_root, "application_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
     Ok(IdentityRef {
         domain,
         user_id,
         handle,
+        application_id,
     })
 }
 
@@ -472,7 +483,7 @@ pub fn decode_identity_ref(csil_data: &[u8]) -> Result<IdentityRef, CsilCborErro
 
 /// Build the canonical CBOR value tree for a User.
 fn csil_enc_user(csil_v: &User) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(9);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(10);
     if let Some(csil_inner) = &csil_v.email {
         csil_entries.push((cbor_text("email"), cbor_text(csil_inner)));
     }
@@ -489,6 +500,9 @@ fn csil_enc_user(csil_v: &User) -> CsilCborValue {
     csil_entries.push((cbor_text("updated_at"), cbor_text(&csil_v.updated_at)));
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.application_id {
+        csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
     CsilCborValue::Map(csil_entries)
 }
@@ -509,6 +523,13 @@ fn csil_dec_user(csil_root: &CsilCborValue) -> Result<User, CsilCborError> {
         let csil_field = cbor_require(csil_root, "subject")?;
         let csil_decode = cbor_as_text;
         csil_decode(csil_field)?
+    };
+    let application_id = match cbor_map_get(csil_root, "application_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
     };
     let handle = match cbor_map_get(csil_root, "handle") {
         Some(csil_field) => {
@@ -552,6 +573,7 @@ fn csil_dec_user(csil_root: &CsilCborValue) -> Result<User, CsilCborError> {
         user_id,
         domain,
         subject,
+        application_id,
         handle,
         display_name,
         email,
@@ -574,7 +596,7 @@ pub fn decode_user(csil_data: &[u8]) -> Result<User, CsilCborError> {
 
 /// Build the canonical CBOR value tree for a PersonSummary.
 fn csil_enc_person_summary(csil_v: &PersonSummary) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(5);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
     csil_entries.push((cbor_text("domain"), cbor_text(&csil_v.domain)));
     if let Some(csil_inner) = &csil_v.handle {
         csil_entries.push((cbor_text("handle"), cbor_text(csil_inner)));
@@ -583,6 +605,9 @@ fn csil_enc_person_summary(csil_v: &PersonSummary) -> CsilCborValue {
     csil_entries.push((cbor_text("user_id"), cbor_text(&csil_v.user_id)));
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.application_id {
+        csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
     CsilCborValue::Map(csil_entries)
 }
@@ -604,6 +629,13 @@ fn csil_dec_person_summary(csil_root: &CsilCborValue) -> Result<PersonSummary, C
         let csil_decode = cbor_as_text;
         csil_decode(csil_field)?
     };
+    let application_id = match cbor_map_get(csil_root, "application_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
     let handle = match cbor_map_get(csil_root, "handle") {
         Some(csil_field) => {
             let csil_decode = cbor_as_text;
@@ -622,6 +654,7 @@ fn csil_dec_person_summary(csil_root: &CsilCborValue) -> Result<PersonSummary, C
         user_id,
         domain,
         subject,
+        application_id,
         handle,
         display_name,
     })
@@ -1071,9 +1104,11 @@ pub fn decode_calendar_list(csil_data: &[u8]) -> Result<CalendarList, CsilCborEr
 
 /// Build the canonical CBOR value tree for a Share.
 fn csil_enc_share(csil_v: &Share) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
     csil_entries.push((cbor_text("role"), csil_enc_share_role(&csil_v.role)));
-    csil_entries.push((cbor_text("grantee"), csil_enc_identity_ref(&csil_v.grantee)));
+    if let Some(csil_inner) = &csil_v.grantee {
+        csil_entries.push((cbor_text("grantee"), csil_enc_identity_ref(csil_inner)));
+    }
     csil_entries.push((cbor_text("share_id"), cbor_text(&csil_v.share_id)));
     csil_entries.push((cbor_text("created_at"), cbor_text(&csil_v.created_at)));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
@@ -1082,6 +1117,12 @@ fn csil_enc_share(csil_v: &Share) -> CsilCborValue {
             cbor_text("grantee_person"),
             csil_enc_person_summary(csil_inner),
         ));
+    }
+    if let Some(csil_inner) = &csil_v.grantee_group_id {
+        csil_entries.push((cbor_text("grantee_group_id"), cbor_text(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.grantee_group_name {
+        csil_entries.push((cbor_text("grantee_group_name"), cbor_text(csil_inner)));
     }
     CsilCborValue::Map(csil_entries)
 }
@@ -1098,10 +1139,19 @@ fn csil_dec_share(csil_root: &CsilCborValue) -> Result<Share, CsilCborError> {
         let csil_decode = cbor_as_text;
         csil_decode(csil_field)?
     };
-    let grantee = {
-        let csil_field = cbor_require(csil_root, "grantee")?;
-        let csil_decode = csil_dec_identity_ref;
-        csil_decode(csil_field)?
+    let grantee = match cbor_map_get(csil_root, "grantee") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_identity_ref;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let grantee_group_id = match cbor_map_get(csil_root, "grantee_group_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
     };
     let role = {
         let csil_field = cbor_require(csil_root, "role")?;
@@ -1115,6 +1165,13 @@ fn csil_dec_share(csil_root: &CsilCborValue) -> Result<Share, CsilCborError> {
         }
         None => None,
     };
+    let grantee_group_name = match cbor_map_get(csil_root, "grantee_group_name") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
     let created_at = {
         let csil_field = cbor_require(csil_root, "created_at")?;
         let csil_decode = cbor_as_text;
@@ -1124,8 +1181,10 @@ fn csil_dec_share(csil_root: &CsilCborValue) -> Result<Share, CsilCborError> {
         share_id,
         calendar_id,
         grantee,
+        grantee_group_id,
         role,
         grantee_person,
+        grantee_group_name,
         created_at,
     })
 }
@@ -1170,6 +1229,356 @@ pub fn encode_share_list(csil_v: &ShareList) -> Vec<u8> {
 pub fn decode_share_list(csil_data: &[u8]) -> Result<ShareList, CsilCborError> {
     let csil_root = cbor_decode(csil_data)?;
     csil_dec_share_list(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a GroupMember.
+fn csil_enc_group_member(csil_v: &GroupMember) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
+    if let Some(csil_inner) = &csil_v.person {
+        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.group_id {
+        csil_entries.push((cbor_text("group_id"), cbor_text(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.identity {
+        csil_entries.push((cbor_text("identity"), csil_enc_identity_ref(csil_inner)));
+    }
+    if let Some(csil_inner) = &csil_v.group_name {
+        csil_entries.push((cbor_text("group_name"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a GroupMember from a decoded CBOR value tree.
+fn csil_dec_group_member(csil_root: &CsilCborValue) -> Result<GroupMember, CsilCborError> {
+    let identity = match cbor_map_get(csil_root, "identity") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_identity_ref;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let group_id = match cbor_map_get(csil_root, "group_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let person = match cbor_map_get(csil_root, "person") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_person_summary;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let group_name = match cbor_map_get(csil_root, "group_name") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(GroupMember {
+        identity,
+        group_id,
+        person,
+        group_name,
+    })
+}
+
+/// Encode a GroupMember to canonical CSIL CBOR bytes.
+pub fn encode_group_member(csil_v: &GroupMember) -> Vec<u8> {
+    cbor_encode(&csil_enc_group_member(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a GroupMember.
+pub fn decode_group_member(csil_data: &[u8]) -> Result<GroupMember, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_group_member(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a Group.
+fn csil_enc_group(csil_v: &Group) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
+    csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
+    csil_entries.push((cbor_text("owner"), csil_enc_person_summary(&csil_v.owner)));
+    csil_entries.push((
+        cbor_text("members"),
+        cbor_enc_array(&csil_v.members, csil_enc_group_member),
+    ));
+    csil_entries.push((cbor_text("group_id"), cbor_text(&csil_v.group_id)));
+    csil_entries.push((cbor_text("revision"), cbor_uint(csil_v.revision)));
+    csil_entries.push((cbor_text("created_at"), cbor_text(&csil_v.created_at)));
+    csil_entries.push((cbor_text("updated_at"), cbor_text(&csil_v.updated_at)));
+    if let Some(csil_inner) = &csil_v.description {
+        csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a Group from a decoded CBOR value tree.
+fn csil_dec_group(csil_root: &CsilCborValue) -> Result<Group, CsilCborError> {
+    let group_id = {
+        let csil_field = cbor_require(csil_root, "group_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let owner = {
+        let csil_field = cbor_require(csil_root, "owner")?;
+        let csil_decode = csil_dec_person_summary;
+        csil_decode(csil_field)?
+    };
+    let name = {
+        let csil_field = cbor_require(csil_root, "name")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let description = match cbor_map_get(csil_root, "description") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let revision = {
+        let csil_field = cbor_require(csil_root, "revision")?;
+        let csil_decode = cbor_as_u64;
+        csil_decode(csil_field)?
+    };
+    let members = {
+        let csil_field = cbor_require(csil_root, "members")?;
+        let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_group_member);
+        csil_decode(csil_field)?
+    };
+    let created_at = {
+        let csil_field = cbor_require(csil_root, "created_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let updated_at = {
+        let csil_field = cbor_require(csil_root, "updated_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    Ok(Group {
+        group_id,
+        owner,
+        name,
+        description,
+        revision,
+        members,
+        created_at,
+        updated_at,
+    })
+}
+
+/// Encode a Group to canonical CSIL CBOR bytes.
+pub fn encode_group(csil_v: &Group) -> Vec<u8> {
+    cbor_encode(&csil_enc_group(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a Group.
+pub fn decode_group(csil_data: &[u8]) -> Result<Group, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_group(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a CreateGroupRequest.
+fn csil_enc_create_group_request(csil_v: &CreateGroupRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
+    if let Some(csil_inner) = &csil_v.members {
+        csil_entries.push((
+            cbor_text("members"),
+            cbor_enc_array(csil_inner, csil_enc_group_member),
+        ));
+    }
+    if let Some(csil_inner) = &csil_v.description {
+        csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a CreateGroupRequest from a decoded CBOR value tree.
+fn csil_dec_create_group_request(
+    csil_root: &CsilCborValue,
+) -> Result<CreateGroupRequest, CsilCborError> {
+    let name = {
+        let csil_field = cbor_require(csil_root, "name")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let description = match cbor_map_get(csil_root, "description") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let members = match cbor_map_get(csil_root, "members") {
+        Some(csil_field) => {
+            let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_group_member);
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(CreateGroupRequest {
+        name,
+        description,
+        members,
+    })
+}
+
+/// Encode a CreateGroupRequest to canonical CSIL CBOR bytes.
+pub fn encode_create_group_request(csil_v: &CreateGroupRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_create_group_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CreateGroupRequest.
+pub fn decode_create_group_request(csil_data: &[u8]) -> Result<CreateGroupRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_create_group_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a UpdateGroupRequest.
+fn csil_enc_update_group_request(csil_v: &UpdateGroupRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    if let Some(csil_inner) = &csil_v.name {
+        csil_entries.push((cbor_text("name"), cbor_text(csil_inner)));
+    }
+    csil_entries.push((cbor_text("group_id"), cbor_text(&csil_v.group_id)));
+    if let Some(csil_inner) = &csil_v.description {
+        csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a UpdateGroupRequest from a decoded CBOR value tree.
+fn csil_dec_update_group_request(
+    csil_root: &CsilCborValue,
+) -> Result<UpdateGroupRequest, CsilCborError> {
+    let group_id = {
+        let csil_field = cbor_require(csil_root, "group_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let name = match cbor_map_get(csil_root, "name") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let description = match cbor_map_get(csil_root, "description") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(UpdateGroupRequest {
+        group_id,
+        name,
+        description,
+    })
+}
+
+/// Encode a UpdateGroupRequest to canonical CSIL CBOR bytes.
+pub fn encode_update_group_request(csil_v: &UpdateGroupRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_update_group_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a UpdateGroupRequest.
+pub fn decode_update_group_request(csil_data: &[u8]) -> Result<UpdateGroupRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_update_group_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a SetGroupMembersRequest.
+fn csil_enc_set_group_members_request(csil_v: &SetGroupMembersRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((
+        cbor_text("members"),
+        cbor_enc_array(&csil_v.members, csil_enc_group_member),
+    ));
+    csil_entries.push((cbor_text("group_id"), cbor_text(&csil_v.group_id)));
+    if let Some(csil_inner) = &csil_v.expected_revision {
+        csil_entries.push((cbor_text("expected_revision"), cbor_uint(*csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SetGroupMembersRequest from a decoded CBOR value tree.
+fn csil_dec_set_group_members_request(
+    csil_root: &CsilCborValue,
+) -> Result<SetGroupMembersRequest, CsilCborError> {
+    let group_id = {
+        let csil_field = cbor_require(csil_root, "group_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let expected_revision = match cbor_map_get(csil_root, "expected_revision") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_u64;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let members = {
+        let csil_field = cbor_require(csil_root, "members")?;
+        let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_group_member);
+        csil_decode(csil_field)?
+    };
+    Ok(SetGroupMembersRequest {
+        group_id,
+        expected_revision,
+        members,
+    })
+}
+
+/// Encode a SetGroupMembersRequest to canonical CSIL CBOR bytes.
+pub fn encode_set_group_members_request(csil_v: &SetGroupMembersRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_set_group_members_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SetGroupMembersRequest.
+pub fn decode_set_group_members_request(
+    csil_data: &[u8],
+) -> Result<SetGroupMembersRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_set_group_members_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a GroupList.
+fn csil_enc_group_list(csil_v: &GroupList) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    csil_entries.push((
+        cbor_text("groups"),
+        cbor_enc_array(&csil_v.groups, csil_enc_group),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a GroupList from a decoded CBOR value tree.
+fn csil_dec_group_list(csil_root: &CsilCborValue) -> Result<GroupList, CsilCborError> {
+    let groups = {
+        let csil_field = cbor_require(csil_root, "groups")?;
+        let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_group);
+        csil_decode(csil_field)?
+    };
+    Ok(GroupList { groups })
+}
+
+/// Encode a GroupList to canonical CSIL CBOR bytes.
+pub fn encode_group_list(csil_v: &GroupList) -> Vec<u8> {
+    cbor_encode(&csil_enc_group_list(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a GroupList.
+pub fn decode_group_list(csil_data: &[u8]) -> Result<GroupList, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_group_list(&csil_root)
 }
 
 /// Build the canonical CBOR value tree for a Delegation.
@@ -3289,6 +3698,267 @@ pub fn decode_scope_set_response(csil_data: &[u8]) -> Result<ScopeSetResponse, C
     csil_dec_scope_set_response(&csil_root)
 }
 
+/// Build the canonical CBOR value tree for a ApplicationRef.
+fn csil_enc_application_ref(csil_v: &ApplicationRef) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((
+        cbor_text("application_id"),
+        cbor_text(&csil_v.application_id),
+    ));
+    csil_entries.push((
+        cbor_text("subject_domain"),
+        cbor_text(&csil_v.subject_domain),
+    ));
+    csil_entries.push((
+        cbor_text("subject_user_id"),
+        cbor_text(&csil_v.subject_user_id),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ApplicationRef from a decoded CBOR value tree.
+fn csil_dec_application_ref(csil_root: &CsilCborValue) -> Result<ApplicationRef, CsilCborError> {
+    let subject_user_id = {
+        let csil_field = cbor_require(csil_root, "subject_user_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let subject_domain = {
+        let csil_field = cbor_require(csil_root, "subject_domain")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let application_id = {
+        let csil_field = cbor_require(csil_root, "application_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    Ok(ApplicationRef {
+        subject_user_id,
+        subject_domain,
+        application_id,
+    })
+}
+
+/// Encode a ApplicationRef to canonical CSIL CBOR bytes.
+pub fn encode_application_ref(csil_v: &ApplicationRef) -> Vec<u8> {
+    cbor_encode(&csil_enc_application_ref(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ApplicationRef.
+pub fn decode_application_ref(csil_data: &[u8]) -> Result<ApplicationRef, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_application_ref(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a ApplicationPresentation.
+fn csil_enc_application_presentation(csil_v: &ApplicationPresentation) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
+    csil_entries.push((cbor_text("nonce"), cbor_bytes(&csil_v.nonce)));
+    csil_entries.push((
+        cbor_text("signer"),
+        csil_enc_application_ref(&csil_v.signer),
+    ));
+    csil_entries.push((
+        cbor_text("audience"),
+        csil_enc_application_ref(&csil_v.audience),
+    ));
+    csil_entries.push((cbor_text("presented_at"), cbor_text(&csil_v.presented_at)));
+    csil_entries.push((
+        cbor_text("request_digest"),
+        cbor_bytes(&csil_v.request_digest),
+    ));
+    csil_entries.push((
+        cbor_text("signer_instance_id"),
+        cbor_text(&csil_v.signer_instance_id),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ApplicationPresentation from a decoded CBOR value tree.
+fn csil_dec_application_presentation(
+    csil_root: &CsilCborValue,
+) -> Result<ApplicationPresentation, CsilCborError> {
+    let signer = {
+        let csil_field = cbor_require(csil_root, "signer")?;
+        let csil_decode = csil_dec_application_ref;
+        csil_decode(csil_field)?
+    };
+    let signer_instance_id = {
+        let csil_field = cbor_require(csil_root, "signer_instance_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let audience = {
+        let csil_field = cbor_require(csil_root, "audience")?;
+        let csil_decode = csil_dec_application_ref;
+        csil_decode(csil_field)?
+    };
+    let request_digest = {
+        let csil_field = cbor_require(csil_root, "request_digest")?;
+        let csil_decode = cbor_as_bytes;
+        csil_decode(csil_field)?
+    };
+    let presented_at = {
+        let csil_field = cbor_require(csil_root, "presented_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let nonce = {
+        let csil_field = cbor_require(csil_root, "nonce")?;
+        let csil_decode = cbor_as_bytes;
+        csil_decode(csil_field)?
+    };
+    Ok(ApplicationPresentation {
+        signer,
+        signer_instance_id,
+        audience,
+        request_digest,
+        presented_at,
+        nonce,
+    })
+}
+
+/// Encode a ApplicationPresentation to canonical CSIL CBOR bytes.
+pub fn encode_application_presentation(csil_v: &ApplicationPresentation) -> Vec<u8> {
+    cbor_encode(&csil_enc_application_presentation(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ApplicationPresentation.
+pub fn decode_application_presentation(
+    csil_data: &[u8],
+) -> Result<ApplicationPresentation, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_application_presentation(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a SignedApplicationPresentation.
+fn csil_enc_signed_application_presentation(
+    csil_v: &SignedApplicationPresentation,
+) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((cbor_text("signature"), cbor_bytes(&csil_v.signature)));
+    csil_entries.push((cbor_text("presentation"), cbor_bytes(&csil_v.presentation)));
+    csil_entries.push((
+        cbor_text("signed_by_key_id"),
+        cbor_text(&csil_v.signed_by_key_id),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SignedApplicationPresentation from a decoded CBOR value tree.
+fn csil_dec_signed_application_presentation(
+    csil_root: &CsilCborValue,
+) -> Result<SignedApplicationPresentation, CsilCborError> {
+    let presentation = {
+        let csil_field = cbor_require(csil_root, "presentation")?;
+        let csil_decode = cbor_as_bytes;
+        csil_decode(csil_field)?
+    };
+    let signed_by_key_id = {
+        let csil_field = cbor_require(csil_root, "signed_by_key_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let signature = {
+        let csil_field = cbor_require(csil_root, "signature")?;
+        let csil_decode = cbor_as_bytes;
+        csil_decode(csil_field)?
+    };
+    Ok(SignedApplicationPresentation {
+        presentation,
+        signed_by_key_id,
+        signature,
+    })
+}
+
+/// Encode a SignedApplicationPresentation to canonical CSIL CBOR bytes.
+pub fn encode_signed_application_presentation(csil_v: &SignedApplicationPresentation) -> Vec<u8> {
+    cbor_encode(&csil_enc_signed_application_presentation(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SignedApplicationPresentation.
+pub fn decode_signed_application_presentation(
+    csil_data: &[u8],
+) -> Result<SignedApplicationPresentation, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_signed_application_presentation(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a ExchangeApplicationPresentationRequest.
+fn csil_enc_exchange_application_presentation_request(
+    csil_v: &ExchangeApplicationPresentationRequest,
+) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    csil_entries.push((
+        cbor_text("presentation"),
+        csil_enc_signed_application_presentation(&csil_v.presentation),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ExchangeApplicationPresentationRequest from a decoded CBOR value tree.
+fn csil_dec_exchange_application_presentation_request(
+    csil_root: &CsilCborValue,
+) -> Result<ExchangeApplicationPresentationRequest, CsilCborError> {
+    let presentation = {
+        let csil_field = cbor_require(csil_root, "presentation")?;
+        let csil_decode = csil_dec_signed_application_presentation;
+        csil_decode(csil_field)?
+    };
+    Ok(ExchangeApplicationPresentationRequest { presentation })
+}
+
+/// Encode a ExchangeApplicationPresentationRequest to canonical CSIL CBOR bytes.
+pub fn encode_exchange_application_presentation_request(
+    csil_v: &ExchangeApplicationPresentationRequest,
+) -> Vec<u8> {
+    cbor_encode(&csil_enc_exchange_application_presentation_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ExchangeApplicationPresentationRequest.
+pub fn decode_exchange_application_presentation_request(
+    csil_data: &[u8],
+) -> Result<ExchangeApplicationPresentationRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_exchange_application_presentation_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a ApplicationIdentityResponse.
+fn csil_enc_application_identity_response(csil_v: &ApplicationIdentityResponse) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    csil_entries.push((
+        cbor_text("audience"),
+        csil_enc_application_ref(&csil_v.audience),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ApplicationIdentityResponse from a decoded CBOR value tree.
+fn csil_dec_application_identity_response(
+    csil_root: &CsilCborValue,
+) -> Result<ApplicationIdentityResponse, CsilCborError> {
+    let audience = {
+        let csil_field = cbor_require(csil_root, "audience")?;
+        let csil_decode = csil_dec_application_ref;
+        csil_decode(csil_field)?
+    };
+    Ok(ApplicationIdentityResponse { audience })
+}
+
+/// Encode a ApplicationIdentityResponse to canonical CSIL CBOR bytes.
+pub fn encode_application_identity_response(csil_v: &ApplicationIdentityResponse) -> Vec<u8> {
+    cbor_encode(&csil_enc_application_identity_response(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ApplicationIdentityResponse.
+pub fn decode_application_identity_response(
+    csil_data: &[u8],
+) -> Result<ApplicationIdentityResponse, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_application_identity_response(&csil_root)
+}
+
 /// Build the canonical CBOR value tree for a DevUser.
 fn csil_enc_dev_user(csil_v: &DevUser) -> CsilCborValue {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
@@ -3602,6 +4272,7 @@ fn csil_enc_share_role(csil_v: &ShareRole) -> CsilCborValue {
     match csil_v {
         ShareRole::FreeBusy => cbor_text("free_busy"),
         ShareRole::Read => cbor_text("read"),
+        ShareRole::Contribute => cbor_text("contribute"),
         ShareRole::Write => cbor_text("write"),
         ShareRole::Manage => cbor_text("manage"),
     }
@@ -3613,6 +4284,7 @@ fn csil_dec_share_role(csil_v: &CsilCborValue) -> Result<ShareRole, CsilCborErro
     match csil_val.as_str() {
         "free_busy" => Ok(ShareRole::FreeBusy),
         "read" => Ok(ShareRole::Read),
+        "contribute" => Ok(ShareRole::Contribute),
         "write" => Ok(ShareRole::Write),
         "manage" => Ok(ShareRole::Manage),
         csil_other => Err(CsilCborError(format!(
@@ -3627,6 +4299,7 @@ fn csil_enc_access_role(csil_v: &AccessRole) -> CsilCborValue {
         AccessRole::None => cbor_text("none"),
         AccessRole::FreeBusy => cbor_text("free_busy"),
         AccessRole::Read => cbor_text("read"),
+        AccessRole::Contribute => cbor_text("contribute"),
         AccessRole::Write => cbor_text("write"),
         AccessRole::Manage => cbor_text("manage"),
         AccessRole::Owner => cbor_text("owner"),
@@ -3640,6 +4313,7 @@ fn csil_dec_access_role(csil_v: &CsilCborValue) -> Result<AccessRole, CsilCborEr
         "none" => Ok(AccessRole::None),
         "free_busy" => Ok(AccessRole::FreeBusy),
         "read" => Ok(AccessRole::Read),
+        "contribute" => Ok(AccessRole::Contribute),
         "write" => Ok(AccessRole::Write),
         "manage" => Ok(AccessRole::Manage),
         "owner" => Ok(AccessRole::Owner),
@@ -3960,6 +4634,30 @@ pub fn encode_share_delete_share_request(csil_v: &ShareID) -> Vec<u8> {
 
 /// Decode canonical CSIL CBOR bytes into the share_delete_share_request payload.
 pub fn decode_share_delete_share_request(csil_data: &[u8]) -> Result<ShareID, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    let csil_decode = cbor_as_text;
+    csil_decode(&csil_root)
+}
+
+/// Encode the group_get_group_request payload to canonical CSIL CBOR bytes.
+pub fn encode_group_get_group_request(csil_v: &GroupID) -> Vec<u8> {
+    cbor_encode(&cbor_text(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into the group_get_group_request payload.
+pub fn decode_group_get_group_request(csil_data: &[u8]) -> Result<GroupID, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    let csil_decode = cbor_as_text;
+    csil_decode(&csil_root)
+}
+
+/// Encode the group_delete_group_request payload to canonical CSIL CBOR bytes.
+pub fn encode_group_delete_group_request(csil_v: &GroupID) -> Vec<u8> {
+    cbor_encode(&cbor_text(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into the group_delete_group_request payload.
+pub fn decode_group_delete_group_request(csil_data: &[u8]) -> Result<GroupID, CsilCborError> {
     let csil_root = cbor_decode(csil_data)?;
     let csil_decode = cbor_as_text;
     csil_decode(&csil_root)

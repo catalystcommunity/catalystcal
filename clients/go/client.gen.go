@@ -115,6 +115,24 @@ func (c *AuthClient) GetActAsScopeSet(ctx context.Context, req ScopeSetRequest) 
 	return DecodeScopeSetResponse(csilResp)
 }
 
+func (c *AuthClient) GetApplicationIdentity(ctx context.Context, req EmptyRequest) (ApplicationIdentityResponse, error) {
+	var csilZero ApplicationIdentityResponse
+	csilResp, csilErr := c.transport.Call(ctx, "AuthService", "get-application-identity", EncodeEmptyRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeApplicationIdentityResponse(csilResp)
+}
+
+func (c *AuthClient) ExchangeApplicationPresentation(ctx context.Context, req ExchangeApplicationPresentationRequest) (LoginResponse, error) {
+	var csilZero LoginResponse
+	csilResp, csilErr := c.transport.Call(ctx, "AuthService", "exchange-application-presentation", EncodeExchangeApplicationPresentationRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeLoginResponse(csilResp)
+}
+
 // DevAuthClient is a typed client for the DevAuthService service. The client owns
 // (de)serialization via the generated codec; the transport only moves bytes.
 type DevAuthClient struct {
@@ -293,6 +311,70 @@ func (c *ShareClient) PutShare(ctx context.Context, req Share) (Share, error) {
 func (c *ShareClient) DeleteShare(ctx context.Context, req ShareID) (EmptyResponse, error) {
 	var csilZero EmptyResponse
 	csilResp, csilErr := c.transport.Call(ctx, "ShareService", "delete-share", EncodeShareDeleteShareRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeEmptyResponse(csilResp)
+}
+
+// GroupClient is a typed client for the GroupService service. The client owns
+// (de)serialization via the generated codec; the transport only moves bytes.
+type GroupClient struct {
+	transport Transport
+}
+
+func NewGroupClient(transport Transport) *GroupClient {
+	return &GroupClient{transport: transport}
+}
+
+func (c *GroupClient) ListGroups(ctx context.Context, req EmptyRequest) (GroupList, error) {
+	var csilZero GroupList
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "list-groups", EncodeEmptyRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeGroupList(csilResp)
+}
+
+func (c *GroupClient) GetGroup(ctx context.Context, req GroupID) (Group, error) {
+	var csilZero Group
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "get-group", EncodeGroupGetGroupRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeGroup(csilResp)
+}
+
+func (c *GroupClient) CreateGroup(ctx context.Context, req CreateGroupRequest) (Group, error) {
+	var csilZero Group
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "create-group", EncodeCreateGroupRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeGroup(csilResp)
+}
+
+func (c *GroupClient) UpdateGroup(ctx context.Context, req UpdateGroupRequest) (Group, error) {
+	var csilZero Group
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "update-group", EncodeUpdateGroupRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeGroup(csilResp)
+}
+
+func (c *GroupClient) SetMembers(ctx context.Context, req SetGroupMembersRequest) (Group, error) {
+	var csilZero Group
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "set-members", EncodeSetGroupMembersRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeGroup(csilResp)
+}
+
+func (c *GroupClient) DeleteGroup(ctx context.Context, req GroupID) (EmptyResponse, error) {
+	var csilZero EmptyResponse
+	csilResp, csilErr := c.transport.Call(ctx, "GroupService", "delete-group", EncodeGroupDeleteGroupRequest(req))
 	if csilErr != nil {
 		return csilZero, csilErr
 	}

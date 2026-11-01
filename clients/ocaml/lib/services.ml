@@ -27,6 +27,10 @@ module Auth_service = struct
     exchange_act_as_credential : bytes -> outcome;
     (* request payload decodes to: scope_set_request *)
     get_act_as_scope_set : bytes -> outcome;
+    (* request payload decodes to: empty_request *)
+    get_application_identity : bytes -> outcome;
+    (* request payload decodes to: exchange_application_presentation_request *)
+    exchange_application_presentation : bytes -> outcome;
   }
 
   (* Verbose router: dispatch one request by operation name to its handler
@@ -41,6 +45,8 @@ module Auth_service = struct
     | "release-principal" -> h.release_principal payload
     | "exchange-act-as-credential" -> h.exchange_act_as_credential payload
     | "get-act-as-scope-set" -> h.get_act_as_scope_set payload
+    | "get-application-identity" -> h.get_application_identity payload
+    | "exchange-application-presentation" -> h.exchange_application_presentation payload
     | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
 end
 
@@ -133,6 +139,35 @@ module Share_service = struct
     | "list-shares" -> h.list_shares payload
     | "put-share" -> h.put_share payload
     | "delete-share" -> h.delete_share payload
+    | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
+end
+
+module Group_service = struct
+  type handler = {
+    (* request payload decodes to: empty_request *)
+    list_groups : bytes -> outcome;
+    (* request payload decodes to: group_id *)
+    get_group : bytes -> outcome;
+    (* request payload decodes to: create_group_request *)
+    create_group : bytes -> outcome;
+    (* request payload decodes to: update_group_request *)
+    update_group : bytes -> outcome;
+    (* request payload decodes to: set_group_members_request *)
+    set_members : bytes -> outcome;
+    (* request payload decodes to: group_id *)
+    delete_group : bytes -> outcome;
+  }
+
+  (* Verbose router: dispatch one request by operation name to its handler
+     field, which decodes the opaque payload with the generated [Types]. *)
+  let route (h : handler) ~(op : string) ~(payload : bytes) =
+    match op with
+    | "list-groups" -> h.list_groups payload
+    | "get-group" -> h.get_group payload
+    | "create-group" -> h.create_group payload
+    | "update-group" -> h.update_group payload
+    | "set-members" -> h.set_members payload
+    | "delete-group" -> h.delete_group payload
     | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
 end
 

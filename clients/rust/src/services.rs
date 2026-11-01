@@ -49,6 +49,18 @@ pub trait AuthService {
         ctx: &Self::Context,
         input: ScopeSetRequest,
     ) -> Result<ScopeSetResponse, ServiceError>;
+    /// get-application-identity (request/response).
+    fn get_application_identity(
+        &self,
+        ctx: &Self::Context,
+        input: EmptyRequest,
+    ) -> Result<ApplicationIdentityResponse, ServiceError>;
+    /// exchange-application-presentation (request/response).
+    fn exchange_application_presentation(
+        &self,
+        ctx: &Self::Context,
+        input: ExchangeApplicationPresentationRequest,
+    ) -> Result<LoginResponse, ServiceError>;
 }
 
 /// DevAuthService service trait
@@ -156,6 +168,43 @@ pub trait ShareService {
         &self,
         ctx: &Self::Context,
         input: ShareID,
+    ) -> Result<EmptyResponse, ServiceError>;
+}
+
+/// GroupService service trait
+pub trait GroupService {
+    type Context;
+    /// list-groups (request/response).
+    fn list_groups(
+        &self,
+        ctx: &Self::Context,
+        input: EmptyRequest,
+    ) -> Result<GroupList, ServiceError>;
+    /// get-group (request/response).
+    fn get_group(&self, ctx: &Self::Context, input: GroupID) -> Result<Group, ServiceError>;
+    /// create-group (request/response).
+    fn create_group(
+        &self,
+        ctx: &Self::Context,
+        input: CreateGroupRequest,
+    ) -> Result<Group, ServiceError>;
+    /// update-group (request/response).
+    fn update_group(
+        &self,
+        ctx: &Self::Context,
+        input: UpdateGroupRequest,
+    ) -> Result<Group, ServiceError>;
+    /// set-members (request/response).
+    fn set_members(
+        &self,
+        ctx: &Self::Context,
+        input: SetGroupMembersRequest,
+    ) -> Result<Group, ServiceError>;
+    /// delete-group (request/response).
+    fn delete_group(
+        &self,
+        ctx: &Self::Context,
+        input: GroupID,
     ) -> Result<EmptyResponse, ServiceError>;
 }
 

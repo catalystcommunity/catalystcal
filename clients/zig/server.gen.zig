@@ -23,6 +23,8 @@ pub const AuthHandlers = struct {
     release_principal: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.LoginResponse) anyerror!void,
     exchange_act_as_credential: *const fn (ctx: *anyopaque, req: *const types.ExchangeActAsCredentialRequest, resp: *types.LoginResponse) anyerror!void,
     get_act_as_scope_set: *const fn (ctx: *anyopaque, req: *const types.ScopeSetRequest, resp: *types.ScopeSetResponse) anyerror!void,
+    get_application_identity: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.ApplicationIdentityResponse) anyerror!void,
+    exchange_application_presentation: *const fn (ctx: *anyopaque, req: *const types.ExchangeApplicationPresentationRequest, resp: *types.LoginResponse) anyerror!void,
 };
 
 /// DevAuthHandlers is the host's implementation of the DevAuthService service.
@@ -55,6 +57,16 @@ pub const ShareHandlers = struct {
     list_shares: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.ShareList) anyerror!void,
     put_share: *const fn (ctx: *anyopaque, req: *const types.Share, resp: *types.Share) anyerror!void,
     delete_share: *const fn (ctx: *anyopaque, req: *const types.ShareID, resp: *types.EmptyResponse) anyerror!void,
+};
+
+/// GroupHandlers is the host's implementation of the GroupService service.
+pub const GroupHandlers = struct {
+    list_groups: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.GroupList) anyerror!void,
+    get_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.Group) anyerror!void,
+    create_group: *const fn (ctx: *anyopaque, req: *const types.CreateGroupRequest, resp: *types.Group) anyerror!void,
+    update_group: *const fn (ctx: *anyopaque, req: *const types.UpdateGroupRequest, resp: *types.Group) anyerror!void,
+    set_members: *const fn (ctx: *anyopaque, req: *const types.SetGroupMembersRequest, resp: *types.Group) anyerror!void,
+    delete_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.EmptyResponse) anyerror!void,
 };
 
 /// DelegationHandlers is the host's implementation of the DelegationService service.

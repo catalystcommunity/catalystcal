@@ -22,6 +22,8 @@ func Register(d *csilrpc.Dispatcher, deps *Deps, devAuth bool) {
 	d.RegisterTyped("auth", "ReleasePrincipal", csilrpc.Route(a.ReleasePrincipal, csil.DecodeEmptyRequest, csil.EncodeLoginResponse))
 	d.RegisterTypedPublic("auth", "ExchangeActAsCredential", csilrpc.Route(a.ExchangeActAsCredential, csil.DecodeExchangeActAsCredentialRequest, csil.EncodeLoginResponse))
 	d.RegisterTypedPublic("auth", "GetActAsScopeSet", csilrpc.Route(a.GetActAsScopeSet, csil.DecodeScopeSetRequest, csil.EncodeScopeSetResponse))
+	d.RegisterTypedPublic("auth", "GetApplicationIdentity", csilrpc.Route(a.GetApplicationIdentity, csil.DecodeEmptyRequest, csil.EncodeApplicationIdentityResponse))
+	d.RegisterTypedPublic("auth", "ExchangeApplicationPresentation", csilrpc.Route(a.ExchangeApplicationPresentation, csil.DecodeExchangeApplicationPresentationRequest, csil.EncodeLoginResponse))
 
 	if devAuth {
 		da := &DevAuthService{deps}
@@ -48,6 +50,14 @@ func Register(d *csilrpc.Dispatcher, deps *Deps, devAuth bool) {
 	d.RegisterTyped("share", "ListShares", csilrpc.Route(sh.ListShares, csil.DecodeShareListSharesRequest, csil.EncodeShareList))
 	d.RegisterTyped("share", "PutShare", csilrpc.Route(sh.PutShare, csil.DecodeShare, csil.EncodeShare))
 	d.RegisterTyped("share", "DeleteShare", csilrpc.Route(sh.DeleteShare, csil.DecodeShareDeleteShareRequest, csil.EncodeEmptyResponse))
+
+	g := &GroupService{deps}
+	d.RegisterTyped("group", "ListGroups", csilrpc.Route(g.ListGroups, csil.DecodeEmptyRequest, csil.EncodeGroupList))
+	d.RegisterTyped("group", "GetGroup", csilrpc.Route(g.GetGroup, csil.DecodeGroupGetGroupRequest, csil.EncodeGroup))
+	d.RegisterTyped("group", "CreateGroup", csilrpc.Route(g.CreateGroup, csil.DecodeCreateGroupRequest, csil.EncodeGroup))
+	d.RegisterTyped("group", "UpdateGroup", csilrpc.Route(g.UpdateGroup, csil.DecodeUpdateGroupRequest, csil.EncodeGroup))
+	d.RegisterTyped("group", "SetMembers", csilrpc.Route(g.SetMembers, csil.DecodeSetGroupMembersRequest, csil.EncodeGroup))
+	d.RegisterTyped("group", "DeleteGroup", csilrpc.Route(g.DeleteGroup, csil.DecodeGroupDeleteGroupRequest, csil.EncodeEmptyResponse))
 
 	dl := &DelegationService{deps}
 	d.RegisterTyped("delegation", "ListGranted", csilrpc.Route(dl.ListGranted, csil.DecodeEmptyRequest, csil.EncodeDelegationList))

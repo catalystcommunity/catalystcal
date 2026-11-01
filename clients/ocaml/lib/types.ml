@@ -8,11 +8,12 @@ and event_id = string
 and share_id = string
 and delegation_id = string
 and audit_id = string
+and group_id = string
 and session_id = string
 and timestamp = string
 and date_text = string
-and share_role = Free_busy | Read | Write | Manage
-and access_role = None | Free_busy | Read | Write | Manage | Owner
+and share_role = Free_busy | Read | Contribute | Write | Manage
+and access_role = None | Free_busy | Read | Contribute | Write | Manage | Owner
 and access_path = Owner | Share | Delegation | Attendee
 
 and scope =
@@ -43,12 +44,14 @@ and identity_ref = {
   domain : string;
   user_id : string option;
   handle : string option;
+  application_id : string option;
 }
 
 and user = {
   user_id : user_id;
   domain : string;
   subject : string;
+  application_id : string option;
   handle : string option;
   display_name : string option;
   email : string option;
@@ -61,6 +64,7 @@ and person_summary = {
   user_id : user_id;
   domain : string;
   subject : string;
+  application_id : string option;
   handle : string option;
   display_name : string option;
 }
@@ -111,13 +115,53 @@ and calendar_list = { calendars : calendar list }
 and share = {
   share_id : share_id;
   calendar_id : calendar_id;
-  grantee : identity_ref;
+  grantee : identity_ref option;
+  grantee_group_id : group_id option;
   role : share_role;
   grantee_person : person_summary option;
+  grantee_group_name : string option;
   created_at : timestamp;
 }
 
 and share_list = { shares : share list }
+
+and group_member = {
+  identity : identity_ref option;
+  group_id : group_id option;
+  person : person_summary option;
+  group_name : string option;
+}
+
+and group = {
+  group_id : group_id;
+  owner : person_summary;
+  name : string;
+  description : string option;
+  revision : int64;
+  members : group_member list;
+  created_at : timestamp;
+  updated_at : timestamp;
+}
+
+and create_group_request = {
+  name : string;
+  description : string option;
+  members : group_member list option;
+}
+
+and update_group_request = {
+  group_id : group_id;
+  name : string option;
+  description : string option;
+}
+
+and set_group_members_request = {
+  group_id : group_id;
+  expected_revision : int64 option;
+  members : group_member list;
+}
+
+and group_list = { groups : group list }
 
 and delegation = {
   delegation_id : delegation_id;
@@ -307,6 +351,33 @@ and scope_set_request = {
 }
 
 and scope_set_response = { signed_scope_set : bytes }
+
+and application_ref = {
+  subject_user_id : string;
+  subject_domain : string;
+  application_id : string;
+}
+
+and application_presentation = {
+  signer : application_ref;
+  signer_instance_id : string;
+  audience : application_ref;
+  request_digest : bytes;
+  presented_at : timestamp;
+  nonce : bytes;
+}
+
+and signed_application_presentation = {
+  presentation : bytes;
+  signed_by_key_id : string;
+  signature : bytes;
+}
+
+and exchange_application_presentation_request = {
+  presentation : signed_application_presentation;
+}
+
+and application_identity_response = { audience : application_ref }
 
 and dev_user = {
   user_id : user_id;

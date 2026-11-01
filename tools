@@ -38,7 +38,7 @@ Code generation
 
 Checks
   test                test-api + test-web
-  test-api            go vet + go test for api/ and coredb/
+  test-api            go vet + go test for api/, coredb/, and clients/go/
   test-web            npm ci (if needed), typecheck, test, build in webapp/
   lint                gofmt -l, go vet, csilgen lint (style warnings ignored)
   helm-lint           helm lint + helm template for helm_chart/
@@ -225,7 +225,7 @@ gen_check() {
 
 test_api() {
     local mod
-    for mod in coredb api; do
+    for mod in coredb api clients/go; do
         echo "▶ go vet + go test: $mod/"
         (cd "$SCRIPT_DIR/$mod" && go vet ./... && go test ./...)
     done
@@ -289,6 +289,8 @@ helm_lint() {
         --set linkkeysRp.enabled=true \
         --set actAs.enabled=true \
         --set actAs.existingSecret=catalystcal-act-as \
+        --set actAs.allowedApplications='u1@a.example/app1\,u2@b.example/app2' \
+        --set actAs.appBearerTTLSeconds=600 \
         --set secrets.existingSecret=catalystcal-secrets >/dev/null
     echo "Helm chart OK."
 }

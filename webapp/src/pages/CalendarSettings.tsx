@@ -19,6 +19,7 @@ import { errorMessage } from "~/transport/csilrpc";
 export const ROLE_LABEL: Record<ShareRole, string> = {
   free_busy: "See only free/busy",
   read: "See all event details",
+  contribute: "Add events and change their own",
   write: "Make changes to events",
   manage: "Make changes and manage sharing",
 };
@@ -27,10 +28,17 @@ const ACCESS_LABEL: Record<string, string> = {
   owner: "You own this calendar",
   manage: "You can change events and manage sharing",
   write: "You can change events",
+  contribute: "You can add events and change the events that you added",
   read: "You can see event details",
   free_busy: "You can see only free/busy time",
   none: "You have no access",
 };
+
+/** The grantee of a share: a person, or a group. */
+export function shareLabel(s: Share): string {
+  if (s.granteeGroupId) return `Group: ${s.granteeGroupName ?? s.granteeGroupId}`;
+  return identityLabel(s.grantee, s.granteePerson);
+}
 
 export function feedUrls(feedPath: string, origin = window.location.origin): { https: string; webcal: string } {
   const https = new URL(feedPath, origin).toString();
@@ -308,7 +316,14 @@ function SharingSection(props: { cal: Calendar }) {
 
   const change = async (s: Share, r: ShareRole) => {
     try {
-      const updated = await shareClient.putShare({ shareId: s.shareId, calendarId: s.calendarId, grantee: s.grantee, role: r, createdAt: s.createdAt });
+      const updated = await shareClient.putShare({
+        shareId: s.shareId,
+        calendarId: s.calendarId,
+        grantee: s.grantee,
+        granteeGroupId: s.granteeGroupId,
+        role: r,
+        createdAt: s.createdAt,
+      });
       mutate({ shares: list().map((x) => (x.shareId === s.shareId ? updated : x)) });
       toast("Access changed.");
     } catch (err) {
@@ -318,7 +333,7 @@ function SharingSection(props: { cal: Calendar }) {
   };
 
   const remove = async (s: Share) => {
-    const ok = await confirmAction({ title: "Stop sharing", message: `Stop sharing “${props.cal.name}” with ${identityLabel(s.grantee, s.granteePerson)}?`, confirmLabel: "Stop sharing", danger: true });
+    const ok = await confirmAction({ title: "Stop sharing", message: `Stop sharing “${props.cal.name}” with ${shareLabel(s)}?`, confirmLabel: "Stop sharing", danger: true });
     if (!ok) return;
     try {
       await shareClient.deleteShare(s.shareId);
@@ -343,16 +358,16 @@ function SharingSection(props: { cal: Calendar }) {
             <li>
               <span class="grow">
                 <span class="truncate" style={{ display: "block" }}>
-                  {identityLabel(s.grantee, s.granteePerson)}
+                  {shareLabel(s)}
                 </span>
-                <Show when={!s.granteePerson}>
+                <Show when={!s.granteePerson && !s.granteeGroupId}>
                   <span class="small muted">Has not signed in to catalystcal yet</span>
                 </Show>
               </span>
-              <select class="select select-sm share-role" aria-label={`Access for ${identityLabel(s.grantee, s.granteePerson)}`} value={s.role} onChange={(e) => change(s, e.currentTarget.value as ShareRole)}>
+              <select class="select select-sm share-role" aria-label={`Access for ${shareLabel(s)}`} value={s.role} onChange={(e) => change(s, e.currentTarget.value as ShareRole)}>
                 <For each={Object.entries(ROLE_LABEL)}>{([v, l]) => <option value={v}>{l}</option>}</For>
               </select>
-              <button type="button" class="icon-btn" aria-label={`Stop sharing with ${identityLabel(s.grantee, s.granteePerson)}`} onClick={() => remove(s)}>
+              <button type="button" class="icon-btn" aria-label={`Stop sharing with ${shareLabel(s)}`} onClick={() => remove(s)}>
                 <Icon name="trash" size={16} />
               </button>
             </li>

@@ -53,6 +53,10 @@ type Identity struct {
 	Domain      string `cbor:"domain"`
 	Subject     string `cbor:"sub"`
 	DisplayName string `cbor:"name,omitempty"`
+	// ApplicationID is set when the caller is an application principal: an
+	// application of the account (Domain, Subject). Its bearer is a self
+	// bearer.
+	ApplicationID string `cbor:"appid,omitempty"`
 
 	// Via is self, delegation, or act_as_grant.
 	Via string `cbor:"via"`

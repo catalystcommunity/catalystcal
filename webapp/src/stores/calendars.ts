@@ -66,11 +66,25 @@ export function toggleHidden(id: string): void {
 
 export const calendarById = (id: string): Calendar | undefined => calendars().find((c) => c.calendarId === id);
 
-const RANK: Record<AccessRole, number> = { none: 0, free_busy: 1, read: 2, write: 3, manage: 4, owner: 5 };
+const RANK: Record<AccessRole, number> = { none: 0, free_busy: 1, read: 2, contribute: 3, write: 4, manage: 5, owner: 6 };
 
 /** True when `have` is at least `need`. */
 export function accessAtLeast(have: AccessRole | undefined, need: AccessRole): boolean {
   return RANK[have ?? "none"] >= RANK[need];
+}
+
+/** True when the caller can add events (contribute or more). */
+export function canAddEvents(have: AccessRole | undefined): boolean {
+  return accessAtLeast(have, "contribute");
+}
+
+/**
+ * True when the caller can change an event: write access changes every
+ * event, contribute access only the events that the caller created.
+ */
+export function canEditEvent(have: AccessRole | undefined, createdBy: string | undefined, me: string | undefined): boolean {
+  if (accessAtLeast(have, "write")) return true;
+  return have === "contribute" && !!createdBy && createdBy === me;
 }
 
 export const DEFAULT_COLOR = "#4f6bd8";
@@ -81,7 +95,7 @@ export const SWATCHES = ["#4f6bd8", "#2f9e8f", "#d9822b", "#c2415d", "#8a5cd6", 
 
 /** Where a new event goes: the principal's default calendar if writable. */
 export function defaultWritableCalendar(ownerUserId: string | undefined): Calendar | undefined {
-  const w = calendars().filter((c) => c.kind === "local" && accessAtLeast(c.access, "write"));
+  const w = calendars().filter((c) => c.kind === "local" && canAddEvents(c.access));
   return (
     w.find((c) => c.isDefault && c.owner.userId === ownerUserId) ??
     w.find((c) => c.owner.userId === ownerUserId && !hidden().has(c.calendarId)) ??

@@ -50,6 +50,12 @@ class AuthClient(private val transport: Transport) {
     fun getActAsScopeSet(request: ScopeSetRequest): ScopeSetResponse {
         return decode<ScopeSetResponse>(transport.call("AuthService", "get-act-as-scope-set", encode(request)))
     }
+    fun getApplicationIdentity(request: EmptyRequest): ApplicationIdentityResponse {
+        return decode<ApplicationIdentityResponse>(transport.call("AuthService", "get-application-identity", encode(request)))
+    }
+    fun exchangeApplicationPresentation(request: ExchangeApplicationPresentationRequest): LoginResponse {
+        return decode<LoginResponse>(transport.call("AuthService", "exchange-application-presentation", encode(request)))
+    }
 }
 
 /** Typed client for the DevAuthService service. The client owns (de)serialization;
@@ -117,6 +123,29 @@ class ShareClient(private val transport: Transport) {
     }
     fun deleteShare(request: ShareID): EmptyResponse {
         return decode<EmptyResponse>(transport.call("ShareService", "delete-share", encodeShareDeleteShareRequest(request)))
+    }
+}
+
+/** Typed client for the GroupService service. The client owns (de)serialization;
+ * the carrier only moves bytes. */
+class GroupClient(private val transport: Transport) {
+    fun listGroups(request: EmptyRequest): GroupList {
+        return decode<GroupList>(transport.call("GroupService", "list-groups", encode(request)))
+    }
+    fun getGroup(request: GroupID): Group {
+        return decode<Group>(transport.call("GroupService", "get-group", encodeGroupGetGroupRequest(request)))
+    }
+    fun createGroup(request: CreateGroupRequest): Group {
+        return decode<Group>(transport.call("GroupService", "create-group", encode(request)))
+    }
+    fun updateGroup(request: UpdateGroupRequest): Group {
+        return decode<Group>(transport.call("GroupService", "update-group", encode(request)))
+    }
+    fun setMembers(request: SetGroupMembersRequest): Group {
+        return decode<Group>(transport.call("GroupService", "set-members", encode(request)))
+    }
+    fun deleteGroup(request: GroupID): EmptyResponse {
+        return decode<EmptyResponse>(transport.call("GroupService", "delete-group", encodeGroupDeleteGroupRequest(request)))
     }
 }
 

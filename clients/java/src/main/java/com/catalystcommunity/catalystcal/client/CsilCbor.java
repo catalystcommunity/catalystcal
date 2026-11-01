@@ -452,13 +452,16 @@ public final class CsilCbor {
     }
 
     static CborValue encIdentityRef(IdentityRef v) {
-        List<CborEntry> csilEntries = new ArrayList<>(3);
+        List<CborEntry> csilEntries = new ArrayList<>(4);
         csilEntries.add(new CborEntry(new CborText("domain"), new CborText(v.domain())));
         if (v.handle() != null) {
             csilEntries.add(new CborEntry(new CborText("handle"), new CborText(v.handle())));
         }
         if (v.userId() != null) {
             csilEntries.add(new CborEntry(new CborText("user_id"), new CborText(v.userId())));
+        }
+        if (v.applicationId() != null) {
+            csilEntries.add(new CborEntry(new CborText("application_id"), new CborText(v.applicationId())));
         }
         return new CborMap(csilEntries);
     }
@@ -475,7 +478,12 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "handle");
             handle = csilField != null ? asText(csilField) : null;
         }
-        return new IdentityRef(domain, userId, handle);
+        String applicationId;
+        {
+            CborValue csilField = mapGet(csilRoot, "application_id");
+            applicationId = csilField != null ? asText(csilField) : null;
+        }
+        return new IdentityRef(domain, userId, handle, applicationId);
     }
 
     public static byte[] encodeIdentityRef(IdentityRef v) {
@@ -487,7 +495,7 @@ public final class CsilCbor {
     }
 
     static CborValue encUser(User v) {
-        List<CborEntry> csilEntries = new ArrayList<>(9);
+        List<CborEntry> csilEntries = new ArrayList<>(10);
         if (v.email() != null) {
             csilEntries.add(new CborEntry(new CborText("email"), new CborText(v.email())));
         }
@@ -505,6 +513,9 @@ public final class CsilCbor {
         if (v.displayName() != null) {
             csilEntries.add(new CborEntry(new CborText("display_name"), new CborText(v.displayName())));
         }
+        if (v.applicationId() != null) {
+            csilEntries.add(new CborEntry(new CborText("application_id"), new CborText(v.applicationId())));
+        }
         return new CborMap(csilEntries);
     }
 
@@ -512,6 +523,11 @@ public final class CsilCbor {
         UserId userId = new UserId(asText(require(csilRoot, "user_id")));
         String domain = asText(require(csilRoot, "domain"));
         String subject = asText(require(csilRoot, "subject"));
+        String applicationId;
+        {
+            CborValue csilField = mapGet(csilRoot, "application_id");
+            applicationId = csilField != null ? asText(csilField) : null;
+        }
         String handle;
         {
             CborValue csilField = mapGet(csilRoot, "handle");
@@ -534,7 +550,7 @@ public final class CsilCbor {
         }
         Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
         Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
-        return new User(userId, domain, subject, handle, displayName, email, timezone, createdAt, updatedAt);
+        return new User(userId, domain, subject, applicationId, handle, displayName, email, timezone, createdAt, updatedAt);
     }
 
     public static byte[] encodeUser(User v) {
@@ -546,7 +562,7 @@ public final class CsilCbor {
     }
 
     static CborValue encPersonSummary(PersonSummary v) {
-        List<CborEntry> csilEntries = new ArrayList<>(5);
+        List<CborEntry> csilEntries = new ArrayList<>(6);
         csilEntries.add(new CborEntry(new CborText("domain"), new CborText(v.domain())));
         if (v.handle() != null) {
             csilEntries.add(new CborEntry(new CborText("handle"), new CborText(v.handle())));
@@ -556,6 +572,9 @@ public final class CsilCbor {
         if (v.displayName() != null) {
             csilEntries.add(new CborEntry(new CborText("display_name"), new CborText(v.displayName())));
         }
+        if (v.applicationId() != null) {
+            csilEntries.add(new CborEntry(new CborText("application_id"), new CborText(v.applicationId())));
+        }
         return new CborMap(csilEntries);
     }
 
@@ -563,6 +582,11 @@ public final class CsilCbor {
         UserId userId = new UserId(asText(require(csilRoot, "user_id")));
         String domain = asText(require(csilRoot, "domain"));
         String subject = asText(require(csilRoot, "subject"));
+        String applicationId;
+        {
+            CborValue csilField = mapGet(csilRoot, "application_id");
+            applicationId = csilField != null ? asText(csilField) : null;
+        }
         String handle;
         {
             CborValue csilField = mapGet(csilRoot, "handle");
@@ -573,7 +597,7 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "display_name");
             displayName = csilField != null ? asText(csilField) : null;
         }
-        return new PersonSummary(userId, domain, subject, handle, displayName);
+        return new PersonSummary(userId, domain, subject, applicationId, handle, displayName);
     }
 
     public static byte[] encodePersonSummary(PersonSummary v) {
@@ -839,14 +863,22 @@ public final class CsilCbor {
     }
 
     static CborValue encShare(Share v) {
-        List<CborEntry> csilEntries = new ArrayList<>(6);
+        List<CborEntry> csilEntries = new ArrayList<>(8);
         csilEntries.add(new CborEntry(new CborText("role"), encShareRole(v.role())));
-        csilEntries.add(new CborEntry(new CborText("grantee"), encIdentityRef(v.grantee())));
+        if (v.grantee() != null) {
+            csilEntries.add(new CborEntry(new CborText("grantee"), encIdentityRef(v.grantee())));
+        }
         csilEntries.add(new CborEntry(new CborText("share_id"), new CborText((v.shareId()).value())));
         csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         if (v.granteePerson() != null) {
             csilEntries.add(new CborEntry(new CborText("grantee_person"), encPersonSummary(v.granteePerson())));
+        }
+        if (v.granteeGroupId() != null) {
+            csilEntries.add(new CborEntry(new CborText("grantee_group_id"), new CborText((v.granteeGroupId()).value())));
+        }
+        if (v.granteeGroupName() != null) {
+            csilEntries.add(new CborEntry(new CborText("grantee_group_name"), new CborText(v.granteeGroupName())));
         }
         return new CborMap(csilEntries);
     }
@@ -854,15 +886,29 @@ public final class CsilCbor {
     static Share decShare(CborValue csilRoot) {
         ShareId shareId = new ShareId(asText(require(csilRoot, "share_id")));
         CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
-        IdentityRef grantee = decIdentityRef(require(csilRoot, "grantee"));
+        IdentityRef grantee;
+        {
+            CborValue csilField = mapGet(csilRoot, "grantee");
+            grantee = csilField != null ? decIdentityRef(csilField) : null;
+        }
+        GroupId granteeGroupId;
+        {
+            CborValue csilField = mapGet(csilRoot, "grantee_group_id");
+            granteeGroupId = csilField != null ? new GroupId(asText(csilField)) : null;
+        }
         ShareRole role = decShareRole(require(csilRoot, "role"));
         PersonSummary granteePerson;
         {
             CborValue csilField = mapGet(csilRoot, "grantee_person");
             granteePerson = csilField != null ? decPersonSummary(csilField) : null;
         }
+        String granteeGroupName;
+        {
+            CborValue csilField = mapGet(csilRoot, "grantee_group_name");
+            granteeGroupName = csilField != null ? asText(csilField) : null;
+        }
         Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        return new Share(shareId, calendarId, grantee, role, granteePerson, createdAt);
+        return new Share(shareId, calendarId, grantee, granteeGroupId, role, granteePerson, granteeGroupName, createdAt);
     }
 
     public static byte[] encodeShare(Share v) {
@@ -890,6 +936,212 @@ public final class CsilCbor {
 
     public static ShareList decodeShareList(byte[] data) {
         return decShareList(decode(data));
+    }
+
+    static CborValue encGroupMember(GroupMember v) {
+        List<CborEntry> csilEntries = new ArrayList<>(4);
+        if (v.person() != null) {
+            csilEntries.add(new CborEntry(new CborText("person"), encPersonSummary(v.person())));
+        }
+        if (v.groupId() != null) {
+            csilEntries.add(new CborEntry(new CborText("group_id"), new CborText((v.groupId()).value())));
+        }
+        if (v.identity() != null) {
+            csilEntries.add(new CborEntry(new CborText("identity"), encIdentityRef(v.identity())));
+        }
+        if (v.groupName() != null) {
+            csilEntries.add(new CborEntry(new CborText("group_name"), new CborText(v.groupName())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static GroupMember decGroupMember(CborValue csilRoot) {
+        IdentityRef identity;
+        {
+            CborValue csilField = mapGet(csilRoot, "identity");
+            identity = csilField != null ? decIdentityRef(csilField) : null;
+        }
+        GroupId groupId;
+        {
+            CborValue csilField = mapGet(csilRoot, "group_id");
+            groupId = csilField != null ? new GroupId(asText(csilField)) : null;
+        }
+        PersonSummary person;
+        {
+            CborValue csilField = mapGet(csilRoot, "person");
+            person = csilField != null ? decPersonSummary(csilField) : null;
+        }
+        String groupName;
+        {
+            CborValue csilField = mapGet(csilRoot, "group_name");
+            groupName = csilField != null ? asText(csilField) : null;
+        }
+        return new GroupMember(identity, groupId, person, groupName);
+    }
+
+    public static byte[] encodeGroupMember(GroupMember v) {
+        return encode(encGroupMember(v));
+    }
+
+    public static GroupMember decodeGroupMember(byte[] data) {
+        return decGroupMember(decode(data));
+    }
+
+    static CborValue encGroup(Group v) {
+        List<CborEntry> csilEntries = new ArrayList<>(8);
+        csilEntries.add(new CborEntry(new CborText("name"), new CborText(v.name())));
+        csilEntries.add(new CborEntry(new CborText("owner"), encPersonSummary(v.owner())));
+        csilEntries.add(new CborEntry(new CborText("members"), encArray(v.members(), csilElem0 -> encGroupMember(csilElem0))));
+        csilEntries.add(new CborEntry(new CborText("group_id"), new CborText((v.groupId()).value())));
+        csilEntries.add(new CborEntry(new CborText("revision"), new CborUint(v.revision())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("updated_at"), new CborText((v.updatedAt()).value())));
+        if (v.description() != null) {
+            csilEntries.add(new CborEntry(new CborText("description"), new CborText(v.description())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static Group decGroup(CborValue csilRoot) {
+        GroupId groupId = new GroupId(asText(require(csilRoot, "group_id")));
+        PersonSummary owner = decPersonSummary(require(csilRoot, "owner"));
+        String name = asText(require(csilRoot, "name"));
+        String description;
+        {
+            CborValue csilField = mapGet(csilRoot, "description");
+            description = csilField != null ? asText(csilField) : null;
+        }
+        long revision = asU64(require(csilRoot, "revision"));
+        List<GroupMember> members = decArray(require(csilRoot, "members"), csilE0 -> decGroupMember(csilE0));
+        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
+        return new Group(groupId, owner, name, description, revision, members, createdAt, updatedAt);
+    }
+
+    public static byte[] encodeGroup(Group v) {
+        return encode(encGroup(v));
+    }
+
+    public static Group decodeGroup(byte[] data) {
+        return decGroup(decode(data));
+    }
+
+    static CborValue encCreateGroupRequest(CreateGroupRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("name"), new CborText(v.name())));
+        if (v.members() != null) {
+            csilEntries.add(new CborEntry(new CborText("members"), encArray(v.members(), csilElem0 -> encGroupMember(csilElem0))));
+        }
+        if (v.description() != null) {
+            csilEntries.add(new CborEntry(new CborText("description"), new CborText(v.description())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static CreateGroupRequest decCreateGroupRequest(CborValue csilRoot) {
+        String name = asText(require(csilRoot, "name"));
+        String description;
+        {
+            CborValue csilField = mapGet(csilRoot, "description");
+            description = csilField != null ? asText(csilField) : null;
+        }
+        List<GroupMember> members;
+        {
+            CborValue csilField = mapGet(csilRoot, "members");
+            members = csilField != null ? decArray(csilField, csilE0 -> decGroupMember(csilE0)) : null;
+        }
+        return new CreateGroupRequest(name, description, members);
+    }
+
+    public static byte[] encodeCreateGroupRequest(CreateGroupRequest v) {
+        return encode(encCreateGroupRequest(v));
+    }
+
+    public static CreateGroupRequest decodeCreateGroupRequest(byte[] data) {
+        return decCreateGroupRequest(decode(data));
+    }
+
+    static CborValue encUpdateGroupRequest(UpdateGroupRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        if (v.name() != null) {
+            csilEntries.add(new CborEntry(new CborText("name"), new CborText(v.name())));
+        }
+        csilEntries.add(new CborEntry(new CborText("group_id"), new CborText((v.groupId()).value())));
+        if (v.description() != null) {
+            csilEntries.add(new CborEntry(new CborText("description"), new CborText(v.description())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static UpdateGroupRequest decUpdateGroupRequest(CborValue csilRoot) {
+        GroupId groupId = new GroupId(asText(require(csilRoot, "group_id")));
+        String name;
+        {
+            CborValue csilField = mapGet(csilRoot, "name");
+            name = csilField != null ? asText(csilField) : null;
+        }
+        String description;
+        {
+            CborValue csilField = mapGet(csilRoot, "description");
+            description = csilField != null ? asText(csilField) : null;
+        }
+        return new UpdateGroupRequest(groupId, name, description);
+    }
+
+    public static byte[] encodeUpdateGroupRequest(UpdateGroupRequest v) {
+        return encode(encUpdateGroupRequest(v));
+    }
+
+    public static UpdateGroupRequest decodeUpdateGroupRequest(byte[] data) {
+        return decUpdateGroupRequest(decode(data));
+    }
+
+    static CborValue encSetGroupMembersRequest(SetGroupMembersRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("members"), encArray(v.members(), csilElem0 -> encGroupMember(csilElem0))));
+        csilEntries.add(new CborEntry(new CborText("group_id"), new CborText((v.groupId()).value())));
+        if (v.expectedRevision() != null) {
+            csilEntries.add(new CborEntry(new CborText("expected_revision"), new CborUint(v.expectedRevision())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static SetGroupMembersRequest decSetGroupMembersRequest(CborValue csilRoot) {
+        GroupId groupId = new GroupId(asText(require(csilRoot, "group_id")));
+        Long expectedRevision;
+        {
+            CborValue csilField = mapGet(csilRoot, "expected_revision");
+            expectedRevision = csilField != null ? asU64(csilField) : null;
+        }
+        List<GroupMember> members = decArray(require(csilRoot, "members"), csilE0 -> decGroupMember(csilE0));
+        return new SetGroupMembersRequest(groupId, expectedRevision, members);
+    }
+
+    public static byte[] encodeSetGroupMembersRequest(SetGroupMembersRequest v) {
+        return encode(encSetGroupMembersRequest(v));
+    }
+
+    public static SetGroupMembersRequest decodeSetGroupMembersRequest(byte[] data) {
+        return decSetGroupMembersRequest(decode(data));
+    }
+
+    static CborValue encGroupList(GroupList v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        csilEntries.add(new CborEntry(new CborText("groups"), encArray(v.groups(), csilElem0 -> encGroup(csilElem0))));
+        return new CborMap(csilEntries);
+    }
+
+    static GroupList decGroupList(CborValue csilRoot) {
+        List<Group> groups = decArray(require(csilRoot, "groups"), csilE0 -> decGroup(csilE0));
+        return new GroupList(groups);
+    }
+
+    public static byte[] encodeGroupList(GroupList v) {
+        return encode(encGroupList(v));
+    }
+
+    public static GroupList decodeGroupList(byte[] data) {
+        return decGroupList(decode(data));
     }
 
     static CborValue encDelegation(Delegation v) {
@@ -2134,6 +2386,119 @@ public final class CsilCbor {
         return decScopeSetResponse(decode(data));
     }
 
+    static CborValue encApplicationRef(ApplicationRef v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("application_id"), new CborText(v.applicationId())));
+        csilEntries.add(new CborEntry(new CborText("subject_domain"), new CborText(v.subjectDomain())));
+        csilEntries.add(new CborEntry(new CborText("subject_user_id"), new CborText(v.subjectUserId())));
+        return new CborMap(csilEntries);
+    }
+
+    static ApplicationRef decApplicationRef(CborValue csilRoot) {
+        String subjectUserId = asText(require(csilRoot, "subject_user_id"));
+        String subjectDomain = asText(require(csilRoot, "subject_domain"));
+        String applicationId = asText(require(csilRoot, "application_id"));
+        return new ApplicationRef(subjectUserId, subjectDomain, applicationId);
+    }
+
+    public static byte[] encodeApplicationRef(ApplicationRef v) {
+        return encode(encApplicationRef(v));
+    }
+
+    public static ApplicationRef decodeApplicationRef(byte[] data) {
+        return decApplicationRef(decode(data));
+    }
+
+    static CborValue encApplicationPresentation(ApplicationPresentation v) {
+        List<CborEntry> csilEntries = new ArrayList<>(6);
+        csilEntries.add(new CborEntry(new CborText("nonce"), new CborBytes(v.nonce())));
+        csilEntries.add(new CborEntry(new CborText("signer"), encApplicationRef(v.signer())));
+        csilEntries.add(new CborEntry(new CborText("audience"), encApplicationRef(v.audience())));
+        csilEntries.add(new CborEntry(new CborText("presented_at"), new CborText((v.presentedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("request_digest"), new CborBytes(v.requestDigest())));
+        csilEntries.add(new CborEntry(new CborText("signer_instance_id"), new CborText(v.signerInstanceId())));
+        return new CborMap(csilEntries);
+    }
+
+    static ApplicationPresentation decApplicationPresentation(CborValue csilRoot) {
+        ApplicationRef signer = decApplicationRef(require(csilRoot, "signer"));
+        String signerInstanceId = asText(require(csilRoot, "signer_instance_id"));
+        ApplicationRef audience = decApplicationRef(require(csilRoot, "audience"));
+        byte[] requestDigest = asBytes(require(csilRoot, "request_digest"));
+        Timestamp presentedAt = new Timestamp(asText(require(csilRoot, "presented_at")));
+        byte[] nonce = asBytes(require(csilRoot, "nonce"));
+        return new ApplicationPresentation(signer, signerInstanceId, audience, requestDigest, presentedAt, nonce);
+    }
+
+    public static byte[] encodeApplicationPresentation(ApplicationPresentation v) {
+        return encode(encApplicationPresentation(v));
+    }
+
+    public static ApplicationPresentation decodeApplicationPresentation(byte[] data) {
+        return decApplicationPresentation(decode(data));
+    }
+
+    static CborValue encSignedApplicationPresentation(SignedApplicationPresentation v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("signature"), new CborBytes(v.signature())));
+        csilEntries.add(new CborEntry(new CborText("presentation"), new CborBytes(v.presentation())));
+        csilEntries.add(new CborEntry(new CborText("signed_by_key_id"), new CborText(v.signedByKeyId())));
+        return new CborMap(csilEntries);
+    }
+
+    static SignedApplicationPresentation decSignedApplicationPresentation(CborValue csilRoot) {
+        byte[] presentation = asBytes(require(csilRoot, "presentation"));
+        String signedByKeyId = asText(require(csilRoot, "signed_by_key_id"));
+        byte[] signature = asBytes(require(csilRoot, "signature"));
+        return new SignedApplicationPresentation(presentation, signedByKeyId, signature);
+    }
+
+    public static byte[] encodeSignedApplicationPresentation(SignedApplicationPresentation v) {
+        return encode(encSignedApplicationPresentation(v));
+    }
+
+    public static SignedApplicationPresentation decodeSignedApplicationPresentation(byte[] data) {
+        return decSignedApplicationPresentation(decode(data));
+    }
+
+    static CborValue encExchangeApplicationPresentationRequest(ExchangeApplicationPresentationRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        csilEntries.add(new CborEntry(new CborText("presentation"), encSignedApplicationPresentation(v.presentation())));
+        return new CborMap(csilEntries);
+    }
+
+    static ExchangeApplicationPresentationRequest decExchangeApplicationPresentationRequest(CborValue csilRoot) {
+        SignedApplicationPresentation presentation = decSignedApplicationPresentation(require(csilRoot, "presentation"));
+        return new ExchangeApplicationPresentationRequest(presentation);
+    }
+
+    public static byte[] encodeExchangeApplicationPresentationRequest(ExchangeApplicationPresentationRequest v) {
+        return encode(encExchangeApplicationPresentationRequest(v));
+    }
+
+    public static ExchangeApplicationPresentationRequest decodeExchangeApplicationPresentationRequest(byte[] data) {
+        return decExchangeApplicationPresentationRequest(decode(data));
+    }
+
+    static CborValue encApplicationIdentityResponse(ApplicationIdentityResponse v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        csilEntries.add(new CborEntry(new CborText("audience"), encApplicationRef(v.audience())));
+        return new CborMap(csilEntries);
+    }
+
+    static ApplicationIdentityResponse decApplicationIdentityResponse(CborValue csilRoot) {
+        ApplicationRef audience = decApplicationRef(require(csilRoot, "audience"));
+        return new ApplicationIdentityResponse(audience);
+    }
+
+    public static byte[] encodeApplicationIdentityResponse(ApplicationIdentityResponse v) {
+        return encode(encApplicationIdentityResponse(v));
+    }
+
+    public static ApplicationIdentityResponse decodeApplicationIdentityResponse(byte[] data) {
+        return decApplicationIdentityResponse(decode(data));
+    }
+
     static CborValue encDevUser(DevUser v) {
         List<CborEntry> csilEntries = new ArrayList<>(4);
         csilEntries.add(new CborEntry(new CborText("domain"), new CborText(v.domain())));
@@ -2344,7 +2709,7 @@ public final class CsilCbor {
 
     static ShareRole decShareRole(CborValue csilRoot) {
         var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage"))) {
+        if (!(Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "contribute") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage"))) {
             throw new CsilCborException("csil cbor: ShareRole value " + csilVal + " is not a member of the declared enum");
         }
         return new ShareRole(csilVal);
@@ -2356,7 +2721,7 @@ public final class CsilCbor {
 
     static AccessRole decAccessRole(CborValue csilRoot) {
         var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "none") || Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage") || Objects.equals(csilVal, "owner"))) {
+        if (!(Objects.equals(csilVal, "none") || Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "contribute") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage") || Objects.equals(csilVal, "owner"))) {
             throw new CsilCborException("csil cbor: AccessRole value " + csilVal + " is not a member of the declared enum");
         }
         return new AccessRole(csilVal);
@@ -2532,6 +2897,22 @@ public final class CsilCbor {
 
     public static ShareId decodeShareDeleteShareRequest(byte[] csilData) {
         return new ShareId(asText(decode(csilData)));
+    }
+
+    public static byte[] encodeGroupGetGroupRequest(GroupId csilV) {
+        return encode(new CborText((csilV).value()));
+    }
+
+    public static GroupId decodeGroupGetGroupRequest(byte[] csilData) {
+        return new GroupId(asText(decode(csilData)));
+    }
+
+    public static byte[] encodeGroupDeleteGroupRequest(GroupId csilV) {
+        return encode(new CborText((csilV).value()));
+    }
+
+    public static GroupId decodeGroupDeleteGroupRequest(byte[] csilData) {
+        return new GroupId(asText(decode(csilData)));
     }
 
     public static byte[] encodeDelegationRevokeDelegationRequest(DelegationId csilV) {

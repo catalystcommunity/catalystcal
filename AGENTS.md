@@ -47,6 +47,23 @@ code, files, and docs. Do not use other spellings or abbreviations.
   `./tools gen`. Never edit generated files (`*.gen.*`, `api/internal/csil/`,
   `clients/`). Commit new generated files too: `./tools gen-check` and CI
   fail on changed AND on untracked generated files.
+- **Client overlays.** Hand-written client code lives in
+  `clients/overlays/<lang>/`. `clients/regenerate.sh` copies it over the
+  generated package. Edit the overlay, never the copy. The Go overlay has
+  the HTTPS carrier, application presentation signing (`AppSigner`), and
+  bearer sessions (`AppSession`, `ActAsSession`). Its
+  `internal/transport` is a copy of `api/internal/transport`, so the Go
+  client has no dependencies and one tag (`clients/go/vX.Y.Z`, made by the
+  release job).
+- **Principals and groups.** A principal is a person or an application
+  principal (`users.application_id` set). Compare identities by domain,
+  account id, AND application id. A share grantee is an identity or a
+  group. Access through groups is read at each call: never cache it in a
+  bearer.
+- **Application presentations** are a catalystcal type, not a LinkKeys type.
+  The tag `catalystcal-application-presentation-v1` and the digest input
+  are in `api/internal/apppresent` and in the Go overlay. Change both, and
+  both test vectors, together.
 - **csilgen lint warnings are expected.** The house CSIL style causes them.
   Only errors fail `./tools lint`.
 - **SQLite only.** The driver is `modernc.org/sqlite` (pure Go), so

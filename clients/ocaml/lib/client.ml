@@ -52,6 +52,16 @@ module Auth_service = struct
     match c.call ~service:"AuthService" ~op:"get-act-as-scope-set" ~payload:(Codec.encode_scope_set_request_bytes req) with
     | Ok payload -> Ok (Codec.decode_scope_set_response_bytes payload)
     | Error _ as e -> e
+
+  let get_application_identity (c : client) (req : empty_request) : (application_identity_response, string) result =
+    match c.call ~service:"AuthService" ~op:"get-application-identity" ~payload:(Codec.encode_empty_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_application_identity_response_bytes payload)
+    | Error _ as e -> e
+
+  let exchange_application_presentation (c : client) (req : exchange_application_presentation_request) : (login_response, string) result =
+    match c.call ~service:"AuthService" ~op:"exchange-application-presentation" ~payload:(Codec.encode_exchange_application_presentation_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_login_response_bytes payload)
+    | Error _ as e -> e
 end
 
 module Dev_auth_service = struct
@@ -148,6 +158,42 @@ module Share_service = struct
       ~(encode_request : share_id -> bytes)
       (req : share_id) : (empty_response, string) result =
     match c.call ~service:"ShareService" ~op:"delete-share" ~payload:(encode_request req) with
+    | Ok payload -> Ok (Codec.decode_empty_response_bytes payload)
+    | Error _ as e -> e
+end
+
+module Group_service = struct
+  let list_groups (c : client) (req : empty_request) : (group_list, string) result =
+    match c.call ~service:"GroupService" ~op:"list-groups" ~payload:(Codec.encode_empty_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_group_list_bytes payload)
+    | Error _ as e -> e
+
+  let get_group (c : client)
+      ~(encode_request : group_id -> bytes)
+      (req : group_id) : (group, string) result =
+    match c.call ~service:"GroupService" ~op:"get-group" ~payload:(encode_request req) with
+    | Ok payload -> Ok (Codec.decode_group_bytes payload)
+    | Error _ as e -> e
+
+  let create_group (c : client) (req : create_group_request) : (group, string) result =
+    match c.call ~service:"GroupService" ~op:"create-group" ~payload:(Codec.encode_create_group_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_group_bytes payload)
+    | Error _ as e -> e
+
+  let update_group (c : client) (req : update_group_request) : (group, string) result =
+    match c.call ~service:"GroupService" ~op:"update-group" ~payload:(Codec.encode_update_group_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_group_bytes payload)
+    | Error _ as e -> e
+
+  let set_members (c : client) (req : set_group_members_request) : (group, string) result =
+    match c.call ~service:"GroupService" ~op:"set-members" ~payload:(Codec.encode_set_group_members_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_group_bytes payload)
+    | Error _ as e -> e
+
+  let delete_group (c : client)
+      ~(encode_request : group_id -> bytes)
+      (req : group_id) : (empty_response, string) result =
+    match c.call ~service:"GroupService" ~op:"delete-group" ~payload:(encode_request req) with
     | Ok payload -> Ok (Codec.decode_empty_response_bytes payload)
     | Error _ as e -> e
 end

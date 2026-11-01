@@ -21,6 +21,8 @@ func devRef(handle string) csil.IdentityRef {
 	return csil.IdentityRef{Domain: "dev.local", UserId: sp(handle)}
 }
 
+func devRefP(handle string) *csil.IdentityRef { r := devRef(handle); return &r }
+
 func TestDelegationEndToEnd(t *testing.T) {
 	e := newEnv(t)
 	alice, aliceLogin := e.login("alice")
@@ -140,12 +142,12 @@ func TestSharesFreeBusyAndPrivacy(t *testing.T) {
 	var r resulter = call(carol, "CalendarService", "get-calendar", a1.CalendarId, csil.EncodeCalendarGetCalendarRequest, csil.DecodeCalendar)
 	wantCode(t, r, 404)
 
-	must(t, call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: devRef("carol"), Role: "write"},
+	must(t, call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: devRefP("carol"), Role: "write"},
 		csil.EncodeShare, csil.DecodeShare))
-	must(t, call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: csil.IdentityRef{Domain: "dev.local", Handle: sp("dave")}, Role: "free_busy"},
+	must(t, call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: &csil.IdentityRef{Domain: "dev.local", Handle: sp("dave")}, Role: "free_busy"},
 		csil.EncodeShare, csil.DecodeShare))
 	// An unknown handle gives the required message.
-	r = call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: csil.IdentityRef{Domain: "dev.local", Handle: sp("nobody")}, Role: "read"},
+	r = call(alice, "ShareService", "put-share", csil.Share{CalendarId: a1.CalendarId, Grantee: &csil.IdentityRef{Domain: "dev.local", Handle: sp("nobody")}, Role: "read"},
 		csil.EncodeShare, csil.DecodeShare)
 	if !strings.Contains(wantCode(t, r, 404).svcErr.Message, "has not signed in") {
 		t.Fatalf("message %q", r.res().svcErr.Message)

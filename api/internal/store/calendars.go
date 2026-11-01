@@ -106,18 +106,22 @@ func (s *Store) ListCalendarsByOwner(ctx context.Context, ownerID string) ([]Cal
 		ORDER BY is_default DESC, name, id`, ownerID))
 }
 
-// SharedCalendar is a calendar plus the role of a share on it.
+// SharedCalendar is a calendar plus the role of a share on it. A calendar
+// with more than one share for the caller (direct and through groups)
+// comes once for each share; the caller takes the highest role.
 type SharedCalendar struct {
 	Calendar Calendar
 	Role     string
 }
 
-// ListCalendarsSharedWith returns calendars with a share for the identity.
-func (s *Store) ListCalendarsSharedWith(ctx context.Context, domain, subject string) ([]SharedCalendar, error) {
+// ListCalendarsSharedWith returns calendars with a share for the identity,
+// directly or through one of groupIDs.
+func (s *Store) ListCalendarsSharedWith(ctx context.Context, p Principal, groupIDs []string) ([]SharedCalendar, error) {
+	cond, args := granteeMatch("sh.", p.Norm(), groupIDs)
 	rows, err := s.DB.QueryContext(ctx, `SELECT `+prefixCols("c", calendarCols)+`, sh.role
 		FROM calendar_shares sh JOIN calendars c ON c.id = sh.calendar_id
-		WHERE sh.grantee_domain = ? AND sh.grantee_subject = ?
-		ORDER BY c.name, c.id`, strings.ToLower(domain), subject)
+		WHERE `+cond+`
+		ORDER BY c.name, c.id`, args...)
 	if err != nil {
 		return nil, err
 	}

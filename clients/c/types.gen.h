@@ -16,6 +16,7 @@ typedef struct CsilBytes {
 typedef enum ShareRole {
     SHARE_ROLE_FREE_BUSY,
     SHARE_ROLE_READ,
+    SHARE_ROLE_CONTRIBUTE,
     SHARE_ROLE_WRITE,
     SHARE_ROLE_MANAGE,
 } ShareRole;
@@ -25,6 +26,7 @@ typedef enum AccessRole {
     ACCESS_ROLE_NONE,
     ACCESS_ROLE_FREE_BUSY,
     ACCESS_ROLE_READ,
+    ACCESS_ROLE_CONTRIBUTE,
     ACCESS_ROLE_WRITE,
     ACCESS_ROLE_MANAGE,
     ACCESS_ROLE_OWNER,
@@ -123,6 +125,12 @@ typedef struct SetFeedRequest SetFeedRequest;
 typedef struct CalendarList CalendarList;
 typedef struct Share Share;
 typedef struct ShareList ShareList;
+typedef struct GroupMember GroupMember;
+typedef struct Group Group;
+typedef struct CreateGroupRequest CreateGroupRequest;
+typedef struct UpdateGroupRequest UpdateGroupRequest;
+typedef struct SetGroupMembersRequest SetGroupMembersRequest;
+typedef struct GroupList GroupList;
 typedef struct Delegation Delegation;
 typedef struct DelegationList DelegationList;
 typedef struct AssumePrincipalRequest AssumePrincipalRequest;
@@ -157,6 +165,11 @@ typedef struct MeResponse MeResponse;
 typedef struct ExchangeActAsCredentialRequest ExchangeActAsCredentialRequest;
 typedef struct ScopeSetRequest ScopeSetRequest;
 typedef struct ScopeSetResponse ScopeSetResponse;
+typedef struct ApplicationRef ApplicationRef;
+typedef struct ApplicationPresentation ApplicationPresentation;
+typedef struct SignedApplicationPresentation SignedApplicationPresentation;
+typedef struct ExchangeApplicationPresentationRequest ExchangeApplicationPresentationRequest;
+typedef struct ApplicationIdentityResponse ApplicationIdentityResponse;
 typedef struct DevUser DevUser;
 typedef struct DevUsersResponse DevUsersResponse;
 typedef struct DevLoginRequest DevLoginRequest;
@@ -184,6 +197,9 @@ typedef char *DelegationID;
 /* AuditID is a type alias. */
 typedef char *AuditID;
 
+/* GroupID is a type alias. */
+typedef char *GroupID;
+
 /* SessionID is a type alias. */
 typedef char *SessionID;
 
@@ -198,6 +214,7 @@ typedef struct IdentityRef {
     char *domain;
     char *user_id;
     char *handle;
+    char *application_id;
 } IdentityRef;
 
 /* User is a structured data type. */
@@ -205,6 +222,7 @@ typedef struct User {
     UserID user_id;
     char *domain;
     char *subject;
+    char *application_id;
     char *handle;
     char *display_name;
     char *email;
@@ -218,6 +236,7 @@ typedef struct PersonSummary {
     UserID user_id;
     char *domain;
     char *subject;
+    char *application_id;
     char *handle;
     char *display_name;
 } PersonSummary;
@@ -282,9 +301,11 @@ typedef struct CalendarList {
 typedef struct Share {
     ShareID share_id;
     CalendarID calendar_id;
-    IdentityRef grantee;
+    IdentityRef *grantee;
+    GroupID *grantee_group_id;
     ShareRole role;
     PersonSummary *grantee_person;
+    char *grantee_group_name;
     Timestamp created_at;
 } Share;
 
@@ -293,6 +314,56 @@ typedef struct ShareList {
     Share *shares;
     size_t shares_count;
 } ShareList;
+
+/* GroupMember is a structured data type. */
+typedef struct GroupMember {
+    IdentityRef *identity;
+    GroupID *group_id;
+    PersonSummary *person;
+    char *group_name;
+} GroupMember;
+
+/* Group is a structured data type. */
+typedef struct Group {
+    GroupID group_id;
+    PersonSummary owner;
+    char *name;
+    char *description;
+    uint64_t revision;
+    GroupMember *members;
+    size_t members_count;
+    Timestamp created_at;
+    Timestamp updated_at;
+} Group;
+
+/* CreateGroupRequest is a structured data type. */
+typedef struct CreateGroupRequest {
+    char *name;
+    char *description;
+    GroupMember *members;
+    size_t members_count;
+} CreateGroupRequest;
+
+/* UpdateGroupRequest is a structured data type. */
+typedef struct UpdateGroupRequest {
+    GroupID group_id;
+    char *name;
+    char *description;
+} UpdateGroupRequest;
+
+/* SetGroupMembersRequest is a structured data type. */
+typedef struct SetGroupMembersRequest {
+    GroupID group_id;
+    uint64_t *expected_revision;
+    GroupMember *members;
+    size_t members_count;
+} SetGroupMembersRequest;
+
+/* GroupList is a structured data type. */
+typedef struct GroupList {
+    Group *groups;
+    size_t groups_count;
+} GroupList;
 
 /* Delegation is a structured data type. */
 typedef struct Delegation {
@@ -586,6 +657,40 @@ typedef struct ScopeSetRequest {
 typedef struct ScopeSetResponse {
     CsilBytes signed_scope_set;
 } ScopeSetResponse;
+
+/* ApplicationRef is a structured data type. */
+typedef struct ApplicationRef {
+    char *subject_user_id;
+    char *subject_domain;
+    char *application_id;
+} ApplicationRef;
+
+/* ApplicationPresentation is a structured data type. */
+typedef struct ApplicationPresentation {
+    ApplicationRef signer;
+    char *signer_instance_id;
+    ApplicationRef audience;
+    CsilBytes request_digest;
+    Timestamp presented_at;
+    CsilBytes nonce;
+} ApplicationPresentation;
+
+/* SignedApplicationPresentation is a structured data type. */
+typedef struct SignedApplicationPresentation {
+    CsilBytes presentation;
+    char *signed_by_key_id;
+    CsilBytes signature;
+} SignedApplicationPresentation;
+
+/* ExchangeApplicationPresentationRequest is a structured data type. */
+typedef struct ExchangeApplicationPresentationRequest {
+    SignedApplicationPresentation presentation;
+} ExchangeApplicationPresentationRequest;
+
+/* ApplicationIdentityResponse is a structured data type. */
+typedef struct ApplicationIdentityResponse {
+    ApplicationRef audience;
+} ApplicationIdentityResponse;
 
 /* DevUser is a structured data type. */
 typedef struct DevUser {

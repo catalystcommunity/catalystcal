@@ -112,6 +112,17 @@ for entry in "${LANGS[@]}"; do
     fi
 done
 
+# Hand-written additions: clients/overlays/<lang>/ is copied over the
+# generated package (for Go: the HTTP carrier, application presentations,
+# and bearer sessions). Edit the overlay, never the copy.
+for overlay in "$OUT"/overlays/*/; do
+    [ -d "$overlay" ] || continue
+    lang="$(basename "$overlay")"
+    if [ -d "$OUT/$lang" ]; then
+        cp -R "$overlay". "$OUT/$lang/"
+    fi
+done
+
 # Go: gofmt the generated package so it matches repo style and is verifiably
 # parseable.
 if command -v gofmt >/dev/null && [ -d "$OUT/go" ]; then

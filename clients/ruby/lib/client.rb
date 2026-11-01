@@ -54,6 +54,16 @@ class AuthClient
   def get_act_as_scope_set(req)
     ScopeSetResponse.from_cbor(@transport.call("AuthService", "get-act-as-scope-set", req.to_cbor))
   end
+
+  # get-application-identity: -> ApplicationIdentityResponse
+  def get_application_identity(req)
+    ApplicationIdentityResponse.from_cbor(@transport.call("AuthService", "get-application-identity", req.to_cbor))
+  end
+
+  # exchange-application-presentation: -> LoginResponse
+  def exchange_application_presentation(req)
+    LoginResponse.from_cbor(@transport.call("AuthService", "exchange-application-presentation", req.to_cbor))
+  end
 end
 
 # Typed client for the DevAuthService service.
@@ -161,6 +171,43 @@ class ShareClient
   # delete-share: -> EmptyResponse
   def delete_share(req)
     EmptyResponse.from_cbor(@transport.call("ShareService", "delete-share", req.to_cbor))
+  end
+end
+
+# Typed client for the GroupService service.
+class GroupClient
+  def initialize(transport)
+    @transport = transport
+  end
+
+  # list-groups: -> GroupList
+  def list_groups(req)
+    GroupList.from_cbor(@transport.call("GroupService", "list-groups", req.to_cbor))
+  end
+
+  # get-group: -> Group
+  def get_group(req)
+    Group.from_cbor(@transport.call("GroupService", "get-group", req.to_cbor))
+  end
+
+  # create-group: -> Group
+  def create_group(req)
+    Group.from_cbor(@transport.call("GroupService", "create-group", req.to_cbor))
+  end
+
+  # update-group: -> Group
+  def update_group(req)
+    Group.from_cbor(@transport.call("GroupService", "update-group", req.to_cbor))
+  end
+
+  # set-members: -> Group
+  def set_members(req)
+    Group.from_cbor(@transport.call("GroupService", "set-members", req.to_cbor))
+  end
+
+  # delete-group: -> EmptyResponse
+  def delete_group(req)
+    EmptyResponse.from_cbor(@transport.call("GroupService", "delete-group", req.to_cbor))
   end
 end
 

@@ -45,6 +45,10 @@ public sealed class AuthClient(ICsilTransport transport)
         Codec.Decode<LoginResponse>(transport.Call("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest)));
     public ScopeSetResponse GetActAsScopeSet(ScopeSetRequest scopeSetRequest) =>
         Codec.Decode<ScopeSetResponse>(transport.Call("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest)));
+    public ApplicationIdentityResponse GetApplicationIdentity(EmptyRequest emptyRequest) =>
+        Codec.Decode<ApplicationIdentityResponse>(transport.Call("AuthService", "get-application-identity", Codec.Encode(emptyRequest)));
+    public LoginResponse ExchangeApplicationPresentation(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest) =>
+        Codec.Decode<LoginResponse>(transport.Call("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest)));
 }
 
 /// <summary>Typed RPC client for the DevAuthService service. The client owns
@@ -101,6 +105,24 @@ public sealed class ShareClient(ICsilTransport transport)
         Codec.Decode<Share>(transport.Call("ShareService", "put-share", Codec.Encode(share)));
     public EmptyResponse DeleteShare(ShareID shareID) =>
         Codec.Decode<EmptyResponse>(transport.Call("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID)));
+}
+
+/// <summary>Typed RPC client for the GroupService service. The client owns
+/// (de)serialization via the generated codec; the transport only moves bytes.</summary>
+public sealed class GroupClient(ICsilTransport transport)
+{
+    public GroupList ListGroups(EmptyRequest emptyRequest) =>
+        Codec.Decode<GroupList>(transport.Call("GroupService", "list-groups", Codec.Encode(emptyRequest)));
+    public Group GetGroup(GroupID groupID) =>
+        Codec.Decode<Group>(transport.Call("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID)));
+    public Group CreateGroup(CreateGroupRequest createGroupRequest) =>
+        Codec.Decode<Group>(transport.Call("GroupService", "create-group", Codec.Encode(createGroupRequest)));
+    public Group UpdateGroup(UpdateGroupRequest updateGroupRequest) =>
+        Codec.Decode<Group>(transport.Call("GroupService", "update-group", Codec.Encode(updateGroupRequest)));
+    public Group SetMembers(SetGroupMembersRequest setGroupMembersRequest) =>
+        Codec.Decode<Group>(transport.Call("GroupService", "set-members", Codec.Encode(setGroupMembersRequest)));
+    public EmptyResponse DeleteGroup(GroupID groupID) =>
+        Codec.Decode<EmptyResponse>(transport.Call("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID)));
 }
 
 /// <summary>Typed RPC client for the DelegationService service. The client owns

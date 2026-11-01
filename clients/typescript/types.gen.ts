@@ -14,15 +14,17 @@ export type DelegationID = string;
 
 export type AuditID = string;
 
+export type GroupID = string;
+
 export type SessionID = string;
 
 export type Timestamp = string;
 
 export type DateText = string;
 
-export type ShareRole = "free_busy" | "read" | "write" | "manage";
+export type ShareRole = "free_busy" | "read" | "contribute" | "write" | "manage";
 
-export type AccessRole = "none" | "free_busy" | "read" | "write" | "manage" | "owner";
+export type AccessRole = "none" | "free_busy" | "read" | "contribute" | "write" | "manage" | "owner";
 
 export type AccessPath = "owner" | "share" | "delegation" | "attendee";
 
@@ -50,12 +52,14 @@ export interface IdentityRef {
   domain: string;
   userId?: string;
   handle?: string;
+  applicationId?: string;
 }
 
 export interface User {
   userId: UserID;
   domain: string;
   subject: string;
+  applicationId?: string;
   handle?: string;
   displayName?: string;
   email?: string;
@@ -68,6 +72,7 @@ export interface PersonSummary {
   userId: UserID;
   domain: string;
   subject: string;
+  applicationId?: string;
   handle?: string;
   displayName?: string;
 }
@@ -124,14 +129,56 @@ export interface CalendarList {
 export interface Share {
   shareId: ShareID;
   calendarId: CalendarID;
-  grantee: IdentityRef;
+  grantee?: IdentityRef;
+  granteeGroupId?: GroupID;
   role: ShareRole;
   granteePerson?: PersonSummary;
+  granteeGroupName?: string;
   createdAt: Timestamp;
 }
 
 export interface ShareList {
   shares: Share[];
+}
+
+export interface GroupMember {
+  identity?: IdentityRef;
+  groupId?: GroupID;
+  person?: PersonSummary;
+  groupName?: string;
+}
+
+export interface Group {
+  groupId: GroupID;
+  owner: PersonSummary;
+  name: string;
+  description?: string;
+  revision: number;
+  members: GroupMember[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+  members?: GroupMember[];
+}
+
+export interface UpdateGroupRequest {
+  groupId: GroupID;
+  name?: string;
+  description?: string;
+}
+
+export interface SetGroupMembersRequest {
+  groupId: GroupID;
+  expectedRevision?: number;
+  members: GroupMember[];
+}
+
+export interface GroupList {
+  groups: Group[];
 }
 
 export interface Delegation {
@@ -373,6 +420,35 @@ export interface ScopeSetResponse {
   signedScopeSet: Uint8Array;
 }
 
+export interface ApplicationRef {
+  subjectUserId: string;
+  subjectDomain: string;
+  applicationId: string;
+}
+
+export interface ApplicationPresentation {
+  signer: ApplicationRef;
+  signerInstanceId: string;
+  audience: ApplicationRef;
+  requestDigest: Uint8Array;
+  presentedAt: Timestamp;
+  nonce: Uint8Array;
+}
+
+export interface SignedApplicationPresentation {
+  presentation: Uint8Array;
+  signedByKeyId: string;
+  signature: Uint8Array;
+}
+
+export interface ExchangeApplicationPresentationRequest {
+  presentation: SignedApplicationPresentation;
+}
+
+export interface ApplicationIdentityResponse {
+  audience: ApplicationRef;
+}
+
 export interface DevUser {
   userId: UserID;
   handle?: string;
@@ -433,6 +509,26 @@ export function validateUpdateCalendarRequest(value: UpdateCalendarRequest): str
 export function validateSubscribeCalendarRequest(value: SubscribeCalendarRequest): string[] {
   const errors: string[] = [];
   if (value.name.length < 1 || value.name.length > 256) errors.push("name: length must be between 1 and 256");
+  return errors;
+}
+
+export function validateGroup(value: Group): string[] {
+  const errors: string[] = [];
+  if (value.name.length < 1 || value.name.length > 256) errors.push("name: length must be between 1 and 256");
+  return errors;
+}
+
+export function validateCreateGroupRequest(value: CreateGroupRequest): string[] {
+  const errors: string[] = [];
+  if (value.name.length < 1 || value.name.length > 256) errors.push("name: length must be between 1 and 256");
+  return errors;
+}
+
+export function validateUpdateGroupRequest(value: UpdateGroupRequest): string[] {
+  const errors: string[] = [];
+  if (value.name !== undefined) {
+    if (value.name.length < 1 || value.name.length > 256) errors.push("name: length must be between 1 and 256");
+  }
   return errors;
 }
 

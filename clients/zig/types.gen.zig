@@ -5,6 +5,7 @@
 pub const ShareRole = enum {
     free_busy,
     read,
+    contribute,
     write,
     manage,
 
@@ -12,6 +13,7 @@ pub const ShareRole = enum {
         return switch (self) {
             .free_busy => "free_busy",
             .read => "read",
+            .contribute => "contribute",
             .write => "write",
             .manage => "manage",
         };
@@ -23,6 +25,7 @@ pub const AccessRole = enum {
     none,
     free_busy,
     read,
+    contribute,
     write,
     manage,
     owner,
@@ -32,6 +35,7 @@ pub const AccessRole = enum {
             .none => "none",
             .free_busy => "free_busy",
             .read => "read",
+            .contribute => "contribute",
             .write => "write",
             .manage => "manage",
             .owner => "owner",
@@ -230,6 +234,9 @@ pub const DelegationID = []const u8;
 /// AuditID is a type alias.
 pub const AuditID = []const u8;
 
+/// GroupID is a type alias.
+pub const GroupID = []const u8;
+
 /// SessionID is a type alias.
 pub const SessionID = []const u8;
 
@@ -244,6 +251,7 @@ pub const IdentityRef = struct {
     domain: []const u8,
     user_id: ?[]const u8 = null,
     handle: ?[]const u8 = null,
+    application_id: ?[]const u8 = null,
 };
 
 /// CreateCalendarRequest is a structured data type.
@@ -269,6 +277,26 @@ pub const CalendarList = struct {
 /// ShareList is a structured data type.
 pub const ShareList = struct {
     shares: []Share,
+};
+
+/// GroupMember is a structured data type.
+pub const GroupMember = struct {
+    identity: ?IdentityRef = null,
+    group_id: ?GroupID = null,
+    person: ?PersonSummary = null,
+    group_name: ?[]const u8 = null,
+};
+
+/// CreateGroupRequest is a structured data type.
+pub const CreateGroupRequest = struct {
+    name: []const u8,
+    description: ?[]const u8 = null,
+    members: ?[]GroupMember = null,
+};
+
+/// GroupList is a structured data type.
+pub const GroupList = struct {
+    groups: []Group,
 };
 
 /// DelegationList is a structured data type.
@@ -380,6 +408,30 @@ pub const ScopeSetResponse = struct {
     signed_scope_set: []const u8,
 };
 
+/// ApplicationRef is a structured data type.
+pub const ApplicationRef = struct {
+    subject_user_id: []const u8,
+    subject_domain: []const u8,
+    application_id: []const u8,
+};
+
+/// SignedApplicationPresentation is a structured data type.
+pub const SignedApplicationPresentation = struct {
+    presentation: []const u8,
+    signed_by_key_id: []const u8,
+    signature: []const u8,
+};
+
+/// ExchangeApplicationPresentationRequest is a structured data type.
+pub const ExchangeApplicationPresentationRequest = struct {
+    presentation: SignedApplicationPresentation,
+};
+
+/// ApplicationIdentityResponse is a structured data type.
+pub const ApplicationIdentityResponse = struct {
+    audience: ApplicationRef,
+};
+
 /// DevUsersResponse is a structured data type.
 pub const DevUsersResponse = struct {
     users: []DevUser,
@@ -420,6 +472,7 @@ pub const User = struct {
     user_id: UserID,
     domain: []const u8,
     subject: []const u8,
+    application_id: ?[]const u8 = null,
     handle: ?[]const u8 = null,
     display_name: ?[]const u8 = null,
     email: ?[]const u8 = null,
@@ -433,6 +486,7 @@ pub const PersonSummary = struct {
     user_id: UserID,
     domain: []const u8,
     subject: []const u8,
+    application_id: ?[]const u8 = null,
     handle: ?[]const u8 = null,
     display_name: ?[]const u8 = null,
 };
@@ -476,10 +530,38 @@ pub const SetFeedRequest = struct {
 pub const Share = struct {
     share_id: ShareID,
     calendar_id: CalendarID,
-    grantee: IdentityRef,
+    grantee: ?IdentityRef = null,
+    grantee_group_id: ?GroupID = null,
     role: ShareRole,
     grantee_person: ?PersonSummary = null,
+    grantee_group_name: ?[]const u8 = null,
     created_at: Timestamp,
+};
+
+/// Group is a structured data type.
+pub const Group = struct {
+    group_id: GroupID,
+    owner: PersonSummary,
+    name: []const u8,
+    description: ?[]const u8 = null,
+    revision: u64,
+    members: []GroupMember,
+    created_at: Timestamp,
+    updated_at: Timestamp,
+};
+
+/// UpdateGroupRequest is a structured data type.
+pub const UpdateGroupRequest = struct {
+    group_id: GroupID,
+    name: ?[]const u8 = null,
+    description: ?[]const u8 = null,
+};
+
+/// SetGroupMembersRequest is a structured data type.
+pub const SetGroupMembersRequest = struct {
+    group_id: GroupID,
+    expected_revision: ?u64 = null,
+    members: []GroupMember,
 };
 
 /// Delegation is a structured data type.
@@ -644,6 +726,16 @@ pub const MeResponse = struct {
     via: ActingVia,
     scopes: ?[]Scope = null,
     principals: []PersonSummary,
+};
+
+/// ApplicationPresentation is a structured data type.
+pub const ApplicationPresentation = struct {
+    signer: ApplicationRef,
+    signer_instance_id: []const u8,
+    audience: ApplicationRef,
+    request_digest: []const u8,
+    presented_at: Timestamp,
+    nonce: []const u8,
 };
 
 /// DevUser is a structured data type.

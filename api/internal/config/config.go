@@ -55,6 +55,13 @@ type Config struct {
 
 	ActAsAppKeysFile        string
 	ActAsMaxPresentationAge time.Duration
+
+	// AllowedApplications are the application principals that may sign in
+	// with an application presentation, as
+	// "<subject_user_id>@<domain>/<application_id>".
+	AllowedApplications   []string
+	AppPresentationMaxAge time.Duration
+	ApplicationBearerTTL  time.Duration
 }
 
 // Load reads the configuration from the process environment.
@@ -92,6 +99,10 @@ func LoadFrom(getenv func(string) string) (*Config, error) {
 
 		ActAsAppKeysFile:        r.str("CATALYSTCAL_ACT_AS_APP_KEYS_FILE", ""),
 		ActAsMaxPresentationAge: time.Duration(r.int("CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS", 300)) * time.Second,
+
+		AllowedApplications:   r.list("CATALYSTCAL_ALLOWED_APPLICATIONS"),
+		AppPresentationMaxAge: time.Duration(r.int("CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS", 300)) * time.Second,
+		ApplicationBearerTTL:  time.Duration(r.int("CATALYSTCAL_APP_BEARER_TTL_SECONDS", 900)) * time.Second,
 	}
 	if c.CallbackURL == "" && c.PublicURL != "" {
 		c.CallbackURL = c.PublicURL + "/auth/callback"
@@ -129,6 +140,15 @@ func (c *Config) Validate() error {
 	}
 	if c.ActAsMaxPresentationAge <= 0 {
 		return fmt.Errorf("CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS must be positive")
+	}
+	if c.AppPresentationMaxAge <= 0 || c.AppPresentationMaxAge > 900*time.Second {
+		return fmt.Errorf("CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS must be 1 to 900")
+	}
+	if c.ApplicationBearerTTL <= 0 || c.ApplicationBearerTTL > time.Hour {
+		return fmt.Errorf("CATALYSTCAL_APP_BEARER_TTL_SECONDS must be 1 to 3600")
+	}
+	if len(c.AllowedApplications) > 0 && c.ActAsAppKeysFile == "" {
+		return fmt.Errorf("CATALYSTCAL_ALLOWED_APPLICATIONS needs CATALYSTCAL_ACT_AS_APP_KEYS_FILE: the key file names this server's own application identity")
 	}
 	return nil
 }

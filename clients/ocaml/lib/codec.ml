@@ -8,10 +8,10 @@ open Types
 module Cbor = Csil_cbor
 
 let rec encode_share_role (v : share_role) : Cbor.t =
-  match v with Free_busy -> Cbor.Text "free_busy" | Read -> Cbor.Text "read" | Write -> Cbor.Text "write" | Manage -> Cbor.Text "manage"
+  match v with Free_busy -> Cbor.Text "free_busy" | Read -> Cbor.Text "read" | Contribute -> Cbor.Text "contribute" | Write -> Cbor.Text "write" | Manage -> Cbor.Text "manage"
 
 and encode_access_role (v : access_role) : Cbor.t =
-  match v with None -> Cbor.Text "none" | Free_busy -> Cbor.Text "free_busy" | Read -> Cbor.Text "read" | Write -> Cbor.Text "write" | Manage -> Cbor.Text "manage" | Owner -> Cbor.Text "owner"
+  match v with None -> Cbor.Text "none" | Free_busy -> Cbor.Text "free_busy" | Read -> Cbor.Text "read" | Contribute -> Cbor.Text "contribute" | Write -> Cbor.Text "write" | Manage -> Cbor.Text "manage" | Owner -> Cbor.Text "owner"
 
 and encode_access_path (v : access_path) : Cbor.t =
   match v with Owner -> Cbor.Text "owner" | Share -> Cbor.Text "share" | Delegation -> Cbor.Text "delegation" | Attendee -> Cbor.Text "attendee"
@@ -54,6 +54,7 @@ and encode_identity_ref (v : identity_ref) : Cbor.t =
          Some (Cbor.Text "domain", (Cbor.Text v.domain));
          (match v.handle with Some csil_x -> Some (Cbor.Text "handle", (Cbor.Text csil_x)) | None -> None);
          (match v.user_id with Some csil_x -> Some (Cbor.Text "user_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.application_id with Some csil_x -> Some (Cbor.Text "application_id", (Cbor.Text csil_x)) | None -> None);
        ])
 
 and encode_user (v : user) : Cbor.t =
@@ -70,6 +71,7 @@ and encode_user (v : user) : Cbor.t =
          Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
          Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
          (match v.display_name with Some csil_x -> Some (Cbor.Text "display_name", (Cbor.Text csil_x)) | None -> None);
+         (match v.application_id with Some csil_x -> Some (Cbor.Text "application_id", (Cbor.Text csil_x)) | None -> None);
        ])
 
 and encode_person_summary (v : person_summary) : Cbor.t =
@@ -82,6 +84,7 @@ and encode_person_summary (v : person_summary) : Cbor.t =
          Some (Cbor.Text "subject", (Cbor.Text v.subject));
          Some (Cbor.Text "user_id", (Cbor.Text v.user_id));
          (match v.display_name with Some csil_x -> Some (Cbor.Text "display_name", (Cbor.Text csil_x)) | None -> None);
+         (match v.application_id with Some csil_x -> Some (Cbor.Text "application_id", (Cbor.Text csil_x)) | None -> None);
        ])
 
 and encode_calendar (v : calendar) : Cbor.t =
@@ -163,11 +166,13 @@ and encode_share (v : share) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "role", (encode_share_role v.role));
-         Some (Cbor.Text "grantee", (encode_identity_ref v.grantee));
+         (match v.grantee with Some csil_x -> Some (Cbor.Text "grantee", (encode_identity_ref csil_x)) | None -> None);
          Some (Cbor.Text "share_id", (Cbor.Text v.share_id));
          Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.grantee_person with Some csil_x -> Some (Cbor.Text "grantee_person", (encode_person_summary csil_x)) | None -> None);
+         (match v.grantee_group_id with Some csil_x -> Some (Cbor.Text "grantee_group_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.grantee_group_name with Some csil_x -> Some (Cbor.Text "grantee_group_name", (Cbor.Text csil_x)) | None -> None);
        ])
 
 and encode_share_list (v : share_list) : Cbor.t =
@@ -176,6 +181,70 @@ and encode_share_list (v : share_list) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "shares", (Cbor.Array (List.map (fun csil_e -> (encode_share csil_e)) v.shares)));
+       ])
+
+and encode_group_member (v : group_member) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.person with Some csil_x -> Some (Cbor.Text "person", (encode_person_summary csil_x)) | None -> None);
+         (match v.group_id with Some csil_x -> Some (Cbor.Text "group_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.identity with Some csil_x -> Some (Cbor.Text "identity", (encode_identity_ref csil_x)) | None -> None);
+         (match v.group_name with Some csil_x -> Some (Cbor.Text "group_name", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_group (v : group) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "name", (Cbor.Text v.name));
+         Some (Cbor.Text "owner", (encode_person_summary v.owner));
+         Some (Cbor.Text "members", (Cbor.Array (List.map (fun csil_e -> (encode_group_member csil_e)) v.members)));
+         Some (Cbor.Text "group_id", (Cbor.Text v.group_id));
+         Some (Cbor.Text "revision", (Cbor.int64 v.revision));
+         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
+         (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_create_group_request (v : create_group_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "name", (Cbor.Text v.name));
+         (match v.members with Some csil_x -> Some (Cbor.Text "members", (Cbor.Array (List.map (fun csil_e -> (encode_group_member csil_e)) csil_x))) | None -> None);
+         (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_update_group_request (v : update_group_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.name with Some csil_x -> Some (Cbor.Text "name", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "group_id", (Cbor.Text v.group_id));
+         (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_set_group_members_request (v : set_group_members_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "members", (Cbor.Array (List.map (fun csil_e -> (encode_group_member csil_e)) v.members)));
+         Some (Cbor.Text "group_id", (Cbor.Text v.group_id));
+         (match v.expected_revision with Some csil_x -> Some (Cbor.Text "expected_revision", (Cbor.int64 csil_x)) | None -> None);
+       ])
+
+and encode_group_list (v : group_list) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "groups", (Cbor.Array (List.map (fun csil_e -> (encode_group csil_e)) v.groups)));
        ])
 
 and encode_delegation (v : delegation) : Cbor.t =
@@ -553,6 +622,55 @@ and encode_scope_set_response (v : scope_set_response) : Cbor.t =
          Some (Cbor.Text "signed_scope_set", (Cbor.Bytes v.signed_scope_set));
        ])
 
+and encode_application_ref (v : application_ref) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "application_id", (Cbor.Text v.application_id));
+         Some (Cbor.Text "subject_domain", (Cbor.Text v.subject_domain));
+         Some (Cbor.Text "subject_user_id", (Cbor.Text v.subject_user_id));
+       ])
+
+and encode_application_presentation (v : application_presentation) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "nonce", (Cbor.Bytes v.nonce));
+         Some (Cbor.Text "signer", (encode_application_ref v.signer));
+         Some (Cbor.Text "audience", (encode_application_ref v.audience));
+         Some (Cbor.Text "presented_at", (Cbor.Text v.presented_at));
+         Some (Cbor.Text "request_digest", (Cbor.Bytes v.request_digest));
+         Some (Cbor.Text "signer_instance_id", (Cbor.Text v.signer_instance_id));
+       ])
+
+and encode_signed_application_presentation (v : signed_application_presentation) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "signature", (Cbor.Bytes v.signature));
+         Some (Cbor.Text "presentation", (Cbor.Bytes v.presentation));
+         Some (Cbor.Text "signed_by_key_id", (Cbor.Text v.signed_by_key_id));
+       ])
+
+and encode_exchange_application_presentation_request (v : exchange_application_presentation_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "presentation", (encode_signed_application_presentation v.presentation));
+       ])
+
+and encode_application_identity_response (v : application_identity_response) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "audience", (encode_application_ref v.audience));
+       ])
+
 and encode_dev_user (v : dev_user) : Cbor.t =
   Cbor.Map
     (List.filter_map
@@ -613,10 +731,10 @@ and encode_service_error (v : service_error) : Cbor.t =
        ])
 
 let rec decode_share_role (csil_c : Cbor.t) : share_role =
-  match Cbor.to_text csil_c with "free_busy" -> Free_busy | "read" -> Read | "write" -> Write | "manage" -> Manage | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
+  match Cbor.to_text csil_c with "free_busy" -> Free_busy | "read" -> Read | "contribute" -> Contribute | "write" -> Write | "manage" -> Manage | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
 
 and decode_access_role (csil_c : Cbor.t) : access_role =
-  match Cbor.to_text csil_c with "none" -> None | "free_busy" -> Free_busy | "read" -> Read | "write" -> Write | "manage" -> Manage | "owner" -> Owner | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
+  match Cbor.to_text csil_c with "none" -> None | "free_busy" -> Free_busy | "read" -> Read | "contribute" -> Contribute | "write" -> Write | "manage" -> Manage | "owner" -> Owner | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
 
 and decode_access_path (csil_c : Cbor.t) : access_path =
   match Cbor.to_text csil_c with "owner" -> Owner | "share" -> Share | "delegation" -> Delegation | "attendee" -> Attendee | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
@@ -663,6 +781,7 @@ and decode_identity_ref (csil_c : Cbor.t) : identity_ref =
         domain = (Cbor.to_text (csil_req "domain"));
         handle = (match csil_field "handle" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         user_id = (match csil_field "user_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        application_id = (match csil_field "application_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for identity_ref"
 
@@ -684,6 +803,7 @@ and decode_user (csil_c : Cbor.t) : user =
         created_at = (Cbor.to_text (csil_req "created_at"));
         updated_at = (Cbor.to_text (csil_req "updated_at"));
         display_name = (match csil_field "display_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        application_id = (match csil_field "application_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for user"
 
@@ -701,6 +821,7 @@ and decode_person_summary (csil_c : Cbor.t) : person_summary =
         subject = (Cbor.to_text (csil_req "subject"));
         user_id = (Cbor.to_text (csil_req "user_id"));
         display_name = (match csil_field "display_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        application_id = (match csil_field "application_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for person_summary"
 
@@ -817,11 +938,13 @@ and decode_share (csil_c : Cbor.t) : share =
       ignore csil_req;
       {
         role = (decode_share_role (csil_req "role"));
-        grantee = (decode_identity_ref (csil_req "grantee"));
+        grantee = (match csil_field "grantee" with Some csil_v -> Some (decode_identity_ref csil_v) | None -> None);
         share_id = (Cbor.to_text (csil_req "share_id"));
         created_at = (Cbor.to_text (csil_req "created_at"));
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         grantee_person = (match csil_field "grantee_person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
+        grantee_group_id = (match csil_field "grantee_group_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        grantee_group_name = (match csil_field "grantee_group_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for share"
 
@@ -837,6 +960,100 @@ and decode_share_list (csil_c : Cbor.t) : share_list =
         shares = (match (csil_req "shares") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_share csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
       }
   | _ -> failwith "csilgen: expected map for share_list"
+
+and decode_group_member (csil_c : Cbor.t) : group_member =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        person = (match csil_field "person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
+        group_id = (match csil_field "group_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        identity = (match csil_field "identity" with Some csil_v -> Some (decode_identity_ref csil_v) | None -> None);
+        group_name = (match csil_field "group_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for group_member"
+
+and decode_group (csil_c : Cbor.t) : group =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        name = (Cbor.to_text (csil_req "name"));
+        owner = (decode_person_summary (csil_req "owner"));
+        members = (match (csil_req "members") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group_member csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
+        group_id = (Cbor.to_text (csil_req "group_id"));
+        revision = (Cbor.to_i64 (csil_req "revision"));
+        created_at = (Cbor.to_text (csil_req "created_at"));
+        updated_at = (Cbor.to_text (csil_req "updated_at"));
+        description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for group"
+
+and decode_create_group_request (csil_c : Cbor.t) : create_group_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        name = (Cbor.to_text (csil_req "name"));
+        members = (match csil_field "members" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group_member csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for create_group_request"
+
+and decode_update_group_request (csil_c : Cbor.t) : update_group_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        name = (match csil_field "name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        group_id = (Cbor.to_text (csil_req "group_id"));
+        description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for update_group_request"
+
+and decode_set_group_members_request (csil_c : Cbor.t) : set_group_members_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        members = (match (csil_req "members") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group_member csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
+        group_id = (Cbor.to_text (csil_req "group_id"));
+        expected_revision = (match csil_field "expected_revision" with Some csil_v -> Some (Cbor.to_i64 csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for set_group_members_request"
+
+and decode_group_list (csil_c : Cbor.t) : group_list =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        groups = (match (csil_req "groups") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
+      }
+  | _ -> failwith "csilgen: expected map for group_list"
 
 and decode_delegation (csil_c : Cbor.t) : delegation =
   match csil_c with
@@ -1383,6 +1600,80 @@ and decode_scope_set_response (csil_c : Cbor.t) : scope_set_response =
       }
   | _ -> failwith "csilgen: expected map for scope_set_response"
 
+and decode_application_ref (csil_c : Cbor.t) : application_ref =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        application_id = (Cbor.to_text (csil_req "application_id"));
+        subject_domain = (Cbor.to_text (csil_req "subject_domain"));
+        subject_user_id = (Cbor.to_text (csil_req "subject_user_id"));
+      }
+  | _ -> failwith "csilgen: expected map for application_ref"
+
+and decode_application_presentation (csil_c : Cbor.t) : application_presentation =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        nonce = (Cbor.to_bytes (csil_req "nonce"));
+        signer = (decode_application_ref (csil_req "signer"));
+        audience = (decode_application_ref (csil_req "audience"));
+        presented_at = (Cbor.to_text (csil_req "presented_at"));
+        request_digest = (Cbor.to_bytes (csil_req "request_digest"));
+        signer_instance_id = (Cbor.to_text (csil_req "signer_instance_id"));
+      }
+  | _ -> failwith "csilgen: expected map for application_presentation"
+
+and decode_signed_application_presentation (csil_c : Cbor.t) : signed_application_presentation =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        signature = (Cbor.to_bytes (csil_req "signature"));
+        presentation = (Cbor.to_bytes (csil_req "presentation"));
+        signed_by_key_id = (Cbor.to_text (csil_req "signed_by_key_id"));
+      }
+  | _ -> failwith "csilgen: expected map for signed_application_presentation"
+
+and decode_exchange_application_presentation_request (csil_c : Cbor.t) : exchange_application_presentation_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        presentation = (decode_signed_application_presentation (csil_req "presentation"));
+      }
+  | _ -> failwith "csilgen: expected map for exchange_application_presentation_request"
+
+and decode_application_identity_response (csil_c : Cbor.t) : application_identity_response =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        audience = (decode_application_ref (csil_req "audience"));
+      }
+  | _ -> failwith "csilgen: expected map for application_identity_response"
+
 and decode_dev_user (csil_c : Cbor.t) : dev_user =
   match csil_c with
   | Cbor.Map csil_kvs ->
@@ -1570,6 +1861,30 @@ let encode_share_list_bytes (v : share_list) : bytes = Cbor.encode (encode_share
 let decode_share_list_bytes (b : bytes) : share_list =
   match Cbor.decode b with Ok c -> decode_share_list c | Error e -> failwith e
 
+let encode_group_member_bytes (v : group_member) : bytes = Cbor.encode (encode_group_member v)
+let decode_group_member_bytes (b : bytes) : group_member =
+  match Cbor.decode b with Ok c -> decode_group_member c | Error e -> failwith e
+
+let encode_group_bytes (v : group) : bytes = Cbor.encode (encode_group v)
+let decode_group_bytes (b : bytes) : group =
+  match Cbor.decode b with Ok c -> decode_group c | Error e -> failwith e
+
+let encode_create_group_request_bytes (v : create_group_request) : bytes = Cbor.encode (encode_create_group_request v)
+let decode_create_group_request_bytes (b : bytes) : create_group_request =
+  match Cbor.decode b with Ok c -> decode_create_group_request c | Error e -> failwith e
+
+let encode_update_group_request_bytes (v : update_group_request) : bytes = Cbor.encode (encode_update_group_request v)
+let decode_update_group_request_bytes (b : bytes) : update_group_request =
+  match Cbor.decode b with Ok c -> decode_update_group_request c | Error e -> failwith e
+
+let encode_set_group_members_request_bytes (v : set_group_members_request) : bytes = Cbor.encode (encode_set_group_members_request v)
+let decode_set_group_members_request_bytes (b : bytes) : set_group_members_request =
+  match Cbor.decode b with Ok c -> decode_set_group_members_request c | Error e -> failwith e
+
+let encode_group_list_bytes (v : group_list) : bytes = Cbor.encode (encode_group_list v)
+let decode_group_list_bytes (b : bytes) : group_list =
+  match Cbor.decode b with Ok c -> decode_group_list c | Error e -> failwith e
+
 let encode_delegation_bytes (v : delegation) : bytes = Cbor.encode (encode_delegation v)
 let decode_delegation_bytes (b : bytes) : delegation =
   match Cbor.decode b with Ok c -> decode_delegation c | Error e -> failwith e
@@ -1705,6 +2020,26 @@ let decode_scope_set_request_bytes (b : bytes) : scope_set_request =
 let encode_scope_set_response_bytes (v : scope_set_response) : bytes = Cbor.encode (encode_scope_set_response v)
 let decode_scope_set_response_bytes (b : bytes) : scope_set_response =
   match Cbor.decode b with Ok c -> decode_scope_set_response c | Error e -> failwith e
+
+let encode_application_ref_bytes (v : application_ref) : bytes = Cbor.encode (encode_application_ref v)
+let decode_application_ref_bytes (b : bytes) : application_ref =
+  match Cbor.decode b with Ok c -> decode_application_ref c | Error e -> failwith e
+
+let encode_application_presentation_bytes (v : application_presentation) : bytes = Cbor.encode (encode_application_presentation v)
+let decode_application_presentation_bytes (b : bytes) : application_presentation =
+  match Cbor.decode b with Ok c -> decode_application_presentation c | Error e -> failwith e
+
+let encode_signed_application_presentation_bytes (v : signed_application_presentation) : bytes = Cbor.encode (encode_signed_application_presentation v)
+let decode_signed_application_presentation_bytes (b : bytes) : signed_application_presentation =
+  match Cbor.decode b with Ok c -> decode_signed_application_presentation c | Error e -> failwith e
+
+let encode_exchange_application_presentation_request_bytes (v : exchange_application_presentation_request) : bytes = Cbor.encode (encode_exchange_application_presentation_request v)
+let decode_exchange_application_presentation_request_bytes (b : bytes) : exchange_application_presentation_request =
+  match Cbor.decode b with Ok c -> decode_exchange_application_presentation_request c | Error e -> failwith e
+
+let encode_application_identity_response_bytes (v : application_identity_response) : bytes = Cbor.encode (encode_application_identity_response v)
+let decode_application_identity_response_bytes (b : bytes) : application_identity_response =
+  match Cbor.decode b with Ok c -> decode_application_identity_response c | Error e -> failwith e
 
 let encode_dev_user_bytes (v : dev_user) : bytes = Cbor.encode (encode_dev_user v)
 let decode_dev_user_bytes (b : bytes) : dev_user =

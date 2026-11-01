@@ -5,6 +5,7 @@ package com.catalystcommunity.catalystcal.client;
 public record IdentityRef(
     String domain /* wire: "domain" */,
     String userId /* wire: "user_id" */,
-    String handle /* wire: "handle" */
+    String handle /* wire: "handle" */,
+    String applicationId /* wire: "application_id" */
 ) {
 }

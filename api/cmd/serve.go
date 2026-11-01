@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/actas"
+	"github.com/catalystcommunity/catalystcal/api/internal/apppresent"
 	"github.com/catalystcommunity/catalystcal/api/internal/config"
 	"github.com/catalystcommunity/catalystcal/api/internal/httpapi"
 	"github.com/catalystcommunity/catalystcal/api/internal/linkkeys"
@@ -212,12 +213,16 @@ func buildDeps(ctx context.Context, cfg *config.Config, st *store.Store) (*servi
 		log.Warn("LinkKeys RP not configured: AuthService.Complete answers 503")
 	}
 	if cfg.ActAsAppKeysFile != "" {
-		p, err := buildActAs(cfg)
+		p, apps, err := buildActAs(cfg)
 		if err != nil {
 			return nil, err
 		}
 		deps.ActAs = p
 		log.Info("act-as audience enabled")
+		if apps != nil {
+			deps.Apps = apps
+			log.WithField("applications", len(apps.Allowed)).Info("application sign-in enabled")
+		}
 	}
 	if err := deps.LoadRevoked(ctx); err != nil {
 		return nil, fmt.Errorf("load revoked act-as grants: %w", err)
@@ -245,16 +250,19 @@ func buildPKI(cfg *config.Config) services.PKIClient {
 	return c
 }
 
-// buildActAs makes the SDK-backed act-as audience. A configured key file
-// with a bad RP connection setting stops the boot.
-func buildActAs(cfg *config.Config) (actas.Provider, error) {
+// buildActAs makes the SDK-backed act-as audience and, when
+// CATALYSTCAL_ALLOWED_APPLICATIONS is set, the application presentation
+// verifier. Both use catalystcal's application identity from the key file
+// and the RP key cache. A configured key file with a bad RP connection
+// setting, or a bad application entry, stops the boot.
+func buildActAs(cfg *config.Config) (actas.Provider, *apppresent.Verifier, error) {
 	keys, err := actas.LoadAppKeys(cfg.ActAsAppKeysFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	signers, err := keys.Signers()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	t, err := regularrp.NewPinnedRpcTransport(regularrp.PinnedRpcTransportOptions{
 		TCPAddress:   cfg.LinkkeysTCPAddr,
@@ -262,13 +270,32 @@ func buildActAs(cfg *config.Config) (actas.Provider, error) {
 		APIKey:       cfg.LinkkeysPKIAPIKey,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("act-as needs CATALYSTCAL_LINKKEYS_TCP_ADDR, CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS, and CATALYSTCAL_LINKKEYS_PKI_API_KEY: %w", err)
+		return nil, nil, fmt.Errorf("act-as needs CATALYSTCAL_LINKKEYS_TCP_ADDR, CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS, and CATALYSTCAL_LINKKEYS_PKI_API_KEY: %w", err)
 	}
-	return &actas.Verifier{
+	src := actas.NewRPKeySource(t)
+	act := &actas.Verifier{
 		Own:        keys.Ref(),
 		InstanceID: keys.InstanceID,
 		Signers:    signers,
-		Keys:       actas.NewRPKeySource(t),
+		Keys:       src,
 		MaxAge:     cfg.ActAsMaxPresentationAge,
+	}
+	if len(cfg.AllowedApplications) == 0 {
+		return act, nil, nil
+	}
+	allowed := make([]apppresent.Ref, 0, len(cfg.AllowedApplications))
+	for _, a := range cfg.AllowedApplications {
+		ref, err := apppresent.ParseRef(a)
+		if err != nil {
+			return nil, nil, fmt.Errorf("CATALYSTCAL_ALLOWED_APPLICATIONS: %w", err)
+		}
+		allowed = append(allowed, ref)
+	}
+	own := keys.Ref()
+	return act, &apppresent.Verifier{
+		Own:      apppresent.Ref{SubjectUserID: own.SubjectUserId, SubjectDomain: own.SubjectDomain, ApplicationID: own.ApplicationId},
+		Resolver: src.Resolver,
+		Allowed:  allowed,
+		MaxAge:   cfg.AppPresentationMaxAge,
 	}, nil
 }

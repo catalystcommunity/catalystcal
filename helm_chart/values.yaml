@@ -89,6 +89,13 @@ secrets:
 # Act-as application keys (optional). A JSON file with the catalystcal LinkKeys
 # application identity and its Ed25519 signing key seeds. The chart mounts
 # it read-only and sets CATALYSTCAL_ACT_AS_APP_KEYS_FILE.
+#
+# The same file names catalystcal's identity for application sign-in
+# (AuthService.exchange-application-presentation). allowedApplications
+# lists the applications that may sign in as themselves, comma-separated,
+# each as <subject_user_id>@<domain>/<application_id>. The values are
+# public identities, not secrets. Put them in a values file: --set needs
+# the commas escaped.
 # ---------------------------------------------------------------------------
 actAs:
   enabled: false
@@ -100,6 +107,12 @@ actAs:
   # seeds in your values file. Use existingSecret in production.
   appKeysJson: ""
   mountPath: /run/secrets/catalystcal/act-as
+  # Application principals (needs enabled: true).
+  allowedApplications: ""
+  # The oldest application presentation accepted (1 to 900). Empty: 300.
+  appPresentationMaxAgeSeconds: ""
+  # The life of an application bearer (1 to 3600). Empty: 900.
+  appBearerTTLSeconds: ""
 
 # ---------------------------------------------------------------------------
 # LinkKeys relying party (RP). The API talks to the RP with CSIL-RPC over

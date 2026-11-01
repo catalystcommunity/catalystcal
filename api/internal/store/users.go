@@ -8,26 +8,28 @@ import (
 	"time"
 )
 
-// User is one person who signed in to this server.
+// User is one person who signed in to this server, or an application
+// principal (ApplicationID set).
 type User struct {
-	ID          string
-	Domain      string
-	Subject     string
-	Handle      string
-	DisplayName string
-	Email       string
-	Timezone    string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            string
+	Domain        string
+	Subject       string
+	ApplicationID string
+	Handle        string
+	DisplayName   string
+	Email         string
+	Timezone      string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
-const userCols = `id, domain, subject, handle, display_name, email, timezone, created_at, updated_at`
+const userCols = `id, domain, subject, application_id, handle, display_name, email, timezone, created_at, updated_at`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var handle, name, email, tz sql.NullString
 	var created, updated string
-	if err := row.Scan(&u.ID, &u.Domain, &u.Subject, &handle, &name, &email, &tz, &created, &updated); err != nil {
+	if err := row.Scan(&u.ID, &u.Domain, &u.Subject, &u.ApplicationID, &handle, &name, &email, &tz, &created, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return User{}, ErrNotFound
 		}
@@ -39,13 +41,15 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 }
 
 // UserInput carries identity fields from a sign-in. Empty fields do not
-// overwrite stored values.
+// overwrite stored values. ApplicationID selects an application principal
+// of the account; it is part of the identity.
 type UserInput struct {
-	Domain      string
-	Subject     string
-	Handle      string
-	DisplayName string
-	Email       string
+	Domain        string
+	Subject       string
+	ApplicationID string
+	Handle        string
+	DisplayName   string
+	Email         string
 }
 
 // DefaultCalendarName returns the name of a new user's default calendar.
@@ -57,8 +61,9 @@ func DefaultCalendarName(displayName string) string {
 }
 
 // UpsertUser finds or creates the user for a LinkKeys identity and updates
-// the claim fields. A new user gets a default calendar in the same
-// transaction. created is true for a new user.
+// the claim fields. A new person gets a default calendar in the same
+// transaction; an application principal does not. created is true for a
+// new user.
 func (s *Store) UpsertUser(ctx context.Context, in UserInput) (u User, created bool, err error) {
 	in.Domain = strings.ToLower(strings.TrimSpace(in.Domain))
 	if in.Domain == "" || in.Subject == "" {
@@ -67,7 +72,7 @@ func (s *Store) UpsertUser(ctx context.Context, in UserInput) (u User, created b
 	now := FormatTime(s.now())
 	err = s.InTx(ctx, func(tx *sql.Tx) error {
 		existing, err := scanUser(tx.QueryRowContext(ctx,
-			`SELECT `+userCols+` FROM users WHERE domain = ? AND subject = ?`, in.Domain, in.Subject))
+			`SELECT `+userCols+` FROM users WHERE domain = ? AND subject = ? AND application_id = ?`, in.Domain, in.Subject, in.ApplicationID))
 		switch {
 		case err == nil:
 			_, err = tx.ExecContext(ctx, `UPDATE users SET
@@ -85,18 +90,20 @@ func (s *Store) UpsertUser(ctx context.Context, in UserInput) (u User, created b
 		case errors.Is(err, ErrNotFound):
 			id := NewID()
 			if _, err := tx.ExecContext(ctx, `INSERT INTO users
-				(id, domain, subject, handle, display_name, email, created_at, updated_at, last_seen_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				id, in.Domain, in.Subject, nullStr(in.Handle), nullStr(in.DisplayName), nullStr(in.Email), now, now, now); err != nil {
+				(id, domain, subject, application_id, handle, display_name, email, created_at, updated_at, last_seen_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				id, in.Domain, in.Subject, in.ApplicationID, nullStr(in.Handle), nullStr(in.DisplayName), nullStr(in.Email), now, now, now); err != nil {
 				return err
 			}
-			if _, err := insertCalendar(ctx, tx, Calendar{
-				OwnerID:   id,
-				Name:      DefaultCalendarName(in.DisplayName),
-				Kind:      "local",
-				IsDefault: true,
-			}, s.now()); err != nil {
-				return err
+			if in.ApplicationID == "" {
+				if _, err := insertCalendar(ctx, tx, Calendar{
+					OwnerID:   id,
+					Name:      DefaultCalendarName(in.DisplayName),
+					Kind:      "local",
+					IsDefault: true,
+				}, s.now()); err != nil {
+					return err
+				}
 			}
 			created = true
 			u, err = scanUser(tx.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE id = ?`, id))
@@ -142,21 +149,27 @@ func (s *Store) GetUsers(ctx context.Context, ids []string) (map[string]User, er
 	return out, rows.Err()
 }
 
-// GetUserByIdentity reads the user for a LinkKeys identity.
+// GetUserByIdentity reads the person for a LinkKeys identity.
 func (s *Store) GetUserByIdentity(ctx context.Context, domain, subject string) (User, error) {
-	return scanUser(s.DB.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE domain = ? AND subject = ?`,
-		strings.ToLower(domain), subject))
+	return s.GetPrincipal(ctx, domain, subject, "")
 }
 
-// GetUserByHandle finds a user by handle at a domain.
+// GetPrincipal reads the person (application "") or the application
+// principal for a LinkKeys identity.
+func (s *Store) GetPrincipal(ctx context.Context, domain, subject, application string) (User, error) {
+	return scanUser(s.DB.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE domain = ? AND subject = ? AND application_id = ?`,
+		strings.ToLower(domain), subject, application))
+}
+
+// GetUserByHandle finds a person by handle at a domain.
 func (s *Store) GetUserByHandle(ctx context.Context, domain, handle string) (User, error) {
-	return scanUser(s.DB.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE domain = ? AND handle = ? ORDER BY created_at LIMIT 1`,
+	return scanUser(s.DB.QueryRowContext(ctx, `SELECT `+userCols+` FROM users WHERE domain = ? AND handle = ? AND application_id = '' ORDER BY created_at LIMIT 1`,
 		strings.ToLower(domain), handle))
 }
 
-// ListUsers returns every user, oldest first.
+// ListUsers returns every person (no application principals), oldest first.
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+userCols+` FROM users ORDER BY created_at, id`)
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+userCols+` FROM users WHERE application_id = '' ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}

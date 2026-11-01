@@ -362,6 +362,10 @@ fn dec_ShareRole(alloc: std.mem.Allocator, src: Value, out: *types.ShareRole) Co
         out.* = .read;
         return;
     }
+    if (std.mem.eql(u8, csil_s, "contribute")) {
+        out.* = .contribute;
+        return;
+    }
     if (std.mem.eql(u8, csil_s, "write")) {
         out.* = .write;
         return;
@@ -390,6 +394,10 @@ fn dec_AccessRole(alloc: std.mem.Allocator, src: Value, out: *types.AccessRole) 
     }
     if (std.mem.eql(u8, csil_s, "read")) {
         out.* = .read;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "contribute")) {
+        out.* = .contribute;
         return;
     }
     if (std.mem.eql(u8, csil_s, "write")) {
@@ -669,6 +677,7 @@ fn enc_IdentityRef(out: *std.ArrayList(u8), v: *const types.IdentityRef) CodecEr
     var csil_n: usize = 1;
     if (v.handle != null) csil_n += 1;
     if (v.user_id != null) csil_n += 1;
+    if (v.application_id != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "domain");
     try w_text(out, v.domain);
@@ -678,6 +687,10 @@ fn enc_IdentityRef(out: *std.ArrayList(u8), v: *const types.IdentityRef) CodecEr
     }
     if (v.user_id) |csil_x| {
         try w_text(out, "user_id");
+        try w_text(out, csil_x);
+    }
+    if (v.application_id) |csil_x| {
+        try w_text(out, "application_id");
         try w_text(out, csil_x);
     }
 }
@@ -703,6 +716,13 @@ fn dec_IdentityRef(alloc: std.mem.Allocator, m: Value, out: *types.IdentityRef) 
             out.user_id = null;
         }
     }
+    {
+        if (mget(m, "application_id")) |csil_fv| {
+            out.application_id = try as_text(csil_fv);
+        } else {
+            out.application_id = null;
+        }
+    }
 }
 
 fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
@@ -711,6 +731,7 @@ fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
     if (v.handle != null) csil_n += 1;
     if (v.timezone != null) csil_n += 1;
     if (v.display_name != null) csil_n += 1;
+    if (v.application_id != null) csil_n += 1;
     try w_map_head(out, csil_n);
     if (v.email) |csil_x| {
         try w_text(out, "email");
@@ -736,6 +757,10 @@ fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
     try w_text(out, v.updated_at);
     if (v.display_name) |csil_x| {
         try w_text(out, "display_name");
+        try w_text(out, csil_x);
+    }
+    if (v.application_id) |csil_x| {
+        try w_text(out, "application_id");
         try w_text(out, csil_x);
     }
 }
@@ -791,12 +816,20 @@ fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!voi
             out.display_name = null;
         }
     }
+    {
+        if (mget(m, "application_id")) |csil_fv| {
+            out.application_id = try as_text(csil_fv);
+        } else {
+            out.application_id = null;
+        }
+    }
 }
 
 fn enc_PersonSummary(out: *std.ArrayList(u8), v: *const types.PersonSummary) CodecError!void {
     var csil_n: usize = 3;
     if (v.handle != null) csil_n += 1;
     if (v.display_name != null) csil_n += 1;
+    if (v.application_id != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "domain");
     try w_text(out, v.domain);
@@ -810,6 +843,10 @@ fn enc_PersonSummary(out: *std.ArrayList(u8), v: *const types.PersonSummary) Cod
     try w_text(out, v.user_id);
     if (v.display_name) |csil_x| {
         try w_text(out, "display_name");
+        try w_text(out, csil_x);
+    }
+    if (v.application_id) |csil_x| {
+        try w_text(out, "application_id");
         try w_text(out, csil_x);
     }
 }
@@ -841,6 +878,13 @@ fn dec_PersonSummary(alloc: std.mem.Allocator, m: Value, out: *types.PersonSumma
             out.display_name = try as_text(csil_fv);
         } else {
             out.display_name = null;
+        }
+    }
+    {
+        if (mget(m, "application_id")) |csil_fv| {
+            out.application_id = try as_text(csil_fv);
+        } else {
+            out.application_id = null;
         }
     }
 }
@@ -1185,13 +1229,18 @@ fn dec_CalendarList(alloc: std.mem.Allocator, m: Value, out: *types.CalendarList
 }
 
 fn enc_Share(out: *std.ArrayList(u8), v: *const types.Share) CodecError!void {
-    var csil_n: usize = 5;
+    var csil_n: usize = 4;
+    if (v.grantee != null) csil_n += 1;
     if (v.grantee_person != null) csil_n += 1;
+    if (v.grantee_group_id != null) csil_n += 1;
+    if (v.grantee_group_name != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "role");
     try enc_ShareRole(out, &(v.role));
-    try w_text(out, "grantee");
-    try enc_IdentityRef(out, &(v.grantee));
+    if (v.grantee) |csil_x| {
+        try w_text(out, "grantee");
+        try enc_IdentityRef(out, &(csil_x));
+    }
     try w_text(out, "share_id");
     try w_text(out, v.share_id);
     try w_text(out, "created_at");
@@ -1202,6 +1251,14 @@ fn enc_Share(out: *std.ArrayList(u8), v: *const types.Share) CodecError!void {
         try w_text(out, "grantee_person");
         try enc_PersonSummary(out, &(csil_x));
     }
+    if (v.grantee_group_id) |csil_x| {
+        try w_text(out, "grantee_group_id");
+        try w_text(out, csil_x);
+    }
+    if (v.grantee_group_name) |csil_x| {
+        try w_text(out, "grantee_group_name");
+        try w_text(out, csil_x);
+    }
 }
 
 fn dec_Share(alloc: std.mem.Allocator, m: Value, out: *types.Share) CodecError!void {
@@ -1211,8 +1268,13 @@ fn dec_Share(alloc: std.mem.Allocator, m: Value, out: *types.Share) CodecError!v
         try dec_ShareRole(alloc, csil_fv, &(out.role));
     }
     {
-        const csil_fv = try req(m, "grantee");
-        try dec_IdentityRef(alloc, csil_fv, &(out.grantee));
+        if (mget(m, "grantee")) |csil_fv| {
+            var csil_tmp: types.IdentityRef = undefined;
+            try dec_IdentityRef(alloc, csil_fv, &csil_tmp);
+            out.grantee = csil_tmp;
+        } else {
+            out.grantee = null;
+        }
     }
     {
         const csil_fv = try req(m, "share_id");
@@ -1235,6 +1297,20 @@ fn dec_Share(alloc: std.mem.Allocator, m: Value, out: *types.Share) CodecError!v
             out.grantee_person = null;
         }
     }
+    {
+        if (mget(m, "grantee_group_id")) |csil_fv| {
+            out.grantee_group_id = try as_text(csil_fv);
+        } else {
+            out.grantee_group_id = null;
+        }
+    }
+    {
+        if (mget(m, "grantee_group_name")) |csil_fv| {
+            out.grantee_group_name = try as_text(csil_fv);
+        } else {
+            out.grantee_group_name = null;
+        }
+    }
 }
 
 fn enc_ShareList(out: *std.ArrayList(u8), v: *const types.ShareList) CodecError!void {
@@ -1254,6 +1330,285 @@ fn dec_ShareList(alloc: std.mem.Allocator, m: Value, out: *types.ShareList) Code
         out.shares = try alloc.alloc(types.Share, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
             try dec_Share(alloc, csil_it, &(out.shares[csil_i]));
+        }
+    }
+}
+
+fn enc_GroupMember(out: *std.ArrayList(u8), v: *const types.GroupMember) CodecError!void {
+    var csil_n: usize = 0;
+    if (v.person != null) csil_n += 1;
+    if (v.group_id != null) csil_n += 1;
+    if (v.identity != null) csil_n += 1;
+    if (v.group_name != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.person) |csil_x| {
+        try w_text(out, "person");
+        try enc_PersonSummary(out, &(csil_x));
+    }
+    if (v.group_id) |csil_x| {
+        try w_text(out, "group_id");
+        try w_text(out, csil_x);
+    }
+    if (v.identity) |csil_x| {
+        try w_text(out, "identity");
+        try enc_IdentityRef(out, &(csil_x));
+    }
+    if (v.group_name) |csil_x| {
+        try w_text(out, "group_name");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_GroupMember(alloc: std.mem.Allocator, m: Value, out: *types.GroupMember) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "person")) |csil_fv| {
+            var csil_tmp: types.PersonSummary = undefined;
+            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            out.person = csil_tmp;
+        } else {
+            out.person = null;
+        }
+    }
+    {
+        if (mget(m, "group_id")) |csil_fv| {
+            out.group_id = try as_text(csil_fv);
+        } else {
+            out.group_id = null;
+        }
+    }
+    {
+        if (mget(m, "identity")) |csil_fv| {
+            var csil_tmp: types.IdentityRef = undefined;
+            try dec_IdentityRef(alloc, csil_fv, &csil_tmp);
+            out.identity = csil_tmp;
+        } else {
+            out.identity = null;
+        }
+    }
+    {
+        if (mget(m, "group_name")) |csil_fv| {
+            out.group_name = try as_text(csil_fv);
+        } else {
+            out.group_name = null;
+        }
+    }
+}
+
+fn enc_Group(out: *std.ArrayList(u8), v: *const types.Group) CodecError!void {
+    var csil_n: usize = 7;
+    if (v.description != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "name");
+    try w_text(out, v.name);
+    try w_text(out, "owner");
+    try enc_PersonSummary(out, &(v.owner));
+    try w_text(out, "members");
+    try w_array_head(out, v.members.len);
+    for (v.members) |csil_it| {
+        try enc_GroupMember(out, &(csil_it));
+    }
+    try w_text(out, "group_id");
+    try w_text(out, v.group_id);
+    try w_text(out, "revision");
+    try w_uint(out, v.revision);
+    try w_text(out, "created_at");
+    try w_text(out, v.created_at);
+    try w_text(out, "updated_at");
+    try w_text(out, v.updated_at);
+    if (v.description) |csil_x| {
+        try w_text(out, "description");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_Group(alloc: std.mem.Allocator, m: Value, out: *types.Group) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "name");
+        out.name = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "owner");
+        try dec_PersonSummary(alloc, csil_fv, &(out.owner));
+    }
+    {
+        const csil_fv = try req(m, "members");
+        if (csil_fv != .array) return error.WrongType;
+        out.members = try alloc.alloc(types.GroupMember, csil_fv.array.len);
+        for (csil_fv.array, 0..) |csil_it, csil_i| {
+            try dec_GroupMember(alloc, csil_it, &(out.members[csil_i]));
+        }
+    }
+    {
+        const csil_fv = try req(m, "group_id");
+        out.group_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "revision");
+        out.revision = try as_u64(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "created_at");
+        out.created_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "updated_at");
+        out.updated_at = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "description")) |csil_fv| {
+            out.description = try as_text(csil_fv);
+        } else {
+            out.description = null;
+        }
+    }
+}
+
+fn enc_CreateGroupRequest(out: *std.ArrayList(u8), v: *const types.CreateGroupRequest) CodecError!void {
+    var csil_n: usize = 1;
+    if (v.members != null) csil_n += 1;
+    if (v.description != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "name");
+    try w_text(out, v.name);
+    if (v.members) |csil_arr| {
+        try w_text(out, "members");
+        try w_array_head(out, csil_arr.len);
+        for (csil_arr) |csil_it| {
+            try enc_GroupMember(out, &(csil_it));
+        }
+    }
+    if (v.description) |csil_x| {
+        try w_text(out, "description");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_CreateGroupRequest(alloc: std.mem.Allocator, m: Value, out: *types.CreateGroupRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "name");
+        out.name = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "members")) |csil_fv| {
+            if (csil_fv != .array) return error.WrongType;
+            const csil_tmp = try alloc.alloc(types.GroupMember, csil_fv.array.len);
+            for (csil_fv.array, 0..) |csil_it, csil_i| {
+                try dec_GroupMember(alloc, csil_it, &(csil_tmp[csil_i]));
+            }
+            out.members = csil_tmp;
+        } else {
+            out.members = null;
+        }
+    }
+    {
+        if (mget(m, "description")) |csil_fv| {
+            out.description = try as_text(csil_fv);
+        } else {
+            out.description = null;
+        }
+    }
+}
+
+fn enc_UpdateGroupRequest(out: *std.ArrayList(u8), v: *const types.UpdateGroupRequest) CodecError!void {
+    var csil_n: usize = 1;
+    if (v.name != null) csil_n += 1;
+    if (v.description != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.name) |csil_x| {
+        try w_text(out, "name");
+        try w_text(out, csil_x);
+    }
+    try w_text(out, "group_id");
+    try w_text(out, v.group_id);
+    if (v.description) |csil_x| {
+        try w_text(out, "description");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_UpdateGroupRequest(alloc: std.mem.Allocator, m: Value, out: *types.UpdateGroupRequest) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "name")) |csil_fv| {
+            out.name = try as_text(csil_fv);
+        } else {
+            out.name = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "group_id");
+        out.group_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "description")) |csil_fv| {
+            out.description = try as_text(csil_fv);
+        } else {
+            out.description = null;
+        }
+    }
+}
+
+fn enc_SetGroupMembersRequest(out: *std.ArrayList(u8), v: *const types.SetGroupMembersRequest) CodecError!void {
+    var csil_n: usize = 2;
+    if (v.expected_revision != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "members");
+    try w_array_head(out, v.members.len);
+    for (v.members) |csil_it| {
+        try enc_GroupMember(out, &(csil_it));
+    }
+    try w_text(out, "group_id");
+    try w_text(out, v.group_id);
+    if (v.expected_revision) |csil_x| {
+        try w_text(out, "expected_revision");
+        try w_uint(out, csil_x);
+    }
+}
+
+fn dec_SetGroupMembersRequest(alloc: std.mem.Allocator, m: Value, out: *types.SetGroupMembersRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "members");
+        if (csil_fv != .array) return error.WrongType;
+        out.members = try alloc.alloc(types.GroupMember, csil_fv.array.len);
+        for (csil_fv.array, 0..) |csil_it, csil_i| {
+            try dec_GroupMember(alloc, csil_it, &(out.members[csil_i]));
+        }
+    }
+    {
+        const csil_fv = try req(m, "group_id");
+        out.group_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "expected_revision")) |csil_fv| {
+            out.expected_revision = try as_u64(csil_fv);
+        } else {
+            out.expected_revision = null;
+        }
+    }
+}
+
+fn enc_GroupList(out: *std.ArrayList(u8), v: *const types.GroupList) CodecError!void {
+    try w_map_head(out, 1);
+    try w_text(out, "groups");
+    try w_array_head(out, v.groups.len);
+    for (v.groups) |csil_it| {
+        try enc_Group(out, &(csil_it));
+    }
+}
+
+fn dec_GroupList(alloc: std.mem.Allocator, m: Value, out: *types.GroupList) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "groups");
+        if (csil_fv != .array) return error.WrongType;
+        out.groups = try alloc.alloc(types.Group, csil_fv.array.len);
+        for (csil_fv.array, 0..) |csil_it, csil_i| {
+            try dec_Group(alloc, csil_it, &(out.groups[csil_i]));
         }
     }
 }
@@ -2966,6 +3321,132 @@ fn dec_ScopeSetResponse(alloc: std.mem.Allocator, m: Value, out: *types.ScopeSet
     }
 }
 
+fn enc_ApplicationRef(out: *std.ArrayList(u8), v: *const types.ApplicationRef) CodecError!void {
+    try w_map_head(out, 3);
+    try w_text(out, "application_id");
+    try w_text(out, v.application_id);
+    try w_text(out, "subject_domain");
+    try w_text(out, v.subject_domain);
+    try w_text(out, "subject_user_id");
+    try w_text(out, v.subject_user_id);
+}
+
+fn dec_ApplicationRef(alloc: std.mem.Allocator, m: Value, out: *types.ApplicationRef) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "application_id");
+        out.application_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "subject_domain");
+        out.subject_domain = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "subject_user_id");
+        out.subject_user_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_ApplicationPresentation(out: *std.ArrayList(u8), v: *const types.ApplicationPresentation) CodecError!void {
+    try w_map_head(out, 6);
+    try w_text(out, "nonce");
+    try w_bytes(out, v.nonce);
+    try w_text(out, "signer");
+    try enc_ApplicationRef(out, &(v.signer));
+    try w_text(out, "audience");
+    try enc_ApplicationRef(out, &(v.audience));
+    try w_text(out, "presented_at");
+    try w_text(out, v.presented_at);
+    try w_text(out, "request_digest");
+    try w_bytes(out, v.request_digest);
+    try w_text(out, "signer_instance_id");
+    try w_text(out, v.signer_instance_id);
+}
+
+fn dec_ApplicationPresentation(alloc: std.mem.Allocator, m: Value, out: *types.ApplicationPresentation) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "nonce");
+        out.nonce = try as_bytes(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "signer");
+        try dec_ApplicationRef(alloc, csil_fv, &(out.signer));
+    }
+    {
+        const csil_fv = try req(m, "audience");
+        try dec_ApplicationRef(alloc, csil_fv, &(out.audience));
+    }
+    {
+        const csil_fv = try req(m, "presented_at");
+        out.presented_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "request_digest");
+        out.request_digest = try as_bytes(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "signer_instance_id");
+        out.signer_instance_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_SignedApplicationPresentation(out: *std.ArrayList(u8), v: *const types.SignedApplicationPresentation) CodecError!void {
+    try w_map_head(out, 3);
+    try w_text(out, "signature");
+    try w_bytes(out, v.signature);
+    try w_text(out, "presentation");
+    try w_bytes(out, v.presentation);
+    try w_text(out, "signed_by_key_id");
+    try w_text(out, v.signed_by_key_id);
+}
+
+fn dec_SignedApplicationPresentation(alloc: std.mem.Allocator, m: Value, out: *types.SignedApplicationPresentation) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "signature");
+        out.signature = try as_bytes(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "presentation");
+        out.presentation = try as_bytes(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "signed_by_key_id");
+        out.signed_by_key_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_ExchangeApplicationPresentationRequest(out: *std.ArrayList(u8), v: *const types.ExchangeApplicationPresentationRequest) CodecError!void {
+    try w_map_head(out, 1);
+    try w_text(out, "presentation");
+    try enc_SignedApplicationPresentation(out, &(v.presentation));
+}
+
+fn dec_ExchangeApplicationPresentationRequest(alloc: std.mem.Allocator, m: Value, out: *types.ExchangeApplicationPresentationRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "presentation");
+        try dec_SignedApplicationPresentation(alloc, csil_fv, &(out.presentation));
+    }
+}
+
+fn enc_ApplicationIdentityResponse(out: *std.ArrayList(u8), v: *const types.ApplicationIdentityResponse) CodecError!void {
+    try w_map_head(out, 1);
+    try w_text(out, "audience");
+    try enc_ApplicationRef(out, &(v.audience));
+}
+
+fn dec_ApplicationIdentityResponse(alloc: std.mem.Allocator, m: Value, out: *types.ApplicationIdentityResponse) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "audience");
+        try dec_ApplicationRef(alloc, csil_fv, &(out.audience));
+    }
+}
+
 fn enc_DevUser(out: *std.ArrayList(u8), v: *const types.DevUser) CodecError!void {
     var csil_n: usize = 2;
     if (v.handle != null) csil_n += 1;
@@ -3554,6 +4035,102 @@ pub fn decode_ShareList(alloc: std.mem.Allocator, bytes: []const u8, out: *types
     try dec_ShareList(alloc, root, out);
 }
 
+/// Encode a GroupMember to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_GroupMember(alloc: std.mem.Allocator, v: *const types.GroupMember) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_GroupMember(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a GroupMember. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_GroupMember(alloc: std.mem.Allocator, bytes: []const u8, out: *types.GroupMember) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_GroupMember(alloc, root, out);
+}
+
+/// Encode a Group to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_Group(alloc: std.mem.Allocator, v: *const types.Group) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_Group(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a Group. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_Group(alloc: std.mem.Allocator, bytes: []const u8, out: *types.Group) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_Group(alloc, root, out);
+}
+
+/// Encode a CreateGroupRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_CreateGroupRequest(alloc: std.mem.Allocator, v: *const types.CreateGroupRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_CreateGroupRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a CreateGroupRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_CreateGroupRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateGroupRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_CreateGroupRequest(alloc, root, out);
+}
+
+/// Encode a UpdateGroupRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_UpdateGroupRequest(alloc: std.mem.Allocator, v: *const types.UpdateGroupRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_UpdateGroupRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a UpdateGroupRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_UpdateGroupRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.UpdateGroupRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_UpdateGroupRequest(alloc, root, out);
+}
+
+/// Encode a SetGroupMembersRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SetGroupMembersRequest(alloc: std.mem.Allocator, v: *const types.SetGroupMembersRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SetGroupMembersRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SetGroupMembersRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SetGroupMembersRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SetGroupMembersRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SetGroupMembersRequest(alloc, root, out);
+}
+
+/// Encode a GroupList to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_GroupList(alloc: std.mem.Allocator, v: *const types.GroupList) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_GroupList(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a GroupList. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_GroupList(alloc: std.mem.Allocator, bytes: []const u8, out: *types.GroupList) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_GroupList(alloc, root, out);
+}
+
 /// Encode a Delegation to CBOR. The returned slice is owned by the caller
 /// (free it with alloc.free).
 pub fn encode_Delegation(alloc: std.mem.Allocator, v: *const types.Delegation) CodecError![]u8 {
@@ -4096,6 +4673,86 @@ pub fn encode_ScopeSetResponse(alloc: std.mem.Allocator, v: *const types.ScopeSe
 pub fn decode_ScopeSetResponse(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ScopeSetResponse) CodecError!void {
     const root = try decode(alloc, bytes);
     try dec_ScopeSetResponse(alloc, root, out);
+}
+
+/// Encode a ApplicationRef to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ApplicationRef(alloc: std.mem.Allocator, v: *const types.ApplicationRef) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ApplicationRef(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ApplicationRef. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ApplicationRef(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ApplicationRef) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ApplicationRef(alloc, root, out);
+}
+
+/// Encode a ApplicationPresentation to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ApplicationPresentation(alloc: std.mem.Allocator, v: *const types.ApplicationPresentation) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ApplicationPresentation(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ApplicationPresentation. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ApplicationPresentation(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ApplicationPresentation) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ApplicationPresentation(alloc, root, out);
+}
+
+/// Encode a SignedApplicationPresentation to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SignedApplicationPresentation(alloc: std.mem.Allocator, v: *const types.SignedApplicationPresentation) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SignedApplicationPresentation(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SignedApplicationPresentation. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SignedApplicationPresentation(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SignedApplicationPresentation) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SignedApplicationPresentation(alloc, root, out);
+}
+
+/// Encode a ExchangeApplicationPresentationRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ExchangeApplicationPresentationRequest(alloc: std.mem.Allocator, v: *const types.ExchangeApplicationPresentationRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ExchangeApplicationPresentationRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ExchangeApplicationPresentationRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ExchangeApplicationPresentationRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ExchangeApplicationPresentationRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ExchangeApplicationPresentationRequest(alloc, root, out);
+}
+
+/// Encode a ApplicationIdentityResponse to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ApplicationIdentityResponse(alloc: std.mem.Allocator, v: *const types.ApplicationIdentityResponse) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ApplicationIdentityResponse(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ApplicationIdentityResponse. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ApplicationIdentityResponse(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ApplicationIdentityResponse) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ApplicationIdentityResponse(alloc, root, out);
 }
 
 /// Encode a DevUser to CBOR. The returned slice is owned by the caller

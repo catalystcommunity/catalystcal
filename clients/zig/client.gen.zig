@@ -109,6 +109,28 @@ pub const AuthClient = struct {
         defer alloc.free(csil_respb);
         try codec.decode_ScopeSetResponse(alloc, csil_respb, out);
     }
+
+    /// Invoke AuthService/get-application-identity with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn get_application_identity(self: AuthClient, alloc: std.mem.Allocator, req: *const types.EmptyRequest, out: *types.ApplicationIdentityResponse) anyerror!void {
+        const csil_reqb = try codec.encode_EmptyRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "AuthService", "get-application-identity", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_ApplicationIdentityResponse(alloc, csil_respb, out);
+    }
+
+    /// Invoke AuthService/exchange-application-presentation with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn exchange_application_presentation(self: AuthClient, alloc: std.mem.Allocator, req: *const types.ExchangeApplicationPresentationRequest, out: *types.LoginResponse) anyerror!void {
+        const csil_reqb = try codec.encode_ExchangeApplicationPresentationRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "AuthService", "exchange-application-presentation", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_LoginResponse(alloc, csil_respb, out);
+    }
 };
 
 /// DevAuthClient is a typed client for the DevAuthService service over a CsilgenTransport.
@@ -318,6 +340,81 @@ pub const ShareClient = struct {
         const csil_reqb = try codec.encode_ShareID(alloc, req);
         defer alloc.free(csil_reqb);
         const csil_respb = try self.transport.call(self.transport.ptr, alloc, "ShareService", "delete-share", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_EmptyResponse(alloc, csil_respb, out);
+    }
+};
+
+/// GroupClient is a typed client for the GroupService service over a CsilgenTransport.
+pub const GroupClient = struct {
+    transport: CsilgenTransport,
+
+    pub fn init(transport: CsilgenTransport) GroupClient {
+        return .{ .transport = transport };
+    }
+
+    /// Invoke GroupService/list-groups with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn list_groups(self: GroupClient, alloc: std.mem.Allocator, req: *const types.EmptyRequest, out: *types.GroupList) anyerror!void {
+        const csil_reqb = try codec.encode_EmptyRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "list-groups", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_GroupList(alloc, csil_respb, out);
+    }
+
+    /// Invoke GroupService/get-group with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn get_group(self: GroupClient, alloc: std.mem.Allocator, req: *const types.GroupID, out: *types.Group) anyerror!void {
+        const csil_reqb = try codec.encode_GroupID(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "get-group", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Group(alloc, csil_respb, out);
+    }
+
+    /// Invoke GroupService/create-group with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn create_group(self: GroupClient, alloc: std.mem.Allocator, req: *const types.CreateGroupRequest, out: *types.Group) anyerror!void {
+        const csil_reqb = try codec.encode_CreateGroupRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "create-group", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Group(alloc, csil_respb, out);
+    }
+
+    /// Invoke GroupService/update-group with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn update_group(self: GroupClient, alloc: std.mem.Allocator, req: *const types.UpdateGroupRequest, out: *types.Group) anyerror!void {
+        const csil_reqb = try codec.encode_UpdateGroupRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "update-group", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Group(alloc, csil_respb, out);
+    }
+
+    /// Invoke GroupService/set-members with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn set_members(self: GroupClient, alloc: std.mem.Allocator, req: *const types.SetGroupMembersRequest, out: *types.Group) anyerror!void {
+        const csil_reqb = try codec.encode_SetGroupMembersRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "set-members", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Group(alloc, csil_respb, out);
+    }
+
+    /// Invoke GroupService/delete-group with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn delete_group(self: GroupClient, alloc: std.mem.Allocator, req: *const types.GroupID, out: *types.EmptyResponse) anyerror!void {
+        const csil_reqb = try codec.encode_GroupID(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "GroupService", "delete-group", csil_reqb);
         defer alloc.free(csil_respb);
         try codec.decode_EmptyResponse(alloc, csil_respb, out);
     }
