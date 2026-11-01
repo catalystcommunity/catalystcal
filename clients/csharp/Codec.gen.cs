@@ -387,7 +387,13 @@ public static class Codec
         OccurrenceList csilTyped => OccurrenceListToCborValue(csilTyped),
         UpdateEventRequest csilTyped => UpdateEventRequestToCborValue(csilTyped),
         DeleteEventRequest csilTyped => DeleteEventRequestToCborValue(csilTyped),
+        DeleteEventResponse csilTyped => DeleteEventResponseToCborValue(csilTyped),
         MoveEventRequest csilTyped => MoveEventRequestToCborValue(csilTyped),
+        TrashEntry csilTyped => TrashEntryToCborValue(csilTyped),
+        ListTrashRequest csilTyped => ListTrashRequestToCborValue(csilTyped),
+        TrashList csilTyped => TrashListToCborValue(csilTyped),
+        RestoreEventRequest csilTyped => RestoreEventRequestToCborValue(csilTyped),
+        ImportEventRequest csilTyped => ImportEventRequestToCborValue(csilTyped),
         RespondRequest csilTyped => RespondRequestToCborValue(csilTyped),
         SearchEventsRequest csilTyped => SearchEventsRequestToCborValue(csilTyped),
         EventList csilTyped => EventListToCborValue(csilTyped),
@@ -469,7 +475,13 @@ public static class Codec
         if (csilType == typeof(OccurrenceList)) return OccurrenceListFromCborValue(value);
         if (csilType == typeof(UpdateEventRequest)) return UpdateEventRequestFromCborValue(value);
         if (csilType == typeof(DeleteEventRequest)) return DeleteEventRequestFromCborValue(value);
+        if (csilType == typeof(DeleteEventResponse)) return DeleteEventResponseFromCborValue(value);
         if (csilType == typeof(MoveEventRequest)) return MoveEventRequestFromCborValue(value);
+        if (csilType == typeof(TrashEntry)) return TrashEntryFromCborValue(value);
+        if (csilType == typeof(ListTrashRequest)) return ListTrashRequestFromCborValue(value);
+        if (csilType == typeof(TrashList)) return TrashListFromCborValue(value);
+        if (csilType == typeof(RestoreEventRequest)) return RestoreEventRequestFromCborValue(value);
+        if (csilType == typeof(ImportEventRequest)) return ImportEventRequestFromCborValue(value);
         if (csilType == typeof(RespondRequest)) return RespondRequestFromCborValue(value);
         if (csilType == typeof(SearchEventsRequest)) return SearchEventsRequestFromCborValue(value);
         if (csilType == typeof(EventList)) return EventListFromCborValue(value);
@@ -1931,6 +1943,27 @@ public static class Codec
         };
     }
 
+    /// <summary>The canonical CBOR value tree for a DeleteEventResponse.</summary>
+    public static CborValue DeleteEventResponseToCborValue(DeleteEventResponse value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.TrashId is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("trash_id"), new CborValue.Text(csilV0)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a DeleteEventResponse from a decoded CBOR value tree.</summary>
+    public static DeleteEventResponse DeleteEventResponseFromCborValue(CborValue value)
+    {
+        TrashID? csilField0 = Cbor.MapGet(value, "trash_id") is { } csilRaw0 ? Cbor.AsText(csilRaw0) : null;
+        return new DeleteEventResponse
+        {
+            TrashId = csilField0,
+        };
+    }
+
     /// <summary>The canonical CBOR value tree for a MoveEventRequest.</summary>
     public static CborValue MoveEventRequestToCborValue(MoveEventRequest value)
     {
@@ -1949,6 +1982,147 @@ public static class Codec
         {
             EventId = csilField0,
             CalendarId = csilField1,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a TrashEntry.</summary>
+    public static CborValue TrashEntryToCborValue(TrashEntry value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("event"), EventToCborValue(value.Event)));
+        csilEntries.Add((new CborValue.Text("scope"), RecurrenceScopeToCborValue(value.Scope)));
+        csilEntries.Add((new CborValue.Text("event_id"), new CborValue.Text(value.EventId)));
+        if (value.Instance is { } csilV3)
+        {
+            csilEntries.Add((new CborValue.Text("instance"), EventToCborValue(csilV3)));
+        }
+        csilEntries.Add((new CborValue.Text("trash_id"), new CborValue.Text(value.TrashId)));
+        csilEntries.Add((new CborValue.Text("deleted_at"), new CborValue.Text(value.DeletedAt)));
+        if (value.DeletedBy is { } csilV6)
+        {
+            csilEntries.Add((new CborValue.Text("deleted_by"), PersonSummaryToCborValue(csilV6)));
+        }
+        csilEntries.Add((new CborValue.Text("expires_at"), new CborValue.Text(value.ExpiresAt)));
+        csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
+        if (value.RecurrenceId is { } csilV9)
+        {
+            csilEntries.Add((new CborValue.Text("recurrence_id"), new CborValue.Text(csilV9)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a TrashEntry from a decoded CBOR value tree.</summary>
+    public static TrashEntry TrashEntryFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "trash_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "event_id"));
+        var csilField3 = RecurrenceScopeFromCborValue(Cbor.Require(value, "scope"));
+        Timestamp? csilField4 = Cbor.MapGet(value, "recurrence_id") is { } csilRaw4 ? Cbor.AsText(csilRaw4) : null;
+        var csilField5 = EventFromCborValue(Cbor.Require(value, "event"));
+        Event? csilField6 = Cbor.MapGet(value, "instance") is { } csilRaw6 ? EventFromCborValue(csilRaw6) : null;
+        PersonSummary? csilField7 = Cbor.MapGet(value, "deleted_by") is { } csilRaw7 ? PersonSummaryFromCborValue(csilRaw7) : null;
+        var csilField8 = Cbor.AsText(Cbor.Require(value, "deleted_at"));
+        var csilField9 = Cbor.AsText(Cbor.Require(value, "expires_at"));
+        return new TrashEntry
+        {
+            TrashId = csilField0,
+            CalendarId = csilField1,
+            EventId = csilField2,
+            Scope = csilField3,
+            RecurrenceId = csilField4,
+            Event = csilField5,
+            Instance = csilField6,
+            DeletedBy = csilField7,
+            DeletedAt = csilField8,
+            ExpiresAt = csilField9,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a ListTrashRequest.</summary>
+    public static CborValue ListTrashRequestToCborValue(ListTrashRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Limit is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("limit"), new CborValue.Uint(csilV0)));
+        }
+        csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ListTrashRequest from a decoded CBOR value tree.</summary>
+    public static ListTrashRequest ListTrashRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
+        ulong? csilField1 = Cbor.MapGet(value, "limit") is { } csilRaw1 ? Cbor.AsU64(csilRaw1) : null;
+        return new ListTrashRequest
+        {
+            CalendarId = csilField0,
+            Limit = csilField1,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a TrashList.</summary>
+    public static CborValue TrashListToCborValue(TrashList value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("entries"), new CborValue.Array(value.Entries.Select(csilElem => (CborValue)TrashEntryToCborValue(csilElem)).ToList())));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a TrashList from a decoded CBOR value tree.</summary>
+    public static TrashList TrashListFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsArray(Cbor.Require(value, "entries")).Select(csilElem => TrashEntryFromCborValue(csilElem)).ToList();
+        return new TrashList
+        {
+            Entries = csilField0,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a RestoreEventRequest.</summary>
+    public static CborValue RestoreEventRequestToCborValue(RestoreEventRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("trash_id"), new CborValue.Text(value.TrashId)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a RestoreEventRequest from a decoded CBOR value tree.</summary>
+    public static RestoreEventRequest RestoreEventRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "trash_id"));
+        return new RestoreEventRequest
+        {
+            TrashId = csilField0,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a ImportEventRequest.</summary>
+    public static CborValue ImportEventRequestToCborValue(ImportEventRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("event"), EventToCborValue(value.Event)));
+        if (value.CreatedAt is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("created_at"), new CborValue.Text(csilV1)));
+        }
+        csilEntries.Add((new CborValue.Text("created_by"), IdentityRefToCborValue(value.CreatedBy)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ImportEventRequest from a decoded CBOR value tree.</summary>
+    public static ImportEventRequest ImportEventRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = EventFromCborValue(Cbor.Require(value, "event"));
+        var csilField1 = IdentityRefFromCborValue(Cbor.Require(value, "created_by"));
+        Timestamp? csilField2 = Cbor.MapGet(value, "created_at") is { } csilRaw2 ? Cbor.AsText(csilRaw2) : null;
+        return new ImportEventRequest
+        {
+            Event = csilField0,
+            CreatedBy = csilField1,
+            CreatedAt = csilField2,
         };
     }
 

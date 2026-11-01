@@ -445,13 +445,13 @@ final class EventAsyncClient {
     return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 
-  Future<EmptyResponse> deleteEvent(DeleteEventRequest request) async {
+  Future<DeleteEventResponse> deleteEvent(DeleteEventRequest request) async {
     final csilResp = await transport.call(
       'EventService',
       'delete-event',
       request.toCbor(),
     );
-    return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));
+    return DeleteEventResponse.fromCborValue(CsilCbor.decode(csilResp));
   }
 
   Future<Event> moveEvent(MoveEventRequest request) async {
@@ -488,6 +488,33 @@ final class EventAsyncClient {
       request.toCbor(),
     );
     return EventList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<TrashList> listTrash(ListTrashRequest request) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'list-trash',
+      request.toCbor(),
+    );
+    return TrashList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Event> restoreEvent(RestoreEventRequest request) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'restore-event',
+      request.toCbor(),
+    );
+    return Event.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<Event> importEvent(ImportEventRequest request) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'import-event',
+      request.toCbor(),
+    );
+    return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 }
 

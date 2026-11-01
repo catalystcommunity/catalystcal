@@ -230,9 +230,9 @@ class EventClient:
         """update-event"""
         return Event.from_cbor(self._transport.call("EventService", "update-event", req.to_cbor()))
 
-    def delete_event(self, req: DeleteEventRequest) -> EmptyResponse:
+    def delete_event(self, req: DeleteEventRequest) -> DeleteEventResponse:
         """delete-event"""
-        return EmptyResponse.from_cbor(self._transport.call("EventService", "delete-event", req.to_cbor()))
+        return DeleteEventResponse.from_cbor(self._transport.call("EventService", "delete-event", req.to_cbor()))
 
     def move_event(self, req: MoveEventRequest) -> Event:
         """move-event"""
@@ -249,6 +249,18 @@ class EventClient:
     def search_events(self, req: SearchEventsRequest) -> EventList:
         """search-events"""
         return EventList.from_cbor(self._transport.call("EventService", "search-events", req.to_cbor()))
+
+    def list_trash(self, req: ListTrashRequest) -> TrashList:
+        """list-trash"""
+        return TrashList.from_cbor(self._transport.call("EventService", "list-trash", req.to_cbor()))
+
+    def restore_event(self, req: RestoreEventRequest) -> Event:
+        """restore-event"""
+        return Event.from_cbor(self._transport.call("EventService", "restore-event", req.to_cbor()))
+
+    def import_event(self, req: ImportEventRequest) -> Event:
+        """import-event"""
+        return Event.from_cbor(self._transport.call("EventService", "import-event", req.to_cbor()))
 
 class FreeBusyClient:
     """Typed client for the FreeBusyService service."""

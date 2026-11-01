@@ -74,11 +74,14 @@ interface EventService {
     fun getEvent(request: EventID): Event
     fun createEvent(request: Event): Event
     fun updateEvent(request: UpdateEventRequest): Event
-    fun deleteEvent(request: DeleteEventRequest): EmptyResponse
+    fun deleteEvent(request: DeleteEventRequest): DeleteEventResponse
     fun moveEvent(request: MoveEventRequest): Event
     fun respond(request: RespondRequest): Event
     fun listInvitations(request: EmptyRequest): EventList
     fun searchEvents(request: SearchEventsRequest): EventList
+    fun listTrash(request: ListTrashRequest): TrashList
+    fun restoreEvent(request: RestoreEventRequest): Event
+    fun importEvent(request: ImportEventRequest): Event
 }
 
 /** FreeBusyService service interface (host implements). */

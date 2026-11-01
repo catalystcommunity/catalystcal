@@ -88,11 +88,14 @@ typedef struct EventHandlers {
     int (*get_event)(void *ctx, const EventID *req, Event *resp);
     int (*create_event)(void *ctx, const Event *req, Event *resp);
     int (*update_event)(void *ctx, const UpdateEventRequest *req, Event *resp);
-    int (*delete_event)(void *ctx, const DeleteEventRequest *req, EmptyResponse *resp);
+    int (*delete_event)(void *ctx, const DeleteEventRequest *req, DeleteEventResponse *resp);
     int (*move_event)(void *ctx, const MoveEventRequest *req, Event *resp);
     int (*respond)(void *ctx, const RespondRequest *req, Event *resp);
     int (*list_invitations)(void *ctx, const EmptyRequest *req, EventList *resp);
     int (*search_events)(void *ctx, const SearchEventsRequest *req, EventList *resp);
+    int (*list_trash)(void *ctx, const ListTrashRequest *req, TrashList *resp);
+    int (*restore_event)(void *ctx, const RestoreEventRequest *req, Event *resp);
+    int (*import_event)(void *ctx, const ImportEventRequest *req, Event *resp);
 } EventHandlers;
 
 /* FreeBusyHandlers is the host's implementation of the FreeBusyService service. */

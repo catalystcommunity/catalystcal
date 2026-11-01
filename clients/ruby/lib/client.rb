@@ -269,9 +269,9 @@ class EventClient
     Event.from_cbor(@transport.call("EventService", "update-event", req.to_cbor))
   end
 
-  # delete-event: -> EmptyResponse
+  # delete-event: -> DeleteEventResponse
   def delete_event(req)
-    EmptyResponse.from_cbor(@transport.call("EventService", "delete-event", req.to_cbor))
+    DeleteEventResponse.from_cbor(@transport.call("EventService", "delete-event", req.to_cbor))
   end
 
   # move-event: -> Event
@@ -292,6 +292,21 @@ class EventClient
   # search-events: -> EventList
   def search_events(req)
     EventList.from_cbor(@transport.call("EventService", "search-events", req.to_cbor))
+  end
+
+  # list-trash: -> TrashList
+  def list_trash(req)
+    TrashList.from_cbor(@transport.call("EventService", "list-trash", req.to_cbor))
+  end
+
+  # restore-event: -> Event
+  def restore_event(req)
+    Event.from_cbor(@transport.call("EventService", "restore-event", req.to_cbor))
+  end
+
+  # import-event: -> Event
+  def import_event(req)
+    Event.from_cbor(@transport.call("EventService", "import-event", req.to_cbor))
   end
 end
 

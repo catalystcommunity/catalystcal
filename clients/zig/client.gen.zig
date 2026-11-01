@@ -539,12 +539,12 @@ pub const EventClient = struct {
     /// Invoke EventService/delete-event with a typed request, returning the decoded
     /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
     /// and free it once when done.
-    pub fn delete_event(self: EventClient, alloc: std.mem.Allocator, req: *const types.DeleteEventRequest, out: *types.EmptyResponse) anyerror!void {
+    pub fn delete_event(self: EventClient, alloc: std.mem.Allocator, req: *const types.DeleteEventRequest, out: *types.DeleteEventResponse) anyerror!void {
         const csil_reqb = try codec.encode_DeleteEventRequest(alloc, req);
         defer alloc.free(csil_reqb);
         const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "delete-event", csil_reqb);
         defer alloc.free(csil_respb);
-        try codec.decode_EmptyResponse(alloc, csil_respb, out);
+        try codec.decode_DeleteEventResponse(alloc, csil_respb, out);
     }
 
     /// Invoke EventService/move-event with a typed request, returning the decoded
@@ -589,6 +589,39 @@ pub const EventClient = struct {
         const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "search-events", csil_reqb);
         defer alloc.free(csil_respb);
         try codec.decode_EventList(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/list-trash with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn list_trash(self: EventClient, alloc: std.mem.Allocator, req: *const types.ListTrashRequest, out: *types.TrashList) anyerror!void {
+        const csil_reqb = try codec.encode_ListTrashRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "list-trash", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_TrashList(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/restore-event with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn restore_event(self: EventClient, alloc: std.mem.Allocator, req: *const types.RestoreEventRequest, out: *types.Event) anyerror!void {
+        const csil_reqb = try codec.encode_RestoreEventRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "restore-event", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Event(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/import-event with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn import_event(self: EventClient, alloc: std.mem.Allocator, req: *const types.ImportEventRequest, out: *types.Event) anyerror!void {
+        const csil_reqb = try codec.encode_ImportEventRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "import-event", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Event(alloc, csil_respb, out);
     }
 };
 

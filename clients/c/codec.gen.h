@@ -715,8 +715,20 @@ static inline int csilc_enc_UpdateEventRequest(csilc_buf *b, const UpdateEventRe
 static inline int csilc_dec_UpdateEventRequest(const csilc_value *m, CsilCodecArena *a, UpdateEventRequest *out);
 static inline int csilc_enc_DeleteEventRequest(csilc_buf *b, const DeleteEventRequest *v);
 static inline int csilc_dec_DeleteEventRequest(const csilc_value *m, CsilCodecArena *a, DeleteEventRequest *out);
+static inline int csilc_enc_DeleteEventResponse(csilc_buf *b, const DeleteEventResponse *v);
+static inline int csilc_dec_DeleteEventResponse(const csilc_value *m, CsilCodecArena *a, DeleteEventResponse *out);
 static inline int csilc_enc_MoveEventRequest(csilc_buf *b, const MoveEventRequest *v);
 static inline int csilc_dec_MoveEventRequest(const csilc_value *m, CsilCodecArena *a, MoveEventRequest *out);
+static inline int csilc_enc_TrashEntry(csilc_buf *b, const TrashEntry *v);
+static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, TrashEntry *out);
+static inline int csilc_enc_ListTrashRequest(csilc_buf *b, const ListTrashRequest *v);
+static inline int csilc_dec_ListTrashRequest(const csilc_value *m, CsilCodecArena *a, ListTrashRequest *out);
+static inline int csilc_enc_TrashList(csilc_buf *b, const TrashList *v);
+static inline int csilc_dec_TrashList(const csilc_value *m, CsilCodecArena *a, TrashList *out);
+static inline int csilc_enc_RestoreEventRequest(csilc_buf *b, const RestoreEventRequest *v);
+static inline int csilc_dec_RestoreEventRequest(const csilc_value *m, CsilCodecArena *a, RestoreEventRequest *out);
+static inline int csilc_enc_ImportEventRequest(csilc_buf *b, const ImportEventRequest *v);
+static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecArena *a, ImportEventRequest *out);
 static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v);
 static inline int csilc_dec_RespondRequest(const csilc_value *m, CsilCodecArena *a, RespondRequest *out);
 static inline int csilc_enc_SearchEventsRequest(csilc_buf *b, const SearchEventsRequest *v);
@@ -2874,6 +2886,34 @@ static inline int csilc_dec_DeleteEventRequest(const csilc_value *m, CsilCodecAr
     return 0;
 }
 
+/* csilc_enc_DeleteEventResponse writes DeleteEventResponse as a canonical CBOR map. */
+static inline int csilc_enc_DeleteEventResponse(csilc_buf *b, const DeleteEventResponse *v) {
+    size_t csilc_n = 0;
+    if (v->trash_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->trash_id) {
+        if (csilc_w_text(b, "trash_id", 8)) return -1;
+        if (csilc_w_text(b, ((*v->trash_id)), ((*v->trash_id)) ? strlen((*v->trash_id)) : 0)) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_DeleteEventResponse reads DeleteEventResponse from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_DeleteEventResponse(const csilc_value *m, CsilCodecArena *a, DeleteEventResponse *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "trash_id");
+    out->trash_id = NULL;
+    if (csilc_f) {
+        TrashID *csilc_p = (TrashID *)csilc_arena_alloc(a, sizeof(TrashID));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->trash_id = csilc_p;
+    }
+    return 0;
+}
+
 /* csilc_enc_MoveEventRequest writes MoveEventRequest as a canonical CBOR map. */
 static inline int csilc_enc_MoveEventRequest(csilc_buf *b, const MoveEventRequest *v) {
     size_t csilc_n = 2;
@@ -2894,6 +2934,206 @@ static inline int csilc_dec_MoveEventRequest(const csilc_value *m, CsilCodecAren
     if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    return 0;
+}
+
+/* csilc_enc_TrashEntry writes TrashEntry as a canonical CBOR map. */
+static inline int csilc_enc_TrashEntry(csilc_buf *b, const TrashEntry *v) {
+    size_t csilc_n = 7;
+    if (v->instance) csilc_n++;
+    if (v->deleted_by) csilc_n++;
+    if (v->recurrence_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "event", 5)) return -1;
+    if (csilc_enc_Event(b, &(v->event))) return -1;
+    if (csilc_w_text(b, "scope", 5)) return -1;
+    if (csilc_enc_RecurrenceScope(b, &(v->scope))) return -1;
+    if (csilc_w_text(b, "event_id", 8)) return -1;
+    if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
+    if (v->instance) {
+        if (csilc_w_text(b, "instance", 8)) return -1;
+        if (csilc_enc_Event(b, &((*v->instance)))) return -1;
+    }
+    if (csilc_w_text(b, "trash_id", 8)) return -1;
+    if (csilc_w_text(b, (v->trash_id), (v->trash_id) ? strlen(v->trash_id) : 0)) return -1;
+    if (csilc_w_text(b, "deleted_at", 10)) return -1;
+    if (csilc_w_text(b, (v->deleted_at), (v->deleted_at) ? strlen(v->deleted_at) : 0)) return -1;
+    if (v->deleted_by) {
+        if (csilc_w_text(b, "deleted_by", 10)) return -1;
+        if (csilc_enc_PersonSummary(b, &((*v->deleted_by)))) return -1;
+    }
+    if (csilc_w_text(b, "expires_at", 10)) return -1;
+    if (csilc_w_text(b, (v->expires_at), (v->expires_at) ? strlen(v->expires_at) : 0)) return -1;
+    if (csilc_w_text(b, "calendar_id", 11)) return -1;
+    if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
+    if (v->recurrence_id) {
+        if (csilc_w_text(b, "recurrence_id", 13)) return -1;
+        if (csilc_w_text(b, ((*v->recurrence_id)), ((*v->recurrence_id)) ? strlen((*v->recurrence_id)) : 0)) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_TrashEntry reads TrashEntry from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, TrashEntry *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event");
+    if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
+    csilc_f = csilc_map_get(m, "scope");
+    if (csilc_dec_RecurrenceScope(csilc_f, a, &(out->scope))) return -1;
+    csilc_f = csilc_map_get(m, "event_id");
+    if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
+    csilc_f = csilc_map_get(m, "instance");
+    out->instance = NULL;
+    if (csilc_f) {
+        Event *csilc_p = (Event *)csilc_arena_alloc(a, sizeof(Event));
+        if (!csilc_p) return -1;
+        if (csilc_dec_Event(csilc_f, a, &((*csilc_p)))) return -1;
+        out->instance = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "trash_id");
+    if (!csilc_get_text(csilc_f, &(out->trash_id))) return -1;
+    csilc_f = csilc_map_get(m, "deleted_at");
+    if (!csilc_get_text(csilc_f, &(out->deleted_at))) return -1;
+    csilc_f = csilc_map_get(m, "deleted_by");
+    out->deleted_by = NULL;
+    if (csilc_f) {
+        PersonSummary *csilc_p = (PersonSummary *)csilc_arena_alloc(a, sizeof(PersonSummary));
+        if (!csilc_p) return -1;
+        if (csilc_dec_PersonSummary(csilc_f, a, &((*csilc_p)))) return -1;
+        out->deleted_by = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "expires_at");
+    if (!csilc_get_text(csilc_f, &(out->expires_at))) return -1;
+    csilc_f = csilc_map_get(m, "calendar_id");
+    if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    csilc_f = csilc_map_get(m, "recurrence_id");
+    out->recurrence_id = NULL;
+    if (csilc_f) {
+        Timestamp *csilc_p = (Timestamp *)csilc_arena_alloc(a, sizeof(Timestamp));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->recurrence_id = csilc_p;
+    }
+    return 0;
+}
+
+/* csilc_enc_ListTrashRequest writes ListTrashRequest as a canonical CBOR map. */
+static inline int csilc_enc_ListTrashRequest(csilc_buf *b, const ListTrashRequest *v) {
+    size_t csilc_n = 1;
+    if (v->limit) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->limit) {
+        if (csilc_w_text(b, "limit", 5)) return -1;
+        if (csilc_w_uint(b, (uint64_t)((*v->limit)))) return -1;
+    }
+    if (csilc_w_text(b, "calendar_id", 11)) return -1;
+    if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
+    return 0;
+}
+
+/* csilc_dec_ListTrashRequest reads ListTrashRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_ListTrashRequest(const csilc_value *m, CsilCodecArena *a, ListTrashRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "limit");
+    out->limit = NULL;
+    if (csilc_f) {
+        uint64_t *csilc_p = (uint64_t *)csilc_arena_alloc(a, sizeof(uint64_t));
+        if (!csilc_p) return -1;
+        if (!csilc_as_u64(csilc_f, &((*csilc_p)))) return -1;
+        out->limit = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "calendar_id");
+    if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    return 0;
+}
+
+/* csilc_enc_TrashList writes TrashList as a canonical CBOR map. */
+static inline int csilc_enc_TrashList(csilc_buf *b, const TrashList *v) {
+    size_t csilc_n = 1;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "entries", 7)) return -1;
+    if (csilc_w_array_head(b, v->entries_count)) return -1;
+    for (size_t csilc_i = 0; csilc_i < v->entries_count; csilc_i++) {
+        if (csilc_enc_TrashEntry(b, &(v->entries[csilc_i]))) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_TrashList reads TrashList from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_TrashList(const csilc_value *m, CsilCodecArena *a, TrashList *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "entries");
+    if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
+    out->entries_count = csilc_f->as.array.count;
+    out->entries = NULL;
+    if (out->entries_count) {
+        out->entries = (TrashEntry *)csilc_arena_alloc(a, out->entries_count * sizeof(TrashEntry));
+        if (!out->entries) return -1;
+        for (size_t csilc_i = 0; csilc_i < out->entries_count; csilc_i++) {
+            if (csilc_dec_TrashEntry(&csilc_f->as.array.items[csilc_i], a, &(out->entries[csilc_i]))) return -1;
+        }
+    }
+    return 0;
+}
+
+/* csilc_enc_RestoreEventRequest writes RestoreEventRequest as a canonical CBOR map. */
+static inline int csilc_enc_RestoreEventRequest(csilc_buf *b, const RestoreEventRequest *v) {
+    size_t csilc_n = 1;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "trash_id", 8)) return -1;
+    if (csilc_w_text(b, (v->trash_id), (v->trash_id) ? strlen(v->trash_id) : 0)) return -1;
+    return 0;
+}
+
+/* csilc_dec_RestoreEventRequest reads RestoreEventRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_RestoreEventRequest(const csilc_value *m, CsilCodecArena *a, RestoreEventRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "trash_id");
+    if (!csilc_get_text(csilc_f, &(out->trash_id))) return -1;
+    return 0;
+}
+
+/* csilc_enc_ImportEventRequest writes ImportEventRequest as a canonical CBOR map. */
+static inline int csilc_enc_ImportEventRequest(csilc_buf *b, const ImportEventRequest *v) {
+    size_t csilc_n = 2;
+    if (v->created_at) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "event", 5)) return -1;
+    if (csilc_enc_Event(b, &(v->event))) return -1;
+    if (v->created_at) {
+        if (csilc_w_text(b, "created_at", 10)) return -1;
+        if (csilc_w_text(b, ((*v->created_at)), ((*v->created_at)) ? strlen((*v->created_at)) : 0)) return -1;
+    }
+    if (csilc_w_text(b, "created_by", 10)) return -1;
+    if (csilc_enc_IdentityRef(b, &(v->created_by))) return -1;
+    return 0;
+}
+
+/* csilc_dec_ImportEventRequest reads ImportEventRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecArena *a, ImportEventRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event");
+    if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
+    csilc_f = csilc_map_get(m, "created_at");
+    out->created_at = NULL;
+    if (csilc_f) {
+        Timestamp *csilc_p = (Timestamp *)csilc_arena_alloc(a, sizeof(Timestamp));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->created_at = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "created_by");
+    if (csilc_dec_IdentityRef(csilc_f, a, &(out->created_by))) return -1;
     return 0;
 }
 
@@ -5046,6 +5286,29 @@ static inline int csil_decode_DeleteEventRequest(const uint8_t *in, size_t len, 
     return 0;
 }
 
+/* Encode a DeleteEventResponse to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_DeleteEventResponse(const DeleteEventResponse *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_DeleteEventResponse(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a DeleteEventResponse. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_DeleteEventResponse(const uint8_t *in, size_t len, DeleteEventResponse *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_DeleteEventResponse(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
 /* Encode a MoveEventRequest to CBOR. On success *out is a malloc'd buffer of
  * *out_len bytes the caller frees with free(); returns non-zero on failure. */
 static inline int csil_encode_MoveEventRequest(const MoveEventRequest *v, uint8_t **out, size_t *out_len) {
@@ -5065,6 +5328,121 @@ static inline int csil_decode_MoveEventRequest(const uint8_t *in, size_t len, Mo
     const csilc_value *root;
     if (csilc_decode(in, len, &a, &root)) return -1;
     if (csilc_dec_MoveEventRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a TrashEntry to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_TrashEntry(const TrashEntry *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_TrashEntry(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a TrashEntry. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_TrashEntry(const uint8_t *in, size_t len, TrashEntry *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_TrashEntry(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a ListTrashRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_ListTrashRequest(const ListTrashRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_ListTrashRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a ListTrashRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_ListTrashRequest(const uint8_t *in, size_t len, ListTrashRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_ListTrashRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a TrashList to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_TrashList(const TrashList *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_TrashList(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a TrashList. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_TrashList(const uint8_t *in, size_t len, TrashList *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_TrashList(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a RestoreEventRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_RestoreEventRequest(const RestoreEventRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_RestoreEventRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a RestoreEventRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_RestoreEventRequest(const uint8_t *in, size_t len, RestoreEventRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_RestoreEventRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a ImportEventRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_ImportEventRequest(const ImportEventRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_ImportEventRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a ImportEventRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_ImportEventRequest(const uint8_t *in, size_t len, ImportEventRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_ImportEventRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
     *owner = a;
     return 0;
 }

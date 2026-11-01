@@ -10,9 +10,12 @@ public interface EventService {
     Event getEvent(EventId req);
     Event createEvent(Event req);
     Event updateEvent(UpdateEventRequest req);
-    EmptyResponse deleteEvent(DeleteEventRequest req);
+    DeleteEventResponse deleteEvent(DeleteEventRequest req);
     Event moveEvent(MoveEventRequest req);
     Event respond(RespondRequest req);
     EventList listInvitations(EmptyRequest req);
     EventList searchEvents(SearchEventsRequest req);
+    TrashList listTrash(ListTrashRequest req);
+    Event restoreEvent(RestoreEventRequest req);
+    Event importEvent(ImportEventRequest req);
 }

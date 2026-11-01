@@ -2,7 +2,7 @@
 // Source: <csil spec>
 // Target: typescript-codec
 
-import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateGroupRequest, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportIcsRequest, ImportResult, ListEventsRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
+import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateGroupRequest, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, RestoreEventRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, TrashEntry, TrashID, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
 
 /** A CBOR semantic tag wrapping an inner value (e.g. tag 0 timestamp, tag 4 decimal). */
 export type CborTag = { readonly tag: number; readonly value: CborValue };
@@ -1176,6 +1176,26 @@ export function fromDeleteEventRequestCbor(bytes: Uint8Array): DeleteEventReques
   return fromDeleteEventRequestCborValue(decode(bytes));
 }
 
+export function toDeleteEventResponseCborValue(v: DeleteEventResponse): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.trashId !== undefined) csilMap.set("trash_id", v.trashId);
+  return csilMap;
+}
+
+export function fromDeleteEventResponseCborValue(value: CborValue): DeleteEventResponse {
+  return {
+    trashId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "trash_id")),
+  };
+}
+
+export function toDeleteEventResponseCbor(v: DeleteEventResponse): Uint8Array {
+  return encodeValue(toDeleteEventResponseCborValue(v));
+}
+
+export function fromDeleteEventResponseCbor(bytes: Uint8Array): DeleteEventResponse {
+  return fromDeleteEventResponseCborValue(decode(bytes));
+}
+
 export function toMoveEventRequestCborValue(v: MoveEventRequest): CborValue {
   const csilMap = new Map<CborValue, CborValue>();
   csilMap.set("event_id", v.eventId);
@@ -1196,6 +1216,130 @@ export function toMoveEventRequestCbor(v: MoveEventRequest): Uint8Array {
 
 export function fromMoveEventRequestCbor(bytes: Uint8Array): MoveEventRequest {
   return fromMoveEventRequestCborValue(decode(bytes));
+}
+
+export function toTrashEntryCborValue(v: TrashEntry): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("event", toEventCborValue(v.event));
+  csilMap.set("scope", v.scope);
+  csilMap.set("event_id", v.eventId);
+  if (v.instance !== undefined) csilMap.set("instance", toEventCborValue(v.instance));
+  csilMap.set("trash_id", v.trashId);
+  csilMap.set("deleted_at", v.deletedAt);
+  if (v.deletedBy !== undefined) csilMap.set("deleted_by", toPersonSummaryCborValue(v.deletedBy));
+  csilMap.set("expires_at", v.expiresAt);
+  csilMap.set("calendar_id", v.calendarId);
+  if (v.recurrenceId !== undefined) csilMap.set("recurrence_id", v.recurrenceId);
+  return csilMap;
+}
+
+export function fromTrashEntryCborValue(value: CborValue): TrashEntry {
+  return {
+    trashId: asString(requireKey(value, "trash_id")),
+    calendarId: asString(requireKey(value, "calendar_id")),
+    eventId: asString(requireKey(value, "event_id")),
+    scope: (asEnumMember(asString(requireKey(value, "scope")), ["all", "this", "this_and_future"]) as "all" | "this" | "this_and_future"),
+    recurrenceId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "recurrence_id")),
+    event: fromEventCborValue(requireKey(value, "event")),
+    instance: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromEventCborValue(csilV))(mapGet(value, "instance")),
+    deletedBy: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromPersonSummaryCborValue(csilV))(mapGet(value, "deleted_by")),
+    deletedAt: asString(requireKey(value, "deleted_at")),
+    expiresAt: asString(requireKey(value, "expires_at")),
+  };
+}
+
+export function toTrashEntryCbor(v: TrashEntry): Uint8Array {
+  return encodeValue(toTrashEntryCborValue(v));
+}
+
+export function fromTrashEntryCbor(bytes: Uint8Array): TrashEntry {
+  return fromTrashEntryCborValue(decode(bytes));
+}
+
+export function toListTrashRequestCborValue(v: ListTrashRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.limit !== undefined) csilMap.set("limit", v.limit);
+  csilMap.set("calendar_id", v.calendarId);
+  return csilMap;
+}
+
+export function fromListTrashRequestCborValue(value: CborValue): ListTrashRequest {
+  return {
+    calendarId: asString(requireKey(value, "calendar_id")),
+    limit: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "limit")),
+  };
+}
+
+export function toListTrashRequestCbor(v: ListTrashRequest): Uint8Array {
+  return encodeValue(toListTrashRequestCborValue(v));
+}
+
+export function fromListTrashRequestCbor(bytes: Uint8Array): ListTrashRequest {
+  return fromListTrashRequestCborValue(decode(bytes));
+}
+
+export function toTrashListCborValue(v: TrashList): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("entries", v.entries.map((csilE): CborValue => toTrashEntryCborValue(csilE)));
+  return csilMap;
+}
+
+export function fromTrashListCborValue(value: CborValue): TrashList {
+  return {
+    entries: asArray(requireKey(value, "entries")).map((csilE) => fromTrashEntryCborValue(csilE)),
+  };
+}
+
+export function toTrashListCbor(v: TrashList): Uint8Array {
+  return encodeValue(toTrashListCborValue(v));
+}
+
+export function fromTrashListCbor(bytes: Uint8Array): TrashList {
+  return fromTrashListCborValue(decode(bytes));
+}
+
+export function toRestoreEventRequestCborValue(v: RestoreEventRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("trash_id", v.trashId);
+  return csilMap;
+}
+
+export function fromRestoreEventRequestCborValue(value: CborValue): RestoreEventRequest {
+  return {
+    trashId: asString(requireKey(value, "trash_id")),
+  };
+}
+
+export function toRestoreEventRequestCbor(v: RestoreEventRequest): Uint8Array {
+  return encodeValue(toRestoreEventRequestCborValue(v));
+}
+
+export function fromRestoreEventRequestCbor(bytes: Uint8Array): RestoreEventRequest {
+  return fromRestoreEventRequestCborValue(decode(bytes));
+}
+
+export function toImportEventRequestCborValue(v: ImportEventRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("event", toEventCborValue(v.event));
+  if (v.createdAt !== undefined) csilMap.set("created_at", v.createdAt);
+  csilMap.set("created_by", toIdentityRefCborValue(v.createdBy));
+  return csilMap;
+}
+
+export function fromImportEventRequestCborValue(value: CborValue): ImportEventRequest {
+  return {
+    event: fromEventCborValue(requireKey(value, "event")),
+    createdBy: fromIdentityRefCborValue(requireKey(value, "created_by")),
+    createdAt: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "created_at")),
+  };
+}
+
+export function toImportEventRequestCbor(v: ImportEventRequest): Uint8Array {
+  return encodeValue(toImportEventRequestCborValue(v));
+}
+
+export function fromImportEventRequestCbor(bytes: Uint8Array): ImportEventRequest {
+  return fromImportEventRequestCborValue(decode(bytes));
 }
 
 export function toRespondRequestCborValue(v: RespondRequest): CborValue {

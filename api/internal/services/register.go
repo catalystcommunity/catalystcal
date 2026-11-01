@@ -71,11 +71,14 @@ func Register(d *csilrpc.Dispatcher, deps *Deps, devAuth bool) {
 	d.RegisterTyped("event", "GetEvent", csilrpc.Route(e.GetEvent, csil.DecodeEventGetEventRequest, csil.EncodeEvent))
 	d.RegisterTyped("event", "CreateEvent", csilrpc.Route(e.CreateEvent, csil.DecodeEvent, csil.EncodeEvent))
 	d.RegisterTyped("event", "UpdateEvent", csilrpc.Route(e.UpdateEvent, csil.DecodeUpdateEventRequest, csil.EncodeEvent))
-	d.RegisterTyped("event", "DeleteEvent", csilrpc.Route(e.DeleteEvent, csil.DecodeDeleteEventRequest, csil.EncodeEmptyResponse))
+	d.RegisterTyped("event", "DeleteEvent", csilrpc.Route(e.DeleteEvent, csil.DecodeDeleteEventRequest, csil.EncodeDeleteEventResponse))
 	d.RegisterTyped("event", "MoveEvent", csilrpc.Route(e.MoveEvent, csil.DecodeMoveEventRequest, csil.EncodeEvent))
 	d.RegisterTyped("event", "Respond", csilrpc.Route(e.Respond, csil.DecodeRespondRequest, csil.EncodeEvent))
 	d.RegisterTyped("event", "ListInvitations", csilrpc.Route(e.ListInvitations, csil.DecodeEmptyRequest, csil.EncodeEventList))
 	d.RegisterTyped("event", "SearchEvents", csilrpc.Route(e.SearchEvents, csil.DecodeSearchEventsRequest, csil.EncodeEventList))
+	d.RegisterTyped("event", "ListTrash", csilrpc.Route(e.ListTrash, csil.DecodeListTrashRequest, csil.EncodeTrashList))
+	d.RegisterTyped("event", "RestoreEvent", csilrpc.Route(e.RestoreEvent, csil.DecodeRestoreEventRequest, csil.EncodeEvent))
+	d.RegisterTyped("event", "ImportEvent", csilrpc.Route(e.ImportEvent, csil.DecodeImportEventRequest, csil.EncodeEvent))
 
 	fb := &FreeBusyService{deps}
 	d.RegisterTyped("freebusy", "Query", csilrpc.Route(fb.Query, csil.DecodeFreeBusyRequest, csil.EncodeFreeBusyResponse))

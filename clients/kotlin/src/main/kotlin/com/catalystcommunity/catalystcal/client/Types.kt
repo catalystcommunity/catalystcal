@@ -24,6 +24,9 @@ typealias AuditID = String
 /** Type alias for GroupID. */
 typealias GroupID = String
 
+/** Type alias for TrashID. */
+typealias TrashID = String
+
 /** Type alias for SessionID. */
 typealias SessionID = String
 
@@ -412,12 +415,66 @@ data class DeleteEventRequest(
     val recurrenceId: Timestamp? = null
 )
 
+/** DeleteEventResponse record. */
+data class DeleteEventResponse(
+    // wire key: trash_id
+    val trashId: TrashID? = null
+)
+
 /** MoveEventRequest record. */
 data class MoveEventRequest(
     // wire key: event_id
     val eventId: EventID,
     // wire key: calendar_id
     val calendarId: CalendarID
+)
+
+/** TrashEntry record. */
+data class TrashEntry(
+    // wire key: trash_id
+    val trashId: TrashID,
+    // wire key: calendar_id
+    val calendarId: CalendarID,
+    // wire key: event_id
+    val eventId: EventID,
+    val scope: RecurrenceScope,
+    // wire key: recurrence_id
+    val recurrenceId: Timestamp? = null,
+    val event: Event,
+    val instance: Event? = null,
+    // wire key: deleted_by
+    val deletedBy: PersonSummary? = null,
+    // wire key: deleted_at
+    val deletedAt: Timestamp,
+    // wire key: expires_at
+    val expiresAt: Timestamp
+)
+
+/** ListTrashRequest record. */
+data class ListTrashRequest(
+    // wire key: calendar_id
+    val calendarId: CalendarID,
+    val limit: ULong? = 100uL
+)
+
+/** TrashList record. */
+data class TrashList(
+    val entries: List<TrashEntry>
+)
+
+/** RestoreEventRequest record. */
+data class RestoreEventRequest(
+    // wire key: trash_id
+    val trashId: TrashID
+)
+
+/** ImportEventRequest record. */
+data class ImportEventRequest(
+    val event: Event,
+    // wire key: created_by
+    val createdBy: IdentityRef,
+    // wire key: created_at
+    val createdAt: Timestamp? = null
 )
 
 /** RespondRequest record. */

@@ -292,9 +292,9 @@ public struct EventAsyncClient {
         return try Event.fromCbor(csilResp)
     }
 
-    public func deleteEvent(_ request: DeleteEventRequest) async throws -> EmptyResponse {
+    public func deleteEvent(_ request: DeleteEventRequest) async throws -> DeleteEventResponse {
         let csilResp = try await transport.call(service: "EventService", op: "delete-event", request: request.toCbor())
-        return try EmptyResponse.fromCbor(csilResp)
+        return try DeleteEventResponse.fromCbor(csilResp)
     }
 
     public func moveEvent(_ request: MoveEventRequest) async throws -> Event {
@@ -315,6 +315,21 @@ public struct EventAsyncClient {
     public func searchEvents(_ request: SearchEventsRequest) async throws -> EventList {
         let csilResp = try await transport.call(service: "EventService", op: "search-events", request: request.toCbor())
         return try EventList.fromCbor(csilResp)
+    }
+
+    public func listTrash(_ request: ListTrashRequest) async throws -> TrashList {
+        let csilResp = try await transport.call(service: "EventService", op: "list-trash", request: request.toCbor())
+        return try TrashList.fromCbor(csilResp)
+    }
+
+    public func restoreEvent(_ request: RestoreEventRequest) async throws -> Event {
+        let csilResp = try await transport.call(service: "EventService", op: "restore-event", request: request.toCbor())
+        return try Event.fromCbor(csilResp)
+    }
+
+    public func importEvent(_ request: ImportEventRequest) async throws -> Event {
+        let csilResp = try await transport.call(service: "EventService", op: "import-event", request: request.toCbor())
+        return try Event.fromCbor(csilResp)
     }
 
 }

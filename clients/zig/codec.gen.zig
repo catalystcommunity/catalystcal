@@ -2568,6 +2568,28 @@ fn dec_DeleteEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Delete
     }
 }
 
+fn enc_DeleteEventResponse(out: *std.ArrayList(u8), v: *const types.DeleteEventResponse) CodecError!void {
+    var csil_n: usize = 0;
+    if (v.trash_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.trash_id) |csil_x| {
+        try w_text(out, "trash_id");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_DeleteEventResponse(alloc: std.mem.Allocator, m: Value, out: *types.DeleteEventResponse) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "trash_id")) |csil_fv| {
+            out.trash_id = try as_text(csil_fv);
+        } else {
+            out.trash_id = null;
+        }
+    }
+}
+
 fn enc_MoveEventRequest(out: *std.ArrayList(u8), v: *const types.MoveEventRequest) CodecError!void {
     try w_map_head(out, 2);
     try w_text(out, "event_id");
@@ -2586,6 +2608,194 @@ fn dec_MoveEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.MoveEven
     {
         const csil_fv = try req(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_TrashEntry(out: *std.ArrayList(u8), v: *const types.TrashEntry) CodecError!void {
+    var csil_n: usize = 7;
+    if (v.instance != null) csil_n += 1;
+    if (v.deleted_by != null) csil_n += 1;
+    if (v.recurrence_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "event");
+    try enc_Event(out, &(v.event));
+    try w_text(out, "scope");
+    try enc_RecurrenceScope(out, &(v.scope));
+    try w_text(out, "event_id");
+    try w_text(out, v.event_id);
+    if (v.instance) |csil_x| {
+        try w_text(out, "instance");
+        try enc_Event(out, &(csil_x));
+    }
+    try w_text(out, "trash_id");
+    try w_text(out, v.trash_id);
+    try w_text(out, "deleted_at");
+    try w_text(out, v.deleted_at);
+    if (v.deleted_by) |csil_x| {
+        try w_text(out, "deleted_by");
+        try enc_PersonSummary(out, &(csil_x));
+    }
+    try w_text(out, "expires_at");
+    try w_text(out, v.expires_at);
+    try w_text(out, "calendar_id");
+    try w_text(out, v.calendar_id);
+    if (v.recurrence_id) |csil_x| {
+        try w_text(out, "recurrence_id");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_TrashEntry(alloc: std.mem.Allocator, m: Value, out: *types.TrashEntry) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "event");
+        try dec_Event(alloc, csil_fv, &(out.event));
+    }
+    {
+        const csil_fv = try req(m, "scope");
+        try dec_RecurrenceScope(alloc, csil_fv, &(out.scope));
+    }
+    {
+        const csil_fv = try req(m, "event_id");
+        out.event_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "instance")) |csil_fv| {
+            var csil_tmp: types.Event = undefined;
+            try dec_Event(alloc, csil_fv, &csil_tmp);
+            out.instance = csil_tmp;
+        } else {
+            out.instance = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "trash_id");
+        out.trash_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "deleted_at");
+        out.deleted_at = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "deleted_by")) |csil_fv| {
+            var csil_tmp: types.PersonSummary = undefined;
+            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            out.deleted_by = csil_tmp;
+        } else {
+            out.deleted_by = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "expires_at");
+        out.expires_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "calendar_id");
+        out.calendar_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "recurrence_id")) |csil_fv| {
+            out.recurrence_id = try as_text(csil_fv);
+        } else {
+            out.recurrence_id = null;
+        }
+    }
+}
+
+fn enc_ListTrashRequest(out: *std.ArrayList(u8), v: *const types.ListTrashRequest) CodecError!void {
+    var csil_n: usize = 1;
+    if (v.limit != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.limit) |csil_x| {
+        try w_text(out, "limit");
+        try w_uint(out, csil_x);
+    }
+    try w_text(out, "calendar_id");
+    try w_text(out, v.calendar_id);
+}
+
+fn dec_ListTrashRequest(alloc: std.mem.Allocator, m: Value, out: *types.ListTrashRequest) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "limit")) |csil_fv| {
+            out.limit = try as_u64(csil_fv);
+        } else {
+            out.limit = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "calendar_id");
+        out.calendar_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_TrashList(out: *std.ArrayList(u8), v: *const types.TrashList) CodecError!void {
+    try w_map_head(out, 1);
+    try w_text(out, "entries");
+    try w_array_head(out, v.entries.len);
+    for (v.entries) |csil_it| {
+        try enc_TrashEntry(out, &(csil_it));
+    }
+}
+
+fn dec_TrashList(alloc: std.mem.Allocator, m: Value, out: *types.TrashList) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "entries");
+        if (csil_fv != .array) return error.WrongType;
+        out.entries = try alloc.alloc(types.TrashEntry, csil_fv.array.len);
+        for (csil_fv.array, 0..) |csil_it, csil_i| {
+            try dec_TrashEntry(alloc, csil_it, &(out.entries[csil_i]));
+        }
+    }
+}
+
+fn enc_RestoreEventRequest(out: *std.ArrayList(u8), v: *const types.RestoreEventRequest) CodecError!void {
+    try w_map_head(out, 1);
+    try w_text(out, "trash_id");
+    try w_text(out, v.trash_id);
+}
+
+fn dec_RestoreEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.RestoreEventRequest) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "trash_id");
+        out.trash_id = try as_text(csil_fv);
+    }
+}
+
+fn enc_ImportEventRequest(out: *std.ArrayList(u8), v: *const types.ImportEventRequest) CodecError!void {
+    var csil_n: usize = 2;
+    if (v.created_at != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "event");
+    try enc_Event(out, &(v.event));
+    if (v.created_at) |csil_x| {
+        try w_text(out, "created_at");
+        try w_text(out, csil_x);
+    }
+    try w_text(out, "created_by");
+    try enc_IdentityRef(out, &(v.created_by));
+}
+
+fn dec_ImportEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.ImportEventRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "event");
+        try dec_Event(alloc, csil_fv, &(out.event));
+    }
+    {
+        if (mget(m, "created_at")) |csil_fv| {
+            out.created_at = try as_text(csil_fv);
+        } else {
+            out.created_at = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "created_by");
+        try dec_IdentityRef(alloc, csil_fv, &(out.created_by));
     }
 }
 
@@ -4323,6 +4533,22 @@ pub fn decode_DeleteEventRequest(alloc: std.mem.Allocator, bytes: []const u8, ou
     try dec_DeleteEventRequest(alloc, root, out);
 }
 
+/// Encode a DeleteEventResponse to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_DeleteEventResponse(alloc: std.mem.Allocator, v: *const types.DeleteEventResponse) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_DeleteEventResponse(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a DeleteEventResponse. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_DeleteEventResponse(alloc: std.mem.Allocator, bytes: []const u8, out: *types.DeleteEventResponse) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_DeleteEventResponse(alloc, root, out);
+}
+
 /// Encode a MoveEventRequest to CBOR. The returned slice is owned by the caller
 /// (free it with alloc.free).
 pub fn encode_MoveEventRequest(alloc: std.mem.Allocator, v: *const types.MoveEventRequest) CodecError![]u8 {
@@ -4337,6 +4563,86 @@ pub fn encode_MoveEventRequest(alloc: std.mem.Allocator, v: *const types.MoveEve
 pub fn decode_MoveEventRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.MoveEventRequest) CodecError!void {
     const root = try decode(alloc, bytes);
     try dec_MoveEventRequest(alloc, root, out);
+}
+
+/// Encode a TrashEntry to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_TrashEntry(alloc: std.mem.Allocator, v: *const types.TrashEntry) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_TrashEntry(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a TrashEntry. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_TrashEntry(alloc: std.mem.Allocator, bytes: []const u8, out: *types.TrashEntry) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_TrashEntry(alloc, root, out);
+}
+
+/// Encode a ListTrashRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ListTrashRequest(alloc: std.mem.Allocator, v: *const types.ListTrashRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ListTrashRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ListTrashRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ListTrashRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ListTrashRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ListTrashRequest(alloc, root, out);
+}
+
+/// Encode a TrashList to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_TrashList(alloc: std.mem.Allocator, v: *const types.TrashList) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_TrashList(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a TrashList. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_TrashList(alloc: std.mem.Allocator, bytes: []const u8, out: *types.TrashList) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_TrashList(alloc, root, out);
+}
+
+/// Encode a RestoreEventRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_RestoreEventRequest(alloc: std.mem.Allocator, v: *const types.RestoreEventRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_RestoreEventRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a RestoreEventRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_RestoreEventRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.RestoreEventRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_RestoreEventRequest(alloc, root, out);
+}
+
+/// Encode a ImportEventRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_ImportEventRequest(alloc: std.mem.Allocator, v: *const types.ImportEventRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_ImportEventRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a ImportEventRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_ImportEventRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ImportEventRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_ImportEventRequest(alloc, root, out);
 }
 
 /// Encode a RespondRequest to CBOR. The returned slice is owned by the caller

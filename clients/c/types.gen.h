@@ -143,7 +143,13 @@ typedef struct ListEventsRequest ListEventsRequest;
 typedef struct OccurrenceList OccurrenceList;
 typedef struct UpdateEventRequest UpdateEventRequest;
 typedef struct DeleteEventRequest DeleteEventRequest;
+typedef struct DeleteEventResponse DeleteEventResponse;
 typedef struct MoveEventRequest MoveEventRequest;
+typedef struct TrashEntry TrashEntry;
+typedef struct ListTrashRequest ListTrashRequest;
+typedef struct TrashList TrashList;
+typedef struct RestoreEventRequest RestoreEventRequest;
+typedef struct ImportEventRequest ImportEventRequest;
 typedef struct RespondRequest RespondRequest;
 typedef struct SearchEventsRequest SearchEventsRequest;
 typedef struct EventList EventList;
@@ -199,6 +205,9 @@ typedef char *AuditID;
 
 /* GroupID is a type alias. */
 typedef char *GroupID;
+
+/* TrashID is a type alias. */
+typedef char *TrashID;
 
 /* SessionID is a type alias. */
 typedef char *SessionID;
@@ -498,11 +507,54 @@ typedef struct DeleteEventRequest {
     Timestamp *recurrence_id;
 } DeleteEventRequest;
 
+/* DeleteEventResponse is a structured data type. */
+typedef struct DeleteEventResponse {
+    TrashID *trash_id;
+} DeleteEventResponse;
+
 /* MoveEventRequest is a structured data type. */
 typedef struct MoveEventRequest {
     EventID event_id;
     CalendarID calendar_id;
 } MoveEventRequest;
+
+/* TrashEntry is a structured data type. */
+typedef struct TrashEntry {
+    TrashID trash_id;
+    CalendarID calendar_id;
+    EventID event_id;
+    RecurrenceScope scope;
+    Timestamp *recurrence_id;
+    Event event;
+    Event *instance;
+    PersonSummary *deleted_by;
+    Timestamp deleted_at;
+    Timestamp expires_at;
+} TrashEntry;
+
+/* ListTrashRequest is a structured data type. */
+typedef struct ListTrashRequest {
+    CalendarID calendar_id;
+    uint64_t *limit;
+} ListTrashRequest;
+
+/* TrashList is a structured data type. */
+typedef struct TrashList {
+    TrashEntry *entries;
+    size_t entries_count;
+} TrashList;
+
+/* RestoreEventRequest is a structured data type. */
+typedef struct RestoreEventRequest {
+    TrashID trash_id;
+} RestoreEventRequest;
+
+/* ImportEventRequest is a structured data type. */
+typedef struct ImportEventRequest {
+    Event event;
+    IdentityRef created_by;
+    Timestamp *created_at;
+} ImportEventRequest;
 
 /* RespondRequest is a structured data type. */
 typedef struct RespondRequest {

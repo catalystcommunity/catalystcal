@@ -9,6 +9,7 @@ and share_id = string
 and delegation_id = string
 and audit_id = string
 and group_id = string
+and trash_id = string
 and session_id = string
 and timestamp = string
 and date_text = string
@@ -263,7 +264,31 @@ and delete_event_request = {
   recurrence_id : timestamp option;
 }
 
+and delete_event_response = { trash_id : trash_id option }
 and move_event_request = { event_id : event_id; calendar_id : calendar_id }
+
+and trash_entry = {
+  trash_id : trash_id;
+  calendar_id : calendar_id;
+  event_id : event_id;
+  scope : recurrence_scope;
+  recurrence_id : timestamp option;
+  event : event;
+  instance : event option;
+  deleted_by : person_summary option;
+  deleted_at : timestamp;
+  expires_at : timestamp;
+}
+
+and list_trash_request = { calendar_id : calendar_id; limit : int64 option }
+and trash_list = { entries : trash_entry list }
+and restore_event_request = { trash_id : trash_id }
+
+and import_event_request = {
+  event : event;
+  created_by : identity_ref;
+  created_at : timestamp option;
+}
 
 and respond_request = {
   event_id : event_id;

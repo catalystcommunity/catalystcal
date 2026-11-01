@@ -230,9 +230,9 @@ class EventAsyncClient:
         """update-event"""
         return Event.from_cbor(await self._transport.call("EventService", "update-event", req.to_cbor()))
 
-    async def delete_event(self, req: DeleteEventRequest) -> EmptyResponse:
+    async def delete_event(self, req: DeleteEventRequest) -> DeleteEventResponse:
         """delete-event"""
-        return EmptyResponse.from_cbor(await self._transport.call("EventService", "delete-event", req.to_cbor()))
+        return DeleteEventResponse.from_cbor(await self._transport.call("EventService", "delete-event", req.to_cbor()))
 
     async def move_event(self, req: MoveEventRequest) -> Event:
         """move-event"""
@@ -249,6 +249,18 @@ class EventAsyncClient:
     async def search_events(self, req: SearchEventsRequest) -> EventList:
         """search-events"""
         return EventList.from_cbor(await self._transport.call("EventService", "search-events", req.to_cbor()))
+
+    async def list_trash(self, req: ListTrashRequest) -> TrashList:
+        """list-trash"""
+        return TrashList.from_cbor(await self._transport.call("EventService", "list-trash", req.to_cbor()))
+
+    async def restore_event(self, req: RestoreEventRequest) -> Event:
+        """restore-event"""
+        return Event.from_cbor(await self._transport.call("EventService", "restore-event", req.to_cbor()))
+
+    async def import_event(self, req: ImportEventRequest) -> Event:
+        """import-event"""
+        return Event.from_cbor(await self._transport.call("EventService", "import-event", req.to_cbor()))
 
 class FreeBusyAsyncClient:
     """Typed client for the FreeBusyService service."""

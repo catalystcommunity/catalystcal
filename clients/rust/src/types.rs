@@ -36,6 +36,8 @@ pub type AuditID = String;
 
 pub type GroupID = String;
 
+pub type TrashID = String;
+
 pub type SessionID = String;
 
 pub type Timestamp = String;
@@ -575,9 +577,52 @@ pub struct DeleteEventRequest {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct DeleteEventResponse {
+    pub trash_id: Option<TrashID>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct MoveEventRequest {
     pub event_id: EventID,
     pub calendar_id: CalendarID,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrashEntry {
+    pub trash_id: TrashID,
+    pub calendar_id: CalendarID,
+    pub event_id: EventID,
+    pub scope: RecurrenceScope,
+    pub recurrence_id: Option<Timestamp>,
+    pub event: Event,
+    pub instance: Option<Event>,
+    pub deleted_by: Option<PersonSummary>,
+    pub deleted_at: Timestamp,
+    pub expires_at: Timestamp,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ListTrashRequest {
+    pub calendar_id: CalendarID,
+    /// default: 100
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrashList {
+    pub entries: Vec<TrashEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RestoreEventRequest {
+    pub trash_id: TrashID,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportEventRequest {
+    pub event: Event,
+    pub created_by: IdentityRef,
+    pub created_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

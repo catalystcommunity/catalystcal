@@ -702,7 +702,7 @@ defmodule Csilgen.Generated.EventClient do
   end
 
   @spec delete_event(t(), Csilgen.Generated.DeleteEventRequest.t()) ::
-          Csilgen.Generated.EmptyResponse.t()
+          Csilgen.Generated.DeleteEventResponse.t()
   def delete_event(%__MODULE__{transport: transport}, req) do
     resp =
       Csilgen.Generated.Transport.call(
@@ -712,7 +712,7 @@ defmodule Csilgen.Generated.EventClient do
         Csilgen.Generated.DeleteEventRequest.to_cbor(req)
       )
 
-    Csilgen.Generated.EmptyResponse.from_cbor(resp)
+    Csilgen.Generated.DeleteEventResponse.from_cbor(resp)
   end
 
   @spec move_event(t(), Csilgen.Generated.MoveEventRequest.t()) :: Csilgen.Generated.Event.t()
@@ -767,6 +767,46 @@ defmodule Csilgen.Generated.EventClient do
       )
 
     Csilgen.Generated.EventList.from_cbor(resp)
+  end
+
+  @spec list_trash(t(), Csilgen.Generated.ListTrashRequest.t()) :: Csilgen.Generated.TrashList.t()
+  def list_trash(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "list-trash",
+        Csilgen.Generated.ListTrashRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.TrashList.from_cbor(resp)
+  end
+
+  @spec restore_event(t(), Csilgen.Generated.RestoreEventRequest.t()) ::
+          Csilgen.Generated.Event.t()
+  def restore_event(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "restore-event",
+        Csilgen.Generated.RestoreEventRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Event.from_cbor(resp)
+  end
+
+  @spec import_event(t(), Csilgen.Generated.ImportEventRequest.t()) :: Csilgen.Generated.Event.t()
+  def import_event(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "import-event",
+        Csilgen.Generated.ImportEventRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Event.from_cbor(resp)
   end
 
   defp encode_get_event_request(req) do

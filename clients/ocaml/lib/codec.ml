@@ -406,6 +406,14 @@ and encode_delete_event_request (v : delete_event_request) : Cbor.t =
          (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
        ])
 
+and encode_delete_event_response (v : delete_event_response) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.trash_id with Some csil_x -> Some (Cbor.Text "trash_id", (Cbor.Text csil_x)) | None -> None);
+       ])
+
 and encode_move_event_request (v : move_event_request) : Cbor.t =
   Cbor.Map
     (List.filter_map
@@ -413,6 +421,58 @@ and encode_move_event_request (v : move_event_request) : Cbor.t =
        [
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+       ])
+
+and encode_trash_entry (v : trash_entry) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "event", (encode_event v.event));
+         Some (Cbor.Text "scope", (encode_recurrence_scope v.scope));
+         Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
+         (match v.instance with Some csil_x -> Some (Cbor.Text "instance", (encode_event csil_x)) | None -> None);
+         Some (Cbor.Text "trash_id", (Cbor.Text v.trash_id));
+         Some (Cbor.Text "deleted_at", (Cbor.Text v.deleted_at));
+         (match v.deleted_by with Some csil_x -> Some (Cbor.Text "deleted_by", (encode_person_summary csil_x)) | None -> None);
+         Some (Cbor.Text "expires_at", (Cbor.Text v.expires_at));
+         Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_list_trash_request (v : list_trash_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.limit with Some csil_x -> Some (Cbor.Text "limit", (Cbor.int64 csil_x)) | None -> None);
+         Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+       ])
+
+and encode_trash_list (v : trash_list) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "entries", (Cbor.Array (List.map (fun csil_e -> (encode_trash_entry csil_e)) v.entries)));
+       ])
+
+and encode_restore_event_request (v : restore_event_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "trash_id", (Cbor.Text v.trash_id));
+       ])
+
+and encode_import_event_request (v : import_event_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "event", (encode_event v.event));
+         (match v.created_at with Some csil_x -> Some (Cbor.Text "created_at", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "created_by", (encode_identity_ref v.created_by));
        ])
 
 and encode_respond_request (v : respond_request) : Cbor.t =
@@ -1274,6 +1334,19 @@ and decode_delete_event_request (csil_c : Cbor.t) : delete_event_request =
       }
   | _ -> failwith "csilgen: expected map for delete_event_request"
 
+and decode_delete_event_response (csil_c : Cbor.t) : delete_event_response =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        trash_id = (match csil_field "trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for delete_event_response"
+
 and decode_move_event_request (csil_c : Cbor.t) : move_event_request =
   match csil_c with
   | Cbor.Map csil_kvs ->
@@ -1287,6 +1360,83 @@ and decode_move_event_request (csil_c : Cbor.t) : move_event_request =
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
       }
   | _ -> failwith "csilgen: expected map for move_event_request"
+
+and decode_trash_entry (csil_c : Cbor.t) : trash_entry =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event = (decode_event (csil_req "event"));
+        scope = (decode_recurrence_scope (csil_req "scope"));
+        event_id = (Cbor.to_text (csil_req "event_id"));
+        instance = (match csil_field "instance" with Some csil_v -> Some (decode_event csil_v) | None -> None);
+        trash_id = (Cbor.to_text (csil_req "trash_id"));
+        deleted_at = (Cbor.to_text (csil_req "deleted_at"));
+        deleted_by = (match csil_field "deleted_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
+        expires_at = (Cbor.to_text (csil_req "expires_at"));
+        calendar_id = (Cbor.to_text (csil_req "calendar_id"));
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for trash_entry"
+
+and decode_list_trash_request (csil_c : Cbor.t) : list_trash_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        limit = (match csil_field "limit" with Some csil_v -> Some (Cbor.to_i64 csil_v) | None -> None);
+        calendar_id = (Cbor.to_text (csil_req "calendar_id"));
+      }
+  | _ -> failwith "csilgen: expected map for list_trash_request"
+
+and decode_trash_list (csil_c : Cbor.t) : trash_list =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        entries = (match (csil_req "entries") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_trash_entry csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
+      }
+  | _ -> failwith "csilgen: expected map for trash_list"
+
+and decode_restore_event_request (csil_c : Cbor.t) : restore_event_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        trash_id = (Cbor.to_text (csil_req "trash_id"));
+      }
+  | _ -> failwith "csilgen: expected map for restore_event_request"
+
+and decode_import_event_request (csil_c : Cbor.t) : import_event_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event = (decode_event (csil_req "event"));
+        created_at = (match csil_field "created_at" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        created_by = (decode_identity_ref (csil_req "created_by"));
+      }
+  | _ -> failwith "csilgen: expected map for import_event_request"
 
 and decode_respond_request (csil_c : Cbor.t) : respond_request =
   match csil_c with
@@ -1933,9 +2083,33 @@ let encode_delete_event_request_bytes (v : delete_event_request) : bytes = Cbor.
 let decode_delete_event_request_bytes (b : bytes) : delete_event_request =
   match Cbor.decode b with Ok c -> decode_delete_event_request c | Error e -> failwith e
 
+let encode_delete_event_response_bytes (v : delete_event_response) : bytes = Cbor.encode (encode_delete_event_response v)
+let decode_delete_event_response_bytes (b : bytes) : delete_event_response =
+  match Cbor.decode b with Ok c -> decode_delete_event_response c | Error e -> failwith e
+
 let encode_move_event_request_bytes (v : move_event_request) : bytes = Cbor.encode (encode_move_event_request v)
 let decode_move_event_request_bytes (b : bytes) : move_event_request =
   match Cbor.decode b with Ok c -> decode_move_event_request c | Error e -> failwith e
+
+let encode_trash_entry_bytes (v : trash_entry) : bytes = Cbor.encode (encode_trash_entry v)
+let decode_trash_entry_bytes (b : bytes) : trash_entry =
+  match Cbor.decode b with Ok c -> decode_trash_entry c | Error e -> failwith e
+
+let encode_list_trash_request_bytes (v : list_trash_request) : bytes = Cbor.encode (encode_list_trash_request v)
+let decode_list_trash_request_bytes (b : bytes) : list_trash_request =
+  match Cbor.decode b with Ok c -> decode_list_trash_request c | Error e -> failwith e
+
+let encode_trash_list_bytes (v : trash_list) : bytes = Cbor.encode (encode_trash_list v)
+let decode_trash_list_bytes (b : bytes) : trash_list =
+  match Cbor.decode b with Ok c -> decode_trash_list c | Error e -> failwith e
+
+let encode_restore_event_request_bytes (v : restore_event_request) : bytes = Cbor.encode (encode_restore_event_request v)
+let decode_restore_event_request_bytes (b : bytes) : restore_event_request =
+  match Cbor.decode b with Ok c -> decode_restore_event_request c | Error e -> failwith e
+
+let encode_import_event_request_bytes (v : import_event_request) : bytes = Cbor.encode (encode_import_event_request v)
+let decode_import_event_request_bytes (b : bytes) : import_event_request =
+  match Cbor.decode b with Ok c -> decode_import_event_request c | Error e -> failwith e
 
 let encode_respond_request_bytes (v : respond_request) : bytes = Cbor.encode (encode_respond_request v)
 let decode_respond_request_bytes (b : bytes) : respond_request =

@@ -16,6 +16,8 @@
 
 # GroupId is an alias for String.
 
+# TrashId is an alias for String.
+
 # SessionId is an alias for String.
 
 # Timestamp is an alias for String.
@@ -407,9 +409,55 @@ DeleteEventRequest = Data.define(:event_id, :scope, :recurrence_id) do
   end
 end
 
+# trash_id [TrashId]
+DeleteEventResponse = Data.define(:trash_id) do
+  def initialize(trash_id: nil)
+    super
+  end
+end
+
 # event_id [EventId]
 # calendar_id [CalendarId]
 MoveEventRequest = Data.define(:event_id, :calendar_id)
+
+# trash_id [TrashId]
+# calendar_id [CalendarId]
+# event_id [EventId]
+# scope [RecurrenceScope]
+# recurrence_id [Timestamp]
+# event [Event]
+# instance [Event]
+# deleted_by [PersonSummary]
+# deleted_at [Timestamp]
+# expires_at [Timestamp]
+TrashEntry = Data.define(:trash_id, :calendar_id, :event_id, :scope, :recurrence_id, :event, :instance, :deleted_by, :deleted_at, :expires_at) do
+  def initialize(trash_id:, calendar_id:, event_id:, scope:, event:, deleted_at:, expires_at:, recurrence_id: nil, instance: nil, deleted_by: nil)
+    super
+  end
+end
+
+# calendar_id [CalendarId]
+# limit [Integer]
+ListTrashRequest = Data.define(:calendar_id, :limit) do
+  def initialize(calendar_id:, limit: 100)
+    super
+  end
+end
+
+# entries [Array<TrashEntry>]
+TrashList = Data.define(:entries)
+
+# trash_id [TrashId]
+RestoreEventRequest = Data.define(:trash_id)
+
+# event [Event]
+# created_by [IdentityRef]
+# created_at [Timestamp]
+ImportEventRequest = Data.define(:event, :created_by, :created_at) do
+  def initialize(event:, created_by:, created_at: nil)
+    super
+  end
+end
 
 # event_id [EventId]
 # status [ParticipationStatus]

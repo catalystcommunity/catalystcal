@@ -762,7 +762,7 @@ static inline int csil_event_update_event(const CsilgenTransport *t, const Updat
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_delete_event(const CsilgenTransport *t, const DeleteEventRequest *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        DeleteEventResponse *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_DeleteEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
@@ -771,7 +771,7 @@ static inline int csil_event_delete_event(const CsilgenTransport *t, const Delet
     int csil_rc = t->call(t->self, "EventService", "delete-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
     free(csil_reqb);
     if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    int csil_drc = csil_decode_DeleteEventResponse(csil_respb, csil_respn, resp, resp_owner);
     free(csil_respb);
     return csil_drc;
 }
@@ -844,6 +844,60 @@ static inline int csil_event_search_events(const CsilgenTransport *t, const Sear
     free(csil_reqb);
     if (csil_rc != 0) { free(csil_respb); return csil_rc; }
     int csil_drc = csil_decode_EventList(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
+/* Invoke EventService/list-trash with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_list_trash(const CsilgenTransport *t, const ListTrashRequest *req,
+                        TrashList *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_ListTrashRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "list-trash", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_TrashList(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
+/* Invoke EventService/restore-event with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_restore_event(const CsilgenTransport *t, const RestoreEventRequest *req,
+                        Event *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_RestoreEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "restore-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
+/* Invoke EventService/import-event with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_import_event(const CsilgenTransport *t, const ImportEventRequest *req,
+                        Event *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_ImportEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "import-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
     free(csil_respb);
     return csil_drc;
 }

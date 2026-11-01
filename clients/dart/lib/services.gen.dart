@@ -93,11 +93,14 @@ abstract interface class EventServiceHandler {
   Event getEvent(EventId request);
   Event createEvent(Event request);
   Event updateEvent(UpdateEventRequest request);
-  EmptyResponse deleteEvent(DeleteEventRequest request);
+  DeleteEventResponse deleteEvent(DeleteEventRequest request);
   Event moveEvent(MoveEventRequest request);
   Event respond(RespondRequest request);
   EventList listInvitations(EmptyRequest request);
   EventList searchEvents(SearchEventsRequest request);
+  TrashList listTrash(ListTrashRequest request);
+  Event restoreEvent(RestoreEventRequest request);
+  Event importEvent(ImportEventRequest request);
 }
 
 /// The FreeBusyService service contract. A host `implements` this; the router

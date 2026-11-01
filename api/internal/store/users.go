@@ -9,7 +9,9 @@ import (
 )
 
 // User is one person who signed in to this server, or an application
-// principal (ApplicationID set).
+// principal (ApplicationID set). An attributed import can also make a
+// user for a person who did not sign in yet (EnsureUser): that row has no
+// last_seen_at and no default calendar until the first sign-in.
 type User struct {
 	ID            string
 	Domain        string
@@ -75,6 +77,21 @@ func (s *Store) UpsertUser(ctx context.Context, in UserInput) (u User, created b
 			`SELECT `+userCols+` FROM users WHERE domain = ? AND subject = ? AND application_id = ?`, in.Domain, in.Subject, in.ApplicationID))
 		switch {
 		case err == nil:
+			var never bool
+			if err := tx.QueryRowContext(ctx, `SELECT last_seen_at IS NULL FROM users WHERE id = ?`, existing.ID).Scan(&never); err != nil {
+				return err
+			}
+			if never && in.ApplicationID == "" {
+				// First sign-in of a user that an import made.
+				if _, err := insertCalendar(ctx, tx, Calendar{
+					OwnerID:   existing.ID,
+					Name:      DefaultCalendarName(in.DisplayName),
+					Kind:      "local",
+					IsDefault: true,
+				}, s.now()); err != nil {
+					return err
+				}
+			}
 			_, err = tx.ExecContext(ctx, `UPDATE users SET
 				handle = COALESCE(?, handle),
 				display_name = COALESCE(?, display_name),
@@ -113,6 +130,22 @@ func (s *Store) UpsertUser(ctx context.Context, in UserInput) (u User, created b
 		}
 	})
 	return u, created, err
+}
+
+// EnsureUser returns the user of a principal, and makes one that has not
+// signed in when there is none. It makes no default calendar.
+func (s *Store) EnsureUser(ctx context.Context, p Principal) (User, error) {
+	p = p.Norm()
+	if p.Domain == "" || p.Subject == "" {
+		return User{}, errors.New("store: user needs a domain and a subject")
+	}
+	now := FormatTime(s.now())
+	if _, err := s.DB.ExecContext(ctx, `INSERT INTO users (id, domain, subject, application_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (domain, subject, application_id) DO NOTHING`,
+		NewID(), p.Domain, p.Subject, p.Application, now, now); err != nil {
+		return User{}, err
+	}
+	return s.GetPrincipal(ctx, p.Domain, p.Subject, p.Application)
 }
 
 // GetUser reads one user by id.
@@ -167,9 +200,11 @@ func (s *Store) GetUserByHandle(ctx context.Context, domain, handle string) (Use
 		strings.ToLower(domain), handle))
 }
 
-// ListUsers returns every person (no application principals), oldest first.
+// ListUsers returns every person who signed in (no application
+// principals), oldest first.
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+userCols+` FROM users WHERE application_id = '' ORDER BY created_at, id`)
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+userCols+` FROM users WHERE application_id = '' AND last_seen_at IS NOT NULL
+		ORDER BY created_at, id`)
 	if err != nil {
 		return nil, err
 	}

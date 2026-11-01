@@ -155,7 +155,7 @@ defmodule Csilgen.Generated.EventServer do
   @callback update_event(req :: Csilgen.Generated.UpdateEventRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
   @callback delete_event(req :: Csilgen.Generated.DeleteEventRequest.t(), ctx :: map()) ::
-              {:ok, Csilgen.Generated.EmptyResponse.t()}
+              {:ok, Csilgen.Generated.DeleteEventResponse.t()}
               | {:error, Csilgen.Generated.ServiceError.t()}
   @callback move_event(req :: Csilgen.Generated.MoveEventRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
@@ -167,6 +167,13 @@ defmodule Csilgen.Generated.EventServer do
   @callback search_events(req :: Csilgen.Generated.SearchEventsRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.EventList.t()}
               | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback list_trash(req :: Csilgen.Generated.ListTrashRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.TrashList.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback restore_event(req :: Csilgen.Generated.RestoreEventRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback import_event(req :: Csilgen.Generated.ImportEventRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
 end
 
 defmodule Csilgen.Generated.FreeBusyServer do

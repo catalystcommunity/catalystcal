@@ -79,11 +79,14 @@ public protocol EventService {
     func getEvent(_ request: EventId) throws -> Event
     func createEvent(_ request: Event) throws -> Event
     func updateEvent(_ request: UpdateEventRequest) throws -> Event
-    func deleteEvent(_ request: DeleteEventRequest) throws -> EmptyResponse
+    func deleteEvent(_ request: DeleteEventRequest) throws -> DeleteEventResponse
     func moveEvent(_ request: MoveEventRequest) throws -> Event
     func respond(_ request: RespondRequest) throws -> Event
     func listInvitations(_ request: EmptyRequest) throws -> EventList
     func searchEvents(_ request: SearchEventsRequest) throws -> EventList
+    func listTrash(_ request: ListTrashRequest) throws -> TrashList
+    func restoreEvent(_ request: RestoreEventRequest) throws -> Event
+    func importEvent(_ request: ImportEventRequest) throws -> Event
 }
 
 /// FreeBusyService is the server-side handler seam.

@@ -642,7 +642,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
     pub async fn delete_event(
         &self,
         req: DeleteEventRequest,
-    ) -> Result<EmptyResponse, ClientError> {
+    ) -> Result<DeleteEventResponse, ClientError> {
         let csil_resp = self
             .transport
             .call(
@@ -651,7 +651,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_delete_event_request(&req),
             )
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delete_event_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
 
     /// move-event (request/response).
@@ -700,6 +700,45 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
             )
             .await?;
         decode_event_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// list-trash (request/response).
+    pub async fn list_trash(&self, req: ListTrashRequest) -> Result<TrashList, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "list-trash",
+                &encode_list_trash_request(&req),
+            )
+            .await?;
+        decode_trash_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// restore-event (request/response).
+    pub async fn restore_event(&self, req: RestoreEventRequest) -> Result<Event, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "restore-event",
+                &encode_restore_event_request(&req),
+            )
+            .await?;
+        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// import-event (request/response).
+    pub async fn import_event(&self, req: ImportEventRequest) -> Result<Event, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "import-event",
+                &encode_import_event_request(&req),
+            )
+            .await?;
+        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
 }
 

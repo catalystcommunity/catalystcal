@@ -2634,6 +2634,42 @@ pub fn decode_delete_event_request(csil_data: &[u8]) -> Result<DeleteEventReques
     csil_dec_delete_event_request(&csil_root)
 }
 
+/// Build the canonical CBOR value tree for a DeleteEventResponse.
+fn csil_enc_delete_event_response(csil_v: &DeleteEventResponse) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    if let Some(csil_inner) = &csil_v.trash_id {
+        csil_entries.push((cbor_text("trash_id"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a DeleteEventResponse from a decoded CBOR value tree.
+fn csil_dec_delete_event_response(
+    csil_root: &CsilCborValue,
+) -> Result<DeleteEventResponse, CsilCborError> {
+    let trash_id = match cbor_map_get(csil_root, "trash_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(DeleteEventResponse { trash_id })
+}
+
+/// Encode a DeleteEventResponse to canonical CSIL CBOR bytes.
+pub fn encode_delete_event_response(csil_v: &DeleteEventResponse) -> Vec<u8> {
+    cbor_encode(&csil_enc_delete_event_response(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a DeleteEventResponse.
+pub fn decode_delete_event_response(
+    csil_data: &[u8],
+) -> Result<DeleteEventResponse, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_delete_event_response(&csil_root)
+}
+
 /// Build the canonical CBOR value tree for a MoveEventRequest.
 fn csil_enc_move_event_request(csil_v: &MoveEventRequest) -> CsilCborValue {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
@@ -2671,6 +2707,267 @@ pub fn encode_move_event_request(csil_v: &MoveEventRequest) -> Vec<u8> {
 pub fn decode_move_event_request(csil_data: &[u8]) -> Result<MoveEventRequest, CsilCborError> {
     let csil_root = cbor_decode(csil_data)?;
     csil_dec_move_event_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a TrashEntry.
+fn csil_enc_trash_entry(csil_v: &TrashEntry) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(10);
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(&csil_v.scope)));
+    csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
+    if let Some(csil_inner) = &csil_v.instance {
+        csil_entries.push((cbor_text("instance"), csil_enc_event(csil_inner)));
+    }
+    csil_entries.push((cbor_text("trash_id"), cbor_text(&csil_v.trash_id)));
+    csil_entries.push((cbor_text("deleted_at"), cbor_text(&csil_v.deleted_at)));
+    if let Some(csil_inner) = &csil_v.deleted_by {
+        csil_entries.push((cbor_text("deleted_by"), csil_enc_person_summary(csil_inner)));
+    }
+    csil_entries.push((cbor_text("expires_at"), cbor_text(&csil_v.expires_at)));
+    csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
+    if let Some(csil_inner) = &csil_v.recurrence_id {
+        csil_entries.push((cbor_text("recurrence_id"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a TrashEntry from a decoded CBOR value tree.
+fn csil_dec_trash_entry(csil_root: &CsilCborValue) -> Result<TrashEntry, CsilCborError> {
+    let trash_id = {
+        let csil_field = cbor_require(csil_root, "trash_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let calendar_id = {
+        let csil_field = cbor_require(csil_root, "calendar_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let event_id = {
+        let csil_field = cbor_require(csil_root, "event_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let scope = {
+        let csil_field = cbor_require(csil_root, "scope")?;
+        let csil_decode = csil_dec_recurrence_scope;
+        csil_decode(csil_field)?
+    };
+    let recurrence_id = match cbor_map_get(csil_root, "recurrence_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let event = {
+        let csil_field = cbor_require(csil_root, "event")?;
+        let csil_decode = csil_dec_event;
+        csil_decode(csil_field)?
+    };
+    let instance = match cbor_map_get(csil_root, "instance") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_event;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let deleted_by = match cbor_map_get(csil_root, "deleted_by") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_person_summary;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let deleted_at = {
+        let csil_field = cbor_require(csil_root, "deleted_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let expires_at = {
+        let csil_field = cbor_require(csil_root, "expires_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    Ok(TrashEntry {
+        trash_id,
+        calendar_id,
+        event_id,
+        scope,
+        recurrence_id,
+        event,
+        instance,
+        deleted_by,
+        deleted_at,
+        expires_at,
+    })
+}
+
+/// Encode a TrashEntry to canonical CSIL CBOR bytes.
+pub fn encode_trash_entry(csil_v: &TrashEntry) -> Vec<u8> {
+    cbor_encode(&csil_enc_trash_entry(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a TrashEntry.
+pub fn decode_trash_entry(csil_data: &[u8]) -> Result<TrashEntry, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_trash_entry(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a ListTrashRequest.
+fn csil_enc_list_trash_request(csil_v: &ListTrashRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
+    if let Some(csil_inner) = &csil_v.limit {
+        csil_entries.push((cbor_text("limit"), cbor_uint(*csil_inner)));
+    }
+    csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ListTrashRequest from a decoded CBOR value tree.
+fn csil_dec_list_trash_request(
+    csil_root: &CsilCborValue,
+) -> Result<ListTrashRequest, CsilCborError> {
+    let calendar_id = {
+        let csil_field = cbor_require(csil_root, "calendar_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let limit = match cbor_map_get(csil_root, "limit") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_u64;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(ListTrashRequest { calendar_id, limit })
+}
+
+/// Encode a ListTrashRequest to canonical CSIL CBOR bytes.
+pub fn encode_list_trash_request(csil_v: &ListTrashRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_list_trash_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ListTrashRequest.
+pub fn decode_list_trash_request(csil_data: &[u8]) -> Result<ListTrashRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_list_trash_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a TrashList.
+fn csil_enc_trash_list(csil_v: &TrashList) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    csil_entries.push((
+        cbor_text("entries"),
+        cbor_enc_array(&csil_v.entries, csil_enc_trash_entry),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a TrashList from a decoded CBOR value tree.
+fn csil_dec_trash_list(csil_root: &CsilCborValue) -> Result<TrashList, CsilCborError> {
+    let entries = {
+        let csil_field = cbor_require(csil_root, "entries")?;
+        let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_trash_entry);
+        csil_decode(csil_field)?
+    };
+    Ok(TrashList { entries })
+}
+
+/// Encode a TrashList to canonical CSIL CBOR bytes.
+pub fn encode_trash_list(csil_v: &TrashList) -> Vec<u8> {
+    cbor_encode(&csil_enc_trash_list(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a TrashList.
+pub fn decode_trash_list(csil_data: &[u8]) -> Result<TrashList, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_trash_list(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a RestoreEventRequest.
+fn csil_enc_restore_event_request(csil_v: &RestoreEventRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
+    csil_entries.push((cbor_text("trash_id"), cbor_text(&csil_v.trash_id)));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a RestoreEventRequest from a decoded CBOR value tree.
+fn csil_dec_restore_event_request(
+    csil_root: &CsilCborValue,
+) -> Result<RestoreEventRequest, CsilCborError> {
+    let trash_id = {
+        let csil_field = cbor_require(csil_root, "trash_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    Ok(RestoreEventRequest { trash_id })
+}
+
+/// Encode a RestoreEventRequest to canonical CSIL CBOR bytes.
+pub fn encode_restore_event_request(csil_v: &RestoreEventRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_restore_event_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a RestoreEventRequest.
+pub fn decode_restore_event_request(
+    csil_data: &[u8],
+) -> Result<RestoreEventRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_restore_event_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a ImportEventRequest.
+fn csil_enc_import_event_request(csil_v: &ImportEventRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    if let Some(csil_inner) = &csil_v.created_at {
+        csil_entries.push((cbor_text("created_at"), cbor_text(csil_inner)));
+    }
+    csil_entries.push((
+        cbor_text("created_by"),
+        csil_enc_identity_ref(&csil_v.created_by),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a ImportEventRequest from a decoded CBOR value tree.
+fn csil_dec_import_event_request(
+    csil_root: &CsilCborValue,
+) -> Result<ImportEventRequest, CsilCborError> {
+    let event = {
+        let csil_field = cbor_require(csil_root, "event")?;
+        let csil_decode = csil_dec_event;
+        csil_decode(csil_field)?
+    };
+    let created_by = {
+        let csil_field = cbor_require(csil_root, "created_by")?;
+        let csil_decode = csil_dec_identity_ref;
+        csil_decode(csil_field)?
+    };
+    let created_at = match cbor_map_get(csil_root, "created_at") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(ImportEventRequest {
+        event,
+        created_by,
+        created_at,
+    })
+}
+
+/// Encode a ImportEventRequest to canonical CSIL CBOR bytes.
+pub fn encode_import_event_request(csil_v: &ImportEventRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_import_event_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ImportEventRequest.
+pub fn decode_import_event_request(csil_data: &[u8]) -> Result<ImportEventRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_import_event_request(&csil_root)
 }
 
 /// Build the canonical CBOR value tree for a RespondRequest.

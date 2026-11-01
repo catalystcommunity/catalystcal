@@ -35,6 +35,11 @@ defmodule Csilgen.Generated.GroupID do
   @type t :: String.t()
 end
 
+defmodule Csilgen.Generated.TrashID do
+  @moduledoc "Type alias for TrashID."
+  @type t :: String.t()
+end
+
 defmodule Csilgen.Generated.SessionID do
   @moduledoc "Type alias for SessionID."
   @type t :: String.t()
@@ -2893,6 +2898,55 @@ defmodule Csilgen.Generated.DeleteEventRequest do
   def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
 end
 
+defmodule Csilgen.Generated.DeleteEventResponse do
+  @moduledoc "Generated struct for the DeleteEventResponse type."
+
+  defstruct [:trash_id]
+
+  @type t :: %__MODULE__{
+          trash_id: Csilgen.Generated.TrashID.t() | nil
+        }
+
+  @wire_keys [trash_id: "trash_id"]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         if(is_nil(v.trash_id), do: nil, else: {{:text, "trash_id"}, {:text, v.trash_id}})
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      trash_id:
+        case Map.get(csil_fields, {:text, "trash_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
 defmodule Csilgen.Generated.MoveEventRequest do
   @moduledoc "Generated struct for the MoveEventRequest type."
 
@@ -2930,6 +2984,344 @@ defmodule Csilgen.Generated.MoveEventRequest do
     %__MODULE__{
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       calendar_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"}))
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.TrashEntry do
+  @moduledoc "Generated struct for the TrashEntry type."
+
+  @enforce_keys [:trash_id, :calendar_id, :event_id, :scope, :event, :deleted_at, :expires_at]
+  defstruct [
+    :trash_id,
+    :calendar_id,
+    :event_id,
+    :scope,
+    :recurrence_id,
+    :event,
+    :instance,
+    :deleted_by,
+    :deleted_at,
+    :expires_at
+  ]
+
+  @type t :: %__MODULE__{
+          trash_id: Csilgen.Generated.TrashID.t(),
+          calendar_id: Csilgen.Generated.CalendarID.t(),
+          event_id: Csilgen.Generated.EventID.t(),
+          scope: Csilgen.Generated.RecurrenceScope.t(),
+          recurrence_id: Csilgen.Generated.Timestamp.t() | nil,
+          event: Csilgen.Generated.Event.t(),
+          instance: Csilgen.Generated.Event.t() | nil,
+          deleted_by: Csilgen.Generated.PersonSummary.t() | nil,
+          deleted_at: Csilgen.Generated.Timestamp.t(),
+          expires_at: Csilgen.Generated.Timestamp.t()
+        }
+
+  @wire_keys [
+    trash_id: "trash_id",
+    calendar_id: "calendar_id",
+    event_id: "event_id",
+    scope: "scope",
+    recurrence_id: "recurrence_id",
+    event: "event",
+    instance: "instance",
+    deleted_by: "deleted_by",
+    deleted_at: "deleted_at",
+    expires_at: "expires_at"
+  ]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
+         {{:text, "scope"}, {:text, v.scope}},
+         {{:text, "event_id"}, {:text, v.event_id}},
+         if(is_nil(v.instance),
+           do: nil,
+           else: {{:text, "instance"}, Csilgen.Generated.Event.to_cbor_value(v.instance)}
+         ),
+         {{:text, "trash_id"}, {:text, v.trash_id}},
+         {{:text, "deleted_at"}, {:text, v.deleted_at}},
+         if(is_nil(v.deleted_by),
+           do: nil,
+           else:
+             {{:text, "deleted_by"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.deleted_by)}
+         ),
+         {{:text, "expires_at"}, {:text, v.expires_at}},
+         {{:text, "calendar_id"}, {:text, v.calendar_id}},
+         if(is_nil(v.recurrence_id),
+           do: nil,
+           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+         )
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
+      scope:
+        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "scope"})) do
+          "all" -> "all"
+          "this" -> "this"
+          "this_and_future" -> "this_and_future"
+          csil_other -> raise("csilgen: unknown RecurrenceScope literal #{inspect(csil_other)}")
+        end,
+      event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
+      instance:
+        case Map.get(csil_fields, {:text, "instance"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
+        end,
+      trash_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "trash_id"})),
+      deleted_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "deleted_at"})),
+      deleted_by:
+        case Map.get(csil_fields, {:text, "deleted_by"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.PersonSummary.from_cbor_value(csil_v)
+        end,
+      expires_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "expires_at"})),
+      calendar_id:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
+      recurrence_id:
+        case Map.get(csil_fields, {:text, "recurrence_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.ListTrashRequest do
+  @moduledoc "Generated struct for the ListTrashRequest type."
+
+  @enforce_keys [:calendar_id]
+  defstruct [:calendar_id, limit: 100]
+
+  @type t :: %__MODULE__{
+          calendar_id: Csilgen.Generated.CalendarID.t(),
+          limit: integer() | nil
+        }
+
+  @wire_keys [calendar_id: "calendar_id", limit: "limit"]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         if(is_nil(v.limit), do: nil, else: {{:text, "limit"}, {:int, v.limit}}),
+         {{:text, "calendar_id"}, {:text, v.calendar_id}}
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      limit:
+        case Map.get(csil_fields, {:text, "limit"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_int(csil_v)
+        end,
+      calendar_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"}))
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.TrashList do
+  @moduledoc "Generated struct for the TrashList type."
+
+  @enforce_keys [:entries]
+  defstruct [:entries]
+
+  @type t :: %__MODULE__{
+          entries: [Csilgen.Generated.TrashEntry.t()]
+        }
+
+  @wire_keys [entries: "entries"]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "entries"},
+          {:array,
+           Enum.map(v.entries, fn csil_e ->
+             Csilgen.Generated.TrashEntry.to_cbor_value(csil_e)
+           end)}}
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      entries:
+        case Map.fetch!(csil_fields, {:text, "entries"}) do
+          {:array, csil_xs} ->
+            Enum.map(csil_xs, fn csil_e ->
+              Csilgen.Generated.TrashEntry.from_cbor_value(csil_e)
+            end)
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.RestoreEventRequest do
+  @moduledoc "Generated struct for the RestoreEventRequest type."
+
+  @enforce_keys [:trash_id]
+  defstruct [:trash_id]
+
+  @type t :: %__MODULE__{
+          trash_id: Csilgen.Generated.TrashID.t()
+        }
+
+  @wire_keys [trash_id: "trash_id"]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "trash_id"}, {:text, v.trash_id}}
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      trash_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "trash_id"}))
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.ImportEventRequest do
+  @moduledoc "Generated struct for the ImportEventRequest type."
+
+  @enforce_keys [:event, :created_by]
+  defstruct [:event, :created_by, :created_at]
+
+  @type t :: %__MODULE__{
+          event: Csilgen.Generated.Event.t(),
+          created_by: Csilgen.Generated.IdentityRef.t(),
+          created_at: Csilgen.Generated.Timestamp.t() | nil
+        }
+
+  @wire_keys [event: "event", created_by: "created_by", created_at: "created_at"]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
+         if(is_nil(v.created_at), do: nil, else: {{:text, "created_at"}, {:text, v.created_at}}),
+         {{:text, "created_by"}, Csilgen.Generated.IdentityRef.to_cbor_value(v.created_by)}
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
+      created_at:
+        case Map.get(csil_fields, {:text, "created_at"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end,
+      created_by:
+        Csilgen.Generated.IdentityRef.from_cbor_value(
+          Map.fetch!(csil_fields, {:text, "created_by"})
+        )
     }
   end
 

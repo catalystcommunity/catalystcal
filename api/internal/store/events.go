@@ -26,6 +26,9 @@ type Event struct {
 	// user id of a delegate who answered for the attendee, or "".
 	RespondedBy []string
 	SeriesUntil *time.Time
+	// KeepCreatedAt makes an insert keep Ev.CreatedAt (a restore or an
+	// attributed import). Otherwise an insert sets it to now.
+	KeepCreatedAt bool `json:"-"`
 }
 
 // ID is the event id.
@@ -233,13 +236,16 @@ func (s *Store) insertEvent(ctx context.Context, q queryer, e *Event) error {
 		e.Ev.EventId = csil.EventID(NewID())
 	}
 	now := csil.Timestamp(FormatTime(s.now()))
-	e.Ev.CreatedAt, e.Ev.UpdatedAt = now, now
+	if !e.KeepCreatedAt || e.Ev.CreatedAt == "" {
+		e.Ev.CreatedAt = now
+	}
+	e.Ev.UpdatedAt = now
 	args, err := eventArgs(e)
 	if err != nil {
 		return err
 	}
 	all := append([]any{string(e.Ev.EventId)}, args...)
-	all = append(all, string(now), string(now))
+	all = append(all, string(e.Ev.CreatedAt), string(now))
 	_, err = q.ExecContext(ctx, `INSERT INTO events (id, calendar_id, uid, master_id, recurrence_id, title, description,
 		location, url, conference_url, starts_at, ends_at, all_day, start_date, end_date, timezone, status,
 		transparency, visibility, rrule, exdates, rdates, series_until, categories, color, organizer_id,
@@ -453,30 +459,32 @@ type EventWrite struct {
 
 // ApplyEventWrites runs several event writes in one transaction.
 func (s *Store) ApplyEventWrites(ctx context.Context, writes []EventWrite) error {
-	return s.InTx(ctx, func(tx *sql.Tx) error {
-		for _, w := range writes {
-			switch {
-			case w.Insert != nil:
-				if err := s.insertEvent(ctx, tx, w.Insert); err != nil {
-					return err
-				}
-			case w.Update != nil:
-				if err := s.updateEvent(ctx, tx, w.Update); err != nil {
-					return err
-				}
-			case w.DeleteID != "":
-				if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE id = ?`, w.DeleteID); err != nil {
-					return err
-				}
-			case w.DeleteOverridesOf != "":
-				if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE master_id = ? AND recurrence_id >= ?`,
-					w.DeleteOverridesOf, FormatTime(w.From)); err != nil {
-					return err
-				}
+	return s.InTx(ctx, func(tx *sql.Tx) error { return s.applyEventWrites(ctx, tx, writes) })
+}
+
+func (s *Store) applyEventWrites(ctx context.Context, tx *sql.Tx, writes []EventWrite) error {
+	for _, w := range writes {
+		switch {
+		case w.Insert != nil:
+			if err := s.insertEvent(ctx, tx, w.Insert); err != nil {
+				return err
+			}
+		case w.Update != nil:
+			if err := s.updateEvent(ctx, tx, w.Update); err != nil {
+				return err
+			}
+		case w.DeleteID != "":
+			if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE id = ?`, w.DeleteID); err != nil {
+				return err
+			}
+		case w.DeleteOverridesOf != "":
+			if _, err := tx.ExecContext(ctx, `DELETE FROM events WHERE master_id = ? AND recurrence_id >= ?`,
+				w.DeleteOverridesOf, FormatTime(w.From)); err != nil {
+				return err
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 // GetEvent reads one event row.

@@ -63,6 +63,7 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS` | no | Pinned SHA-256 certificate fingerprints. Empty: DNS discovery. |
 | `CATALYSTCAL_LINKKEYS_TCP_ALLOW_INSECURE` | no | Skip fingerprint pinning. Dev only. |
 | `CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES` | no | How often catalystcal fetches subscribed calendars |
+| `CATALYSTCAL_TRASH_RETENTION_DAYS` | no | How long a deleted event stays restorable (1 to 365, default 30) |
 | `CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE` | no | Let subscriptions fetch private network addresses. Keep `false` on a shared instance. |
 | `CATALYSTCAL_ACT_AS_APP_KEYS_FILE` | file is **secret** | Path to the act-as application keys JSON file |
 | `CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS` | no | The oldest act-as presentation that catalystcal accepts |

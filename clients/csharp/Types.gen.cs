@@ -10,6 +10,7 @@ global using ShareID = string;
 global using DelegationID = string;
 global using AuditID = string;
 global using GroupID = string;
+global using TrashID = string;
 global using SessionID = string;
 global using Timestamp = string;
 global using DateText = string;
@@ -706,12 +707,72 @@ public sealed record DeleteEventRequest
     public Timestamp? RecurrenceId { get; init; }
 }
 
+public sealed record DeleteEventResponse
+{
+    // CBOR key: trash_id
+    public TrashID? TrashId { get; init; }
+}
+
 public sealed record MoveEventRequest
 {
     // CBOR key: event_id
     public required EventID EventId { get; init; }
     // CBOR key: calendar_id
     public required CalendarID CalendarId { get; init; }
+}
+
+public sealed record TrashEntry
+{
+    // CBOR key: trash_id
+    public required TrashID TrashId { get; init; }
+    // CBOR key: calendar_id
+    public required CalendarID CalendarId { get; init; }
+    // CBOR key: event_id
+    public required EventID EventId { get; init; }
+    // CBOR key: scope
+    public required RecurrenceScope Scope { get; init; }
+    // CBOR key: recurrence_id
+    public Timestamp? RecurrenceId { get; init; }
+    // CBOR key: event
+    public required Event Event { get; init; }
+    // CBOR key: instance
+    public Event? Instance { get; init; }
+    // CBOR key: deleted_by
+    public PersonSummary? DeletedBy { get; init; }
+    // CBOR key: deleted_at
+    public required Timestamp DeletedAt { get; init; }
+    // CBOR key: expires_at
+    public required Timestamp ExpiresAt { get; init; }
+}
+
+public sealed record ListTrashRequest
+{
+    // CBOR key: calendar_id
+    public required CalendarID CalendarId { get; init; }
+    // CBOR key: limit
+    public ulong? Limit { get; init; }
+}
+
+public sealed record TrashList
+{
+    // CBOR key: entries
+    public required System.Collections.Generic.List<TrashEntry> Entries { get; init; }
+}
+
+public sealed record RestoreEventRequest
+{
+    // CBOR key: trash_id
+    public required TrashID TrashId { get; init; }
+}
+
+public sealed record ImportEventRequest
+{
+    // CBOR key: event
+    public required Event Event { get; init; }
+    // CBOR key: created_by
+    public required IdentityRef CreatedBy { get; init; }
+    // CBOR key: created_at
+    public Timestamp? CreatedAt { get; init; }
 }
 
 public sealed record RespondRequest

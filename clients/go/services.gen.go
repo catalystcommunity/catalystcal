@@ -78,11 +78,14 @@ type EventService interface {
 	GetEvent(ctx context.Context, req EventID) (Event, error)
 	CreateEvent(ctx context.Context, req Event) (Event, error)
 	UpdateEvent(ctx context.Context, req UpdateEventRequest) (Event, error)
-	DeleteEvent(ctx context.Context, req DeleteEventRequest) (EmptyResponse, error)
+	DeleteEvent(ctx context.Context, req DeleteEventRequest) (DeleteEventResponse, error)
 	MoveEvent(ctx context.Context, req MoveEventRequest) (Event, error)
 	Respond(ctx context.Context, req RespondRequest) (Event, error)
 	ListInvitations(ctx context.Context, req EmptyRequest) (EventList, error)
 	SearchEvents(ctx context.Context, req SearchEventsRequest) (EventList, error)
+	ListTrash(ctx context.Context, req ListTrashRequest) (TrashList, error)
+	RestoreEvent(ctx context.Context, req RestoreEventRequest) (Event, error)
+	ImportEvent(ctx context.Context, req ImportEventRequest) (Event, error)
 }
 
 // FreeBusyService defines the service interface

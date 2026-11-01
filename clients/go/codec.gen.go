@@ -3351,6 +3351,46 @@ func DecodeDeleteEventRequest(csilData []byte) (DeleteEventRequest, error) {
 	return csilDecDeleteEventRequest(csilRoot)
 }
 
+// csilEncDeleteEventResponse builds the canonical CBOR value tree for a DeleteEventResponse.
+func csilEncDeleteEventResponse(csilV DeleteEventResponse) cborValue {
+	csilEntries := make(cborMap, 0, 1)
+	if csilV.TrashId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("trash_id"), cborText((*csilV.TrashId))})
+	}
+	return csilEntries
+}
+
+// csilDecDeleteEventResponse reconstructs a DeleteEventResponse from a decoded CBOR value tree.
+func csilDecDeleteEventResponse(csilRoot cborValue) (DeleteEventResponse, error) {
+	var csilOut DeleteEventResponse
+	if csilField, csilOk := cborMapGet(csilRoot, "trash_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.TrashId = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeDeleteEventResponse encodes a DeleteEventResponse to canonical CSIL CBOR bytes.
+func EncodeDeleteEventResponse(csilV DeleteEventResponse) []byte {
+	return cborEncode(csilEncDeleteEventResponse(csilV))
+}
+
+// DecodeDeleteEventResponse decodes canonical CSIL CBOR bytes into a DeleteEventResponse.
+func DecodeDeleteEventResponse(csilData []byte) (DeleteEventResponse, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero DeleteEventResponse
+		return csilZero, csilErr
+	}
+	return csilDecDeleteEventResponse(csilRoot)
+}
+
 // csilEncMoveEventRequest builds the canonical CBOR value tree for a MoveEventRequest.
 func csilEncMoveEventRequest(csilV MoveEventRequest) cborValue {
 	csilEntries := make(cborMap, 0, 2)
@@ -3406,6 +3446,376 @@ func DecodeMoveEventRequest(csilData []byte) (MoveEventRequest, error) {
 		return csilZero, csilErr
 	}
 	return csilDecMoveEventRequest(csilRoot)
+}
+
+// csilEncTrashEntry builds the canonical CBOR value tree for a TrashEntry.
+func csilEncTrashEntry(csilV TrashEntry) cborValue {
+	csilEntries := make(cborMap, 0, 10)
+	csilEntries = append(csilEntries, cborEntry{cborText("event"), csilEncEvent(csilV.Event)})
+	csilEntries = append(csilEntries, cborEntry{cborText("scope"), cborText(csilV.Scope)})
+	csilEntries = append(csilEntries, cborEntry{cborText("event_id"), cborText(csilV.EventId)})
+	if csilV.Instance != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("instance"), csilEncEvent((*csilV.Instance))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("trash_id"), cborText(csilV.TrashId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("deleted_at"), cborText(csilV.DeletedAt)})
+	if csilV.DeletedBy != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("deleted_by"), csilEncPersonSummary((*csilV.DeletedBy))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("expires_at"), cborText(csilV.ExpiresAt)})
+	csilEntries = append(csilEntries, cborEntry{cborText("calendar_id"), cborText(csilV.CalendarId)})
+	if csilV.RecurrenceId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("recurrence_id"), cborText((*csilV.RecurrenceId))})
+	}
+	return csilEntries
+}
+
+// csilDecTrashEntry reconstructs a TrashEntry from a decoded CBOR value tree.
+func csilDecTrashEntry(csilRoot cborValue) (TrashEntry, error) {
+	var csilOut TrashEntry
+	{
+		csilField, csilErr := cborRequire(csilRoot, "trash_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.TrashId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "calendar_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CalendarID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return CalendarID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CalendarId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.EventId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "scope")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (RecurrenceScope, error) {
+			csilInner, csilErr := (func(csilV cborValue) (string, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				if csilErr != nil {
+					var csilZero string
+					return csilZero, csilErr
+				}
+				if !(csilInner == "all" || csilInner == "this" || csilInner == "this_and_future") {
+					var csilZero string
+					return csilZero, fmt.Errorf("csil cbor: value %v is not a member of the declared enum", csilInner)
+				}
+				return csilInner, nil
+			})(csilV)
+			return RecurrenceScope(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Scope = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "recurrence_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.RecurrenceId = &csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Event = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "instance"); csilOk {
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Instance = &csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "deleted_by"); csilOk {
+		csilVal, csilErr := (csilDecPersonSummary)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.DeletedBy = &csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "deleted_at")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.DeletedAt = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "expires_at")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.ExpiresAt = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeTrashEntry encodes a TrashEntry to canonical CSIL CBOR bytes.
+func EncodeTrashEntry(csilV TrashEntry) []byte {
+	return cborEncode(csilEncTrashEntry(csilV))
+}
+
+// DecodeTrashEntry decodes canonical CSIL CBOR bytes into a TrashEntry.
+func DecodeTrashEntry(csilData []byte) (TrashEntry, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero TrashEntry
+		return csilZero, csilErr
+	}
+	return csilDecTrashEntry(csilRoot)
+}
+
+// csilEncListTrashRequest builds the canonical CBOR value tree for a ListTrashRequest.
+func csilEncListTrashRequest(csilV ListTrashRequest) cborValue {
+	csilEntries := make(cborMap, 0, 2)
+	if csilV.Limit != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("limit"), cborUint((*csilV.Limit))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("calendar_id"), cborText(csilV.CalendarId)})
+	return csilEntries
+}
+
+// csilDecListTrashRequest reconstructs a ListTrashRequest from a decoded CBOR value tree.
+func csilDecListTrashRequest(csilRoot cborValue) (ListTrashRequest, error) {
+	var csilOut ListTrashRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "calendar_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CalendarID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return CalendarID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CalendarId = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "limit"); csilOk {
+		csilVal, csilErr := (cborAsU64)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Limit = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeListTrashRequest encodes a ListTrashRequest to canonical CSIL CBOR bytes.
+func EncodeListTrashRequest(csilV ListTrashRequest) []byte {
+	return cborEncode(csilEncListTrashRequest(csilV))
+}
+
+// DecodeListTrashRequest decodes canonical CSIL CBOR bytes into a ListTrashRequest.
+func DecodeListTrashRequest(csilData []byte) (ListTrashRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero ListTrashRequest
+		return csilZero, csilErr
+	}
+	return csilDecListTrashRequest(csilRoot)
+}
+
+// csilEncTrashList builds the canonical CBOR value tree for a TrashList.
+func csilEncTrashList(csilV TrashList) cborValue {
+	csilEntries := make(cborMap, 0, 1)
+	csilEntries = append(csilEntries, cborEntry{cborText("entries"), cborEncArray(csilV.Entries, func(csilElem TrashEntry) cborValue { return csilEncTrashEntry(csilElem) })})
+	return csilEntries
+}
+
+// csilDecTrashList reconstructs a TrashList from a decoded CBOR value tree.
+func csilDecTrashList(csilRoot cborValue) (TrashList, error) {
+	var csilOut TrashList
+	{
+		csilField, csilErr := cborRequire(csilRoot, "entries")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) ([]TrashEntry, error) { return cborDecArray(csilV, csilDecTrashEntry) })(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Entries = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeTrashList encodes a TrashList to canonical CSIL CBOR bytes.
+func EncodeTrashList(csilV TrashList) []byte {
+	return cborEncode(csilEncTrashList(csilV))
+}
+
+// DecodeTrashList decodes canonical CSIL CBOR bytes into a TrashList.
+func DecodeTrashList(csilData []byte) (TrashList, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero TrashList
+		return csilZero, csilErr
+	}
+	return csilDecTrashList(csilRoot)
+}
+
+// csilEncRestoreEventRequest builds the canonical CBOR value tree for a RestoreEventRequest.
+func csilEncRestoreEventRequest(csilV RestoreEventRequest) cborValue {
+	csilEntries := make(cborMap, 0, 1)
+	csilEntries = append(csilEntries, cborEntry{cborText("trash_id"), cborText(csilV.TrashId)})
+	return csilEntries
+}
+
+// csilDecRestoreEventRequest reconstructs a RestoreEventRequest from a decoded CBOR value tree.
+func csilDecRestoreEventRequest(csilRoot cborValue) (RestoreEventRequest, error) {
+	var csilOut RestoreEventRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "trash_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.TrashId = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeRestoreEventRequest encodes a RestoreEventRequest to canonical CSIL CBOR bytes.
+func EncodeRestoreEventRequest(csilV RestoreEventRequest) []byte {
+	return cborEncode(csilEncRestoreEventRequest(csilV))
+}
+
+// DecodeRestoreEventRequest decodes canonical CSIL CBOR bytes into a RestoreEventRequest.
+func DecodeRestoreEventRequest(csilData []byte) (RestoreEventRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero RestoreEventRequest
+		return csilZero, csilErr
+	}
+	return csilDecRestoreEventRequest(csilRoot)
+}
+
+// csilEncImportEventRequest builds the canonical CBOR value tree for a ImportEventRequest.
+func csilEncImportEventRequest(csilV ImportEventRequest) cborValue {
+	csilEntries := make(cborMap, 0, 3)
+	csilEntries = append(csilEntries, cborEntry{cborText("event"), csilEncEvent(csilV.Event)})
+	if csilV.CreatedAt != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("created_at"), cborText((*csilV.CreatedAt))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("created_by"), csilEncIdentityRef(csilV.CreatedBy)})
+	return csilEntries
+}
+
+// csilDecImportEventRequest reconstructs a ImportEventRequest from a decoded CBOR value tree.
+func csilDecImportEventRequest(csilRoot cborValue) (ImportEventRequest, error) {
+	var csilOut ImportEventRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Event = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "created_by")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (csilDecIdentityRef)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CreatedBy = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "created_at"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CreatedAt = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeImportEventRequest encodes a ImportEventRequest to canonical CSIL CBOR bytes.
+func EncodeImportEventRequest(csilV ImportEventRequest) []byte {
+	return cborEncode(csilEncImportEventRequest(csilV))
+}
+
+// DecodeImportEventRequest decodes canonical CSIL CBOR bytes into a ImportEventRequest.
+func DecodeImportEventRequest(csilData []byte) (ImportEventRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero ImportEventRequest
+		return csilZero, csilErr
+	}
+	return csilDecImportEventRequest(csilRoot)
 }
 
 // csilEncRespondRequest builds the canonical CBOR value tree for a RespondRequest.

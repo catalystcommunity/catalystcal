@@ -267,7 +267,7 @@ pub trait EventService {
         &self,
         ctx: &Self::Context,
         input: DeleteEventRequest,
-    ) -> Result<EmptyResponse, ServiceError>;
+    ) -> Result<DeleteEventResponse, ServiceError>;
     /// move-event (request/response).
     fn move_event(
         &self,
@@ -288,6 +288,24 @@ pub trait EventService {
         ctx: &Self::Context,
         input: SearchEventsRequest,
     ) -> Result<EventList, ServiceError>;
+    /// list-trash (request/response).
+    fn list_trash(
+        &self,
+        ctx: &Self::Context,
+        input: ListTrashRequest,
+    ) -> Result<TrashList, ServiceError>;
+    /// restore-event (request/response).
+    fn restore_event(
+        &self,
+        ctx: &Self::Context,
+        input: RestoreEventRequest,
+    ) -> Result<Event, ServiceError>;
+    /// import-event (request/response).
+    fn import_event(
+        &self,
+        ctx: &Self::Context,
+        input: ImportEventRequest,
+    ) -> Result<Event, ServiceError>;
 }
 
 /// FreeBusyService service trait

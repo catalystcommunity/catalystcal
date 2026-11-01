@@ -29,8 +29,8 @@ public final class EventClient {
         return CsilCbor.decodeEvent(transport.call("EventService", "update-event", CsilCbor.encodeUpdateEventRequest(req)));
     }
 
-    public EmptyResponse deleteEvent(DeleteEventRequest req) throws ClientException {
-        return CsilCbor.decodeEmptyResponse(transport.call("EventService", "delete-event", CsilCbor.encodeDeleteEventRequest(req)));
+    public DeleteEventResponse deleteEvent(DeleteEventRequest req) throws ClientException {
+        return CsilCbor.decodeDeleteEventResponse(transport.call("EventService", "delete-event", CsilCbor.encodeDeleteEventRequest(req)));
     }
 
     public Event moveEvent(MoveEventRequest req) throws ClientException {
@@ -47,5 +47,17 @@ public final class EventClient {
 
     public EventList searchEvents(SearchEventsRequest req) throws ClientException {
         return CsilCbor.decodeEventList(transport.call("EventService", "search-events", CsilCbor.encodeSearchEventsRequest(req)));
+    }
+
+    public TrashList listTrash(ListTrashRequest req) throws ClientException {
+        return CsilCbor.decodeTrashList(transport.call("EventService", "list-trash", CsilCbor.encodeListTrashRequest(req)));
+    }
+
+    public Event restoreEvent(RestoreEventRequest req) throws ClientException {
+        return CsilCbor.decodeEvent(transport.call("EventService", "restore-event", CsilCbor.encodeRestoreEventRequest(req)));
+    }
+
+    public Event importEvent(ImportEventRequest req) throws ClientException {
+        return CsilCbor.decodeEvent(transport.call("EventService", "import-event", CsilCbor.encodeImportEventRequest(req)));
     }
 }

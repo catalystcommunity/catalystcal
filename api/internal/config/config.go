@@ -62,6 +62,9 @@ type Config struct {
 	AllowedApplications   []string
 	AppPresentationMaxAge time.Duration
 	ApplicationBearerTTL  time.Duration
+
+	// TrashRetention is how long a deleted event stays restorable.
+	TrashRetention time.Duration
 }
 
 // Load reads the configuration from the process environment.
@@ -103,6 +106,8 @@ func LoadFrom(getenv func(string) string) (*Config, error) {
 		AllowedApplications:   r.list("CATALYSTCAL_ALLOWED_APPLICATIONS"),
 		AppPresentationMaxAge: time.Duration(r.int("CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS", 300)) * time.Second,
 		ApplicationBearerTTL:  time.Duration(r.int("CATALYSTCAL_APP_BEARER_TTL_SECONDS", 900)) * time.Second,
+
+		TrashRetention: time.Duration(r.int("CATALYSTCAL_TRASH_RETENTION_DAYS", 30)) * 24 * time.Hour,
 	}
 	if c.CallbackURL == "" && c.PublicURL != "" {
 		c.CallbackURL = c.PublicURL + "/auth/callback"
@@ -146,6 +151,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ApplicationBearerTTL <= 0 || c.ApplicationBearerTTL > time.Hour {
 		return fmt.Errorf("CATALYSTCAL_APP_BEARER_TTL_SECONDS must be 1 to 3600")
+	}
+	if c.TrashRetention < 24*time.Hour || c.TrashRetention > 365*24*time.Hour {
+		return fmt.Errorf("CATALYSTCAL_TRASH_RETENTION_DAYS must be 1 to 365")
 	}
 	if len(c.AllowedApplications) > 0 && c.ActAsAppKeysFile == "" {
 		return fmt.Errorf("CATALYSTCAL_ALLOWED_APPLICATIONS needs CATALYSTCAL_ACT_AS_APP_KEYS_FILE: the key file names this server's own application identity")
