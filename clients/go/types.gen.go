@@ -21,6 +21,9 @@ type DelegationID string
 // AuditID is a type alias
 type AuditID string
 
+// GroupID is a type alias
+type GroupID string
+
 // SessionID is a type alias
 type SessionID string
 
@@ -71,31 +74,34 @@ type ActingVia string
 
 // IdentityRef represents a structured data type
 type IdentityRef struct {
-	Domain string  `json:"domain" yaml:"domain"`
-	UserId *string `json:"user_id,omitempty" yaml:"user_id,omitempty"`
-	Handle *string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	Domain        string  `json:"domain" yaml:"domain"`
+	UserId        *string `json:"user_id,omitempty" yaml:"user_id,omitempty"`
+	Handle        *string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	ApplicationId *string `json:"application_id,omitempty" yaml:"application_id,omitempty"`
 }
 
 // User represents a structured data type
 type User struct {
-	UserId      UserID    `json:"user_id" yaml:"user_id"`
-	Domain      string    `json:"domain" yaml:"domain"`
-	Subject     string    `json:"subject" yaml:"subject"`
-	Handle      *string   `json:"handle,omitempty" yaml:"handle,omitempty"`
-	DisplayName *string   `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Email       *string   `json:"email,omitempty" yaml:"email,omitempty"`
-	Timezone    *string   `json:"timezone,omitempty" yaml:"timezone,omitempty"`
-	CreatedAt   Timestamp `json:"created_at" yaml:"created_at"`
-	UpdatedAt   Timestamp `json:"updated_at" yaml:"updated_at"`
+	UserId        UserID    `json:"user_id" yaml:"user_id"`
+	Domain        string    `json:"domain" yaml:"domain"`
+	Subject       string    `json:"subject" yaml:"subject"`
+	ApplicationId *string   `json:"application_id,omitempty" yaml:"application_id,omitempty"`
+	Handle        *string   `json:"handle,omitempty" yaml:"handle,omitempty"`
+	DisplayName   *string   `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	Email         *string   `json:"email,omitempty" yaml:"email,omitempty"`
+	Timezone      *string   `json:"timezone,omitempty" yaml:"timezone,omitempty"`
+	CreatedAt     Timestamp `json:"created_at" yaml:"created_at"`
+	UpdatedAt     Timestamp `json:"updated_at" yaml:"updated_at"`
 }
 
 // PersonSummary represents a structured data type
 type PersonSummary struct {
-	UserId      UserID  `json:"user_id" yaml:"user_id"`
-	Domain      string  `json:"domain" yaml:"domain"`
-	Subject     string  `json:"subject" yaml:"subject"`
-	Handle      *string `json:"handle,omitempty" yaml:"handle,omitempty"`
-	DisplayName *string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	UserId        UserID  `json:"user_id" yaml:"user_id"`
+	Domain        string  `json:"domain" yaml:"domain"`
+	Subject       string  `json:"subject" yaml:"subject"`
+	ApplicationId *string `json:"application_id,omitempty" yaml:"application_id,omitempty"`
+	Handle        *string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	DisplayName   *string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
 }
 
 // Calendar represents a structured data type
@@ -155,17 +161,65 @@ type CalendarList struct {
 
 // Share represents a structured data type
 type Share struct {
-	ShareId       ShareID        `json:"share_id" yaml:"share_id"`
-	CalendarId    CalendarID     `json:"calendar_id" yaml:"calendar_id"`
-	Grantee       IdentityRef    `json:"grantee" yaml:"grantee"`
-	Role          ShareRole      `json:"role" yaml:"role"`
-	GranteePerson *PersonSummary `json:"grantee_person,omitempty" yaml:"grantee_person,omitempty"`
-	CreatedAt     Timestamp      `json:"created_at" yaml:"created_at"`
+	ShareId          ShareID        `json:"share_id" yaml:"share_id"`
+	CalendarId       CalendarID     `json:"calendar_id" yaml:"calendar_id"`
+	Grantee          *IdentityRef   `json:"grantee,omitempty" yaml:"grantee,omitempty"`
+	GranteeGroupId   *GroupID       `json:"grantee_group_id,omitempty" yaml:"grantee_group_id,omitempty"`
+	Role             ShareRole      `json:"role" yaml:"role"`
+	GranteePerson    *PersonSummary `json:"grantee_person,omitempty" yaml:"grantee_person,omitempty"`
+	GranteeGroupName *string        `json:"grantee_group_name,omitempty" yaml:"grantee_group_name,omitempty"`
+	CreatedAt        Timestamp      `json:"created_at" yaml:"created_at"`
 }
 
 // ShareList represents a structured data type
 type ShareList struct {
 	Shares []Share `json:"shares" yaml:"shares"`
+}
+
+// GroupMember represents a structured data type
+type GroupMember struct {
+	Identity  *IdentityRef   `json:"identity,omitempty" yaml:"identity,omitempty"`
+	GroupId   *GroupID       `json:"group_id,omitempty" yaml:"group_id,omitempty"`
+	Person    *PersonSummary `json:"person,omitempty" yaml:"person,omitempty"`
+	GroupName *string        `json:"group_name,omitempty" yaml:"group_name,omitempty"`
+}
+
+// Group represents a structured data type
+type Group struct {
+	GroupId     GroupID       `json:"group_id" yaml:"group_id"`
+	Owner       PersonSummary `json:"owner" yaml:"owner"`
+	Name        string        `json:"name" yaml:"name"`
+	Description *string       `json:"description,omitempty" yaml:"description,omitempty"`
+	Revision    uint64        `json:"revision" yaml:"revision"`
+	Members     []GroupMember `json:"members" yaml:"members"`
+	CreatedAt   Timestamp     `json:"created_at" yaml:"created_at"`
+	UpdatedAt   Timestamp     `json:"updated_at" yaml:"updated_at"`
+}
+
+// CreateGroupRequest represents a structured data type
+type CreateGroupRequest struct {
+	Name        string        `json:"name" yaml:"name"`
+	Description *string       `json:"description,omitempty" yaml:"description,omitempty"`
+	Members     []GroupMember `json:"members,omitempty" yaml:"members,omitempty"`
+}
+
+// UpdateGroupRequest represents a structured data type
+type UpdateGroupRequest struct {
+	GroupId     GroupID `json:"group_id" yaml:"group_id"`
+	Name        *string `json:"name,omitempty" yaml:"name,omitempty"`
+	Description *string `json:"description,omitempty" yaml:"description,omitempty"`
+}
+
+// SetGroupMembersRequest represents a structured data type
+type SetGroupMembersRequest struct {
+	GroupId          GroupID       `json:"group_id" yaml:"group_id"`
+	ExpectedRevision *uint64       `json:"expected_revision,omitempty" yaml:"expected_revision,omitempty"`
+	Members          []GroupMember `json:"members" yaml:"members"`
+}
+
+// GroupList represents a structured data type
+type GroupList struct {
+	Groups []Group `json:"groups" yaml:"groups"`
 }
 
 // Delegation represents a structured data type
@@ -439,6 +493,40 @@ type ScopeSetRequest struct {
 // ScopeSetResponse represents a structured data type
 type ScopeSetResponse struct {
 	SignedScopeSet []byte `json:"signed_scope_set" yaml:"signed_scope_set"`
+}
+
+// ApplicationRef represents a structured data type
+type ApplicationRef struct {
+	SubjectUserId string `json:"subject_user_id" yaml:"subject_user_id"`
+	SubjectDomain string `json:"subject_domain" yaml:"subject_domain"`
+	ApplicationId string `json:"application_id" yaml:"application_id"`
+}
+
+// ApplicationPresentation represents a structured data type
+type ApplicationPresentation struct {
+	Signer           ApplicationRef `json:"signer" yaml:"signer"`
+	SignerInstanceId string         `json:"signer_instance_id" yaml:"signer_instance_id"`
+	Audience         ApplicationRef `json:"audience" yaml:"audience"`
+	RequestDigest    []byte         `json:"request_digest" yaml:"request_digest"`
+	PresentedAt      Timestamp      `json:"presented_at" yaml:"presented_at"`
+	Nonce            []byte         `json:"nonce" yaml:"nonce"`
+}
+
+// SignedApplicationPresentation represents a structured data type
+type SignedApplicationPresentation struct {
+	Presentation  []byte `json:"presentation" yaml:"presentation"`
+	SignedByKeyId string `json:"signed_by_key_id" yaml:"signed_by_key_id"`
+	Signature     []byte `json:"signature" yaml:"signature"`
+}
+
+// ExchangeApplicationPresentationRequest represents a structured data type
+type ExchangeApplicationPresentationRequest struct {
+	Presentation SignedApplicationPresentation `json:"presentation" yaml:"presentation"`
+}
+
+// ApplicationIdentityResponse represents a structured data type
+type ApplicationIdentityResponse struct {
+	Audience ApplicationRef `json:"audience" yaml:"audience"`
 }
 
 // DevUser represents a structured data type

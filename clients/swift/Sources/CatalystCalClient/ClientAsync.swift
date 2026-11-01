@@ -57,6 +57,16 @@ public struct AuthAsyncClient {
         return try ScopeSetResponse.fromCbor(csilResp)
     }
 
+    public func getApplicationIdentity(_ request: EmptyRequest) async throws -> ApplicationIdentityResponse {
+        let csilResp = try await transport.call(service: "AuthService", op: "get-application-identity", request: request.toCbor())
+        return try ApplicationIdentityResponse.fromCbor(csilResp)
+    }
+
+    public func exchangeApplicationPresentation(_ request: ExchangeApplicationPresentationRequest) async throws -> LoginResponse {
+        let csilResp = try await transport.call(service: "AuthService", op: "exchange-application-presentation", request: request.toCbor())
+        return try LoginResponse.fromCbor(csilResp)
+    }
+
 }
 
 /// DevAuthAsyncClient is a typed client for the DevAuthService service. The client owns
@@ -174,6 +184,46 @@ public struct ShareAsyncClient {
 
     public func deleteShare(_ request: ShareId) async throws -> EmptyResponse {
         let csilResp = try await transport.call(service: "ShareService", op: "delete-share", request: encodeShareDeleteShareRequest(request))
+        return try EmptyResponse.fromCbor(csilResp)
+    }
+
+}
+
+/// GroupAsyncClient is a typed client for the GroupService service. The client owns
+/// (de)serialization; the carrier only moves bytes.
+public struct GroupAsyncClient {
+    public let transport: AsyncCsilTransport
+    public init(transport: AsyncCsilTransport) {
+        self.transport = transport
+    }
+
+    public func listGroups(_ request: EmptyRequest) async throws -> GroupList {
+        let csilResp = try await transport.call(service: "GroupService", op: "list-groups", request: request.toCbor())
+        return try GroupList.fromCbor(csilResp)
+    }
+
+    public func getGroup(_ request: GroupId) async throws -> Group {
+        let csilResp = try await transport.call(service: "GroupService", op: "get-group", request: encodeGroupGetGroupRequest(request))
+        return try Group.fromCbor(csilResp)
+    }
+
+    public func createGroup(_ request: CreateGroupRequest) async throws -> Group {
+        let csilResp = try await transport.call(service: "GroupService", op: "create-group", request: request.toCbor())
+        return try Group.fromCbor(csilResp)
+    }
+
+    public func updateGroup(_ request: UpdateGroupRequest) async throws -> Group {
+        let csilResp = try await transport.call(service: "GroupService", op: "update-group", request: request.toCbor())
+        return try Group.fromCbor(csilResp)
+    }
+
+    public func setMembers(_ request: SetGroupMembersRequest) async throws -> Group {
+        let csilResp = try await transport.call(service: "GroupService", op: "set-members", request: request.toCbor())
+        return try Group.fromCbor(csilResp)
+    }
+
+    public func deleteGroup(_ request: GroupId) async throws -> EmptyResponse {
+        let csilResp = try await transport.call(service: "GroupService", op: "delete-group", request: encodeGroupDeleteGroupRequest(request))
         return try EmptyResponse.fromCbor(csilResp)
     }
 

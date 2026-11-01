@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gofmt, go vet, and go test for the coredb and api modules.
+# gofmt, go vet, and go test for the coredb, api, and clients/go modules.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$SRC_DIR"
 setup_go
@@ -11,7 +11,7 @@ if [ -n "$unformatted" ]; then
     die "the files above need gofmt"
 fi
 
-for mod in coredb api; do
+for mod in coredb api clients/go; do
     log "go vet + go test: $mod"
     (cd "$mod" && go vet ./... && go test -count=1 ./...)
 done

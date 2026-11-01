@@ -34,6 +34,10 @@ public sealed class AuthAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<LoginResponse>(await transport.Call("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest)));
     public async System.Threading.Tasks.Task<ScopeSetResponse> GetActAsScopeSetAsync(ScopeSetRequest scopeSetRequest) =>
         Codec.Decode<ScopeSetResponse>(await transport.Call("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest)));
+    public async System.Threading.Tasks.Task<ApplicationIdentityResponse> GetApplicationIdentityAsync(EmptyRequest emptyRequest) =>
+        Codec.Decode<ApplicationIdentityResponse>(await transport.Call("AuthService", "get-application-identity", Codec.Encode(emptyRequest)));
+    public async System.Threading.Tasks.Task<LoginResponse> ExchangeApplicationPresentationAsync(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest) =>
+        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest)));
 }
 
 /// <summary>Typed RPC client for the DevAuthService service. The client owns
@@ -90,6 +94,24 @@ public sealed class ShareAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<Share>(await transport.Call("ShareService", "put-share", Codec.Encode(share)));
     public async System.Threading.Tasks.Task<EmptyResponse> DeleteShareAsync(ShareID shareID) =>
         Codec.Decode<EmptyResponse>(await transport.Call("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID)));
+}
+
+/// <summary>Typed RPC client for the GroupService service. The client owns
+/// (de)serialization via the generated codec; the transport only moves bytes.</summary>
+public sealed class GroupAsyncClient(ICsilAsyncTransport transport)
+{
+    public async System.Threading.Tasks.Task<GroupList> ListGroupsAsync(EmptyRequest emptyRequest) =>
+        Codec.Decode<GroupList>(await transport.Call("GroupService", "list-groups", Codec.Encode(emptyRequest)));
+    public async System.Threading.Tasks.Task<Group> GetGroupAsync(GroupID groupID) =>
+        Codec.Decode<Group>(await transport.Call("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID)));
+    public async System.Threading.Tasks.Task<Group> CreateGroupAsync(CreateGroupRequest createGroupRequest) =>
+        Codec.Decode<Group>(await transport.Call("GroupService", "create-group", Codec.Encode(createGroupRequest)));
+    public async System.Threading.Tasks.Task<Group> UpdateGroupAsync(UpdateGroupRequest updateGroupRequest) =>
+        Codec.Decode<Group>(await transport.Call("GroupService", "update-group", Codec.Encode(updateGroupRequest)));
+    public async System.Threading.Tasks.Task<Group> SetMembersAsync(SetGroupMembersRequest setGroupMembersRequest) =>
+        Codec.Decode<Group>(await transport.Call("GroupService", "set-members", Codec.Encode(setGroupMembersRequest)));
+    public async System.Threading.Tasks.Task<EmptyResponse> DeleteGroupAsync(GroupID groupID) =>
+        Codec.Decode<EmptyResponse>(await transport.Call("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID)));
 }
 
 /// <summary>Typed RPC client for the DelegationService service. The client owns

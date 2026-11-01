@@ -369,6 +369,12 @@ public static class Codec
         CalendarList csilTyped => CalendarListToCborValue(csilTyped),
         Share csilTyped => ShareToCborValue(csilTyped),
         ShareList csilTyped => ShareListToCborValue(csilTyped),
+        GroupMember csilTyped => GroupMemberToCborValue(csilTyped),
+        Group csilTyped => GroupToCborValue(csilTyped),
+        CreateGroupRequest csilTyped => CreateGroupRequestToCborValue(csilTyped),
+        UpdateGroupRequest csilTyped => UpdateGroupRequestToCborValue(csilTyped),
+        SetGroupMembersRequest csilTyped => SetGroupMembersRequestToCborValue(csilTyped),
+        GroupList csilTyped => GroupListToCborValue(csilTyped),
         Delegation csilTyped => DelegationToCborValue(csilTyped),
         DelegationList csilTyped => DelegationListToCborValue(csilTyped),
         AssumePrincipalRequest csilTyped => AssumePrincipalRequestToCborValue(csilTyped),
@@ -403,6 +409,11 @@ public static class Codec
         ExchangeActAsCredentialRequest csilTyped => ExchangeActAsCredentialRequestToCborValue(csilTyped),
         ScopeSetRequest csilTyped => ScopeSetRequestToCborValue(csilTyped),
         ScopeSetResponse csilTyped => ScopeSetResponseToCborValue(csilTyped),
+        ApplicationRef csilTyped => ApplicationRefToCborValue(csilTyped),
+        ApplicationPresentation csilTyped => ApplicationPresentationToCborValue(csilTyped),
+        SignedApplicationPresentation csilTyped => SignedApplicationPresentationToCborValue(csilTyped),
+        ExchangeApplicationPresentationRequest csilTyped => ExchangeApplicationPresentationRequestToCborValue(csilTyped),
+        ApplicationIdentityResponse csilTyped => ApplicationIdentityResponseToCborValue(csilTyped),
         DevUser csilTyped => DevUserToCborValue(csilTyped),
         DevUsersResponse csilTyped => DevUsersResponseToCborValue(csilTyped),
         DevLoginRequest csilTyped => DevLoginRequestToCborValue(csilTyped),
@@ -440,6 +451,12 @@ public static class Codec
         if (csilType == typeof(CalendarList)) return CalendarListFromCborValue(value);
         if (csilType == typeof(Share)) return ShareFromCborValue(value);
         if (csilType == typeof(ShareList)) return ShareListFromCborValue(value);
+        if (csilType == typeof(GroupMember)) return GroupMemberFromCborValue(value);
+        if (csilType == typeof(Group)) return GroupFromCborValue(value);
+        if (csilType == typeof(CreateGroupRequest)) return CreateGroupRequestFromCborValue(value);
+        if (csilType == typeof(UpdateGroupRequest)) return UpdateGroupRequestFromCborValue(value);
+        if (csilType == typeof(SetGroupMembersRequest)) return SetGroupMembersRequestFromCborValue(value);
+        if (csilType == typeof(GroupList)) return GroupListFromCborValue(value);
         if (csilType == typeof(Delegation)) return DelegationFromCborValue(value);
         if (csilType == typeof(DelegationList)) return DelegationListFromCborValue(value);
         if (csilType == typeof(AssumePrincipalRequest)) return AssumePrincipalRequestFromCborValue(value);
@@ -474,6 +491,11 @@ public static class Codec
         if (csilType == typeof(ExchangeActAsCredentialRequest)) return ExchangeActAsCredentialRequestFromCborValue(value);
         if (csilType == typeof(ScopeSetRequest)) return ScopeSetRequestFromCborValue(value);
         if (csilType == typeof(ScopeSetResponse)) return ScopeSetResponseFromCborValue(value);
+        if (csilType == typeof(ApplicationRef)) return ApplicationRefFromCborValue(value);
+        if (csilType == typeof(ApplicationPresentation)) return ApplicationPresentationFromCborValue(value);
+        if (csilType == typeof(SignedApplicationPresentation)) return SignedApplicationPresentationFromCborValue(value);
+        if (csilType == typeof(ExchangeApplicationPresentationRequest)) return ExchangeApplicationPresentationRequestFromCborValue(value);
+        if (csilType == typeof(ApplicationIdentityResponse)) return ApplicationIdentityResponseFromCborValue(value);
         if (csilType == typeof(DevUser)) return DevUserFromCborValue(value);
         if (csilType == typeof(DevUsersResponse)) return DevUsersResponseFromCborValue(value);
         if (csilType == typeof(DevLoginRequest)) return DevLoginRequestFromCborValue(value);
@@ -490,6 +512,7 @@ public static class Codec
     {
         ShareRole.FreeBusy => new CborValue.Text("free_busy"),
         ShareRole.Read => new CborValue.Text("read"),
+        ShareRole.Contribute => new CborValue.Text("contribute"),
         ShareRole.Write => new CborValue.Text("write"),
         ShareRole.Manage => new CborValue.Text("manage"),
         _ => throw new CborException("invalid ShareRole"),
@@ -500,6 +523,7 @@ public static class Codec
     {
         "free_busy" => ShareRole.FreeBusy,
         "read" => ShareRole.Read,
+        "contribute" => ShareRole.Contribute,
         "write" => ShareRole.Write,
         "manage" => ShareRole.Manage,
         _ => throw new CborException("invalid ShareRole value"),
@@ -511,6 +535,7 @@ public static class Codec
         AccessRole.None => new CborValue.Text("none"),
         AccessRole.FreeBusy => new CborValue.Text("free_busy"),
         AccessRole.Read => new CborValue.Text("read"),
+        AccessRole.Contribute => new CborValue.Text("contribute"),
         AccessRole.Write => new CborValue.Text("write"),
         AccessRole.Manage => new CborValue.Text("manage"),
         AccessRole.Owner => new CborValue.Text("owner"),
@@ -523,6 +548,7 @@ public static class Codec
         "none" => AccessRole.None,
         "free_busy" => AccessRole.FreeBusy,
         "read" => AccessRole.Read,
+        "contribute" => AccessRole.Contribute,
         "write" => AccessRole.Write,
         "manage" => AccessRole.Manage,
         "owner" => AccessRole.Owner,
@@ -748,6 +774,10 @@ public static class Codec
         {
             csilEntries.Add((new CborValue.Text("user_id"), new CborValue.Text(csilV2)));
         }
+        if (value.ApplicationId is { } csilV3)
+        {
+            csilEntries.Add((new CborValue.Text("application_id"), new CborValue.Text(csilV3)));
+        }
         return new CborValue.Map(csilEntries);
     }
 
@@ -757,11 +787,13 @@ public static class Codec
         var csilField0 = Cbor.AsText(Cbor.Require(value, "domain"));
         string? csilField1 = Cbor.MapGet(value, "user_id") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
         string? csilField2 = Cbor.MapGet(value, "handle") is { } csilRaw2 ? Cbor.AsText(csilRaw2) : null;
+        string? csilField3 = Cbor.MapGet(value, "application_id") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
         return new IdentityRef
         {
             Domain = csilField0,
             UserId = csilField1,
             Handle = csilField2,
+            ApplicationId = csilField3,
         };
     }
 
@@ -790,6 +822,10 @@ public static class Codec
         {
             csilEntries.Add((new CborValue.Text("display_name"), new CborValue.Text(csilV8)));
         }
+        if (value.ApplicationId is { } csilV9)
+        {
+            csilEntries.Add((new CborValue.Text("application_id"), new CborValue.Text(csilV9)));
+        }
         return new CborValue.Map(csilEntries);
     }
 
@@ -799,23 +835,25 @@ public static class Codec
         var csilField0 = Cbor.AsText(Cbor.Require(value, "user_id"));
         var csilField1 = Cbor.AsText(Cbor.Require(value, "domain"));
         var csilField2 = Cbor.AsText(Cbor.Require(value, "subject"));
-        string? csilField3 = Cbor.MapGet(value, "handle") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
-        string? csilField4 = Cbor.MapGet(value, "display_name") is { } csilRaw4 ? Cbor.AsText(csilRaw4) : null;
-        string? csilField5 = Cbor.MapGet(value, "email") is { } csilRaw5 ? Cbor.AsText(csilRaw5) : null;
-        string? csilField6 = Cbor.MapGet(value, "timezone") is { } csilRaw6 ? Cbor.AsText(csilRaw6) : null;
-        var csilField7 = Cbor.AsText(Cbor.Require(value, "created_at"));
-        var csilField8 = Cbor.AsText(Cbor.Require(value, "updated_at"));
+        string? csilField3 = Cbor.MapGet(value, "application_id") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        string? csilField4 = Cbor.MapGet(value, "handle") is { } csilRaw4 ? Cbor.AsText(csilRaw4) : null;
+        string? csilField5 = Cbor.MapGet(value, "display_name") is { } csilRaw5 ? Cbor.AsText(csilRaw5) : null;
+        string? csilField6 = Cbor.MapGet(value, "email") is { } csilRaw6 ? Cbor.AsText(csilRaw6) : null;
+        string? csilField7 = Cbor.MapGet(value, "timezone") is { } csilRaw7 ? Cbor.AsText(csilRaw7) : null;
+        var csilField8 = Cbor.AsText(Cbor.Require(value, "created_at"));
+        var csilField9 = Cbor.AsText(Cbor.Require(value, "updated_at"));
         return new User
         {
             UserId = csilField0,
             Domain = csilField1,
             Subject = csilField2,
-            Handle = csilField3,
-            DisplayName = csilField4,
-            Email = csilField5,
-            Timezone = csilField6,
-            CreatedAt = csilField7,
-            UpdatedAt = csilField8,
+            ApplicationId = csilField3,
+            Handle = csilField4,
+            DisplayName = csilField5,
+            Email = csilField6,
+            Timezone = csilField7,
+            CreatedAt = csilField8,
+            UpdatedAt = csilField9,
         };
     }
 
@@ -834,6 +872,10 @@ public static class Codec
         {
             csilEntries.Add((new CborValue.Text("display_name"), new CborValue.Text(csilV4)));
         }
+        if (value.ApplicationId is { } csilV5)
+        {
+            csilEntries.Add((new CborValue.Text("application_id"), new CborValue.Text(csilV5)));
+        }
         return new CborValue.Map(csilEntries);
     }
 
@@ -843,15 +885,17 @@ public static class Codec
         var csilField0 = Cbor.AsText(Cbor.Require(value, "user_id"));
         var csilField1 = Cbor.AsText(Cbor.Require(value, "domain"));
         var csilField2 = Cbor.AsText(Cbor.Require(value, "subject"));
-        string? csilField3 = Cbor.MapGet(value, "handle") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
-        string? csilField4 = Cbor.MapGet(value, "display_name") is { } csilRaw4 ? Cbor.AsText(csilRaw4) : null;
+        string? csilField3 = Cbor.MapGet(value, "application_id") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        string? csilField4 = Cbor.MapGet(value, "handle") is { } csilRaw4 ? Cbor.AsText(csilRaw4) : null;
+        string? csilField5 = Cbor.MapGet(value, "display_name") is { } csilRaw5 ? Cbor.AsText(csilRaw5) : null;
         return new PersonSummary
         {
             UserId = csilField0,
             Domain = csilField1,
             Subject = csilField2,
-            Handle = csilField3,
-            DisplayName = csilField4,
+            ApplicationId = csilField3,
+            Handle = csilField4,
+            DisplayName = csilField5,
         };
     }
 
@@ -1088,13 +1132,24 @@ public static class Codec
     {
         var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
         csilEntries.Add((new CborValue.Text("role"), ShareRoleToCborValue(value.Role)));
-        csilEntries.Add((new CborValue.Text("grantee"), IdentityRefToCborValue(value.Grantee)));
+        if (value.Grantee is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("grantee"), IdentityRefToCborValue(csilV1)));
+        }
         csilEntries.Add((new CborValue.Text("share_id"), new CborValue.Text(value.ShareId)));
         csilEntries.Add((new CborValue.Text("created_at"), new CborValue.Text(value.CreatedAt)));
         csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
         if (value.GranteePerson is { } csilV5)
         {
             csilEntries.Add((new CborValue.Text("grantee_person"), PersonSummaryToCborValue(csilV5)));
+        }
+        if (value.GranteeGroupId is { } csilV6)
+        {
+            csilEntries.Add((new CborValue.Text("grantee_group_id"), new CborValue.Text(csilV6)));
+        }
+        if (value.GranteeGroupName is { } csilV7)
+        {
+            csilEntries.Add((new CborValue.Text("grantee_group_name"), new CborValue.Text(csilV7)));
         }
         return new CborValue.Map(csilEntries);
     }
@@ -1104,18 +1159,22 @@ public static class Codec
     {
         var csilField0 = Cbor.AsText(Cbor.Require(value, "share_id"));
         var csilField1 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
-        var csilField2 = IdentityRefFromCborValue(Cbor.Require(value, "grantee"));
-        var csilField3 = ShareRoleFromCborValue(Cbor.Require(value, "role"));
-        PersonSummary? csilField4 = Cbor.MapGet(value, "grantee_person") is { } csilRaw4 ? PersonSummaryFromCborValue(csilRaw4) : null;
-        var csilField5 = Cbor.AsText(Cbor.Require(value, "created_at"));
+        IdentityRef? csilField2 = Cbor.MapGet(value, "grantee") is { } csilRaw2 ? IdentityRefFromCborValue(csilRaw2) : null;
+        GroupID? csilField3 = Cbor.MapGet(value, "grantee_group_id") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        var csilField4 = ShareRoleFromCborValue(Cbor.Require(value, "role"));
+        PersonSummary? csilField5 = Cbor.MapGet(value, "grantee_person") is { } csilRaw5 ? PersonSummaryFromCborValue(csilRaw5) : null;
+        string? csilField6 = Cbor.MapGet(value, "grantee_group_name") is { } csilRaw6 ? Cbor.AsText(csilRaw6) : null;
+        var csilField7 = Cbor.AsText(Cbor.Require(value, "created_at"));
         return new Share
         {
             ShareId = csilField0,
             CalendarId = csilField1,
             Grantee = csilField2,
-            Role = csilField3,
-            GranteePerson = csilField4,
-            CreatedAt = csilField5,
+            GranteeGroupId = csilField3,
+            Role = csilField4,
+            GranteePerson = csilField5,
+            GranteeGroupName = csilField6,
+            CreatedAt = csilField7,
         };
     }
 
@@ -1134,6 +1193,192 @@ public static class Codec
         return new ShareList
         {
             Shares = csilField0,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a GroupMember.</summary>
+    public static CborValue GroupMemberToCborValue(GroupMember value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Person is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("person"), PersonSummaryToCborValue(csilV0)));
+        }
+        if (value.GroupId is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("group_id"), new CborValue.Text(csilV1)));
+        }
+        if (value.Identity is { } csilV2)
+        {
+            csilEntries.Add((new CborValue.Text("identity"), IdentityRefToCborValue(csilV2)));
+        }
+        if (value.GroupName is { } csilV3)
+        {
+            csilEntries.Add((new CborValue.Text("group_name"), new CborValue.Text(csilV3)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a GroupMember from a decoded CBOR value tree.</summary>
+    public static GroupMember GroupMemberFromCborValue(CborValue value)
+    {
+        IdentityRef? csilField0 = Cbor.MapGet(value, "identity") is { } csilRaw0 ? IdentityRefFromCborValue(csilRaw0) : null;
+        GroupID? csilField1 = Cbor.MapGet(value, "group_id") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
+        PersonSummary? csilField2 = Cbor.MapGet(value, "person") is { } csilRaw2 ? PersonSummaryFromCborValue(csilRaw2) : null;
+        string? csilField3 = Cbor.MapGet(value, "group_name") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        return new GroupMember
+        {
+            Identity = csilField0,
+            GroupId = csilField1,
+            Person = csilField2,
+            GroupName = csilField3,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a Group.</summary>
+    public static CborValue GroupToCborValue(Group value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("name"), new CborValue.Text(value.Name)));
+        csilEntries.Add((new CborValue.Text("owner"), PersonSummaryToCborValue(value.Owner)));
+        csilEntries.Add((new CborValue.Text("members"), new CborValue.Array(value.Members.Select(csilElem => (CborValue)GroupMemberToCborValue(csilElem)).ToList())));
+        csilEntries.Add((new CborValue.Text("group_id"), new CborValue.Text(value.GroupId)));
+        csilEntries.Add((new CborValue.Text("revision"), new CborValue.Uint(value.Revision)));
+        csilEntries.Add((new CborValue.Text("created_at"), new CborValue.Text(value.CreatedAt)));
+        csilEntries.Add((new CborValue.Text("updated_at"), new CborValue.Text(value.UpdatedAt)));
+        if (value.Description is { } csilV7)
+        {
+            csilEntries.Add((new CborValue.Text("description"), new CborValue.Text(csilV7)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a Group from a decoded CBOR value tree.</summary>
+    public static Group GroupFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "group_id"));
+        var csilField1 = PersonSummaryFromCborValue(Cbor.Require(value, "owner"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "name"));
+        string? csilField3 = Cbor.MapGet(value, "description") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        var csilField4 = Cbor.AsU64(Cbor.Require(value, "revision"));
+        var csilField5 = Cbor.AsArray(Cbor.Require(value, "members")).Select(csilElem => GroupMemberFromCborValue(csilElem)).ToList();
+        var csilField6 = Cbor.AsText(Cbor.Require(value, "created_at"));
+        var csilField7 = Cbor.AsText(Cbor.Require(value, "updated_at"));
+        return new Group
+        {
+            GroupId = csilField0,
+            Owner = csilField1,
+            Name = csilField2,
+            Description = csilField3,
+            Revision = csilField4,
+            Members = csilField5,
+            CreatedAt = csilField6,
+            UpdatedAt = csilField7,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a CreateGroupRequest.</summary>
+    public static CborValue CreateGroupRequestToCborValue(CreateGroupRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("name"), new CborValue.Text(value.Name)));
+        if (value.Members is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("members"), new CborValue.Array(csilV1.Select(csilElem => (CborValue)GroupMemberToCborValue(csilElem)).ToList())));
+        }
+        if (value.Description is { } csilV2)
+        {
+            csilEntries.Add((new CborValue.Text("description"), new CborValue.Text(csilV2)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a CreateGroupRequest from a decoded CBOR value tree.</summary>
+    public static CreateGroupRequest CreateGroupRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "name"));
+        string? csilField1 = Cbor.MapGet(value, "description") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
+        System.Collections.Generic.List<GroupMember>? csilField2 = Cbor.MapGet(value, "members") is { } csilRaw2 ? Cbor.AsArray(csilRaw2).Select(csilElem => GroupMemberFromCborValue(csilElem)).ToList() : null;
+        return new CreateGroupRequest
+        {
+            Name = csilField0,
+            Description = csilField1,
+            Members = csilField2,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a UpdateGroupRequest.</summary>
+    public static CborValue UpdateGroupRequestToCborValue(UpdateGroupRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Name is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("name"), new CborValue.Text(csilV0)));
+        }
+        csilEntries.Add((new CborValue.Text("group_id"), new CborValue.Text(value.GroupId)));
+        if (value.Description is { } csilV2)
+        {
+            csilEntries.Add((new CborValue.Text("description"), new CborValue.Text(csilV2)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a UpdateGroupRequest from a decoded CBOR value tree.</summary>
+    public static UpdateGroupRequest UpdateGroupRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "group_id"));
+        string? csilField1 = Cbor.MapGet(value, "name") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
+        string? csilField2 = Cbor.MapGet(value, "description") is { } csilRaw2 ? Cbor.AsText(csilRaw2) : null;
+        return new UpdateGroupRequest
+        {
+            GroupId = csilField0,
+            Name = csilField1,
+            Description = csilField2,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a SetGroupMembersRequest.</summary>
+    public static CborValue SetGroupMembersRequestToCborValue(SetGroupMembersRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("members"), new CborValue.Array(value.Members.Select(csilElem => (CborValue)GroupMemberToCborValue(csilElem)).ToList())));
+        csilEntries.Add((new CborValue.Text("group_id"), new CborValue.Text(value.GroupId)));
+        if (value.ExpectedRevision is { } csilV2)
+        {
+            csilEntries.Add((new CborValue.Text("expected_revision"), new CborValue.Uint(csilV2)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SetGroupMembersRequest from a decoded CBOR value tree.</summary>
+    public static SetGroupMembersRequest SetGroupMembersRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "group_id"));
+        ulong? csilField1 = Cbor.MapGet(value, "expected_revision") is { } csilRaw1 ? Cbor.AsU64(csilRaw1) : null;
+        var csilField2 = Cbor.AsArray(Cbor.Require(value, "members")).Select(csilElem => GroupMemberFromCborValue(csilElem)).ToList();
+        return new SetGroupMembersRequest
+        {
+            GroupId = csilField0,
+            ExpectedRevision = csilField1,
+            Members = csilField2,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a GroupList.</summary>
+    public static CborValue GroupListToCborValue(GroupList value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("groups"), new CborValue.Array(value.Groups.Select(csilElem => (CborValue)GroupToCborValue(csilElem)).ToList())));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a GroupList from a decoded CBOR value tree.</summary>
+    public static GroupList GroupListFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsArray(Cbor.Require(value, "groups")).Select(csilElem => GroupFromCborValue(csilElem)).ToList();
+        return new GroupList
+        {
+            Groups = csilField0,
         };
     }
 
@@ -2253,6 +2498,123 @@ public static class Codec
         };
     }
 
+    /// <summary>The canonical CBOR value tree for a ApplicationRef.</summary>
+    public static CborValue ApplicationRefToCborValue(ApplicationRef value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("application_id"), new CborValue.Text(value.ApplicationId)));
+        csilEntries.Add((new CborValue.Text("subject_domain"), new CborValue.Text(value.SubjectDomain)));
+        csilEntries.Add((new CborValue.Text("subject_user_id"), new CborValue.Text(value.SubjectUserId)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ApplicationRef from a decoded CBOR value tree.</summary>
+    public static ApplicationRef ApplicationRefFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "subject_user_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "subject_domain"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "application_id"));
+        return new ApplicationRef
+        {
+            SubjectUserId = csilField0,
+            SubjectDomain = csilField1,
+            ApplicationId = csilField2,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a ApplicationPresentation.</summary>
+    public static CborValue ApplicationPresentationToCborValue(ApplicationPresentation value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("nonce"), new CborValue.Bytes(value.Nonce)));
+        csilEntries.Add((new CborValue.Text("signer"), ApplicationRefToCborValue(value.Signer)));
+        csilEntries.Add((new CborValue.Text("audience"), ApplicationRefToCborValue(value.Audience)));
+        csilEntries.Add((new CborValue.Text("presented_at"), new CborValue.Text(value.PresentedAt)));
+        csilEntries.Add((new CborValue.Text("request_digest"), new CborValue.Bytes(value.RequestDigest)));
+        csilEntries.Add((new CborValue.Text("signer_instance_id"), new CborValue.Text(value.SignerInstanceId)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ApplicationPresentation from a decoded CBOR value tree.</summary>
+    public static ApplicationPresentation ApplicationPresentationFromCborValue(CborValue value)
+    {
+        var csilField0 = ApplicationRefFromCborValue(Cbor.Require(value, "signer"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "signer_instance_id"));
+        var csilField2 = ApplicationRefFromCborValue(Cbor.Require(value, "audience"));
+        var csilField3 = Cbor.AsBytes(Cbor.Require(value, "request_digest"));
+        var csilField4 = Cbor.AsText(Cbor.Require(value, "presented_at"));
+        var csilField5 = Cbor.AsBytes(Cbor.Require(value, "nonce"));
+        return new ApplicationPresentation
+        {
+            Signer = csilField0,
+            SignerInstanceId = csilField1,
+            Audience = csilField2,
+            RequestDigest = csilField3,
+            PresentedAt = csilField4,
+            Nonce = csilField5,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a SignedApplicationPresentation.</summary>
+    public static CborValue SignedApplicationPresentationToCborValue(SignedApplicationPresentation value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("signature"), new CborValue.Bytes(value.Signature)));
+        csilEntries.Add((new CborValue.Text("presentation"), new CborValue.Bytes(value.Presentation)));
+        csilEntries.Add((new CborValue.Text("signed_by_key_id"), new CborValue.Text(value.SignedByKeyId)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SignedApplicationPresentation from a decoded CBOR value tree.</summary>
+    public static SignedApplicationPresentation SignedApplicationPresentationFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsBytes(Cbor.Require(value, "presentation"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "signed_by_key_id"));
+        var csilField2 = Cbor.AsBytes(Cbor.Require(value, "signature"));
+        return new SignedApplicationPresentation
+        {
+            Presentation = csilField0,
+            SignedByKeyId = csilField1,
+            Signature = csilField2,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a ExchangeApplicationPresentationRequest.</summary>
+    public static CborValue ExchangeApplicationPresentationRequestToCborValue(ExchangeApplicationPresentationRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("presentation"), SignedApplicationPresentationToCborValue(value.Presentation)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ExchangeApplicationPresentationRequest from a decoded CBOR value tree.</summary>
+    public static ExchangeApplicationPresentationRequest ExchangeApplicationPresentationRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = SignedApplicationPresentationFromCborValue(Cbor.Require(value, "presentation"));
+        return new ExchangeApplicationPresentationRequest
+        {
+            Presentation = csilField0,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a ApplicationIdentityResponse.</summary>
+    public static CborValue ApplicationIdentityResponseToCborValue(ApplicationIdentityResponse value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("audience"), ApplicationRefToCborValue(value.Audience)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a ApplicationIdentityResponse from a decoded CBOR value tree.</summary>
+    public static ApplicationIdentityResponse ApplicationIdentityResponseFromCborValue(CborValue value)
+    {
+        var csilField0 = ApplicationRefFromCborValue(Cbor.Require(value, "audience"));
+        return new ApplicationIdentityResponse
+        {
+            Audience = csilField0,
+        };
+    }
+
     /// <summary>The canonical CBOR value tree for a DevUser.</summary>
     public static CborValue DevUserToCborValue(DevUser value)
     {
@@ -2462,6 +2824,18 @@ public static class Codec
 
     /// <summary>Decode canonical CSIL CBOR bytes into the ShareDeleteShareRequest op-boundary payload.</summary>
     public static ShareID DecodeShareDeleteShareRequest(byte[] data) => Cbor.AsText(Cbor.Decode(data));
+
+    /// <summary>Encode the GroupGetGroupRequest op-boundary payload to canonical CSIL CBOR bytes.</summary>
+    public static byte[] EncodeGroupGetGroupRequest(GroupID value) => Cbor.Encode(new CborValue.Text(value));
+
+    /// <summary>Decode canonical CSIL CBOR bytes into the GroupGetGroupRequest op-boundary payload.</summary>
+    public static GroupID DecodeGroupGetGroupRequest(byte[] data) => Cbor.AsText(Cbor.Decode(data));
+
+    /// <summary>Encode the GroupDeleteGroupRequest op-boundary payload to canonical CSIL CBOR bytes.</summary>
+    public static byte[] EncodeGroupDeleteGroupRequest(GroupID value) => Cbor.Encode(new CborValue.Text(value));
+
+    /// <summary>Decode canonical CSIL CBOR bytes into the GroupDeleteGroupRequest op-boundary payload.</summary>
+    public static GroupID DecodeGroupDeleteGroupRequest(byte[] data) => Cbor.AsText(Cbor.Decode(data));
 
     /// <summary>Encode the DelegationRevokeDelegationRequest op-boundary payload to canonical CSIL CBOR bytes.</summary>
     public static byte[] EncodeDelegationRevokeDelegationRequest(DelegationID value) => Cbor.Encode(new CborValue.Text(value));

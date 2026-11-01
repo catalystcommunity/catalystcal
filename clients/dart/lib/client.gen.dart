@@ -89,6 +89,26 @@ final class AuthClient {
     );
     return ScopeSetResponse.fromCborValue(CsilCbor.decode(csilResp));
   }
+
+  ApplicationIdentityResponse getApplicationIdentity(EmptyRequest request) {
+    final csilResp = transport.call(
+      'AuthService',
+      'get-application-identity',
+      request.toCbor(),
+    );
+    return ApplicationIdentityResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  LoginResponse exchangeApplicationPresentation(
+    ExchangeApplicationPresentationRequest request,
+  ) {
+    final csilResp = transport.call(
+      'AuthService',
+      'exchange-application-presentation',
+      request.toCbor(),
+    );
+    return LoginResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
 }
 
 /// A typed, transport-agnostic client for the DevAuthService service. The client owns
@@ -257,6 +277,67 @@ final class ShareClient {
     final csilResp = transport.call(
       'ShareService',
       'delete-share',
+      CsilCbor.encodeValue(request),
+    );
+    return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));
+  }
+}
+
+/// A typed, transport-agnostic client for the GroupService service. The client owns
+/// (de)serialization; the carrier only moves bytes.
+final class GroupClient {
+  final CsilTransport transport;
+  const GroupClient(this.transport);
+
+  GroupList listGroups(EmptyRequest request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'list-groups',
+      request.toCbor(),
+    );
+    return GroupList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Group getGroup(GroupId request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'get-group',
+      CsilCbor.encodeValue(request),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Group createGroup(CreateGroupRequest request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'create-group',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Group updateGroup(UpdateGroupRequest request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'update-group',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Group setMembers(SetGroupMembersRequest request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'set-members',
+      request.toCbor(),
+    );
+    return Group.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  EmptyResponse deleteGroup(GroupId request) {
+    final csilResp = transport.call(
+      'GroupService',
+      'delete-group',
       CsilCbor.encodeValue(request),
     );
     return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));

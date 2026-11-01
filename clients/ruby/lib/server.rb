@@ -44,6 +44,16 @@ class AuthHandlers
   def get_act_as_scope_set(req)
     raise NotImplementedError, "AuthHandlers#get_act_as_scope_set"
   end
+
+  # get-application-identity
+  def get_application_identity(req)
+    raise NotImplementedError, "AuthHandlers#get_application_identity"
+  end
+
+  # exchange-application-presentation
+  def exchange_application_presentation(req)
+    raise NotImplementedError, "AuthHandlers#exchange_application_presentation"
+  end
 end
 
 # Server-side handlers for the DevAuthService service. Subclass and override each
@@ -139,6 +149,40 @@ class ShareHandlers
   # delete-share
   def delete_share(req)
     raise NotImplementedError, "ShareHandlers#delete_share"
+  end
+end
+
+# Server-side handlers for the GroupService service. Subclass and override each
+# operation; the unimplemented base raises NotImplementedError.
+class GroupHandlers
+  # list-groups
+  def list_groups(req)
+    raise NotImplementedError, "GroupHandlers#list_groups"
+  end
+
+  # get-group
+  def get_group(req)
+    raise NotImplementedError, "GroupHandlers#get_group"
+  end
+
+  # create-group
+  def create_group(req)
+    raise NotImplementedError, "GroupHandlers#create_group"
+  end
+
+  # update-group
+  def update_group(req)
+    raise NotImplementedError, "GroupHandlers#update_group"
+  end
+
+  # set-members
+  def set_members(req)
+    raise NotImplementedError, "GroupHandlers#set_members"
+  end
+
+  # delete-group
+  def delete_group(req)
+    raise NotImplementedError, "GroupHandlers#delete_group"
   end
 end
 

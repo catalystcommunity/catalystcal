@@ -17,6 +17,8 @@ type AuthService interface {
 	ReleasePrincipal(ctx context.Context, req EmptyRequest) (LoginResponse, error)
 	ExchangeActAsCredential(ctx context.Context, req ExchangeActAsCredentialRequest) (LoginResponse, error)
 	GetActAsScopeSet(ctx context.Context, req ScopeSetRequest) (ScopeSetResponse, error)
+	GetApplicationIdentity(ctx context.Context, req EmptyRequest) (ApplicationIdentityResponse, error)
+	ExchangeApplicationPresentation(ctx context.Context, req ExchangeApplicationPresentationRequest) (LoginResponse, error)
 }
 
 // DevAuthService defines the service interface
@@ -49,6 +51,16 @@ type ShareService interface {
 	ListShares(ctx context.Context, req CalendarID) (ShareList, error)
 	PutShare(ctx context.Context, req Share) (Share, error)
 	DeleteShare(ctx context.Context, req ShareID) (EmptyResponse, error)
+}
+
+// GroupService defines the service interface
+type GroupService interface {
+	ListGroups(ctx context.Context, req EmptyRequest) (GroupList, error)
+	GetGroup(ctx context.Context, req GroupID) (Group, error)
+	CreateGroup(ctx context.Context, req CreateGroupRequest) (Group, error)
+	UpdateGroup(ctx context.Context, req UpdateGroupRequest) (Group, error)
+	SetMembers(ctx context.Context, req SetGroupMembersRequest) (Group, error)
+	DeleteGroup(ctx context.Context, req GroupID) (EmptyResponse, error)
 }
 
 // DelegationService defines the service interface

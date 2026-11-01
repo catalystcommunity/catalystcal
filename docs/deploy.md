@@ -66,6 +66,9 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE` | no | Let subscriptions fetch private network addresses. Keep `false` on a shared instance. |
 | `CATALYSTCAL_ACT_AS_APP_KEYS_FILE` | file is **secret** | Path to the act-as application keys JSON file |
 | `CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS` | no | The oldest act-as presentation that catalystcal accepts |
+| `CATALYSTCAL_ALLOWED_APPLICATIONS` | no | Comma-separated applications that can sign in as themselves: `<subject_user_id>@<domain>/<application_id>`. Needs the act-as keys file. |
+| `CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS` | no | The oldest application presentation that catalystcal accepts (1 to 900, default 300) |
+| `CATALYSTCAL_APP_BEARER_TTL_SECONDS` | no | The life of an application bearer (1 to 3600, default 900) |
 
 For a production instance, set at least:
 
@@ -273,6 +276,59 @@ production.
 
 With Docker Compose, mount the file read-only and set
 `CATALYSTCAL_ACT_AS_APP_KEYS_FILE` (see the comments in `docker-compose.yml`).
+
+## Application principals
+
+An application can call catalystcal as itself, with no user. Longhouse uses
+this to keep one calendar for each house. The application signs an
+application presentation with its LinkKeys application key. catalystcal
+checks the key through its RP and gives a short bearer.
+
+The application presentation is a catalystcal type, not a LinkKeys type
+(`csil/catalystcal.csil`, `ApplicationPresentation`). The Go client signs
+it for you (`clients/go`, `AppSigner` and `AppSession`).
+
+To accept an application:
+
+1. Set up the act-as application keys (the section above). The key file
+   names catalystcal's own application identity. A presentation must name
+   that identity as its audience.
+2. Get the full identity of the application: the LinkKeys account id, its
+   domain, and the application id. The application id alone is not
+   sufficient: anyone can enroll an application with any id.
+3. Add it to the values:
+
+   ```yaml
+   actAs:
+     enabled: true
+     existingSecret: catalystcal-act-as
+     allowedApplications: "01a1...@longhouse.example.com/longhouse"
+   ```
+
+What catalystcal checks, in this order:
+
+1. The presentation decodes.
+2. The audience is catalystcal's own identity (from the key file, never from
+   the request).
+3. The request digest is SHA-256 of
+   `catalystcal/AuthService/exchange-application-presentation`.
+4. `presented_at` is not older than the maximum age and not in the future,
+   with 60 seconds of clock skew.
+5. The signer is in `CATALYSTCAL_ALLOWED_APPLICATIONS`. This check comes
+   before the key lookup, so an anonymous caller cannot make the RP fetch
+   the keys of any instance.
+6. The RP resolves the signer instance. A stale RP answer is refused with
+   503: it is not current proof of the key.
+7. The key is a usable Ed25519 signing key (`KeyForUse`).
+8. The Ed25519 signature verifies over CBOR([`catalystcal-application-presentation-v1`, presentation]).
+9. The nonce was not used before. catalystcal keeps it for the maximum age
+   plus two times the skew.
+
+An application bearer is a self bearer for the application principal. The
+dispatcher checks the allow list at each call. To stop an application,
+remove it from the list and restart the API. A revoked application key
+stops at the next exchange, at most `CATALYSTCAL_APP_BEARER_TTL_SECONDS`
+later.
 
 ## Backups
 

@@ -361,6 +361,9 @@ def _encode_identity_ref_value(v: "IdentityRef") -> Dict[Any, Any]:
     csil_x = v.user_id
     if csil_x is not None:
         csil_m["user_id"] = csil_x
+    csil_x = v.application_id
+    if csil_x is not None:
+        csil_m["application_id"] = csil_x
     return csil_m
 
 def _decode_identity_ref_value(tree: Any) -> "IdentityRef":
@@ -369,6 +372,7 @@ def _decode_identity_ref_value(tree: Any) -> "IdentityRef":
         domain=_csil_expect_text(tree["domain"]),
         user_id=(None if tree.get("user_id") is None else _csil_expect_text(tree["user_id"])),
         handle=(None if tree.get("handle") is None else _csil_expect_text(tree["handle"])),
+        application_id=(None if tree.get("application_id") is None else _csil_expect_text(tree["application_id"])),
     )
 
 
@@ -402,6 +406,9 @@ def _encode_user_value(v: "User") -> Dict[Any, Any]:
     csil_x = v.display_name
     if csil_x is not None:
         csil_m["display_name"] = csil_x
+    csil_x = v.application_id
+    if csil_x is not None:
+        csil_m["application_id"] = csil_x
     return csil_m
 
 def _decode_user_value(tree: Any) -> "User":
@@ -410,6 +417,7 @@ def _decode_user_value(tree: Any) -> "User":
         user_id=_csil_expect_text(tree["user_id"]),
         domain=_csil_expect_text(tree["domain"]),
         subject=_csil_expect_text(tree["subject"]),
+        application_id=(None if tree.get("application_id") is None else _csil_expect_text(tree["application_id"])),
         handle=(None if tree.get("handle") is None else _csil_expect_text(tree["handle"])),
         display_name=(None if tree.get("display_name") is None else _csil_expect_text(tree["display_name"])),
         email=(None if tree.get("email") is None else _csil_expect_text(tree["email"])),
@@ -441,6 +449,9 @@ def _encode_person_summary_value(v: "PersonSummary") -> Dict[Any, Any]:
     csil_x = v.display_name
     if csil_x is not None:
         csil_m["display_name"] = csil_x
+    csil_x = v.application_id
+    if csil_x is not None:
+        csil_m["application_id"] = csil_x
     return csil_m
 
 def _decode_person_summary_value(tree: Any) -> "PersonSummary":
@@ -449,6 +460,7 @@ def _decode_person_summary_value(tree: Any) -> "PersonSummary":
         user_id=_csil_expect_text(tree["user_id"]),
         domain=_csil_expect_text(tree["domain"]),
         subject=_csil_expect_text(tree["subject"]),
+        application_id=(None if tree.get("application_id") is None else _csil_expect_text(tree["application_id"])),
         handle=(None if tree.get("handle") is None else _csil_expect_text(tree["handle"])),
         display_name=(None if tree.get("display_name") is None else _csil_expect_text(tree["display_name"])),
     )
@@ -686,13 +698,21 @@ CalendarList.from_cbor = staticmethod(_calendar_list_from_cbor)
 def _encode_share_value(v: "Share") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
     csil_m["role"] = v.role
-    csil_m["grantee"] = _encode_identity_ref_value(v.grantee)
+    csil_x = v.grantee
+    if csil_x is not None:
+        csil_m["grantee"] = _encode_identity_ref_value(csil_x)
     csil_m["share_id"] = v.share_id
     csil_m["created_at"] = v.created_at
     csil_m["calendar_id"] = v.calendar_id
     csil_x = v.grantee_person
     if csil_x is not None:
         csil_m["grantee_person"] = _encode_person_summary_value(csil_x)
+    csil_x = v.grantee_group_id
+    if csil_x is not None:
+        csil_m["grantee_group_id"] = csil_x
+    csil_x = v.grantee_group_name
+    if csil_x is not None:
+        csil_m["grantee_group_name"] = csil_x
     return csil_m
 
 def _decode_share_value(tree: Any) -> "Share":
@@ -700,9 +720,11 @@ def _decode_share_value(tree: Any) -> "Share":
     return Share(
         share_id=_csil_expect_text(tree["share_id"]),
         calendar_id=_csil_expect_text(tree["calendar_id"]),
-        grantee=_decode_identity_ref_value(tree["grantee"]),
+        grantee=(None if tree.get("grantee") is None else _decode_identity_ref_value(tree["grantee"])),
+        grantee_group_id=(None if tree.get("grantee_group_id") is None else _csil_expect_text(tree["grantee_group_id"])),
         role=_decode_share_role_value(tree["role"]),
         grantee_person=(None if tree.get("grantee_person") is None else _decode_person_summary_value(tree["grantee_person"])),
+        grantee_group_name=(None if tree.get("grantee_group_name") is None else _csil_expect_text(tree["grantee_group_name"])),
         created_at=_csil_expect_text(tree["created_at"]),
     )
 
@@ -740,6 +762,196 @@ def _share_list_from_cbor(data: bytes) -> "ShareList":
 
 ShareList.to_cbor = _share_list_to_cbor
 ShareList.from_cbor = staticmethod(_share_list_from_cbor)
+
+def _encode_group_member_value(v: "GroupMember") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.person
+    if csil_x is not None:
+        csil_m["person"] = _encode_person_summary_value(csil_x)
+    csil_x = v.group_id
+    if csil_x is not None:
+        csil_m["group_id"] = csil_x
+    csil_x = v.identity
+    if csil_x is not None:
+        csil_m["identity"] = _encode_identity_ref_value(csil_x)
+    csil_x = v.group_name
+    if csil_x is not None:
+        csil_m["group_name"] = csil_x
+    return csil_m
+
+def _decode_group_member_value(tree: Any) -> "GroupMember":
+    tree = _csil_expect_map(tree)
+    return GroupMember(
+        identity=(None if tree.get("identity") is None else _decode_identity_ref_value(tree["identity"])),
+        group_id=(None if tree.get("group_id") is None else _csil_expect_text(tree["group_id"])),
+        person=(None if tree.get("person") is None else _decode_person_summary_value(tree["person"])),
+        group_name=(None if tree.get("group_name") is None else _csil_expect_text(tree["group_name"])),
+    )
+
+
+def _group_member_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_group_member_value(self))
+
+
+def _group_member_from_cbor(data: bytes) -> "GroupMember":
+    return _decode_group_member_value(cbor_decode(data))
+
+
+GroupMember.to_cbor = _group_member_to_cbor
+GroupMember.from_cbor = staticmethod(_group_member_from_cbor)
+
+def _encode_group_value(v: "Group") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["name"] = v.name
+    csil_m["owner"] = _encode_person_summary_value(v.owner)
+    csil_m["members"] = [_encode_group_member_value(csil_e) for csil_e in v.members]
+    csil_m["group_id"] = v.group_id
+    csil_m["revision"] = v.revision
+    csil_m["created_at"] = v.created_at
+    csil_m["updated_at"] = v.updated_at
+    csil_x = v.description
+    if csil_x is not None:
+        csil_m["description"] = csil_x
+    return csil_m
+
+def _decode_group_value(tree: Any) -> "Group":
+    tree = _csil_expect_map(tree)
+    return Group(
+        group_id=_csil_expect_text(tree["group_id"]),
+        owner=_decode_person_summary_value(tree["owner"]),
+        name=_csil_expect_text(tree["name"]),
+        description=(None if tree.get("description") is None else _csil_expect_text(tree["description"])),
+        revision=_csil_expect_uint(tree["revision"]),
+        members=[_decode_group_member_value(csil_e) for csil_e in _csil_expect_array(tree["members"])],
+        created_at=_csil_expect_text(tree["created_at"]),
+        updated_at=_csil_expect_text(tree["updated_at"]),
+    )
+
+
+def _group_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_group_value(self))
+
+
+def _group_from_cbor(data: bytes) -> "Group":
+    return _decode_group_value(cbor_decode(data))
+
+
+Group.to_cbor = _group_to_cbor
+Group.from_cbor = staticmethod(_group_from_cbor)
+
+def _encode_create_group_request_value(v: "CreateGroupRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["name"] = v.name
+    csil_x = v.members
+    if csil_x is not None:
+        csil_m["members"] = [_encode_group_member_value(csil_e) for csil_e in csil_x]
+    csil_x = v.description
+    if csil_x is not None:
+        csil_m["description"] = csil_x
+    return csil_m
+
+def _decode_create_group_request_value(tree: Any) -> "CreateGroupRequest":
+    tree = _csil_expect_map(tree)
+    return CreateGroupRequest(
+        name=_csil_expect_text(tree["name"]),
+        description=(None if tree.get("description") is None else _csil_expect_text(tree["description"])),
+        members=(None if tree.get("members") is None else [_decode_group_member_value(csil_e) for csil_e in _csil_expect_array(tree["members"])]),
+    )
+
+
+def _create_group_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_create_group_request_value(self))
+
+
+def _create_group_request_from_cbor(data: bytes) -> "CreateGroupRequest":
+    return _decode_create_group_request_value(cbor_decode(data))
+
+
+CreateGroupRequest.to_cbor = _create_group_request_to_cbor
+CreateGroupRequest.from_cbor = staticmethod(_create_group_request_from_cbor)
+
+def _encode_update_group_request_value(v: "UpdateGroupRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.name
+    if csil_x is not None:
+        csil_m["name"] = csil_x
+    csil_m["group_id"] = v.group_id
+    csil_x = v.description
+    if csil_x is not None:
+        csil_m["description"] = csil_x
+    return csil_m
+
+def _decode_update_group_request_value(tree: Any) -> "UpdateGroupRequest":
+    tree = _csil_expect_map(tree)
+    return UpdateGroupRequest(
+        group_id=_csil_expect_text(tree["group_id"]),
+        name=(None if tree.get("name") is None else _csil_expect_text(tree["name"])),
+        description=(None if tree.get("description") is None else _csil_expect_text(tree["description"])),
+    )
+
+
+def _update_group_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_update_group_request_value(self))
+
+
+def _update_group_request_from_cbor(data: bytes) -> "UpdateGroupRequest":
+    return _decode_update_group_request_value(cbor_decode(data))
+
+
+UpdateGroupRequest.to_cbor = _update_group_request_to_cbor
+UpdateGroupRequest.from_cbor = staticmethod(_update_group_request_from_cbor)
+
+def _encode_set_group_members_request_value(v: "SetGroupMembersRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["members"] = [_encode_group_member_value(csil_e) for csil_e in v.members]
+    csil_m["group_id"] = v.group_id
+    csil_x = v.expected_revision
+    if csil_x is not None:
+        csil_m["expected_revision"] = csil_x
+    return csil_m
+
+def _decode_set_group_members_request_value(tree: Any) -> "SetGroupMembersRequest":
+    tree = _csil_expect_map(tree)
+    return SetGroupMembersRequest(
+        group_id=_csil_expect_text(tree["group_id"]),
+        expected_revision=(None if tree.get("expected_revision") is None else _csil_expect_uint(tree["expected_revision"])),
+        members=[_decode_group_member_value(csil_e) for csil_e in _csil_expect_array(tree["members"])],
+    )
+
+
+def _set_group_members_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_set_group_members_request_value(self))
+
+
+def _set_group_members_request_from_cbor(data: bytes) -> "SetGroupMembersRequest":
+    return _decode_set_group_members_request_value(cbor_decode(data))
+
+
+SetGroupMembersRequest.to_cbor = _set_group_members_request_to_cbor
+SetGroupMembersRequest.from_cbor = staticmethod(_set_group_members_request_from_cbor)
+
+def _encode_group_list_value(v: "GroupList") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["groups"] = [_encode_group_value(csil_e) for csil_e in v.groups]
+    return csil_m
+
+def _decode_group_list_value(tree: Any) -> "GroupList":
+    tree = _csil_expect_map(tree)
+    return GroupList(
+        groups=[_decode_group_value(csil_e) for csil_e in _csil_expect_array(tree["groups"])],
+    )
+
+
+def _group_list_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_group_list_value(self))
+
+
+def _group_list_from_cbor(data: bytes) -> "GroupList":
+    return _decode_group_list_value(cbor_decode(data))
+
+
+GroupList.to_cbor = _group_list_to_cbor
+GroupList.from_cbor = staticmethod(_group_list_from_cbor)
 
 def _encode_delegation_value(v: "Delegation") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
@@ -1859,6 +2071,139 @@ def _scope_set_response_from_cbor(data: bytes) -> "ScopeSetResponse":
 ScopeSetResponse.to_cbor = _scope_set_response_to_cbor
 ScopeSetResponse.from_cbor = staticmethod(_scope_set_response_from_cbor)
 
+def _encode_application_ref_value(v: "ApplicationRef") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["application_id"] = v.application_id
+    csil_m["subject_domain"] = v.subject_domain
+    csil_m["subject_user_id"] = v.subject_user_id
+    return csil_m
+
+def _decode_application_ref_value(tree: Any) -> "ApplicationRef":
+    tree = _csil_expect_map(tree)
+    return ApplicationRef(
+        subject_user_id=_csil_expect_text(tree["subject_user_id"]),
+        subject_domain=_csil_expect_text(tree["subject_domain"]),
+        application_id=_csil_expect_text(tree["application_id"]),
+    )
+
+
+def _application_ref_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_application_ref_value(self))
+
+
+def _application_ref_from_cbor(data: bytes) -> "ApplicationRef":
+    return _decode_application_ref_value(cbor_decode(data))
+
+
+ApplicationRef.to_cbor = _application_ref_to_cbor
+ApplicationRef.from_cbor = staticmethod(_application_ref_from_cbor)
+
+def _encode_application_presentation_value(v: "ApplicationPresentation") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["nonce"] = v.nonce
+    csil_m["signer"] = _encode_application_ref_value(v.signer)
+    csil_m["audience"] = _encode_application_ref_value(v.audience)
+    csil_m["presented_at"] = v.presented_at
+    csil_m["request_digest"] = v.request_digest
+    csil_m["signer_instance_id"] = v.signer_instance_id
+    return csil_m
+
+def _decode_application_presentation_value(tree: Any) -> "ApplicationPresentation":
+    tree = _csil_expect_map(tree)
+    return ApplicationPresentation(
+        signer=_decode_application_ref_value(tree["signer"]),
+        signer_instance_id=_csil_expect_text(tree["signer_instance_id"]),
+        audience=_decode_application_ref_value(tree["audience"]),
+        request_digest=_csil_expect_bytes(tree["request_digest"]),
+        presented_at=_csil_expect_text(tree["presented_at"]),
+        nonce=_csil_expect_bytes(tree["nonce"]),
+    )
+
+
+def _application_presentation_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_application_presentation_value(self))
+
+
+def _application_presentation_from_cbor(data: bytes) -> "ApplicationPresentation":
+    return _decode_application_presentation_value(cbor_decode(data))
+
+
+ApplicationPresentation.to_cbor = _application_presentation_to_cbor
+ApplicationPresentation.from_cbor = staticmethod(_application_presentation_from_cbor)
+
+def _encode_signed_application_presentation_value(v: "SignedApplicationPresentation") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["signature"] = v.signature
+    csil_m["presentation"] = v.presentation
+    csil_m["signed_by_key_id"] = v.signed_by_key_id
+    return csil_m
+
+def _decode_signed_application_presentation_value(tree: Any) -> "SignedApplicationPresentation":
+    tree = _csil_expect_map(tree)
+    return SignedApplicationPresentation(
+        presentation=_csil_expect_bytes(tree["presentation"]),
+        signed_by_key_id=_csil_expect_text(tree["signed_by_key_id"]),
+        signature=_csil_expect_bytes(tree["signature"]),
+    )
+
+
+def _signed_application_presentation_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_signed_application_presentation_value(self))
+
+
+def _signed_application_presentation_from_cbor(data: bytes) -> "SignedApplicationPresentation":
+    return _decode_signed_application_presentation_value(cbor_decode(data))
+
+
+SignedApplicationPresentation.to_cbor = _signed_application_presentation_to_cbor
+SignedApplicationPresentation.from_cbor = staticmethod(_signed_application_presentation_from_cbor)
+
+def _encode_exchange_application_presentation_request_value(v: "ExchangeApplicationPresentationRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["presentation"] = _encode_signed_application_presentation_value(v.presentation)
+    return csil_m
+
+def _decode_exchange_application_presentation_request_value(tree: Any) -> "ExchangeApplicationPresentationRequest":
+    tree = _csil_expect_map(tree)
+    return ExchangeApplicationPresentationRequest(
+        presentation=_decode_signed_application_presentation_value(tree["presentation"]),
+    )
+
+
+def _exchange_application_presentation_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_exchange_application_presentation_request_value(self))
+
+
+def _exchange_application_presentation_request_from_cbor(data: bytes) -> "ExchangeApplicationPresentationRequest":
+    return _decode_exchange_application_presentation_request_value(cbor_decode(data))
+
+
+ExchangeApplicationPresentationRequest.to_cbor = _exchange_application_presentation_request_to_cbor
+ExchangeApplicationPresentationRequest.from_cbor = staticmethod(_exchange_application_presentation_request_from_cbor)
+
+def _encode_application_identity_response_value(v: "ApplicationIdentityResponse") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["audience"] = _encode_application_ref_value(v.audience)
+    return csil_m
+
+def _decode_application_identity_response_value(tree: Any) -> "ApplicationIdentityResponse":
+    tree = _csil_expect_map(tree)
+    return ApplicationIdentityResponse(
+        audience=_decode_application_ref_value(tree["audience"]),
+    )
+
+
+def _application_identity_response_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_application_identity_response_value(self))
+
+
+def _application_identity_response_from_cbor(data: bytes) -> "ApplicationIdentityResponse":
+    return _decode_application_identity_response_value(cbor_decode(data))
+
+
+ApplicationIdentityResponse.to_cbor = _application_identity_response_to_cbor
+ApplicationIdentityResponse.from_cbor = staticmethod(_application_identity_response_from_cbor)
+
 def _encode_dev_user_value(v: "DevUser") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
     csil_m["domain"] = v.domain
@@ -2067,14 +2412,14 @@ ServiceError.from_cbor = staticmethod(_service_error_from_cbor)
 
 def _decode_share_role_value(csil_v):
     csil_v = _csil_expect_text(csil_v)
-    if csil_v not in ("free_busy", "read", "write", "manage"):
+    if csil_v not in ("free_busy", "read", "contribute", "write", "manage"):
         raise CsilDecodeError(f"csil cbor: unknown share_role value {csil_v!r}")
     return csil_v
 
 
 def _decode_access_role_value(csil_v):
     csil_v = _csil_expect_text(csil_v)
-    if csil_v not in ("none", "free_busy", "read", "write", "manage", "owner"):
+    if csil_v not in ("none", "free_busy", "read", "contribute", "write", "manage", "owner"):
         raise CsilDecodeError(f"csil cbor: unknown access_role value {csil_v!r}")
     return csil_v
 
@@ -2197,6 +2542,24 @@ def encode_share_delete_share_request(csil_value) -> bytes:
 
 
 def decode_share_delete_share_request(data: bytes):
+    csil_tree = cbor_decode(data)
+    return _csil_expect_text(csil_tree)
+
+
+def encode_group_get_group_request(csil_value) -> bytes:
+    return cbor_encode(csil_value)
+
+
+def decode_group_get_group_request(data: bytes):
+    csil_tree = cbor_decode(data)
+    return _csil_expect_text(csil_tree)
+
+
+def encode_group_delete_group_request(csil_value) -> bytes:
+    return cbor_encode(csil_value)
+
+
+def decode_group_delete_group_request(data: bytes):
     csil_tree = cbor_decode(data)
     return _csil_expect_text(csil_tree)
 

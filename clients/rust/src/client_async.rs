@@ -121,6 +121,39 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             .await?;
         decode_scope_set_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
+
+    /// get-application-identity (request/response).
+    pub async fn get_application_identity(
+        &self,
+        req: EmptyRequest,
+    ) -> Result<ApplicationIdentityResponse, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "AuthService",
+                "get-application-identity",
+                &encode_empty_request(&req),
+            )
+            .await?;
+        decode_application_identity_response(&csil_resp)
+            .map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// exchange-application-presentation (request/response).
+    pub async fn exchange_application_presentation(
+        &self,
+        req: ExchangeApplicationPresentationRequest,
+    ) -> Result<LoginResponse, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "AuthService",
+                "exchange-application-presentation",
+                &encode_exchange_application_presentation_request(&req),
+            )
+            .await?;
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
 }
 
 /// Typed client for the DevAuthService service.
@@ -377,6 +410,92 @@ impl<T: AsyncTransport> ShareAsyncClient<T> {
                 "ShareService",
                 "delete-share",
                 &encode_share_delete_share_request(&req),
+            )
+            .await?;
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+}
+
+/// Typed client for the GroupService service.
+pub struct GroupAsyncClient<T: AsyncTransport> {
+    #[allow(dead_code)]
+    transport: T,
+}
+
+impl<T: AsyncTransport> GroupAsyncClient<T> {
+    pub fn new(transport: T) -> Self {
+        Self { transport }
+    }
+
+    /// list-groups (request/response).
+    pub async fn list_groups(&self, req: EmptyRequest) -> Result<GroupList, ClientError> {
+        let csil_resp = self
+            .transport
+            .call("GroupService", "list-groups", &encode_empty_request(&req))
+            .await?;
+        decode_group_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// get-group (request/response).
+    pub async fn get_group(&self, req: GroupID) -> Result<Group, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "GroupService",
+                "get-group",
+                &encode_group_get_group_request(&req),
+            )
+            .await?;
+        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// create-group (request/response).
+    pub async fn create_group(&self, req: CreateGroupRequest) -> Result<Group, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "GroupService",
+                "create-group",
+                &encode_create_group_request(&req),
+            )
+            .await?;
+        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// update-group (request/response).
+    pub async fn update_group(&self, req: UpdateGroupRequest) -> Result<Group, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "GroupService",
+                "update-group",
+                &encode_update_group_request(&req),
+            )
+            .await?;
+        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// set-members (request/response).
+    pub async fn set_members(&self, req: SetGroupMembersRequest) -> Result<Group, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "GroupService",
+                "set-members",
+                &encode_set_group_members_request(&req),
+            )
+            .await?;
+        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// delete-group (request/response).
+    pub async fn delete_group(&self, req: GroupID) -> Result<EmptyResponse, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "GroupService",
+                "delete-group",
+                &encode_group_delete_group_request(&req),
             )
             .await?;
         decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))

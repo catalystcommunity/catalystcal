@@ -19,6 +19,8 @@ public typealias DelegationId = String
 
 public typealias AuditId = String
 
+public typealias GroupId = String
+
 public typealias SessionId = String
 
 public typealias Timestamp = String
@@ -29,6 +31,7 @@ public typealias DateText = String
 public enum ShareRole: String, Equatable, Sendable, CaseIterable {
     case freeBusy = "free_busy"
     case read = "read"
+    case contribute = "contribute"
     case write = "write"
     case manage = "manage"
 }
@@ -38,6 +41,7 @@ public enum AccessRole: String, Equatable, Sendable, CaseIterable {
     case none = "none"
     case freeBusy = "free_busy"
     case read = "read"
+    case contribute = "contribute"
     case write = "write"
     case manage = "manage"
     case owner = "owner"
@@ -130,18 +134,22 @@ public struct IdentityRef: Equatable, Sendable {
     /// wire key: user_id
     public let userId: String?
     public let handle: String?
+    /// wire key: application_id
+    public let applicationId: String?
 
-    public init(domain: String, userId: String? = nil, handle: String? = nil) {
+    public init(domain: String, userId: String? = nil, handle: String? = nil, applicationId: String? = nil) {
         self.domain = domain
         self.userId = userId
         self.handle = handle
+        self.applicationId = applicationId
     }
 
     /// CBOR wire keys (verbatim) keyed by Swift property name.
     public static let wireKeys: [String: String] = [
         "domain": "domain",
         "userId": "user_id",
-        "handle": "handle"
+        "handle": "handle",
+        "applicationId": "application_id"
     ]
 }
 
@@ -151,6 +159,8 @@ public struct User: Equatable, Sendable {
     public let userId: UserId
     public let domain: String
     public let subject: String
+    /// wire key: application_id
+    public let applicationId: String?
     public let handle: String?
     /// wire key: display_name
     public let displayName: String?
@@ -161,10 +171,11 @@ public struct User: Equatable, Sendable {
     /// wire key: updated_at
     public let updatedAt: Timestamp
 
-    public init(userId: UserId, domain: String, subject: String, handle: String? = nil, displayName: String? = nil, email: String? = nil, timezone: String? = nil, createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(userId: UserId, domain: String, subject: String, applicationId: String? = nil, handle: String? = nil, displayName: String? = nil, email: String? = nil, timezone: String? = nil, createdAt: Timestamp, updatedAt: Timestamp) {
         self.userId = userId
         self.domain = domain
         self.subject = subject
+        self.applicationId = applicationId
         self.handle = handle
         self.displayName = displayName
         self.email = email
@@ -178,6 +189,7 @@ public struct User: Equatable, Sendable {
         "userId": "user_id",
         "domain": "domain",
         "subject": "subject",
+        "applicationId": "application_id",
         "handle": "handle",
         "displayName": "display_name",
         "email": "email",
@@ -193,14 +205,17 @@ public struct PersonSummary: Equatable, Sendable {
     public let userId: UserId
     public let domain: String
     public let subject: String
+    /// wire key: application_id
+    public let applicationId: String?
     public let handle: String?
     /// wire key: display_name
     public let displayName: String?
 
-    public init(userId: UserId, domain: String, subject: String, handle: String? = nil, displayName: String? = nil) {
+    public init(userId: UserId, domain: String, subject: String, applicationId: String? = nil, handle: String? = nil, displayName: String? = nil) {
         self.userId = userId
         self.domain = domain
         self.subject = subject
+        self.applicationId = applicationId
         self.handle = handle
         self.displayName = displayName
     }
@@ -210,6 +225,7 @@ public struct PersonSummary: Equatable, Sendable {
         "userId": "user_id",
         "domain": "domain",
         "subject": "subject",
+        "applicationId": "application_id",
         "handle": "handle",
         "displayName": "display_name"
     ]
@@ -432,19 +448,25 @@ public struct Share: Equatable, Sendable {
     public let shareId: ShareId
     /// wire key: calendar_id
     public let calendarId: CalendarId
-    public let grantee: IdentityRef
+    public let grantee: IdentityRef?
+    /// wire key: grantee_group_id
+    public let granteeGroupId: GroupId?
     public let role: ShareRole
     /// wire key: grantee_person
     public let granteePerson: PersonSummary?
+    /// wire key: grantee_group_name
+    public let granteeGroupName: String?
     /// wire key: created_at
     public let createdAt: Timestamp
 
-    public init(shareId: ShareId, calendarId: CalendarId, grantee: IdentityRef, role: ShareRole, granteePerson: PersonSummary? = nil, createdAt: Timestamp) {
+    public init(shareId: ShareId, calendarId: CalendarId, grantee: IdentityRef? = nil, granteeGroupId: GroupId? = nil, role: ShareRole, granteePerson: PersonSummary? = nil, granteeGroupName: String? = nil, createdAt: Timestamp) {
         self.shareId = shareId
         self.calendarId = calendarId
         self.grantee = grantee
+        self.granteeGroupId = granteeGroupId
         self.role = role
         self.granteePerson = granteePerson
+        self.granteeGroupName = granteeGroupName
         self.createdAt = createdAt
     }
 
@@ -453,8 +475,10 @@ public struct Share: Equatable, Sendable {
         "shareId": "share_id",
         "calendarId": "calendar_id",
         "grantee": "grantee",
+        "granteeGroupId": "grantee_group_id",
         "role": "role",
         "granteePerson": "grantee_person",
+        "granteeGroupName": "grantee_group_name",
         "createdAt": "created_at"
     ]
 }
@@ -470,6 +494,176 @@ public struct ShareList: Equatable, Sendable {
     /// CBOR wire keys (verbatim) keyed by Swift property name.
     public static let wireKeys: [String: String] = [
         "shares": "shares"
+    ]
+}
+
+/// GroupMember is a generated CSIL record type.
+public struct GroupMember: Equatable, Sendable {
+    public let identity: IdentityRef?
+    /// wire key: group_id
+    public let groupId: GroupId?
+    public let person: PersonSummary?
+    /// wire key: group_name
+    public let groupName: String?
+
+    public init(identity: IdentityRef? = nil, groupId: GroupId? = nil, person: PersonSummary? = nil, groupName: String? = nil) {
+        self.identity = identity
+        self.groupId = groupId
+        self.person = person
+        self.groupName = groupName
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "identity": "identity",
+        "groupId": "group_id",
+        "person": "person",
+        "groupName": "group_name"
+    ]
+}
+
+/// Group is a generated CSIL record type.
+public struct Group: Equatable, Sendable {
+    /// wire key: group_id
+    public let groupId: GroupId
+    public let owner: PersonSummary
+    public let name: String
+    public let description: String?
+    public let revision: UInt64
+    public let members: [GroupMember]
+    /// wire key: created_at
+    public let createdAt: Timestamp
+    /// wire key: updated_at
+    public let updatedAt: Timestamp
+
+    public init(groupId: GroupId, owner: PersonSummary, name: String, description: String? = nil, revision: UInt64, members: [GroupMember], createdAt: Timestamp, updatedAt: Timestamp) {
+        self.groupId = groupId
+        self.owner = owner
+        self.name = name
+        self.description = description
+        self.revision = revision
+        self.members = members
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.name.count < 1 {
+            throw CsilValidationError("field 'name' must have at least 1 elements")
+        }
+        if self.name.count > 256 {
+            throw CsilValidationError("field 'name' must have at most 256 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "groupId": "group_id",
+        "owner": "owner",
+        "name": "name",
+        "description": "description",
+        "revision": "revision",
+        "members": "members",
+        "createdAt": "created_at",
+        "updatedAt": "updated_at"
+    ]
+}
+
+/// CreateGroupRequest is a generated CSIL record type.
+public struct CreateGroupRequest: Equatable, Sendable {
+    public let name: String
+    public let description: String?
+    public let members: [GroupMember]?
+
+    public init(name: String, description: String? = nil, members: [GroupMember]? = nil) {
+        self.name = name
+        self.description = description
+        self.members = members
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.name.count < 1 {
+            throw CsilValidationError("field 'name' must have at least 1 elements")
+        }
+        if self.name.count > 256 {
+            throw CsilValidationError("field 'name' must have at most 256 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "name": "name",
+        "description": "description",
+        "members": "members"
+    ]
+}
+
+/// UpdateGroupRequest is a generated CSIL record type.
+public struct UpdateGroupRequest: Equatable, Sendable {
+    /// wire key: group_id
+    public let groupId: GroupId
+    public let name: String?
+    public let description: String?
+
+    public init(groupId: GroupId, name: String? = nil, description: String? = nil) {
+        self.groupId = groupId
+        self.name = name
+        self.description = description
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if let v = self.name, v.count < 1 {
+            throw CsilValidationError("field 'name' must have at least 1 elements")
+        }
+        if let v = self.name, v.count > 256 {
+            throw CsilValidationError("field 'name' must have at most 256 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "groupId": "group_id",
+        "name": "name",
+        "description": "description"
+    ]
+}
+
+/// SetGroupMembersRequest is a generated CSIL record type.
+public struct SetGroupMembersRequest: Equatable, Sendable {
+    /// wire key: group_id
+    public let groupId: GroupId
+    /// wire key: expected_revision
+    public let expectedRevision: UInt64?
+    public let members: [GroupMember]
+
+    public init(groupId: GroupId, expectedRevision: UInt64? = nil, members: [GroupMember]) {
+        self.groupId = groupId
+        self.expectedRevision = expectedRevision
+        self.members = members
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "groupId": "group_id",
+        "expectedRevision": "expected_revision",
+        "members": "members"
+    ]
+}
+
+/// GroupList is a generated CSIL record type.
+public struct GroupList: Equatable, Sendable {
+    public let groups: [Group]
+
+    public init(groups: [Group]) {
+        self.groups = groups
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "groups": "groups"
     ]
 }
 
@@ -1326,6 +1520,110 @@ public struct ScopeSetResponse: Equatable, Sendable {
     /// CBOR wire keys (verbatim) keyed by Swift property name.
     public static let wireKeys: [String: String] = [
         "signedScopeSet": "signed_scope_set"
+    ]
+}
+
+/// ApplicationRef is a generated CSIL record type.
+public struct ApplicationRef: Equatable, Sendable {
+    /// wire key: subject_user_id
+    public let subjectUserId: String
+    /// wire key: subject_domain
+    public let subjectDomain: String
+    /// wire key: application_id
+    public let applicationId: String
+
+    public init(subjectUserId: String, subjectDomain: String, applicationId: String) {
+        self.subjectUserId = subjectUserId
+        self.subjectDomain = subjectDomain
+        self.applicationId = applicationId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "subjectUserId": "subject_user_id",
+        "subjectDomain": "subject_domain",
+        "applicationId": "application_id"
+    ]
+}
+
+/// ApplicationPresentation is a generated CSIL record type.
+public struct ApplicationPresentation: Equatable, Sendable {
+    public let signer: ApplicationRef
+    /// wire key: signer_instance_id
+    public let signerInstanceId: String
+    public let audience: ApplicationRef
+    /// wire key: request_digest
+    public let requestDigest: [UInt8]
+    /// wire key: presented_at
+    public let presentedAt: Timestamp
+    public let nonce: [UInt8]
+
+    public init(signer: ApplicationRef, signerInstanceId: String, audience: ApplicationRef, requestDigest: [UInt8], presentedAt: Timestamp, nonce: [UInt8]) {
+        self.signer = signer
+        self.signerInstanceId = signerInstanceId
+        self.audience = audience
+        self.requestDigest = requestDigest
+        self.presentedAt = presentedAt
+        self.nonce = nonce
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "signer": "signer",
+        "signerInstanceId": "signer_instance_id",
+        "audience": "audience",
+        "requestDigest": "request_digest",
+        "presentedAt": "presented_at",
+        "nonce": "nonce"
+    ]
+}
+
+/// SignedApplicationPresentation is a generated CSIL record type.
+public struct SignedApplicationPresentation: Equatable, Sendable {
+    public let presentation: [UInt8]
+    /// wire key: signed_by_key_id
+    public let signedByKeyId: String
+    public let signature: [UInt8]
+
+    public init(presentation: [UInt8], signedByKeyId: String, signature: [UInt8]) {
+        self.presentation = presentation
+        self.signedByKeyId = signedByKeyId
+        self.signature = signature
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "presentation": "presentation",
+        "signedByKeyId": "signed_by_key_id",
+        "signature": "signature"
+    ]
+}
+
+/// ExchangeApplicationPresentationRequest is a generated CSIL record type.
+public struct ExchangeApplicationPresentationRequest: Equatable, Sendable {
+    public let presentation: SignedApplicationPresentation
+
+    public init(presentation: SignedApplicationPresentation) {
+        self.presentation = presentation
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "presentation": "presentation"
+    ]
+}
+
+/// ApplicationIdentityResponse is a generated CSIL record type.
+public struct ApplicationIdentityResponse: Equatable, Sendable {
+    public let audience: ApplicationRef
+
+    public init(audience: ApplicationRef) {
+        self.audience = audience
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "audience": "audience"
     ]
 }
 

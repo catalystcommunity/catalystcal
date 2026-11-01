@@ -7,7 +7,7 @@ import { RecurrenceEditor } from "~/components/RecurrenceEditor";
 import { AttendeesEditor } from "~/components/AttendeesEditor";
 import { FreeBusyPanel } from "~/components/FreeBusyPanel";
 import { eventClient } from "~/data/clients";
-import { accessAtLeast, bumpEvents, calendarColor, useCalendars } from "~/stores/calendars";
+import { bumpEvents, calendarColor, canAddEvents, useCalendars } from "~/stores/calendars";
 import { isActing, effectivePerson } from "~/stores/auth";
 import { askScope } from "~/stores/dialogs";
 import { toast } from "~/stores/toast";
@@ -34,7 +34,7 @@ export function EventEditor(props: { state: EditorState; onClose: () => void }) 
   const cals = useCalendars();
   const zones = zoneList(displayZone());
 
-  const writable = createMemo(() => cals().filter((c) => c.kind === "local" && accessAtLeast(c.access, "write")));
+  const writable = createMemo(() => cals().filter((c) => c.kind === "local" && canAddEvents(c.access)));
   const set = (patch: Partial<EventForm>) => setForm({ ...form(), ...patch });
   const f = form;
 

@@ -328,6 +328,7 @@ object CsilCbor {
 fun ShareRole.toCborValue(): CborValue = when (this) {
     ShareRole.FreeBusy -> CborValue.CText("free_busy")
     ShareRole.Read -> CborValue.CText("read")
+    ShareRole.Contribute -> CborValue.CText("contribute")
     ShareRole.Write -> CborValue.CText("write")
     ShareRole.Manage -> CborValue.CText("manage")
 }
@@ -336,6 +337,7 @@ fun ShareRole.toCborValue(): CborValue = when (this) {
 fun shareRoleFromCborValue(cbor: CborValue): ShareRole = when (CsilCbor.asText(cbor)) {
     "free_busy" -> ShareRole.FreeBusy
     "read" -> ShareRole.Read
+    "contribute" -> ShareRole.Contribute
     "write" -> ShareRole.Write
     "manage" -> ShareRole.Manage
     else -> throw CborError("unknown ShareRole value")
@@ -346,6 +348,7 @@ fun AccessRole.toCborValue(): CborValue = when (this) {
     AccessRole.None -> CborValue.CText("none")
     AccessRole.FreeBusy -> CborValue.CText("free_busy")
     AccessRole.Read -> CborValue.CText("read")
+    AccessRole.Contribute -> CborValue.CText("contribute")
     AccessRole.Write -> CborValue.CText("write")
     AccessRole.Manage -> CborValue.CText("manage")
     AccessRole.Owner -> CborValue.CText("owner")
@@ -356,6 +359,7 @@ fun accessRoleFromCborValue(cbor: CborValue): AccessRole = when (CsilCbor.asText
     "none" -> AccessRole.None
     "free_busy" -> AccessRole.FreeBusy
     "read" -> AccessRole.Read
+    "contribute" -> AccessRole.Contribute
     "write" -> AccessRole.Write
     "manage" -> AccessRole.Manage
     "owner" -> AccessRole.Owner
@@ -541,6 +545,7 @@ fun IdentityRef.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("domain") to CborValue.CText(this.domain))
     this.handle?.let { csilV -> csilEntries.add(CborValue.CText("handle") to CborValue.CText(csilV)) }
     this.userId?.let { csilV -> csilEntries.add(CborValue.CText("user_id") to CborValue.CText(csilV)) }
+    this.applicationId?.let { csilV -> csilEntries.add(CborValue.CText("application_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -552,7 +557,8 @@ fun identityRefFromCborValue(cbor: CborValue): IdentityRef {
     val domain = CsilCbor.asText(CsilCbor.require(cbor, "domain"))
     val userId = CsilCbor.mapGet(cbor, "user_id")?.let { csilV -> CsilCbor.asText(csilV) }
     val handle = CsilCbor.mapGet(cbor, "handle")?.let { csilV -> CsilCbor.asText(csilV) }
-    return IdentityRef(domain = domain, userId = userId, handle = handle)
+    val applicationId = CsilCbor.mapGet(cbor, "application_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    return IdentityRef(domain = domain, userId = userId, handle = handle, applicationId = applicationId)
 }
 
 /** Decode CSIL CBOR bytes into a IdentityRef. */
@@ -570,6 +576,7 @@ fun User.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
     csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
     this.displayName?.let { csilV -> csilEntries.add(CborValue.CText("display_name") to CborValue.CText(csilV)) }
+    this.applicationId?.let { csilV -> csilEntries.add(CborValue.CText("application_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -581,13 +588,14 @@ fun userFromCborValue(cbor: CborValue): User {
     val userId = CsilCbor.asText(CsilCbor.require(cbor, "user_id"))
     val domain = CsilCbor.asText(CsilCbor.require(cbor, "domain"))
     val subject = CsilCbor.asText(CsilCbor.require(cbor, "subject"))
+    val applicationId = CsilCbor.mapGet(cbor, "application_id")?.let { csilV -> CsilCbor.asText(csilV) }
     val handle = CsilCbor.mapGet(cbor, "handle")?.let { csilV -> CsilCbor.asText(csilV) }
     val displayName = CsilCbor.mapGet(cbor, "display_name")?.let { csilV -> CsilCbor.asText(csilV) }
     val email = CsilCbor.mapGet(cbor, "email")?.let { csilV -> CsilCbor.asText(csilV) }
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
     val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
     val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
-    return User(userId = userId, domain = domain, subject = subject, handle = handle, displayName = displayName, email = email, timezone = timezone, createdAt = createdAt, updatedAt = updatedAt)
+    return User(userId = userId, domain = domain, subject = subject, applicationId = applicationId, handle = handle, displayName = displayName, email = email, timezone = timezone, createdAt = createdAt, updatedAt = updatedAt)
 }
 
 /** Decode CSIL CBOR bytes into a User. */
@@ -601,6 +609,7 @@ fun PersonSummary.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("subject") to CborValue.CText(this.subject))
     csilEntries.add(CborValue.CText("user_id") to CborValue.CText(this.userId))
     this.displayName?.let { csilV -> csilEntries.add(CborValue.CText("display_name") to CborValue.CText(csilV)) }
+    this.applicationId?.let { csilV -> csilEntries.add(CborValue.CText("application_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -612,9 +621,10 @@ fun personSummaryFromCborValue(cbor: CborValue): PersonSummary {
     val userId = CsilCbor.asText(CsilCbor.require(cbor, "user_id"))
     val domain = CsilCbor.asText(CsilCbor.require(cbor, "domain"))
     val subject = CsilCbor.asText(CsilCbor.require(cbor, "subject"))
+    val applicationId = CsilCbor.mapGet(cbor, "application_id")?.let { csilV -> CsilCbor.asText(csilV) }
     val handle = CsilCbor.mapGet(cbor, "handle")?.let { csilV -> CsilCbor.asText(csilV) }
     val displayName = CsilCbor.mapGet(cbor, "display_name")?.let { csilV -> CsilCbor.asText(csilV) }
-    return PersonSummary(userId = userId, domain = domain, subject = subject, handle = handle, displayName = displayName)
+    return PersonSummary(userId = userId, domain = domain, subject = subject, applicationId = applicationId, handle = handle, displayName = displayName)
 }
 
 /** Decode CSIL CBOR bytes into a PersonSummary. */
@@ -788,11 +798,13 @@ fun calendarListFromCbor(bytes: ByteArray): CalendarList = calendarListFromCborV
 fun Share.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("role") to this.role.toCborValue())
-    csilEntries.add(CborValue.CText("grantee") to this.grantee.toCborValue())
+    this.grantee?.let { csilV -> csilEntries.add(CborValue.CText("grantee") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("share_id") to CborValue.CText(this.shareId))
     csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.granteePerson?.let { csilV -> csilEntries.add(CborValue.CText("grantee_person") to csilV.toCborValue()) }
+    this.granteeGroupId?.let { csilV -> csilEntries.add(CborValue.CText("grantee_group_id") to CborValue.CText(csilV)) }
+    this.granteeGroupName?.let { csilV -> csilEntries.add(CborValue.CText("grantee_group_name") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -803,11 +815,13 @@ fun Share.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun shareFromCborValue(cbor: CborValue): Share {
     val shareId = CsilCbor.asText(CsilCbor.require(cbor, "share_id"))
     val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
-    val grantee = identityRefFromCborValue(CsilCbor.require(cbor, "grantee"))
+    val grantee = CsilCbor.mapGet(cbor, "grantee")?.let { csilV -> identityRefFromCborValue(csilV) }
+    val granteeGroupId = CsilCbor.mapGet(cbor, "grantee_group_id")?.let { csilV -> CsilCbor.asText(csilV) }
     val role = shareRoleFromCborValue(CsilCbor.require(cbor, "role"))
     val granteePerson = CsilCbor.mapGet(cbor, "grantee_person")?.let { csilV -> personSummaryFromCborValue(csilV) }
+    val granteeGroupName = CsilCbor.mapGet(cbor, "grantee_group_name")?.let { csilV -> CsilCbor.asText(csilV) }
     val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    return Share(shareId = shareId, calendarId = calendarId, grantee = grantee, role = role, granteePerson = granteePerson, createdAt = createdAt)
+    return Share(shareId = shareId, calendarId = calendarId, grantee = grantee, granteeGroupId = granteeGroupId, role = role, granteePerson = granteePerson, granteeGroupName = granteeGroupName, createdAt = createdAt)
 }
 
 /** Decode CSIL CBOR bytes into a Share. */
@@ -831,6 +845,152 @@ fun shareListFromCborValue(cbor: CborValue): ShareList {
 
 /** Decode CSIL CBOR bytes into a ShareList. */
 fun shareListFromCbor(bytes: ByteArray): ShareList = shareListFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a GroupMember (deep, canonical key order). */
+fun GroupMember.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.person?.let { csilV -> csilEntries.add(CborValue.CText("person") to csilV.toCborValue()) }
+    this.groupId?.let { csilV -> csilEntries.add(CborValue.CText("group_id") to CborValue.CText(csilV)) }
+    this.identity?.let { csilV -> csilEntries.add(CborValue.CText("identity") to csilV.toCborValue()) }
+    this.groupName?.let { csilV -> csilEntries.add(CborValue.CText("group_name") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a GroupMember to canonical CSIL CBOR bytes. */
+fun GroupMember.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a GroupMember from a decoded CBOR value tree. */
+fun groupMemberFromCborValue(cbor: CborValue): GroupMember {
+    val identity = CsilCbor.mapGet(cbor, "identity")?.let { csilV -> identityRefFromCborValue(csilV) }
+    val groupId = CsilCbor.mapGet(cbor, "group_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val person = CsilCbor.mapGet(cbor, "person")?.let { csilV -> personSummaryFromCborValue(csilV) }
+    val groupName = CsilCbor.mapGet(cbor, "group_name")?.let { csilV -> CsilCbor.asText(csilV) }
+    return GroupMember(identity = identity, groupId = groupId, person = person, groupName = groupName)
+}
+
+/** Decode CSIL CBOR bytes into a GroupMember. */
+fun groupMemberFromCbor(bytes: ByteArray): GroupMember = groupMemberFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a Group (deep, canonical key order). */
+fun Group.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("name") to CborValue.CText(this.name))
+    csilEntries.add(CborValue.CText("owner") to this.owner.toCborValue())
+    csilEntries.add(CborValue.CText("members") to CborValue.CArray((this.members).map { csilE -> csilE.toCborValue() }))
+    csilEntries.add(CborValue.CText("group_id") to CborValue.CText(this.groupId))
+    csilEntries.add(CborValue.CText("revision") to CborValue.CUint(this.revision))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
+    this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a Group to canonical CSIL CBOR bytes. */
+fun Group.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a Group from a decoded CBOR value tree. */
+fun groupFromCborValue(cbor: CborValue): Group {
+    val groupId = CsilCbor.asText(CsilCbor.require(cbor, "group_id"))
+    val owner = personSummaryFromCborValue(CsilCbor.require(cbor, "owner"))
+    val name = CsilCbor.asText(CsilCbor.require(cbor, "name"))
+    val description = CsilCbor.mapGet(cbor, "description")?.let { csilV -> CsilCbor.asText(csilV) }
+    val revision = CsilCbor.asULong(CsilCbor.require(cbor, "revision"))
+    val members = CsilCbor.asArray(CsilCbor.require(cbor, "members")).map { csilE -> groupMemberFromCborValue(csilE) }
+    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
+    return Group(groupId = groupId, owner = owner, name = name, description = description, revision = revision, members = members, createdAt = createdAt, updatedAt = updatedAt)
+}
+
+/** Decode CSIL CBOR bytes into a Group. */
+fun groupFromCbor(bytes: ByteArray): Group = groupFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a CreateGroupRequest (deep, canonical key order). */
+fun CreateGroupRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("name") to CborValue.CText(this.name))
+    this.members?.let { csilV -> csilEntries.add(CborValue.CText("members") to CborValue.CArray((csilV).map { csilE -> csilE.toCborValue() })) }
+    this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a CreateGroupRequest to canonical CSIL CBOR bytes. */
+fun CreateGroupRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a CreateGroupRequest from a decoded CBOR value tree. */
+fun createGroupRequestFromCborValue(cbor: CborValue): CreateGroupRequest {
+    val name = CsilCbor.asText(CsilCbor.require(cbor, "name"))
+    val description = CsilCbor.mapGet(cbor, "description")?.let { csilV -> CsilCbor.asText(csilV) }
+    val members = CsilCbor.mapGet(cbor, "members")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> groupMemberFromCborValue(csilE) } }
+    return CreateGroupRequest(name = name, description = description, members = members)
+}
+
+/** Decode CSIL CBOR bytes into a CreateGroupRequest. */
+fun createGroupRequestFromCbor(bytes: ByteArray): CreateGroupRequest = createGroupRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a UpdateGroupRequest (deep, canonical key order). */
+fun UpdateGroupRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.name?.let { csilV -> csilEntries.add(CborValue.CText("name") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("group_id") to CborValue.CText(this.groupId))
+    this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a UpdateGroupRequest to canonical CSIL CBOR bytes. */
+fun UpdateGroupRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a UpdateGroupRequest from a decoded CBOR value tree. */
+fun updateGroupRequestFromCborValue(cbor: CborValue): UpdateGroupRequest {
+    val groupId = CsilCbor.asText(CsilCbor.require(cbor, "group_id"))
+    val name = CsilCbor.mapGet(cbor, "name")?.let { csilV -> CsilCbor.asText(csilV) }
+    val description = CsilCbor.mapGet(cbor, "description")?.let { csilV -> CsilCbor.asText(csilV) }
+    return UpdateGroupRequest(groupId = groupId, name = name, description = description)
+}
+
+/** Decode CSIL CBOR bytes into a UpdateGroupRequest. */
+fun updateGroupRequestFromCbor(bytes: ByteArray): UpdateGroupRequest = updateGroupRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a SetGroupMembersRequest (deep, canonical key order). */
+fun SetGroupMembersRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("members") to CborValue.CArray((this.members).map { csilE -> csilE.toCborValue() }))
+    csilEntries.add(CborValue.CText("group_id") to CborValue.CText(this.groupId))
+    this.expectedRevision?.let { csilV -> csilEntries.add(CborValue.CText("expected_revision") to CborValue.CUint(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SetGroupMembersRequest to canonical CSIL CBOR bytes. */
+fun SetGroupMembersRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SetGroupMembersRequest from a decoded CBOR value tree. */
+fun setGroupMembersRequestFromCborValue(cbor: CborValue): SetGroupMembersRequest {
+    val groupId = CsilCbor.asText(CsilCbor.require(cbor, "group_id"))
+    val expectedRevision = CsilCbor.mapGet(cbor, "expected_revision")?.let { csilV -> CsilCbor.asULong(csilV) }
+    val members = CsilCbor.asArray(CsilCbor.require(cbor, "members")).map { csilE -> groupMemberFromCborValue(csilE) }
+    return SetGroupMembersRequest(groupId = groupId, expectedRevision = expectedRevision, members = members)
+}
+
+/** Decode CSIL CBOR bytes into a SetGroupMembersRequest. */
+fun setGroupMembersRequestFromCbor(bytes: ByteArray): SetGroupMembersRequest = setGroupMembersRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a GroupList (deep, canonical key order). */
+fun GroupList.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("groups") to CborValue.CArray((this.groups).map { csilE -> csilE.toCborValue() }))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a GroupList to canonical CSIL CBOR bytes. */
+fun GroupList.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a GroupList from a decoded CBOR value tree. */
+fun groupListFromCborValue(cbor: CborValue): GroupList {
+    val groups = CsilCbor.asArray(CsilCbor.require(cbor, "groups")).map { csilE -> groupFromCborValue(csilE) }
+    return GroupList(groups = groups)
+}
+
+/** Decode CSIL CBOR bytes into a GroupList. */
+fun groupListFromCbor(bytes: ByteArray): GroupList = groupListFromCborValue(CsilCbor.decode(bytes))
 
 /** The CBOR value tree for a Delegation (deep, canonical key order). */
 fun Delegation.toCborValue(): CborValue {
@@ -1684,6 +1844,119 @@ fun scopeSetResponseFromCborValue(cbor: CborValue): ScopeSetResponse {
 /** Decode CSIL CBOR bytes into a ScopeSetResponse. */
 fun scopeSetResponseFromCbor(bytes: ByteArray): ScopeSetResponse = scopeSetResponseFromCborValue(CsilCbor.decode(bytes))
 
+/** The CBOR value tree for a ApplicationRef (deep, canonical key order). */
+fun ApplicationRef.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("application_id") to CborValue.CText(this.applicationId))
+    csilEntries.add(CborValue.CText("subject_domain") to CborValue.CText(this.subjectDomain))
+    csilEntries.add(CborValue.CText("subject_user_id") to CborValue.CText(this.subjectUserId))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ApplicationRef to canonical CSIL CBOR bytes. */
+fun ApplicationRef.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ApplicationRef from a decoded CBOR value tree. */
+fun applicationRefFromCborValue(cbor: CborValue): ApplicationRef {
+    val subjectUserId = CsilCbor.asText(CsilCbor.require(cbor, "subject_user_id"))
+    val subjectDomain = CsilCbor.asText(CsilCbor.require(cbor, "subject_domain"))
+    val applicationId = CsilCbor.asText(CsilCbor.require(cbor, "application_id"))
+    return ApplicationRef(subjectUserId = subjectUserId, subjectDomain = subjectDomain, applicationId = applicationId)
+}
+
+/** Decode CSIL CBOR bytes into a ApplicationRef. */
+fun applicationRefFromCbor(bytes: ByteArray): ApplicationRef = applicationRefFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a ApplicationPresentation (deep, canonical key order). */
+fun ApplicationPresentation.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("nonce") to CborValue.CBytes(this.nonce))
+    csilEntries.add(CborValue.CText("signer") to this.signer.toCborValue())
+    csilEntries.add(CborValue.CText("audience") to this.audience.toCborValue())
+    csilEntries.add(CborValue.CText("presented_at") to CborValue.CText(this.presentedAt))
+    csilEntries.add(CborValue.CText("request_digest") to CborValue.CBytes(this.requestDigest))
+    csilEntries.add(CborValue.CText("signer_instance_id") to CborValue.CText(this.signerInstanceId))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ApplicationPresentation to canonical CSIL CBOR bytes. */
+fun ApplicationPresentation.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ApplicationPresentation from a decoded CBOR value tree. */
+fun applicationPresentationFromCborValue(cbor: CborValue): ApplicationPresentation {
+    val signer = applicationRefFromCborValue(CsilCbor.require(cbor, "signer"))
+    val signerInstanceId = CsilCbor.asText(CsilCbor.require(cbor, "signer_instance_id"))
+    val audience = applicationRefFromCborValue(CsilCbor.require(cbor, "audience"))
+    val requestDigest = CsilCbor.asBytes(CsilCbor.require(cbor, "request_digest"))
+    val presentedAt = CsilCbor.asText(CsilCbor.require(cbor, "presented_at"))
+    val nonce = CsilCbor.asBytes(CsilCbor.require(cbor, "nonce"))
+    return ApplicationPresentation(signer = signer, signerInstanceId = signerInstanceId, audience = audience, requestDigest = requestDigest, presentedAt = presentedAt, nonce = nonce)
+}
+
+/** Decode CSIL CBOR bytes into a ApplicationPresentation. */
+fun applicationPresentationFromCbor(bytes: ByteArray): ApplicationPresentation = applicationPresentationFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a SignedApplicationPresentation (deep, canonical key order). */
+fun SignedApplicationPresentation.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("signature") to CborValue.CBytes(this.signature))
+    csilEntries.add(CborValue.CText("presentation") to CborValue.CBytes(this.presentation))
+    csilEntries.add(CborValue.CText("signed_by_key_id") to CborValue.CText(this.signedByKeyId))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SignedApplicationPresentation to canonical CSIL CBOR bytes. */
+fun SignedApplicationPresentation.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SignedApplicationPresentation from a decoded CBOR value tree. */
+fun signedApplicationPresentationFromCborValue(cbor: CborValue): SignedApplicationPresentation {
+    val presentation = CsilCbor.asBytes(CsilCbor.require(cbor, "presentation"))
+    val signedByKeyId = CsilCbor.asText(CsilCbor.require(cbor, "signed_by_key_id"))
+    val signature = CsilCbor.asBytes(CsilCbor.require(cbor, "signature"))
+    return SignedApplicationPresentation(presentation = presentation, signedByKeyId = signedByKeyId, signature = signature)
+}
+
+/** Decode CSIL CBOR bytes into a SignedApplicationPresentation. */
+fun signedApplicationPresentationFromCbor(bytes: ByteArray): SignedApplicationPresentation = signedApplicationPresentationFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a ExchangeApplicationPresentationRequest (deep, canonical key order). */
+fun ExchangeApplicationPresentationRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("presentation") to this.presentation.toCborValue())
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ExchangeApplicationPresentationRequest to canonical CSIL CBOR bytes. */
+fun ExchangeApplicationPresentationRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ExchangeApplicationPresentationRequest from a decoded CBOR value tree. */
+fun exchangeApplicationPresentationRequestFromCborValue(cbor: CborValue): ExchangeApplicationPresentationRequest {
+    val presentation = signedApplicationPresentationFromCborValue(CsilCbor.require(cbor, "presentation"))
+    return ExchangeApplicationPresentationRequest(presentation = presentation)
+}
+
+/** Decode CSIL CBOR bytes into a ExchangeApplicationPresentationRequest. */
+fun exchangeApplicationPresentationRequestFromCbor(bytes: ByteArray): ExchangeApplicationPresentationRequest = exchangeApplicationPresentationRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a ApplicationIdentityResponse (deep, canonical key order). */
+fun ApplicationIdentityResponse.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("audience") to this.audience.toCborValue())
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ApplicationIdentityResponse to canonical CSIL CBOR bytes. */
+fun ApplicationIdentityResponse.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ApplicationIdentityResponse from a decoded CBOR value tree. */
+fun applicationIdentityResponseFromCborValue(cbor: CborValue): ApplicationIdentityResponse {
+    val audience = applicationRefFromCborValue(CsilCbor.require(cbor, "audience"))
+    return ApplicationIdentityResponse(audience = audience)
+}
+
+/** Decode CSIL CBOR bytes into a ApplicationIdentityResponse. */
+fun applicationIdentityResponseFromCbor(bytes: ByteArray): ApplicationIdentityResponse = applicationIdentityResponseFromCborValue(CsilCbor.decode(bytes))
+
 /** The CBOR value tree for a DevUser (deep, canonical key order). */
 fun DevUser.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
@@ -1862,6 +2135,12 @@ private fun csilToCborValue(value: Any?): CborValue = when (value) {
     is CalendarList -> value.toCborValue()
     is Share -> value.toCborValue()
     is ShareList -> value.toCborValue()
+    is GroupMember -> value.toCborValue()
+    is Group -> value.toCborValue()
+    is CreateGroupRequest -> value.toCborValue()
+    is UpdateGroupRequest -> value.toCborValue()
+    is SetGroupMembersRequest -> value.toCborValue()
+    is GroupList -> value.toCborValue()
     is Delegation -> value.toCborValue()
     is DelegationList -> value.toCborValue()
     is AssumePrincipalRequest -> value.toCborValue()
@@ -1896,6 +2175,11 @@ private fun csilToCborValue(value: Any?): CborValue = when (value) {
     is ExchangeActAsCredentialRequest -> value.toCborValue()
     is ScopeSetRequest -> value.toCborValue()
     is ScopeSetResponse -> value.toCborValue()
+    is ApplicationRef -> value.toCborValue()
+    is ApplicationPresentation -> value.toCborValue()
+    is SignedApplicationPresentation -> value.toCborValue()
+    is ExchangeApplicationPresentationRequest -> value.toCborValue()
+    is ApplicationIdentityResponse -> value.toCborValue()
     is DevUser -> value.toCborValue()
     is DevUsersResponse -> value.toCborValue()
     is DevLoginRequest -> value.toCborValue()
@@ -1923,6 +2207,12 @@ fun csilFromCborValue(type: kotlin.reflect.KClass<*>, cbor: CborValue): Any = wh
     CalendarList::class -> calendarListFromCborValue(cbor)
     Share::class -> shareFromCborValue(cbor)
     ShareList::class -> shareListFromCborValue(cbor)
+    GroupMember::class -> groupMemberFromCborValue(cbor)
+    Group::class -> groupFromCborValue(cbor)
+    CreateGroupRequest::class -> createGroupRequestFromCborValue(cbor)
+    UpdateGroupRequest::class -> updateGroupRequestFromCborValue(cbor)
+    SetGroupMembersRequest::class -> setGroupMembersRequestFromCborValue(cbor)
+    GroupList::class -> groupListFromCborValue(cbor)
     Delegation::class -> delegationFromCborValue(cbor)
     DelegationList::class -> delegationListFromCborValue(cbor)
     AssumePrincipalRequest::class -> assumePrincipalRequestFromCborValue(cbor)
@@ -1957,6 +2247,11 @@ fun csilFromCborValue(type: kotlin.reflect.KClass<*>, cbor: CborValue): Any = wh
     ExchangeActAsCredentialRequest::class -> exchangeActAsCredentialRequestFromCborValue(cbor)
     ScopeSetRequest::class -> scopeSetRequestFromCborValue(cbor)
     ScopeSetResponse::class -> scopeSetResponseFromCborValue(cbor)
+    ApplicationRef::class -> applicationRefFromCborValue(cbor)
+    ApplicationPresentation::class -> applicationPresentationFromCborValue(cbor)
+    SignedApplicationPresentation::class -> signedApplicationPresentationFromCborValue(cbor)
+    ExchangeApplicationPresentationRequest::class -> exchangeApplicationPresentationRequestFromCborValue(cbor)
+    ApplicationIdentityResponse::class -> applicationIdentityResponseFromCborValue(cbor)
     DevUser::class -> devUserFromCborValue(cbor)
     DevUsersResponse::class -> devUsersResponseFromCborValue(cbor)
     DevLoginRequest::class -> devLoginRequestFromCborValue(cbor)
@@ -2008,6 +2303,24 @@ fun encodeShareDeleteShareRequest(value: ShareID): ByteArray = CsilCbor.encode(C
 
 /** Decode canonical CSIL CBOR bytes into the ShareDeleteShareRequest payload. */
 fun decodeShareDeleteShareRequest(bytes: ByteArray): ShareID {
+    val csilRoot = CsilCbor.decode(bytes)
+    return CsilCbor.asText(csilRoot)
+}
+
+/** Encode the GroupGetGroupRequest payload to canonical CSIL CBOR bytes. */
+fun encodeGroupGetGroupRequest(value: GroupID): ByteArray = CsilCbor.encode(CborValue.CText(value))
+
+/** Decode canonical CSIL CBOR bytes into the GroupGetGroupRequest payload. */
+fun decodeGroupGetGroupRequest(bytes: ByteArray): GroupID {
+    val csilRoot = CsilCbor.decode(bytes)
+    return CsilCbor.asText(csilRoot)
+}
+
+/** Encode the GroupDeleteGroupRequest payload to canonical CSIL CBOR bytes. */
+fun encodeGroupDeleteGroupRequest(value: GroupID): ByteArray = CsilCbor.encode(CborValue.CText(value))
+
+/** Decode canonical CSIL CBOR bytes into the GroupDeleteGroupRequest payload. */
+fun decodeGroupDeleteGroupRequest(bytes: ByteArray): GroupID {
     val csilRoot = CsilCbor.decode(bytes)
     return CsilCbor.asText(csilRoot)
 }

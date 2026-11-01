@@ -6,8 +6,10 @@ public record Share(
     ShareId shareId /* wire: "share_id" */,
     CalendarId calendarId /* wire: "calendar_id" */,
     IdentityRef grantee /* wire: "grantee" */,
+    GroupId granteeGroupId /* wire: "grantee_group_id" */,
     ShareRole role /* wire: "role" */,
     PersonSummary granteePerson /* wire: "grantee_person" */,
+    String granteeGroupName /* wire: "grantee_group_name" */,
     Timestamp createdAt /* wire: "created_at" */
 ) {
 }

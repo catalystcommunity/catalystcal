@@ -23,6 +23,10 @@ abstract interface class AuthServiceHandler {
   LoginResponse releasePrincipal(EmptyRequest request);
   LoginResponse exchangeActAsCredential(ExchangeActAsCredentialRequest request);
   ScopeSetResponse getActAsScopeSet(ScopeSetRequest request);
+  ApplicationIdentityResponse getApplicationIdentity(EmptyRequest request);
+  LoginResponse exchangeApplicationPresentation(
+    ExchangeApplicationPresentationRequest request,
+  );
 }
 
 /// The DevAuthService service contract. A host `implements` this; the router
@@ -59,6 +63,17 @@ abstract interface class ShareServiceHandler {
   ShareList listShares(CalendarId request);
   Share putShare(Share request);
   EmptyResponse deleteShare(ShareId request);
+}
+
+/// The GroupService service contract. A host `implements` this; the router
+/// dispatches decoded requests/messages to it.
+abstract interface class GroupServiceHandler {
+  GroupList listGroups(EmptyRequest request);
+  Group getGroup(GroupId request);
+  Group createGroup(CreateGroupRequest request);
+  Group updateGroup(UpdateGroupRequest request);
+  Group setMembers(SetGroupMembersRequest request);
+  EmptyResponse deleteGroup(GroupId request);
 }
 
 /// The DelegationService service contract. A host `implements` this; the router

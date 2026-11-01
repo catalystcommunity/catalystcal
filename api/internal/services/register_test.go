@@ -17,6 +17,7 @@ var generatedServices = []reflect.Type{
 	reflect.TypeOf((*csil.UserService)(nil)).Elem(),
 	reflect.TypeOf((*csil.CalendarService)(nil)).Elem(),
 	reflect.TypeOf((*csil.ShareService)(nil)).Elem(),
+	reflect.TypeOf((*csil.GroupService)(nil)).Elem(),
 	reflect.TypeOf((*csil.DelegationService)(nil)).Elem(),
 	reflect.TypeOf((*csil.EventService)(nil)).Elem(),
 	reflect.TypeOf((*csil.FreeBusyService)(nil)).Elem(),
@@ -41,9 +42,9 @@ func TestEveryGeneratedOpIsRegistered(t *testing.T) {
 			}
 		}
 	}
-	// 8 + 2 + 3 + 8 + 3 + 5 + 9 + 1 + 3 + 1 ops in csil/catalystcal.csil.
-	if total != 43 {
-		t.Fatalf("walked %d ops, want 43: a service interface is missing from generatedServices", total)
+	// 10 + 2 + 3 + 8 + 3 + 6 + 5 + 9 + 1 + 3 + 1 ops in csil/catalystcal.csil.
+	if total != 51 {
+		t.Fatalf("walked %d ops, want 51: a service interface is missing from generatedServices", total)
 	}
 }
 
@@ -60,7 +61,7 @@ func TestDevAuthAbsentWhenDisabled(t *testing.T) {
 func TestServiceTypesImplementInterfaces(t *testing.T) {
 	deps := &Deps{}
 	impls := []any{&AuthService{deps}, &DevAuthService{deps}, &UserService{deps}, &CalendarService{deps}, &ShareService{deps},
-		&DelegationService{deps}, &EventService{deps}, &FreeBusyService{deps}, &IcsService{deps}, &AuditService{deps}}
+		&GroupService{deps}, &DelegationService{deps}, &EventService{deps}, &FreeBusyService{deps}, &IcsService{deps}, &AuditService{deps}}
 	for i, it := range generatedServices {
 		if !reflect.TypeOf(impls[i]).Implements(it) {
 			t.Errorf("%T does not implement %s", impls[i], it.Name())

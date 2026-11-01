@@ -33,14 +33,53 @@ func (s *EventService) begin(ctx context.Context) (*auth.Identity, *resolver, er
 	return id, r, nil
 }
 
-// requireWritable refuses event writes the caller may not make. The
-// caller already passed the 404 check.
+// requireWritable refuses writes that need write access to every event of
+// the calendar (an iCalendar import). The caller already passed the 404
+// check.
 func requireWritable(c store.Calendar, acc access.Access) error {
 	if !acc.CanWrite() {
 		return csilrpc.Forbidden("you cannot change events on this calendar")
 	}
 	if c.Kind == "subscription" {
 		return csilrpc.Forbidden("subscription calendars are read-only")
+	}
+	return nil
+}
+
+// requireCreatable refuses a new event the caller may not add.
+func requireCreatable(c store.Calendar, acc access.Access) error {
+	if !acc.CanCreate() {
+		return csilrpc.Forbidden("you cannot add events to this calendar")
+	}
+	if c.Kind == "subscription" {
+		return csilrpc.Forbidden("subscription calendars are read-only")
+	}
+	return nil
+}
+
+// requireEditable refuses a change to an existing event row that the
+// caller may not make. Contribute access changes only the series that the
+// effective user created; an override follows its master.
+func (s *EventService) requireEditable(ctx context.Context, id *auth.Identity, c store.Calendar, acc access.Access, row store.Event) error {
+	if c.Kind == "subscription" {
+		return csilrpc.Forbidden("subscription calendars are read-only")
+	}
+	if acc.CanWrite() {
+		return nil
+	}
+	creator := row.CreatedByID
+	if m := row.MasterID(); m != "" {
+		master, err := s.Store.GetEvent(ctx, m)
+		if err != nil {
+			return internal(err, "load series master")
+		}
+		creator = master.CreatedByID
+	}
+	if !acc.CanEditEvent(id, creator) {
+		if acc.CanCreate() {
+			return csilrpc.Forbidden("you can change only the events that you created on this calendar")
+		}
+		return csilrpc.Forbidden("you cannot change events on this calendar")
 	}
 	return nil
 }
@@ -216,7 +255,7 @@ func (s *EventService) CreateEvent(ctx context.Context, req csil.Event) (csil.Ev
 		return csil.Event{}, err
 	}
 	csilrpc.SetAuditTarget(ctx, "calendar:"+c.ID)
-	if err := requireWritable(c, acc); err != nil {
+	if err := requireCreatable(c, acc); err != nil {
 		return csil.Event{}, err
 	}
 	if err := validateContent(&ev); err != nil {
@@ -306,7 +345,7 @@ func (s *EventService) UpdateEvent(ctx context.Context, req csil.UpdateEventRequ
 		return csil.Event{}, err
 	}
 	csilrpc.SetAuditTarget(ctx, "event:"+prev.ID())
-	if err := requireWritable(c, acc); err != nil {
+	if err := s.requireEditable(ctx, id, c, acc, prev); err != nil {
 		return csil.Event{}, err
 	}
 	content := req.Event
@@ -459,7 +498,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 		return csil.EmptyResponse{}, err
 	}
 	csilrpc.SetAuditTarget(ctx, "event:"+row.ID())
-	if err := requireWritable(c, acc); err != nil {
+	if err := s.requireEditable(ctx, id, c, acc, row); err != nil {
 		return csil.EmptyResponse{}, err
 	}
 	scope := scopeOf(req.Scope)
@@ -542,9 +581,9 @@ func (s *EventService) deleteRow(ctx context.Context, id string) (csil.EmptyResp
 // ---- move ----------------------------------------------------------------
 
 // MoveEvent moves an event (with its overrides) to another calendar. The
-// caller needs write access on both.
+// caller must be able to change the event and to add events to the target.
 func (s *EventService) MoveEvent(ctx context.Context, req csil.MoveEventRequest) (csil.Event, error) {
-	_, r, err := s.begin(ctx)
+	id, r, err := s.begin(ctx)
 	if err != nil {
 		return csil.Event{}, err
 	}
@@ -553,7 +592,7 @@ func (s *EventService) MoveEvent(ctx context.Context, req csil.MoveEventRequest)
 		return csil.Event{}, err
 	}
 	csilrpc.SetAuditTarget(ctx, "event:"+row.ID())
-	if err := requireWritable(c, acc); err != nil {
+	if err := s.requireEditable(ctx, id, c, acc, row); err != nil {
 		return csil.Event{}, err
 	}
 	if row.MasterID() != "" {
@@ -563,7 +602,7 @@ func (s *EventService) MoveEvent(ctx context.Context, req csil.MoveEventRequest)
 	if err != nil {
 		return csil.Event{}, err
 	}
-	if err := requireWritable(tc, tacc); err != nil {
+	if err := requireCreatable(tc, tacc); err != nil {
 		return csil.Event{}, err
 	}
 	if tc.ID != c.ID {

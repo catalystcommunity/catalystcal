@@ -123,11 +123,15 @@ func (s *DelegationService) CreateDelegation(ctx context.Context, req csil.Deleg
 	if err != nil {
 		return csil.Delegation{}, err
 	}
-	domain, subject, _, err := s.resolveRef(ctx, req.Delegate)
+	who, _, err := s.resolveRef(ctx, req.Delegate)
 	if err != nil {
 		return csil.Delegation{}, err
 	}
-	if strings.EqualFold(domain, id.Domain) && subject == id.Subject {
+	if who.Application != "" {
+		return csil.Delegation{}, badReq("a delegate is a person; an application uses a LinkKeys act-as grant")
+	}
+	domain, subject := who.Domain, who.Subject
+	if strings.EqualFold(domain, id.Domain) && subject == id.Subject && id.ApplicationID == "" {
 		return csil.Delegation{}, badReq("you cannot delegate to yourself")
 	}
 	scopes, cals, err := s.checkScopesAndCalendars(ctx, id.UserID, req)

@@ -63,6 +63,14 @@ class AuthClient:
         """get-act-as-scope-set"""
         return ScopeSetResponse.from_cbor(self._transport.call("AuthService", "get-act-as-scope-set", req.to_cbor()))
 
+    def get_application_identity(self, req: EmptyRequest) -> ApplicationIdentityResponse:
+        """get-application-identity"""
+        return ApplicationIdentityResponse.from_cbor(self._transport.call("AuthService", "get-application-identity", req.to_cbor()))
+
+    def exchange_application_presentation(self, req: ExchangeApplicationPresentationRequest) -> LoginResponse:
+        """exchange-application-presentation"""
+        return LoginResponse.from_cbor(self._transport.call("AuthService", "exchange-application-presentation", req.to_cbor()))
+
 class DevAuthClient:
     """Typed client for the DevAuthService service."""
     def __init__(self, transport: Transport):
@@ -146,6 +154,35 @@ class ShareClient:
     def delete_share(self, req: ShareId) -> EmptyResponse:
         """delete-share"""
         return EmptyResponse.from_cbor(self._transport.call("ShareService", "delete-share", encode_share_delete_share_request(req)))
+
+class GroupClient:
+    """Typed client for the GroupService service."""
+    def __init__(self, transport: Transport):
+        self._transport = transport
+
+    def list_groups(self, req: EmptyRequest) -> GroupList:
+        """list-groups"""
+        return GroupList.from_cbor(self._transport.call("GroupService", "list-groups", req.to_cbor()))
+
+    def get_group(self, req: GroupId) -> Group:
+        """get-group"""
+        return Group.from_cbor(self._transport.call("GroupService", "get-group", encode_group_get_group_request(req)))
+
+    def create_group(self, req: CreateGroupRequest) -> Group:
+        """create-group"""
+        return Group.from_cbor(self._transport.call("GroupService", "create-group", req.to_cbor()))
+
+    def update_group(self, req: UpdateGroupRequest) -> Group:
+        """update-group"""
+        return Group.from_cbor(self._transport.call("GroupService", "update-group", req.to_cbor()))
+
+    def set_members(self, req: SetGroupMembersRequest) -> Group:
+        """set-members"""
+        return Group.from_cbor(self._transport.call("GroupService", "set-members", req.to_cbor()))
+
+    def delete_group(self, req: GroupId) -> EmptyResponse:
+        """delete-group"""
+        return EmptyResponse.from_cbor(self._transport.call("GroupService", "delete-group", encode_group_delete_group_request(req)))
 
 class DelegationClient:
     """Typed client for the DelegationService service."""

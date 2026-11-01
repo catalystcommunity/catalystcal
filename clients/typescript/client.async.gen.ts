@@ -2,8 +2,8 @@
 // Source: <csil spec>
 // Target: typescript-client
 
-import type { AssumePrincipalRequest, AuditList, AuditQuery, Calendar, CalendarID, CalendarList, CompleteRequest, CreateCalendarRequest, Delegation, DelegationID, DelegationList, DeleteEventRequest, DevLoginRequest, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, ExchangeActAsCredentialRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, IcsDocument, ImportIcsRequest, ImportResult, ListEventsRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, OccurrenceList, PersonSummary, RespondRequest, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, SetFeedRequest, Share, ShareID, ShareList, SubscribeCalendarRequest, UpdateCalendarRequest, UpdateEventRequest, UpdateProfileRequest, User } from "./types.gen";
-import { encodeValue, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromDelegationCbor, fromDelegationListCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromUserCbor, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toShareCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
+import type { ApplicationIdentityResponse, AssumePrincipalRequest, AuditList, AuditQuery, Calendar, CalendarID, CalendarList, CompleteRequest, CreateCalendarRequest, CreateGroupRequest, Delegation, DelegationID, DelegationList, DeleteEventRequest, DevLoginRequest, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, Group, GroupID, GroupList, IcsDocument, ImportIcsRequest, ImportResult, ListEventsRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, OccurrenceList, PersonSummary, RespondRequest, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, SubscribeCalendarRequest, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User } from "./types.gen";
+import { encodeValue, fromApplicationIdentityResponseCbor, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromDelegationCbor, fromDelegationListCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromGroupCbor, fromGroupListCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromUserCbor, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toCreateGroupRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExchangeApplicationPresentationRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toSetGroupMembersRequestCbor, toShareCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateGroupRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
 
 export interface AsyncServiceTransport {
   call(service: string, op: string, req: Uint8Array): Promise<Uint8Array>;
@@ -95,6 +95,24 @@ export class AuthAsyncClient {
   async getActAsScopeSet(req: ScopeSetRequest): Promise<ScopeSetResponse> {
     const csilResp = await this.t.call("AuthService", "get-act-as-scope-set", toScopeSetRequestCbor(req));
     return fromScopeSetResponseCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async getApplicationIdentity(req: EmptyRequest): Promise<ApplicationIdentityResponse> {
+    const csilResp = await this.t.call("AuthService", "get-application-identity", toEmptyRequestCbor(req));
+    return fromApplicationIdentityResponseCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async exchangeApplicationPresentation(req: ExchangeApplicationPresentationRequest): Promise<LoginResponse> {
+    const csilResp = await this.t.call("AuthService", "exchange-application-presentation", toExchangeApplicationPresentationRequestCbor(req));
+    return fromLoginResponseCbor(csilResp);
   }
 }
 
@@ -343,6 +361,64 @@ export class FreeBusyAsyncClient {
   }
 }
 
+export class GroupAsyncClient {
+  constructor(private readonly t: AsyncServiceTransport) {}
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async listGroups(req: EmptyRequest): Promise<GroupList> {
+    const csilResp = await this.t.call("GroupService", "list-groups", toEmptyRequestCbor(req));
+    return fromGroupListCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async getGroup(req: GroupID): Promise<Group> {
+    const csilResp = await this.t.call("GroupService", "get-group", encodeValue(req));
+    return fromGroupCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async createGroup(req: CreateGroupRequest): Promise<Group> {
+    const csilResp = await this.t.call("GroupService", "create-group", toCreateGroupRequestCbor(req));
+    return fromGroupCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async updateGroup(req: UpdateGroupRequest): Promise<Group> {
+    const csilResp = await this.t.call("GroupService", "update-group", toUpdateGroupRequestCbor(req));
+    return fromGroupCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async setMembers(req: SetGroupMembersRequest): Promise<Group> {
+    const csilResp = await this.t.call("GroupService", "set-members", toSetGroupMembersRequestCbor(req));
+    return fromGroupCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async deleteGroup(req: GroupID): Promise<EmptyResponse> {
+    const csilResp = await this.t.call("GroupService", "delete-group", encodeValue(req));
+    return fromEmptyResponseCbor(csilResp);
+  }
+}
+
 export class IcsAsyncClient {
   constructor(private readonly t: AsyncServiceTransport) {}
 
@@ -444,6 +520,7 @@ export class AsyncApiClient {
   readonly devAuth: DevAuthAsyncClient;
   readonly event: EventAsyncClient;
   readonly freeBusy: FreeBusyAsyncClient;
+  readonly group: GroupAsyncClient;
   readonly ics: IcsAsyncClient;
   readonly share: ShareAsyncClient;
   readonly user: UserAsyncClient;
@@ -455,6 +532,7 @@ export class AsyncApiClient {
     this.devAuth = new DevAuthAsyncClient(t);
     this.event = new EventAsyncClient(t);
     this.freeBusy = new FreeBusyAsyncClient(t);
+    this.group = new GroupAsyncClient(t);
     this.ics = new IcsAsyncClient(t);
     this.share = new ShareAsyncClient(t);
     this.user = new UserAsyncClient(t);

@@ -14,4 +14,6 @@ public interface AuthService {
     LoginResponse releasePrincipal(EmptyRequest req);
     LoginResponse exchangeActAsCredential(ExchangeActAsCredentialRequest req);
     ScopeSetResponse getActAsScopeSet(ScopeSetRequest req);
+    ApplicationIdentityResponse getApplicationIdentity(EmptyRequest req);
+    LoginResponse exchangeApplicationPresentation(ExchangeApplicationPresentationRequest req);
 }

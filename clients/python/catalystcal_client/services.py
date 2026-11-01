@@ -59,6 +59,16 @@ class AuthServiceHandlers(ABC):
         """get-act-as-scope-set"""
         ...
 
+    @abstractmethod
+    def get_application_identity(self, req: EmptyRequest, ctx: dict) -> Union[ApplicationIdentityResponse, ServiceError]:
+        """get-application-identity"""
+        ...
+
+    @abstractmethod
+    def exchange_application_presentation(self, req: ExchangeApplicationPresentationRequest, ctx: dict) -> Union[LoginResponse, ServiceError]:
+        """exchange-application-presentation"""
+        ...
+
 class DevAuthServiceHandlers(ABC):
     """Server-side handlers for DevAuthService service operations."""
 
@@ -149,6 +159,39 @@ class ShareServiceHandlers(ABC):
     @abstractmethod
     def delete_share(self, req: ShareId, ctx: dict) -> Union[EmptyResponse, ServiceError]:
         """delete-share"""
+        ...
+
+class GroupServiceHandlers(ABC):
+    """Server-side handlers for GroupService service operations."""
+
+    @abstractmethod
+    def list_groups(self, req: EmptyRequest, ctx: dict) -> Union[GroupList, ServiceError]:
+        """list-groups"""
+        ...
+
+    @abstractmethod
+    def get_group(self, req: GroupId, ctx: dict) -> Union[Group, ServiceError]:
+        """get-group"""
+        ...
+
+    @abstractmethod
+    def create_group(self, req: CreateGroupRequest, ctx: dict) -> Union[Group, ServiceError]:
+        """create-group"""
+        ...
+
+    @abstractmethod
+    def update_group(self, req: UpdateGroupRequest, ctx: dict) -> Union[Group, ServiceError]:
+        """update-group"""
+        ...
+
+    @abstractmethod
+    def set_members(self, req: SetGroupMembersRequest, ctx: dict) -> Union[Group, ServiceError]:
+        """set-members"""
+        ...
+
+    @abstractmethod
+    def delete_group(self, req: GroupId, ctx: dict) -> Union[EmptyResponse, ServiceError]:
+        """delete-group"""
         ...
 
 class DelegationServiceHandlers(ABC):

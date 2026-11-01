@@ -18,15 +18,17 @@ DelegationId = str
 
 AuditId = str
 
+GroupId = str
+
 SessionId = str
 
 Timestamp = str
 
 DateText = str
 
-ShareRole = Union[str, str, str, str]
+ShareRole = Union[str, str, str, str, str]
 
-AccessRole = Union[str, str, str, str, str, str]
+AccessRole = Union[str, str, str, str, str, str, str]
 
 AccessPath = Union[str, str, str, str]
 
@@ -55,6 +57,7 @@ class IdentityRef:
     domain: str
     user_id: Optional[str] = None
     handle: Optional[str] = None
+    application_id: Optional[str] = None
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {}
@@ -64,12 +67,14 @@ class IdentityRef:
             result['user_id'] = self.user_id
         if hasattr(self, 'handle') and self.handle is not None:
             result['handle'] = self.handle
+        if hasattr(self, 'application_id') and self.application_id is not None:
+            result['application_id'] = self.application_id
         return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'IdentityRef':
         """Create instance from dictionary."""
-        return cls(domain=data.get('domain'), user_id=data.get('user_id'), handle=data.get('handle'))
+        return cls(domain=data.get('domain'), user_id=data.get('user_id'), handle=data.get('handle'), application_id=data.get('application_id'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -88,6 +93,7 @@ class User:
     subject: str
     created_at: Timestamp
     updated_at: Timestamp
+    application_id: Optional[str] = None
     handle: Optional[str] = None
     display_name: Optional[str] = None
     email: Optional[str] = None
@@ -104,7 +110,7 @@ class User:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'User':
         """Create instance from dictionary."""
-        return cls(user_id=data.get('user_id'), domain=data.get('domain'), subject=data.get('subject'), handle=data.get('handle'), display_name=data.get('display_name'), email=data.get('email'), timezone=data.get('timezone'), created_at=data.get('created_at'), updated_at=data.get('updated_at'))
+        return cls(user_id=data.get('user_id'), domain=data.get('domain'), subject=data.get('subject'), application_id=data.get('application_id'), handle=data.get('handle'), display_name=data.get('display_name'), email=data.get('email'), timezone=data.get('timezone'), created_at=data.get('created_at'), updated_at=data.get('updated_at'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -121,6 +127,7 @@ class PersonSummary:
     user_id: UserId
     domain: str
     subject: str
+    application_id: Optional[str] = None
     handle: Optional[str] = None
     display_name: Optional[str] = None
     def to_dict(self) -> Dict[str, Any]:
@@ -132,6 +139,8 @@ class PersonSummary:
             result['domain'] = self.domain
         if hasattr(self, 'subject') and self.subject is not None:
             result['subject'] = self.subject
+        if hasattr(self, 'application_id') and self.application_id is not None:
+            result['application_id'] = self.application_id
         if hasattr(self, 'handle') and self.handle is not None:
             result['handle'] = self.handle
         if hasattr(self, 'display_name') and self.display_name is not None:
@@ -141,7 +150,7 @@ class PersonSummary:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'PersonSummary':
         """Create instance from dictionary."""
-        return cls(user_id=data.get('user_id'), domain=data.get('domain'), subject=data.get('subject'), handle=data.get('handle'), display_name=data.get('display_name'))
+        return cls(user_id=data.get('user_id'), domain=data.get('domain'), subject=data.get('subject'), application_id=data.get('application_id'), handle=data.get('handle'), display_name=data.get('display_name'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -408,10 +417,12 @@ class CalendarList:
 class Share:
     share_id: ShareId
     calendar_id: CalendarId
-    grantee: IdentityRef
     role: ShareRole
     created_at: Timestamp
+    grantee: Optional[IdentityRef] = None
+    grantee_group_id: Optional[GroupId] = None
     grantee_person: Optional[PersonSummary] = None
+    grantee_group_name: Optional[str] = None
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {}
@@ -419,6 +430,8 @@ class Share:
             result['calendar_id'] = self.calendar_id
         if hasattr(self, 'grantee') and self.grantee is not None:
             result['grantee'] = self.grantee
+        if hasattr(self, 'grantee_group_id') and self.grantee_group_id is not None:
+            result['grantee_group_id'] = self.grantee_group_id
         if hasattr(self, 'role') and self.role is not None:
             result['role'] = self.role
         return result
@@ -426,7 +439,7 @@ class Share:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Share':
         """Create instance from dictionary."""
-        return cls(share_id=data.get('share_id'), calendar_id=data.get('calendar_id'), grantee=data.get('grantee'), role=data.get('role'), grantee_person=data.get('grantee_person'), created_at=data.get('created_at'))
+        return cls(share_id=data.get('share_id'), calendar_id=data.get('calendar_id'), grantee=data.get('grantee'), grantee_group_id=data.get('grantee_group_id'), role=data.get('role'), grantee_person=data.get('grantee_person'), grantee_group_name=data.get('grantee_group_name'), created_at=data.get('created_at'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""
@@ -459,6 +472,224 @@ class ShareList:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'ShareList':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class GroupMember:
+    identity: Optional[IdentityRef] = None
+    group_id: Optional[GroupId] = None
+    person: Optional[PersonSummary] = None
+    group_name: Optional[str] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'identity') and self.identity is not None:
+            result['identity'] = self.identity
+        if hasattr(self, 'group_id') and self.group_id is not None:
+            result['group_id'] = self.group_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'GroupMember':
+        """Create instance from dictionary."""
+        return cls(identity=data.get('identity'), group_id=data.get('group_id'), person=data.get('person'), group_name=data.get('group_name'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'GroupMember':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class Group:
+    group_id: GroupId
+    owner: PersonSummary
+    name: str
+    revision: int
+    members: List[GroupMember]
+    created_at: Timestamp
+    updated_at: Timestamp
+    description: Optional[str] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'name') and self.name is not None:
+            result['name'] = self.name
+        if hasattr(self, 'description') and self.description is not None:
+            result['description'] = self.description
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Group':
+        """Create instance from dictionary."""
+        return cls(group_id=data.get('group_id'), owner=data.get('owner'), name=data.get('name'), description=data.get('description'), revision=data.get('revision'), members=data.get('members'), created_at=data.get('created_at'), updated_at=data.get('updated_at'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'Group':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.name is not None and len(self.name) < 1:
+            raise ValueError("Field 'name' must have length >= 1")
+        if self.name is not None and len(self.name) > 256:
+            raise ValueError("Field 'name' must have length <= 256")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class CreateGroupRequest:
+    name: str
+    description: Optional[str] = None
+    members: Optional[List[GroupMember]] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'name') and self.name is not None:
+            result['name'] = self.name
+        if hasattr(self, 'description') and self.description is not None:
+            result['description'] = self.description
+        if hasattr(self, 'members') and self.members is not None:
+            result['members'] = self.members
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CreateGroupRequest':
+        """Create instance from dictionary."""
+        return cls(name=data.get('name'), description=data.get('description'), members=data.get('members'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'CreateGroupRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.name is not None and len(self.name) < 1:
+            raise ValueError("Field 'name' must have length >= 1")
+        if self.name is not None and len(self.name) > 256:
+            raise ValueError("Field 'name' must have length <= 256")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class UpdateGroupRequest:
+    group_id: GroupId
+    name: Optional[str] = None
+    description: Optional[str] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'group_id') and self.group_id is not None:
+            result['group_id'] = self.group_id
+        if hasattr(self, 'name') and self.name is not None:
+            result['name'] = self.name
+        if hasattr(self, 'description') and self.description is not None:
+            result['description'] = self.description
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'UpdateGroupRequest':
+        """Create instance from dictionary."""
+        return cls(group_id=data.get('group_id'), name=data.get('name'), description=data.get('description'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'UpdateGroupRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.name is not None and len(self.name) < 1:
+            raise ValueError("Field 'name' must have length >= 1")
+        if self.name is not None and len(self.name) > 256:
+            raise ValueError("Field 'name' must have length <= 256")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class SetGroupMembersRequest:
+    group_id: GroupId
+    members: List[GroupMember]
+    expected_revision: Optional[int] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'group_id') and self.group_id is not None:
+            result['group_id'] = self.group_id
+        if hasattr(self, 'expected_revision') and self.expected_revision is not None:
+            result['expected_revision'] = self.expected_revision
+        if hasattr(self, 'members') and self.members is not None:
+            result['members'] = self.members
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SetGroupMembersRequest':
+        """Create instance from dictionary."""
+        return cls(group_id=data.get('group_id'), expected_revision=data.get('expected_revision'), members=data.get('members'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SetGroupMembersRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class GroupList:
+    groups: List[Group]
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'groups') and self.groups is not None:
+            result['groups'] = self.groups
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'GroupList':
+        """Create instance from dictionary."""
+        return cls(groups=data.get('groups'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'GroupList':
         """Create instance from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
@@ -1608,6 +1839,158 @@ class ScopeSetResponse:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'ScopeSetResponse':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ApplicationRef:
+    subject_user_id: str
+    subject_domain: str
+    application_id: str
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'subject_user_id') and self.subject_user_id is not None:
+            result['subject_user_id'] = self.subject_user_id
+        if hasattr(self, 'subject_domain') and self.subject_domain is not None:
+            result['subject_domain'] = self.subject_domain
+        if hasattr(self, 'application_id') and self.application_id is not None:
+            result['application_id'] = self.application_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ApplicationRef':
+        """Create instance from dictionary."""
+        return cls(subject_user_id=data.get('subject_user_id'), subject_domain=data.get('subject_domain'), application_id=data.get('application_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ApplicationRef':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ApplicationPresentation:
+    signer: ApplicationRef
+    signer_instance_id: str
+    audience: ApplicationRef
+    request_digest: bytes
+    presented_at: Timestamp
+    nonce: bytes
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'signer') and self.signer is not None:
+            result['signer'] = self.signer
+        if hasattr(self, 'signer_instance_id') and self.signer_instance_id is not None:
+            result['signer_instance_id'] = self.signer_instance_id
+        if hasattr(self, 'audience') and self.audience is not None:
+            result['audience'] = self.audience
+        if hasattr(self, 'request_digest') and self.request_digest is not None:
+            result['request_digest'] = self.request_digest
+        if hasattr(self, 'presented_at') and self.presented_at is not None:
+            result['presented_at'] = self.presented_at
+        if hasattr(self, 'nonce') and self.nonce is not None:
+            result['nonce'] = self.nonce
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ApplicationPresentation':
+        """Create instance from dictionary."""
+        return cls(signer=data.get('signer'), signer_instance_id=data.get('signer_instance_id'), audience=data.get('audience'), request_digest=data.get('request_digest'), presented_at=data.get('presented_at'), nonce=data.get('nonce'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ApplicationPresentation':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class SignedApplicationPresentation:
+    presentation: bytes
+    signed_by_key_id: str
+    signature: bytes
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'presentation') and self.presentation is not None:
+            result['presentation'] = self.presentation
+        if hasattr(self, 'signed_by_key_id') and self.signed_by_key_id is not None:
+            result['signed_by_key_id'] = self.signed_by_key_id
+        if hasattr(self, 'signature') and self.signature is not None:
+            result['signature'] = self.signature
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SignedApplicationPresentation':
+        """Create instance from dictionary."""
+        return cls(presentation=data.get('presentation'), signed_by_key_id=data.get('signed_by_key_id'), signature=data.get('signature'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SignedApplicationPresentation':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ExchangeApplicationPresentationRequest:
+    presentation: SignedApplicationPresentation
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'presentation') and self.presentation is not None:
+            result['presentation'] = self.presentation
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ExchangeApplicationPresentationRequest':
+        """Create instance from dictionary."""
+        return cls(presentation=data.get('presentation'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ExchangeApplicationPresentationRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ApplicationIdentityResponse:
+    audience: ApplicationRef
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'audience') and self.audience is not None:
+            result['audience'] = self.audience
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ApplicationIdentityResponse':
+        """Create instance from dictionary."""
+        return cls(audience=data.get('audience'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ApplicationIdentityResponse':
         """Create instance from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

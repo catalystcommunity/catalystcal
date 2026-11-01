@@ -107,6 +107,17 @@ party.
 Do not edit generated files. They are `api/internal/csil/`, `clients/`,
 and each `*.gen.*` file. The next `./tools gen` replaces them.
 
+The one exception in `clients/` is `clients/overlays/<lang>/`. It holds
+hand-written client code. `clients/regenerate.sh` copies it over the
+generated package of that language. Edit the overlay. Then run
+`./tools gen` and commit the overlay and the copy. `./tools test-api` runs
+the Go client tests (`clients/go`).
+
+The release job writes the new version, runs `csil/regenerate.sh` (each
+client manifest carries the version), and commits the result with the
+version bump. It then tags that commit `clients/go/vX.Y.Z`, so a Go
+program can `go get github.com/catalystcommunity/catalystcal/clients/go@vX.Y.Z`.
+
 `csil/regenerate.sh` requires csilgen 0.2.10 exactly. A different version
 can change the generated code without a schema change. If you have more than
 one csilgen version, use an isolated install: put the 0.2.10 CLI first on

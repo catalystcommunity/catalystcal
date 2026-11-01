@@ -11,6 +11,7 @@ import (
 
 	"github.com/catalystcommunity/catalystcal/api/internal/access"
 	"github.com/catalystcommunity/catalystcal/api/internal/actas"
+	"github.com/catalystcommunity/catalystcal/api/internal/apppresent"
 	"github.com/catalystcommunity/catalystcal/api/internal/auth"
 	"github.com/catalystcommunity/catalystcal/api/internal/config"
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
@@ -28,7 +29,10 @@ type Deps struct {
 	// PKI is the LinkKeys RP client. Nil disables Complete.
 	PKI PKIClient
 	// ActAs is the act-as audience. Nil makes the act-as ops answer 503.
-	ActAs   actas.Provider
+	ActAs actas.Provider
+	// Apps verifies application presentations. Nil makes the application
+	// ops answer 503.
+	Apps    *apppresent.Verifier
 	Fetcher *subscription.Fetcher
 	Revoked *RevokedGrants
 	// Now is the clock.
@@ -123,25 +127,27 @@ func parseTS(field string, v csil.Timestamp) (time.Time, error) {
 
 func person(u store.User) csil.PersonSummary {
 	return csil.PersonSummary{
-		UserId:      csil.UserID(u.ID),
-		Domain:      u.Domain,
-		Subject:     u.Subject,
-		Handle:      optStr(u.Handle),
-		DisplayName: optStr(u.DisplayName),
+		UserId:        csil.UserID(u.ID),
+		Domain:        u.Domain,
+		Subject:       u.Subject,
+		ApplicationId: optStr(u.ApplicationID),
+		Handle:        optStr(u.Handle),
+		DisplayName:   optStr(u.DisplayName),
 	}
 }
 
 func userOut(u store.User) csil.User {
 	return csil.User{
-		UserId:      csil.UserID(u.ID),
-		Domain:      u.Domain,
-		Subject:     u.Subject,
-		Handle:      optStr(u.Handle),
-		DisplayName: optStr(u.DisplayName),
-		Email:       optStr(u.Email),
-		Timezone:    optStr(u.Timezone),
-		CreatedAt:   ts(u.CreatedAt),
-		UpdatedAt:   ts(u.UpdatedAt),
+		UserId:        csil.UserID(u.ID),
+		Domain:        u.Domain,
+		Subject:       u.Subject,
+		ApplicationId: optStr(u.ApplicationID),
+		Handle:        optStr(u.Handle),
+		DisplayName:   optStr(u.DisplayName),
+		Email:         optStr(u.Email),
+		Timezone:      optStr(u.Timezone),
+		CreatedAt:     ts(u.CreatedAt),
+		UpdatedAt:     ts(u.UpdatedAt),
 	}
 }
 
@@ -162,39 +168,47 @@ func (d *Deps) personByID(ctx context.Context, id string) (*csil.PersonSummary, 
 
 // ---- identities ----------------------------------------------------------
 
-// resolveRef turns an IdentityRef into (domain, subject) and the user, when
-// the person signed in here. A user_id needs no sign-in; a handle does.
-func (d *Deps) resolveRef(ctx context.Context, ref csil.IdentityRef) (domain, subject string, u *store.User, err error) {
-	domain = strings.ToLower(strings.TrimSpace(ref.Domain))
+// resolveRef turns an IdentityRef into a principal and the user, when the
+// person (or the application principal) signed in here. A user_id needs no
+// sign-in; a handle does. An application_id needs a user_id: a handle names
+// a person, not an application.
+func (d *Deps) resolveRef(ctx context.Context, ref csil.IdentityRef) (store.Principal, *store.User, error) {
+	domain := strings.ToLower(strings.TrimSpace(ref.Domain))
 	if domain == "" {
-		return "", "", nil, csilrpc.BadRequest("identity.domain is required")
+		return store.Principal{}, nil, csilrpc.BadRequest("identity.domain is required")
 	}
+	app := strings.TrimSpace(deref(ref.ApplicationId))
 	if ref.UserId != nil && *ref.UserId != "" {
-		subject = *ref.UserId
-		found, err := d.Store.GetUserByIdentity(ctx, domain, subject)
+		p := store.Principal{Domain: domain, Subject: *ref.UserId, Application: app}
+		found, err := d.Store.GetPrincipal(ctx, p.Domain, p.Subject, p.Application)
 		if err == nil {
-			return domain, subject, &found, nil
+			return p, &found, nil
 		}
 		if !errors.Is(err, store.ErrNotFound) {
-			return "", "", nil, internal(err, "resolve identity")
+			return store.Principal{}, nil, internal(err, "resolve identity")
 		}
-		return domain, subject, nil, nil
+		return p, nil, nil
+	}
+	if app != "" {
+		return store.Principal{}, nil, csilrpc.BadRequest("identity with application_id needs user_id")
 	}
 	if ref.Handle != nil && *ref.Handle != "" {
 		found, err := d.Store.GetUserByHandle(ctx, domain, strings.TrimPrefix(*ref.Handle, "@"))
 		if errors.Is(err, store.ErrNotFound) {
-			return "", "", nil, errHandleUnknown
+			return store.Principal{}, nil, errHandleUnknown
 		}
 		if err != nil {
-			return "", "", nil, internal(err, "resolve handle")
+			return store.Principal{}, nil, internal(err, "resolve handle")
 		}
-		return domain, found.Subject, &found, nil
+		return store.Principal{Domain: domain, Subject: found.Subject}, &found, nil
 	}
-	return "", "", nil, csilrpc.BadRequest("identity needs user_id or handle")
+	return store.Principal{}, nil, csilrpc.BadRequest("identity needs user_id or handle")
 }
 
-func identityRef(domain, subject string, u *store.User) csil.IdentityRef {
-	ref := csil.IdentityRef{Domain: domain, UserId: ptr(subject)}
+// identityRef is the output form of a principal: the account id, and the
+// handle when the person signed in here.
+func identityRef(p store.Principal, u *store.User) csil.IdentityRef {
+	ref := csil.IdentityRef{Domain: p.Domain, UserId: ptr(p.Subject), ApplicationId: optStr(p.Application)}
 	if u != nil && u.Handle != "" {
 		ref.Handle = ptr(u.Handle)
 	}
@@ -209,13 +223,18 @@ type resolver struct {
 	d  *Deps
 	id *auth.Identity
 	// The effective user's identity (the principal for a delegated bearer).
-	effDomain, effSubject string
-	delegationCalendars   []string
-	shareRoles            map[string]access.Role
+	// effApp is set for an application principal.
+	effDomain, effSubject, effApp string
+	delegationCalendars           []string
+	shareRoles                    map[string]access.Role
+	// groups holds the ids of the groups that contain the effective user.
+	// Nil until the first share lookup.
+	groups []string
 }
 
 func (d *Deps) resolver(ctx context.Context, id *auth.Identity) (*resolver, error) {
-	r := &resolver{d: d, id: id, effDomain: strings.ToLower(id.Domain), effSubject: id.Subject, shareRoles: map[string]access.Role{}}
+	r := &resolver{d: d, id: id, effDomain: strings.ToLower(id.Domain), effSubject: id.Subject, effApp: id.ApplicationID,
+		shareRoles: map[string]access.Role{}}
 	if id.EffectiveUserID() != id.UserID {
 		u, err := d.Store.GetUser(ctx, id.EffectiveUserID())
 		if err != nil {
@@ -224,7 +243,7 @@ func (d *Deps) resolver(ctx context.Context, id *auth.Identity) (*resolver, erro
 			}
 			return nil, internal(err, "load principal")
 		}
-		r.effDomain, r.effSubject = u.Domain, u.Subject
+		r.effDomain, r.effSubject, r.effApp = u.Domain, u.Subject, u.ApplicationID
 	}
 	if id.Via == auth.ViaDelegation && id.DelegationID != "" {
 		cals, err := d.Store.DelegationCalendars(ctx, id.DelegationID)
@@ -236,17 +255,53 @@ func (d *Deps) resolver(ctx context.Context, id *auth.Identity) (*resolver, erro
 	return r, nil
 }
 
+// principal is the effective user's identity.
+func (r *resolver) principal() store.Principal {
+	return store.Principal{Domain: r.effDomain, Subject: r.effSubject, Application: r.effApp}
+}
+
+// groupIDs returns the groups that contain the effective user. Group
+// membership is read at each call, so a removal works at once.
+func (r *resolver) groupIDs(ctx context.Context) ([]string, error) {
+	if r.groups != nil {
+		return r.groups, nil
+	}
+	ids, err := r.d.Store.GroupsContaining(ctx, r.principal())
+	if err != nil {
+		return nil, internal(err, "load groups")
+	}
+	if ids == nil {
+		ids = []string{}
+	}
+	r.groups = ids
+	return ids, nil
+}
+
+// highestRole is the highest of the share roles (direct and through
+// groups).
+func highestRole(roles []string) access.Role {
+	best := access.None
+	for _, s := range roles {
+		best = max(best, access.FromShareRole(s))
+	}
+	return best
+}
+
 // calendar returns the caller's effective access on a calendar.
 func (r *resolver) calendar(ctx context.Context, c store.Calendar) (access.Access, error) {
 	role, ok := r.shareRoles[c.ID]
 	if !ok {
 		role = access.None
 		if c.OwnerID != r.id.EffectiveUserID() {
-			s, err := r.d.Store.ShareRole(ctx, c.ID, r.effDomain, r.effSubject)
+			groups, err := r.groupIDs(ctx)
+			if err != nil {
+				return access.Access{}, err
+			}
+			roles, err := r.d.Store.ShareRoles(ctx, c.ID, r.principal(), groups)
 			if err != nil {
 				return access.Access{}, internal(err, "load share role")
 			}
-			role = access.FromShareRole(s)
+			role = highestRole(roles)
 		}
 		r.shareRoles[c.ID] = role
 	}
@@ -284,9 +339,19 @@ func (r *resolver) visibleCalendars(ctx context.Context) ([]store.Calendar, []ac
 	if err != nil {
 		return nil, nil, internal(err, "list calendars")
 	}
-	shared, err := r.d.Store.ListCalendarsSharedWith(ctx, r.effDomain, r.effSubject)
+	groups, err := r.groupIDs(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	shared, err := r.d.Store.ListCalendarsSharedWith(ctx, r.principal(), groups)
 	if err != nil {
 		return nil, nil, internal(err, "list shared calendars")
+	}
+	// One calendar can have more than one share for the caller: keep the
+	// highest role, and list the calendar once.
+	best := map[string]access.Role{}
+	for _, sc := range shared {
+		best[sc.Calendar.ID] = max(best[sc.Calendar.ID], access.FromShareRole(sc.Role))
 	}
 	var cals []store.Calendar
 	var accs []access.Access
@@ -299,11 +364,13 @@ func (r *resolver) visibleCalendars(ctx context.Context) ([]store.Calendar, []ac
 			cals, accs = append(cals, c), append(accs, a)
 		}
 	}
+	listed := map[string]bool{}
 	for _, sc := range shared {
-		if sc.Calendar.OwnerID == r.id.EffectiveUserID() {
+		if sc.Calendar.OwnerID == r.id.EffectiveUserID() || listed[sc.Calendar.ID] {
 			continue
 		}
-		r.shareRoles[sc.Calendar.ID] = access.FromShareRole(sc.Role)
+		listed[sc.Calendar.ID] = true
+		r.shareRoles[sc.Calendar.ID] = best[sc.Calendar.ID]
 		a, err := r.calendar(ctx, sc.Calendar)
 		if err != nil {
 			return nil, nil, err

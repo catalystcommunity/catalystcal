@@ -48,7 +48,7 @@ func (s *FreeBusyService) Query(ctx context.Context, req csil.FreeBusyRequest) (
 	out := csil.FreeBusyResponse{People: []csil.PersonFreeBusy{}}
 	for _, ref := range req.People {
 		pf := csil.PersonFreeBusy{Identity: ref, Busy: []csil.BusyInterval{}}
-		_, _, u, err := s.resolveRef(ctx, ref)
+		_, u, err := s.resolveRef(ctx, ref)
 		if err != nil {
 			if e, ok := err.(*csilrpc.Error); ok && e.Code == 404 {
 				out.People = append(out.People, pf)

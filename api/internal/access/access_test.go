@@ -155,3 +155,29 @@ func TestViewEvent(t *testing.T) {
 		})
 	}
 }
+
+func TestContribute(t *testing.T) {
+	bob := self("bob")
+	acc := Effective(bob, Facts{CalendarID: "c1", OwnerID: "alice", ShareRole: Contribute})
+	if acc.Role != Contribute || !acc.CanReadDetails() || !acc.CanCreate() || acc.CanWrite() || acc.Manage {
+		t.Fatalf("contribute access: %+v", acc)
+	}
+	if !acc.CanEditEvent(bob, "bob") || acc.CanEditEvent(bob, "alice") || acc.CanEditEvent(bob, "") {
+		t.Fatal("contribute edits only the caller's events")
+	}
+	write := Effective(bob, Facts{CalendarID: "c1", OwnerID: "alice", ShareRole: Write})
+	if !write.CanEditEvent(bob, "alice") {
+		t.Fatal("write edits every event")
+	}
+	read := Effective(bob, Facts{CalendarID: "c1", OwnerID: "alice", ShareRole: Read})
+	if read.CanCreate() || read.CanEditEvent(bob, "bob") {
+		t.Fatal("read cannot create or edit")
+	}
+	if FromShareRole("contribute") != Contribute || Contribute.CSIL() != "contribute" {
+		t.Fatal("contribute wire name")
+	}
+	// A delegate of the grantee with calendars.read only reads.
+	if a := Effective(delegated(ScopeCalendarsRead), Facts{CalendarID: "c9", OwnerID: "zed", ShareRole: Contribute}); a.Role != Read {
+		t.Fatalf("delegated cap: %v", a.Role)
+	}
+}

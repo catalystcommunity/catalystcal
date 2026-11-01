@@ -13,6 +13,8 @@ interface AuthService {
     fun releasePrincipal(request: EmptyRequest): LoginResponse
     fun exchangeActAsCredential(request: ExchangeActAsCredentialRequest): LoginResponse
     fun getActAsScopeSet(request: ScopeSetRequest): ScopeSetResponse
+    fun getApplicationIdentity(request: EmptyRequest): ApplicationIdentityResponse
+    fun exchangeApplicationPresentation(request: ExchangeApplicationPresentationRequest): LoginResponse
 }
 
 /** DevAuthService service interface (host implements). */
@@ -45,6 +47,16 @@ interface ShareService {
     fun listShares(request: CalendarID): ShareList
     fun putShare(request: Share): Share
     fun deleteShare(request: ShareID): EmptyResponse
+}
+
+/** GroupService service interface (host implements). */
+interface GroupService {
+    fun listGroups(request: EmptyRequest): GroupList
+    fun getGroup(request: GroupID): Group
+    fun createGroup(request: CreateGroupRequest): Group
+    fun updateGroup(request: UpdateGroupRequest): Group
+    fun setMembers(request: SetGroupMembersRequest): Group
+    fun deleteGroup(request: GroupID): EmptyResponse
 }
 
 /** DelegationService service interface (host implements). */

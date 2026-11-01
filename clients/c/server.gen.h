@@ -27,6 +27,8 @@ typedef struct AuthHandlers {
     int (*release_principal)(void *ctx, const EmptyRequest *req, LoginResponse *resp);
     int (*exchange_act_as_credential)(void *ctx, const ExchangeActAsCredentialRequest *req, LoginResponse *resp);
     int (*get_act_as_scope_set)(void *ctx, const ScopeSetRequest *req, ScopeSetResponse *resp);
+    int (*get_application_identity)(void *ctx, const EmptyRequest *req, ApplicationIdentityResponse *resp);
+    int (*exchange_application_presentation)(void *ctx, const ExchangeApplicationPresentationRequest *req, LoginResponse *resp);
 } AuthHandlers;
 
 /* DevAuthHandlers is the host's implementation of the DevAuthService service. */
@@ -60,6 +62,16 @@ typedef struct ShareHandlers {
     int (*put_share)(void *ctx, const Share *req, Share *resp);
     int (*delete_share)(void *ctx, const ShareID *req, EmptyResponse *resp);
 } ShareHandlers;
+
+/* GroupHandlers is the host's implementation of the GroupService service. */
+typedef struct GroupHandlers {
+    int (*list_groups)(void *ctx, const EmptyRequest *req, GroupList *resp);
+    int (*get_group)(void *ctx, const GroupID *req, Group *resp);
+    int (*create_group)(void *ctx, const CreateGroupRequest *req, Group *resp);
+    int (*update_group)(void *ctx, const UpdateGroupRequest *req, Group *resp);
+    int (*set_members)(void *ctx, const SetGroupMembersRequest *req, Group *resp);
+    int (*delete_group)(void *ctx, const GroupID *req, EmptyResponse *resp);
+} GroupHandlers;
 
 /* DelegationHandlers is the host's implementation of the DelegationService service. */
 typedef struct DelegationHandlers {

@@ -13,7 +13,7 @@ shared repository — then depend on it alongside the transport library:
 
 ```kotlin
 dependencies {
-    implementation("com.catalystcommunity.catalystcal.client:catalystcal-client:0.1.0")
+    implementation("com.catalystcommunity.catalystcal.client:catalystcal-client:0.1.1")
     implementation("community.catalyst.csilgen:csilgen-transport:0.1.0")
 }
 ```

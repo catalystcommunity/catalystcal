@@ -15,7 +15,7 @@ TODO: publish to a shared repository). Depend on it and on the transport library
 <dependency>
     <groupId>com.catalystcommunity.catalystcal.client</groupId>
     <artifactId>catalystcal-client</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 </dependency>
 <dependency>
     <groupId>community.catalyst.csilgen</groupId>

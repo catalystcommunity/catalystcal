@@ -62,6 +62,15 @@ data:
   {{- end }}
   {{- if .Values.actAs.enabled }}
   CATALYSTCAL_ACT_AS_APP_KEYS_FILE: {{ printf "%s/%s" (trimSuffix "/" .Values.actAs.mountPath) .Values.actAs.secretKey | quote }}
+  {{- with .Values.actAs.allowedApplications }}
+  CATALYSTCAL_ALLOWED_APPLICATIONS: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.actAs.appPresentationMaxAgeSeconds }}
+  CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS: {{ . | toString | quote }}
+  {{- end }}
+  {{- with .Values.actAs.appBearerTTLSeconds }}
+  CATALYSTCAL_APP_BEARER_TTL_SECONDS: {{ . | toString | quote }}
+  {{- end }}
   {{- end }}
   {{- range $k, $v := $c.extraEnv }}
   {{ $k }}: {{ $v | toString | quote }}

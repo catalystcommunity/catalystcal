@@ -34,6 +34,8 @@ pub type DelegationID = String;
 
 pub type AuditID = String;
 
+pub type GroupID = String;
+
 pub type SessionID = String;
 
 pub type Timestamp = String;
@@ -45,6 +47,7 @@ pub type DateText = String;
 pub enum ShareRole {
     FreeBusy,
     Read,
+    Contribute,
     Write,
     Manage,
 }
@@ -55,6 +58,7 @@ pub enum AccessRole {
     None,
     FreeBusy,
     Read,
+    Contribute,
     Write,
     Manage,
     Owner,
@@ -157,6 +161,7 @@ pub struct IdentityRef {
     pub domain: String,
     pub user_id: Option<String>,
     pub handle: Option<String>,
+    pub application_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -164,6 +169,7 @@ pub struct User {
     pub user_id: UserID,
     pub domain: String,
     pub subject: String,
+    pub application_id: Option<String>,
     pub handle: Option<String>,
     pub display_name: Option<String>,
     pub email: Option<String>,
@@ -177,6 +183,7 @@ pub struct PersonSummary {
     pub user_id: UserID,
     pub domain: String,
     pub subject: String,
+    pub application_id: Option<String>,
     pub handle: Option<String>,
     pub display_name: Option<String>,
 }
@@ -307,15 +314,113 @@ pub struct CalendarList {
 pub struct Share {
     pub share_id: ShareID,
     pub calendar_id: CalendarID,
-    pub grantee: IdentityRef,
+    pub grantee: Option<IdentityRef>,
+    pub grantee_group_id: Option<GroupID>,
     pub role: ShareRole,
     pub grantee_person: Option<PersonSummary>,
+    pub grantee_group_name: Option<String>,
     pub created_at: Timestamp,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ShareList {
     pub shares: Vec<Share>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupMember {
+    pub identity: Option<IdentityRef>,
+    pub group_id: Option<GroupID>,
+    pub person: Option<PersonSummary>,
+    pub group_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Group {
+    pub group_id: GroupID,
+    pub owner: PersonSummary,
+    /// constraint: size in 1..=256
+    pub name: String,
+    pub description: Option<String>,
+    pub revision: u64,
+    pub members: Vec<GroupMember>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+impl Group {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.name;
+            if v.is_empty() || v.len() > 256usize {
+                return Err(ValidationError {
+                    field: "name".to_string(),
+                    message: "length must be in 1..=256".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateGroupRequest {
+    /// constraint: size in 1..=256
+    pub name: String,
+    pub description: Option<String>,
+    pub members: Option<Vec<GroupMember>>,
+}
+
+impl CreateGroupRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.name;
+            if v.is_empty() || v.len() > 256usize {
+                return Err(ValidationError {
+                    field: "name".to_string(),
+                    message: "length must be in 1..=256".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpdateGroupRequest {
+    pub group_id: GroupID,
+    /// constraint: size in 1..=256
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
+impl UpdateGroupRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        if let Some(v) = &self.name {
+            if v.is_empty() || v.len() > 256usize {
+                return Err(ValidationError {
+                    field: "name".to_string(),
+                    message: "length must be in 1..=256".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SetGroupMembersRequest {
+    pub group_id: GroupID,
+    pub expected_revision: Option<u64>,
+    pub members: Vec<GroupMember>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupList {
+    pub groups: Vec<Group>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -637,6 +742,40 @@ pub struct ScopeSetRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScopeSetResponse {
     pub signed_scope_set: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApplicationRef {
+    pub subject_user_id: String,
+    pub subject_domain: String,
+    pub application_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApplicationPresentation {
+    pub signer: ApplicationRef,
+    pub signer_instance_id: String,
+    pub audience: ApplicationRef,
+    pub request_digest: Vec<u8>,
+    pub presented_at: Timestamp,
+    pub nonce: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SignedApplicationPresentation {
+    pub presentation: Vec<u8>,
+    pub signed_by_key_id: String,
+    pub signature: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExchangeApplicationPresentationRequest {
+    pub presentation: SignedApplicationPresentation,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApplicationIdentityResponse {
+    pub audience: ApplicationRef,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -19,6 +19,9 @@ const (
 	None Role = iota
 	FreeBusy
 	Read
+	// Contribute is Read, plus create events and change or delete the
+	// events that the caller created.
+	Contribute
 	Write
 	Manage
 	Owner
@@ -31,6 +34,8 @@ func (r Role) CSIL() csil.AccessRole {
 		return "free_busy"
 	case Read:
 		return "read"
+	case Contribute:
+		return "contribute"
 	case Write:
 		return "write"
 	case Manage:
@@ -50,6 +55,8 @@ func FromShareRole(s string) Role {
 		return FreeBusy
 	case "read":
 		return Read
+	case "contribute":
+		return Contribute
 	case "write":
 		return Write
 	case "manage":
@@ -84,8 +91,9 @@ func ValidScope(s string) bool {
 type Facts struct {
 	CalendarID string
 	OwnerID    string
-	// ShareRole is the role of the share on this calendar for the
-	// effective user's identity (the principal for a delegated bearer).
+	// ShareRole is the highest role of the shares on this calendar for the
+	// effective user's identity (the principal for a delegated bearer),
+	// directly or through a group.
 	ShareRole Role
 	// DelegationCalendars is the calendar limit of the bearer's delegation.
 	// Nil or empty means every calendar of the principal. Ignored for a
@@ -113,8 +121,22 @@ func (a Access) CanSee() bool { return a.Role > None }
 // CanReadDetails is true when events show more than busy time.
 func (a Access) CanReadDetails() bool { return a.Role >= Read }
 
-// CanWrite is true when the caller can create, change, and delete events.
+// CanWrite is true when the caller can create, change, and delete every
+// event.
 func (a Access) CanWrite() bool { return a.Role >= Write }
+
+// CanCreate is true when the caller can create events (contribute or more).
+func (a Access) CanCreate() bool { return a.Role >= Contribute }
+
+// CanEditEvent is true when the caller can change or delete an event that
+// createdBy created. Write access changes every event. Contribute access
+// changes only the events of the effective user.
+func (a Access) CanEditEvent(id *auth.Identity, createdBy string) bool {
+	if a.Role >= Write {
+		return true
+	}
+	return a.Role == Contribute && id != nil && createdBy != "" && createdBy == id.EffectiveUserID()
+}
 
 func has(scopes []string, want string) bool {
 	for _, s := range scopes {

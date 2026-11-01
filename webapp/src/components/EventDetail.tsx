@@ -3,7 +3,7 @@ import type { Occurrence, ParticipationStatus } from "@catalystcal/client";
 import { Modal } from "~/components/Modal";
 import { Icon } from "~/components/Icons";
 import { eventClient, icsClient } from "~/data/clients";
-import { accessAtLeast, bumpEvents, calendarById, defaultWritableCalendar } from "~/stores/calendars";
+import { bumpEvents, calendarById, canAddEvents, canEditEvent, defaultWritableCalendar } from "~/stores/calendars";
 import { effectivePerson, hasScope, isActing } from "~/stores/auth";
 import { displayZone } from "~/stores/prefs";
 import { openEditor } from "~/stores/editor";
@@ -51,7 +51,8 @@ export function EventDetail(props: { occ: Occurrence; onClose: () => void }) {
   const [onlyThis, setOnlyThis] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
 
-  const canWrite = () => !o().busyOnly && accessAtLeast(o().access, "write") && !(o().invited && !cal());
+  const canWrite = () =>
+    !o().busyOnly && canEditEvent(o().access, ev().createdBy?.userId, effectivePerson()?.userId) && !(o().invited && !cal());
   const canRespond = () => hasScope("events.respond");
   const showRsvp = () => !o().busyOnly && (o().invited || !!me());
   const isOrganizer = () => samePerson(ev().organizer, effectivePerson());
@@ -101,7 +102,7 @@ export function EventDetail(props: { occ: Occurrence; onClose: () => void }) {
   const edit = () => openEditor({ mode: "edit", occ: o(), form: formFromOccurrence(o(), tz()) });
   const duplicate = () => {
     const f = duplicateForm(o(), tz());
-    if (!cal() || !accessAtLeast(cal()!.access, "write")) {
+    if (!cal() || !canAddEvents(cal()!.access)) {
       const d = defaultWritableCalendar(effectivePerson()?.userId);
       if (!d) return toast("You have no calendar you can add events to.", "error");
       f.calendarId = d.calendarId;

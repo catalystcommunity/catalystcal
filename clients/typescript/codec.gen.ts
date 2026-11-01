@@ -2,7 +2,7 @@
 // Source: <csil spec>
 // Target: typescript-codec
 
-import type { AccessPath, AccessRole, ActingVia, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, IcsDocument, IdentityRef, ImportIcsRequest, ImportResult, ListEventsRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, Share, ShareID, ShareList, ShareRole, SubscribeCalendarRequest, Timestamp, UpdateCalendarRequest, UpdateEventRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
+import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateGroupRequest, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportIcsRequest, ImportResult, ListEventsRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
 
 /** A CBOR semantic tag wrapping an inner value (e.g. tag 0 timestamp, tag 4 decimal). */
 export type CborTag = { readonly tag: number; readonly value: CborValue };
@@ -345,6 +345,7 @@ export function toIdentityRefCborValue(v: IdentityRef): CborValue {
   csilMap.set("domain", v.domain);
   if (v.handle !== undefined) csilMap.set("handle", v.handle);
   if (v.userId !== undefined) csilMap.set("user_id", v.userId);
+  if (v.applicationId !== undefined) csilMap.set("application_id", v.applicationId);
   return csilMap;
 }
 
@@ -353,6 +354,7 @@ export function fromIdentityRefCborValue(value: CborValue): IdentityRef {
     domain: asString(requireKey(value, "domain")),
     userId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "user_id")),
     handle: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "handle")),
+    applicationId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "application_id")),
   };
 }
 
@@ -375,6 +377,7 @@ export function toUserCborValue(v: User): CborValue {
   csilMap.set("created_at", v.createdAt);
   csilMap.set("updated_at", v.updatedAt);
   if (v.displayName !== undefined) csilMap.set("display_name", v.displayName);
+  if (v.applicationId !== undefined) csilMap.set("application_id", v.applicationId);
   return csilMap;
 }
 
@@ -383,6 +386,7 @@ export function fromUserCborValue(value: CborValue): User {
     userId: asString(requireKey(value, "user_id")),
     domain: asString(requireKey(value, "domain")),
     subject: asString(requireKey(value, "subject")),
+    applicationId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "application_id")),
     handle: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "handle")),
     displayName: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "display_name")),
     email: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "email")),
@@ -407,6 +411,7 @@ export function toPersonSummaryCborValue(v: PersonSummary): CborValue {
   csilMap.set("subject", v.subject);
   csilMap.set("user_id", v.userId);
   if (v.displayName !== undefined) csilMap.set("display_name", v.displayName);
+  if (v.applicationId !== undefined) csilMap.set("application_id", v.applicationId);
   return csilMap;
 }
 
@@ -415,6 +420,7 @@ export function fromPersonSummaryCborValue(value: CborValue): PersonSummary {
     userId: asString(requireKey(value, "user_id")),
     domain: asString(requireKey(value, "domain")),
     subject: asString(requireKey(value, "subject")),
+    applicationId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "application_id")),
     handle: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "handle")),
     displayName: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "display_name")),
   };
@@ -462,7 +468,7 @@ export function fromCalendarCborValue(value: CborValue): Calendar {
     lastSyncedAt: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "last_synced_at")),
     syncError: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "sync_error")),
     isDefault: asBool(requireKey(value, "is_default")),
-    access: (asEnumMember(asString(requireKey(value, "access")), ["none", "free_busy", "read", "write", "manage", "owner"]) as "none" | "free_busy" | "read" | "write" | "manage" | "owner"),
+    access: (asEnumMember(asString(requireKey(value, "access")), ["none", "free_busy", "read", "contribute", "write", "manage", "owner"]) as "none" | "free_busy" | "read" | "contribute" | "write" | "manage" | "owner"),
     accessPath: (asEnumMember(asString(requireKey(value, "access_path")), ["owner", "share", "delegation", "attendee"]) as "owner" | "share" | "delegation" | "attendee"),
     feedPath: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "feed_path")),
     createdAt: asString(requireKey(value, "created_at")),
@@ -601,11 +607,13 @@ export function fromCalendarListCbor(bytes: Uint8Array): CalendarList {
 export function toShareCborValue(v: Share): CborValue {
   const csilMap = new Map<CborValue, CborValue>();
   csilMap.set("role", v.role);
-  csilMap.set("grantee", toIdentityRefCborValue(v.grantee));
+  if (v.grantee !== undefined) csilMap.set("grantee", toIdentityRefCborValue(v.grantee));
   csilMap.set("share_id", v.shareId);
   csilMap.set("created_at", v.createdAt);
   csilMap.set("calendar_id", v.calendarId);
   if (v.granteePerson !== undefined) csilMap.set("grantee_person", toPersonSummaryCborValue(v.granteePerson));
+  if (v.granteeGroupId !== undefined) csilMap.set("grantee_group_id", v.granteeGroupId);
+  if (v.granteeGroupName !== undefined) csilMap.set("grantee_group_name", v.granteeGroupName);
   return csilMap;
 }
 
@@ -613,9 +621,11 @@ export function fromShareCborValue(value: CborValue): Share {
   return {
     shareId: asString(requireKey(value, "share_id")),
     calendarId: asString(requireKey(value, "calendar_id")),
-    grantee: fromIdentityRefCborValue(requireKey(value, "grantee")),
-    role: (asEnumMember(asString(requireKey(value, "role")), ["free_busy", "read", "write", "manage"]) as "free_busy" | "read" | "write" | "manage"),
+    grantee: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromIdentityRefCborValue(csilV))(mapGet(value, "grantee")),
+    granteeGroupId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "grantee_group_id")),
+    role: (asEnumMember(asString(requireKey(value, "role")), ["free_busy", "read", "contribute", "write", "manage"]) as "free_busy" | "read" | "contribute" | "write" | "manage"),
     granteePerson: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromPersonSummaryCborValue(csilV))(mapGet(value, "grantee_person")),
+    granteeGroupName: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "grantee_group_name")),
     createdAt: asString(requireKey(value, "created_at")),
   };
 }
@@ -646,6 +656,158 @@ export function toShareListCbor(v: ShareList): Uint8Array {
 
 export function fromShareListCbor(bytes: Uint8Array): ShareList {
   return fromShareListCborValue(decode(bytes));
+}
+
+export function toGroupMemberCborValue(v: GroupMember): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.person !== undefined) csilMap.set("person", toPersonSummaryCborValue(v.person));
+  if (v.groupId !== undefined) csilMap.set("group_id", v.groupId);
+  if (v.identity !== undefined) csilMap.set("identity", toIdentityRefCborValue(v.identity));
+  if (v.groupName !== undefined) csilMap.set("group_name", v.groupName);
+  return csilMap;
+}
+
+export function fromGroupMemberCborValue(value: CborValue): GroupMember {
+  return {
+    identity: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromIdentityRefCborValue(csilV))(mapGet(value, "identity")),
+    groupId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "group_id")),
+    person: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromPersonSummaryCborValue(csilV))(mapGet(value, "person")),
+    groupName: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "group_name")),
+  };
+}
+
+export function toGroupMemberCbor(v: GroupMember): Uint8Array {
+  return encodeValue(toGroupMemberCborValue(v));
+}
+
+export function fromGroupMemberCbor(bytes: Uint8Array): GroupMember {
+  return fromGroupMemberCborValue(decode(bytes));
+}
+
+export function toGroupCborValue(v: Group): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("name", v.name);
+  csilMap.set("owner", toPersonSummaryCborValue(v.owner));
+  csilMap.set("members", v.members.map((csilE): CborValue => toGroupMemberCborValue(csilE)));
+  csilMap.set("group_id", v.groupId);
+  csilMap.set("revision", v.revision);
+  csilMap.set("created_at", v.createdAt);
+  csilMap.set("updated_at", v.updatedAt);
+  if (v.description !== undefined) csilMap.set("description", v.description);
+  return csilMap;
+}
+
+export function fromGroupCborValue(value: CborValue): Group {
+  return {
+    groupId: asString(requireKey(value, "group_id")),
+    owner: fromPersonSummaryCborValue(requireKey(value, "owner")),
+    name: asString(requireKey(value, "name")),
+    description: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "description")),
+    revision: asNumber(requireKey(value, "revision")),
+    members: asArray(requireKey(value, "members")).map((csilE) => fromGroupMemberCborValue(csilE)),
+    createdAt: asString(requireKey(value, "created_at")),
+    updatedAt: asString(requireKey(value, "updated_at")),
+  };
+}
+
+export function toGroupCbor(v: Group): Uint8Array {
+  return encodeValue(toGroupCborValue(v));
+}
+
+export function fromGroupCbor(bytes: Uint8Array): Group {
+  return fromGroupCborValue(decode(bytes));
+}
+
+export function toCreateGroupRequestCborValue(v: CreateGroupRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("name", v.name);
+  if (v.members !== undefined) csilMap.set("members", v.members.map((csilE): CborValue => toGroupMemberCborValue(csilE)));
+  if (v.description !== undefined) csilMap.set("description", v.description);
+  return csilMap;
+}
+
+export function fromCreateGroupRequestCborValue(value: CborValue): CreateGroupRequest {
+  return {
+    name: asString(requireKey(value, "name")),
+    description: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "description")),
+    members: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => fromGroupMemberCborValue(csilE)))(mapGet(value, "members")),
+  };
+}
+
+export function toCreateGroupRequestCbor(v: CreateGroupRequest): Uint8Array {
+  return encodeValue(toCreateGroupRequestCborValue(v));
+}
+
+export function fromCreateGroupRequestCbor(bytes: Uint8Array): CreateGroupRequest {
+  return fromCreateGroupRequestCborValue(decode(bytes));
+}
+
+export function toUpdateGroupRequestCborValue(v: UpdateGroupRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.name !== undefined) csilMap.set("name", v.name);
+  csilMap.set("group_id", v.groupId);
+  if (v.description !== undefined) csilMap.set("description", v.description);
+  return csilMap;
+}
+
+export function fromUpdateGroupRequestCborValue(value: CborValue): UpdateGroupRequest {
+  return {
+    groupId: asString(requireKey(value, "group_id")),
+    name: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "name")),
+    description: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "description")),
+  };
+}
+
+export function toUpdateGroupRequestCbor(v: UpdateGroupRequest): Uint8Array {
+  return encodeValue(toUpdateGroupRequestCborValue(v));
+}
+
+export function fromUpdateGroupRequestCbor(bytes: Uint8Array): UpdateGroupRequest {
+  return fromUpdateGroupRequestCborValue(decode(bytes));
+}
+
+export function toSetGroupMembersRequestCborValue(v: SetGroupMembersRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("members", v.members.map((csilE): CborValue => toGroupMemberCborValue(csilE)));
+  csilMap.set("group_id", v.groupId);
+  if (v.expectedRevision !== undefined) csilMap.set("expected_revision", v.expectedRevision);
+  return csilMap;
+}
+
+export function fromSetGroupMembersRequestCborValue(value: CborValue): SetGroupMembersRequest {
+  return {
+    groupId: asString(requireKey(value, "group_id")),
+    expectedRevision: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "expected_revision")),
+    members: asArray(requireKey(value, "members")).map((csilE) => fromGroupMemberCborValue(csilE)),
+  };
+}
+
+export function toSetGroupMembersRequestCbor(v: SetGroupMembersRequest): Uint8Array {
+  return encodeValue(toSetGroupMembersRequestCborValue(v));
+}
+
+export function fromSetGroupMembersRequestCbor(bytes: Uint8Array): SetGroupMembersRequest {
+  return fromSetGroupMembersRequestCborValue(decode(bytes));
+}
+
+export function toGroupListCborValue(v: GroupList): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("groups", v.groups.map((csilE): CborValue => toGroupCborValue(csilE)));
+  return csilMap;
+}
+
+export function fromGroupListCborValue(value: CborValue): GroupList {
+  return {
+    groups: asArray(requireKey(value, "groups")).map((csilE) => fromGroupCborValue(csilE)),
+  };
+}
+
+export function toGroupListCbor(v: GroupList): Uint8Array {
+  return encodeValue(toGroupListCborValue(v));
+}
+
+export function fromGroupListCbor(bytes: Uint8Array): GroupList {
+  return fromGroupListCborValue(decode(bytes));
 }
 
 export function toDelegationCborValue(v: Delegation): CborValue {
@@ -904,7 +1066,7 @@ export function fromOccurrenceCborValue(value: CborValue): Occurrence {
     start: asString(requireKey(value, "start")),
     end: asString(requireKey(value, "end")),
     recurrenceId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "recurrence_id")),
-    access: (asEnumMember(asString(requireKey(value, "access")), ["none", "free_busy", "read", "write", "manage", "owner"]) as "none" | "free_busy" | "read" | "write" | "manage" | "owner"),
+    access: (asEnumMember(asString(requireKey(value, "access")), ["none", "free_busy", "read", "contribute", "write", "manage", "owner"]) as "none" | "free_busy" | "read" | "contribute" | "write" | "manage" | "owner"),
     busyOnly: asBool(requireKey(value, "busy_only")),
     invited: asBool(requireKey(value, "invited")),
   };
@@ -1532,6 +1694,124 @@ export function toScopeSetResponseCbor(v: ScopeSetResponse): Uint8Array {
 
 export function fromScopeSetResponseCbor(bytes: Uint8Array): ScopeSetResponse {
   return fromScopeSetResponseCborValue(decode(bytes));
+}
+
+export function toApplicationRefCborValue(v: ApplicationRef): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("application_id", v.applicationId);
+  csilMap.set("subject_domain", v.subjectDomain);
+  csilMap.set("subject_user_id", v.subjectUserId);
+  return csilMap;
+}
+
+export function fromApplicationRefCborValue(value: CborValue): ApplicationRef {
+  return {
+    subjectUserId: asString(requireKey(value, "subject_user_id")),
+    subjectDomain: asString(requireKey(value, "subject_domain")),
+    applicationId: asString(requireKey(value, "application_id")),
+  };
+}
+
+export function toApplicationRefCbor(v: ApplicationRef): Uint8Array {
+  return encodeValue(toApplicationRefCborValue(v));
+}
+
+export function fromApplicationRefCbor(bytes: Uint8Array): ApplicationRef {
+  return fromApplicationRefCborValue(decode(bytes));
+}
+
+export function toApplicationPresentationCborValue(v: ApplicationPresentation): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("nonce", v.nonce);
+  csilMap.set("signer", toApplicationRefCborValue(v.signer));
+  csilMap.set("audience", toApplicationRefCborValue(v.audience));
+  csilMap.set("presented_at", v.presentedAt);
+  csilMap.set("request_digest", v.requestDigest);
+  csilMap.set("signer_instance_id", v.signerInstanceId);
+  return csilMap;
+}
+
+export function fromApplicationPresentationCborValue(value: CborValue): ApplicationPresentation {
+  return {
+    signer: fromApplicationRefCborValue(requireKey(value, "signer")),
+    signerInstanceId: asString(requireKey(value, "signer_instance_id")),
+    audience: fromApplicationRefCborValue(requireKey(value, "audience")),
+    requestDigest: asBytes(requireKey(value, "request_digest")),
+    presentedAt: asString(requireKey(value, "presented_at")),
+    nonce: asBytes(requireKey(value, "nonce")),
+  };
+}
+
+export function toApplicationPresentationCbor(v: ApplicationPresentation): Uint8Array {
+  return encodeValue(toApplicationPresentationCborValue(v));
+}
+
+export function fromApplicationPresentationCbor(bytes: Uint8Array): ApplicationPresentation {
+  return fromApplicationPresentationCborValue(decode(bytes));
+}
+
+export function toSignedApplicationPresentationCborValue(v: SignedApplicationPresentation): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("signature", v.signature);
+  csilMap.set("presentation", v.presentation);
+  csilMap.set("signed_by_key_id", v.signedByKeyId);
+  return csilMap;
+}
+
+export function fromSignedApplicationPresentationCborValue(value: CborValue): SignedApplicationPresentation {
+  return {
+    presentation: asBytes(requireKey(value, "presentation")),
+    signedByKeyId: asString(requireKey(value, "signed_by_key_id")),
+    signature: asBytes(requireKey(value, "signature")),
+  };
+}
+
+export function toSignedApplicationPresentationCbor(v: SignedApplicationPresentation): Uint8Array {
+  return encodeValue(toSignedApplicationPresentationCborValue(v));
+}
+
+export function fromSignedApplicationPresentationCbor(bytes: Uint8Array): SignedApplicationPresentation {
+  return fromSignedApplicationPresentationCborValue(decode(bytes));
+}
+
+export function toExchangeApplicationPresentationRequestCborValue(v: ExchangeApplicationPresentationRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("presentation", toSignedApplicationPresentationCborValue(v.presentation));
+  return csilMap;
+}
+
+export function fromExchangeApplicationPresentationRequestCborValue(value: CborValue): ExchangeApplicationPresentationRequest {
+  return {
+    presentation: fromSignedApplicationPresentationCborValue(requireKey(value, "presentation")),
+  };
+}
+
+export function toExchangeApplicationPresentationRequestCbor(v: ExchangeApplicationPresentationRequest): Uint8Array {
+  return encodeValue(toExchangeApplicationPresentationRequestCborValue(v));
+}
+
+export function fromExchangeApplicationPresentationRequestCbor(bytes: Uint8Array): ExchangeApplicationPresentationRequest {
+  return fromExchangeApplicationPresentationRequestCborValue(decode(bytes));
+}
+
+export function toApplicationIdentityResponseCborValue(v: ApplicationIdentityResponse): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("audience", toApplicationRefCborValue(v.audience));
+  return csilMap;
+}
+
+export function fromApplicationIdentityResponseCborValue(value: CborValue): ApplicationIdentityResponse {
+  return {
+    audience: fromApplicationRefCborValue(requireKey(value, "audience")),
+  };
+}
+
+export function toApplicationIdentityResponseCbor(v: ApplicationIdentityResponse): Uint8Array {
+  return encodeValue(toApplicationIdentityResponseCborValue(v));
+}
+
+export function fromApplicationIdentityResponseCbor(bytes: Uint8Array): ApplicationIdentityResponse {
+  return fromApplicationIdentityResponseCborValue(decode(bytes));
 }
 
 export function toDevUserCborValue(v: DevUser): CborValue {

@@ -44,4 +44,12 @@ public final class AuthClient {
     public ScopeSetResponse getActAsScopeSet(ScopeSetRequest req) throws ClientException {
         return CsilCbor.decodeScopeSetResponse(transport.call("AuthService", "get-act-as-scope-set", CsilCbor.encodeScopeSetRequest(req)));
     }
+
+    public ApplicationIdentityResponse getApplicationIdentity(EmptyRequest req) throws ClientException {
+        return CsilCbor.decodeApplicationIdentityResponse(transport.call("AuthService", "get-application-identity", CsilCbor.encodeEmptyRequest(req)));
+    }
+
+    public LoginResponse exchangeApplicationPresentation(ExchangeApplicationPresentationRequest req) throws ClientException {
+        return CsilCbor.decodeLoginResponse(transport.call("AuthService", "exchange-application-presentation", CsilCbor.encodeExchangeApplicationPresentationRequest(req)));
+    }
 }

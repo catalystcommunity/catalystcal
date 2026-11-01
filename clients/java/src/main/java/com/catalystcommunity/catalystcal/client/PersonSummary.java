@@ -6,6 +6,7 @@ public record PersonSummary(
     UserId userId /* wire: "user_id" */,
     String domain /* wire: "domain" */,
     String subject /* wire: "subject" */,
+    String applicationId /* wire: "application_id" */,
     String handle /* wire: "handle" */,
     String displayName /* wire: "display_name" */
 ) {

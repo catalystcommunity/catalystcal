@@ -30,6 +30,15 @@ defmodule Csilgen.Generated.AuthServer do
   @callback get_act_as_scope_set(req :: Csilgen.Generated.ScopeSetRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.ScopeSetResponse.t()}
               | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback get_application_identity(req :: Csilgen.Generated.EmptyRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.ApplicationIdentityResponse.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback exchange_application_presentation(
+              req :: Csilgen.Generated.ExchangeApplicationPresentationRequest.t(),
+              ctx :: map()
+            ) ::
+              {:ok, Csilgen.Generated.LoginResponse.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
 end
 
 defmodule Csilgen.Generated.DevAuthServer do
@@ -90,6 +99,25 @@ defmodule Csilgen.Generated.ShareServer do
   @callback put_share(req :: Csilgen.Generated.Share.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Share.t()} | {:error, Csilgen.Generated.ServiceError.t()}
   @callback delete_share(req :: Csilgen.Generated.ShareID.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.EmptyResponse.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+end
+
+defmodule Csilgen.Generated.GroupServer do
+  @moduledoc "Server handler behaviour + routers for the GroupService service."
+
+  @callback list_groups(req :: Csilgen.Generated.EmptyRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.GroupList.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback get_group(req :: Csilgen.Generated.GroupID.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Group.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback create_group(req :: Csilgen.Generated.CreateGroupRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Group.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback update_group(req :: Csilgen.Generated.UpdateGroupRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Group.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback set_members(req :: Csilgen.Generated.SetGroupMembersRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Group.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback delete_group(req :: Csilgen.Generated.GroupID.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.EmptyResponse.t()}
               | {:error, Csilgen.Generated.ServiceError.t()}
 end

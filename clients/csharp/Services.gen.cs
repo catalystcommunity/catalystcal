@@ -16,6 +16,8 @@ public interface IAuthService
     LoginResponse ReleasePrincipal(EmptyRequest emptyRequest);
     LoginResponse ExchangeActAsCredential(ExchangeActAsCredentialRequest exchangeActAsCredentialRequest);
     ScopeSetResponse GetActAsScopeSet(ScopeSetRequest scopeSetRequest);
+    ApplicationIdentityResponse GetApplicationIdentity(EmptyRequest emptyRequest);
+    LoginResponse ExchangeApplicationPresentation(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest);
 }
 
 /// <summary>Server handler interface for the DevAuthService service.</summary>
@@ -52,6 +54,17 @@ public interface IShareService
     ShareList ListShares(CalendarID calendarID);
     Share PutShare(Share share);
     EmptyResponse DeleteShare(ShareID shareID);
+}
+
+/// <summary>Server handler interface for the GroupService service.</summary>
+public interface IGroupService
+{
+    GroupList ListGroups(EmptyRequest emptyRequest);
+    Group GetGroup(GroupID groupID);
+    Group CreateGroup(CreateGroupRequest createGroupRequest);
+    Group UpdateGroup(UpdateGroupRequest updateGroupRequest);
+    Group SetMembers(SetGroupMembersRequest setGroupMembersRequest);
+    EmptyResponse DeleteGroup(GroupID groupID);
 }
 
 /// <summary>Server handler interface for the DelegationService service.</summary>

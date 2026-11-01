@@ -21,6 +21,9 @@ typealias DelegationID = String
 /** Type alias for AuditID. */
 typealias AuditID = String
 
+/** Type alias for GroupID. */
+typealias GroupID = String
+
 /** Type alias for SessionID. */
 typealias SessionID = String
 
@@ -31,10 +34,10 @@ typealias Timestamp = String
 typealias DateText = String
 
 /** ShareRole enum (bare-literal wire). */
-enum class ShareRole { FreeBusy, Read, Write, Manage }
+enum class ShareRole { FreeBusy, Read, Contribute, Write, Manage }
 
 /** AccessRole enum (bare-literal wire). */
-enum class AccessRole { None, FreeBusy, Read, Write, Manage, Owner }
+enum class AccessRole { None, FreeBusy, Read, Contribute, Write, Manage, Owner }
 
 /** AccessPath enum (bare-literal wire). */
 enum class AccessPath { Owner, Share, Delegation, Attendee }
@@ -74,7 +77,9 @@ data class IdentityRef(
     val domain: String,
     // wire key: user_id
     val userId: String? = null,
-    val handle: String? = null
+    val handle: String? = null,
+    // wire key: application_id
+    val applicationId: String? = null
 )
 
 /** User record. */
@@ -83,6 +88,8 @@ data class User(
     val userId: UserID,
     val domain: String,
     val subject: String,
+    // wire key: application_id
+    val applicationId: String? = null,
     val handle: String? = null,
     // wire key: display_name
     val displayName: String? = null,
@@ -100,6 +107,8 @@ data class PersonSummary(
     val userId: UserID,
     val domain: String,
     val subject: String,
+    // wire key: application_id
+    val applicationId: String? = null,
     val handle: String? = null,
     // wire key: display_name
     val displayName: String? = null
@@ -178,10 +187,14 @@ data class Share(
     val shareId: ShareID,
     // wire key: calendar_id
     val calendarId: CalendarID,
-    val grantee: IdentityRef,
+    val grantee: IdentityRef? = null,
+    // wire key: grantee_group_id
+    val granteeGroupId: GroupID? = null,
     val role: ShareRole,
     // wire key: grantee_person
     val granteePerson: PersonSummary? = null,
+    // wire key: grantee_group_name
+    val granteeGroupName: String? = null,
     // wire key: created_at
     val createdAt: Timestamp
 )
@@ -189,6 +202,60 @@ data class Share(
 /** ShareList record. */
 data class ShareList(
     val shares: List<Share>
+)
+
+/** GroupMember record. */
+data class GroupMember(
+    val identity: IdentityRef? = null,
+    // wire key: group_id
+    val groupId: GroupID? = null,
+    val person: PersonSummary? = null,
+    // wire key: group_name
+    val groupName: String? = null
+)
+
+/** Group record. */
+data class Group(
+    // wire key: group_id
+    val groupId: GroupID,
+    val owner: PersonSummary,
+    val name: String,
+    val description: String? = null,
+    val revision: ULong,
+    val members: List<GroupMember>,
+    // wire key: created_at
+    val createdAt: Timestamp,
+    // wire key: updated_at
+    val updatedAt: Timestamp
+)
+
+/** CreateGroupRequest record. */
+data class CreateGroupRequest(
+    val name: String,
+    val description: String? = null,
+    val members: List<GroupMember>? = null
+)
+
+/** UpdateGroupRequest record. */
+data class UpdateGroupRequest(
+    // wire key: group_id
+    val groupId: GroupID,
+    val name: String? = null,
+    val description: String? = null
+)
+
+/** SetGroupMembersRequest record. */
+data class SetGroupMembersRequest(
+    // wire key: group_id
+    val groupId: GroupID,
+    // wire key: expected_revision
+    val expectedRevision: ULong? = null,
+    val members: List<GroupMember>
+)
+
+/** GroupList record. */
+data class GroupList(
+    val groups: List<Group>
 )
 
 /** Delegation record. */
@@ -537,6 +604,85 @@ data class ScopeSetResponse(
         return result
     }
 }
+
+/** ApplicationRef record. */
+data class ApplicationRef(
+    // wire key: subject_user_id
+    val subjectUserId: String,
+    // wire key: subject_domain
+    val subjectDomain: String,
+    // wire key: application_id
+    val applicationId: String
+)
+
+/** ApplicationPresentation record. */
+data class ApplicationPresentation(
+    val signer: ApplicationRef,
+    // wire key: signer_instance_id
+    val signerInstanceId: String,
+    val audience: ApplicationRef,
+    // wire key: request_digest
+    val requestDigest: ByteArray,
+    // wire key: presented_at
+    val presentedAt: Timestamp,
+    val nonce: ByteArray
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ApplicationPresentation) return false
+        if (signer != other.signer) return false
+        if (signerInstanceId != other.signerInstanceId) return false
+        if (audience != other.audience) return false
+        if (!requestDigest.contentEquals(other.requestDigest)) return false
+        if (presentedAt != other.presentedAt) return false
+        if (!nonce.contentEquals(other.nonce)) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = signer.hashCode()
+        result = 31 * result + signerInstanceId.hashCode()
+        result = 31 * result + audience.hashCode()
+        result = 31 * result + requestDigest.contentHashCode()
+        result = 31 * result + presentedAt.hashCode()
+        result = 31 * result + nonce.contentHashCode()
+        return result
+    }
+}
+
+/** SignedApplicationPresentation record. */
+data class SignedApplicationPresentation(
+    val presentation: ByteArray,
+    // wire key: signed_by_key_id
+    val signedByKeyId: String,
+    val signature: ByteArray
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is SignedApplicationPresentation) return false
+        if (!presentation.contentEquals(other.presentation)) return false
+        if (signedByKeyId != other.signedByKeyId) return false
+        if (!signature.contentEquals(other.signature)) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = presentation.contentHashCode()
+        result = 31 * result + signedByKeyId.hashCode()
+        result = 31 * result + signature.contentHashCode()
+        return result
+    }
+}
+
+/** ExchangeApplicationPresentationRequest record. */
+data class ExchangeApplicationPresentationRequest(
+    val presentation: SignedApplicationPresentation
+)
+
+/** ApplicationIdentityResponse record. */
+data class ApplicationIdentityResponse(
+    val audience: ApplicationRef
+)
 
 /** DevUser record. */
 data class DevUser(

@@ -55,6 +55,43 @@ func (v *SubscribeCalendarRequest) Validate() error {
 	return nil
 }
 
+// ValidateGroup validates the Group struct
+func (v *Group) Validate() error {
+	if len(v.Name) < 1 {
+		return fmt.Errorf("field 'Name' must have at least 1 elements")
+	}
+	if len(v.Name) > 256 {
+		return fmt.Errorf("field 'Name' must have at most 256 elements")
+	}
+	return nil
+}
+
+// ValidateCreateGroupRequest validates the CreateGroupRequest struct
+func (v *CreateGroupRequest) Validate() error {
+	if len(v.Name) < 1 {
+		return fmt.Errorf("field 'Name' must have at least 1 elements")
+	}
+	if len(v.Name) > 256 {
+		return fmt.Errorf("field 'Name' must have at most 256 elements")
+	}
+	return nil
+}
+
+// ValidateUpdateGroupRequest validates the UpdateGroupRequest struct
+func (v *UpdateGroupRequest) Validate() error {
+	if v.Name != nil {
+		if len((*v.Name)) < 1 {
+			return fmt.Errorf("field 'Name' must have at least 1 elements")
+		}
+	}
+	if v.Name != nil {
+		if len((*v.Name)) > 256 {
+			return fmt.Errorf("field 'Name' must have at most 256 elements")
+		}
+	}
+	return nil
+}
+
 // ValidateEvent validates the Event struct
 func (v *Event) Validate() error {
 	if len(v.Title) < 1 {

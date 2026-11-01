@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/catalystcommunity/catalystcal/api/internal/apppresent"
 	"github.com/catalystcommunity/catalystcal/api/internal/auth"
 	"github.com/catalystcommunity/catalystcal/api/internal/csilrpc"
 	"github.com/catalystcommunity/catalystcal/api/internal/store"
@@ -99,23 +100,34 @@ func (d *Deps) RefreshRevocations(ctx context.Context) error {
 
 // CheckIdentity is the dispatcher's per-call bearer re-check:
 //
-//   - self: the user still exists;
+//   - self: the user still exists; for an application principal, the
+//     application is still in CATALYSTCAL_ALLOWED_APPLICATIONS;
 //   - delegation: the delegation is live (not revoked, not expired), it
 //     still joins this principal and this delegate, and both users exist.
 //     The bearer's scopes shrink to the delegation's current scopes, so an
 //     update-delegation that removes a scope works at once;
 //   - act_as_grant: the grant is not revoked and the user exists.
 func (d *Deps) CheckIdentity(ctx context.Context, id *auth.Identity) error {
-	if _, err := d.Store.GetUser(ctx, id.UserID); err != nil {
+	u, err := d.Store.GetUser(ctx, id.UserID)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return errors.New("user no longer exists")
 		}
 		return fmt.Errorf("identity check: %w", err)
 	}
+	if u.ApplicationID != id.ApplicationID {
+		return errors.New("bearer does not match the user")
+	}
 	switch id.Via {
 	case auth.ViaSelf, "":
 		if id.PrincipalID != "" && id.PrincipalID != id.UserID {
 			return errors.New("self bearer names a principal")
+		}
+		if id.ApplicationID != "" {
+			ref := apppresent.Ref{SubjectUserID: u.Subject, SubjectDomain: u.Domain, ApplicationID: u.ApplicationID}
+			if d.Apps == nil || !d.Apps.Allows(ref) {
+				return errors.New("this application is no longer accepted")
+			}
 		}
 		return nil
 	case auth.ViaDelegation:

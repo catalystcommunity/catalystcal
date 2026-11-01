@@ -18,6 +18,8 @@ public protocol AuthService {
     func releasePrincipal(_ request: EmptyRequest) throws -> LoginResponse
     func exchangeActAsCredential(_ request: ExchangeActAsCredentialRequest) throws -> LoginResponse
     func getActAsScopeSet(_ request: ScopeSetRequest) throws -> ScopeSetResponse
+    func getApplicationIdentity(_ request: EmptyRequest) throws -> ApplicationIdentityResponse
+    func exchangeApplicationPresentation(_ request: ExchangeApplicationPresentationRequest) throws -> LoginResponse
 }
 
 /// DevAuthService is the server-side handler seam.
@@ -50,6 +52,16 @@ public protocol ShareService {
     func listShares(_ request: CalendarId) throws -> ShareList
     func putShare(_ request: Share) throws -> Share
     func deleteShare(_ request: ShareId) throws -> EmptyResponse
+}
+
+/// GroupService is the server-side handler seam.
+public protocol GroupService {
+    func listGroups(_ request: EmptyRequest) throws -> GroupList
+    func getGroup(_ request: GroupId) throws -> Group
+    func createGroup(_ request: CreateGroupRequest) throws -> Group
+    func updateGroup(_ request: UpdateGroupRequest) throws -> Group
+    func setMembers(_ request: SetGroupMembersRequest) throws -> Group
+    func deleteGroup(_ request: GroupId) throws -> EmptyResponse
 }
 
 /// DelegationService is the server-side handler seam.
