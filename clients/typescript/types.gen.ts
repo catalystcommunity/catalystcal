@@ -16,6 +16,8 @@ export type AuditID = string;
 
 export type GroupID = string;
 
+export type TrashID = string;
+
 export type SessionID = string;
 
 export type Timestamp = string;
@@ -292,9 +294,45 @@ export interface DeleteEventRequest {
   recurrenceId?: Timestamp;
 }
 
+export interface DeleteEventResponse {
+  trashId?: TrashID;
+}
+
 export interface MoveEventRequest {
   eventId: EventID;
   calendarId: CalendarID;
+}
+
+export interface TrashEntry {
+  trashId: TrashID;
+  calendarId: CalendarID;
+  eventId: EventID;
+  scope: RecurrenceScope;
+  recurrenceId?: Timestamp;
+  event: Event;
+  instance?: Event;
+  deletedBy?: PersonSummary;
+  deletedAt: Timestamp;
+  expiresAt: Timestamp;
+}
+
+export interface ListTrashRequest {
+  calendarId: CalendarID;
+  limit?: number;
+}
+
+export interface TrashList {
+  entries: TrashEntry[];
+}
+
+export interface RestoreEventRequest {
+  trashId: TrashID;
+}
+
+export interface ImportEventRequest {
+  event: Event;
+  createdBy: IdentityRef;
+  createdAt?: Timestamp;
 }
 
 export interface RespondRequest {

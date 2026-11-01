@@ -184,8 +184,8 @@ class EventClient(private val transport: Transport) {
     fun updateEvent(request: UpdateEventRequest): Event {
         return decode<Event>(transport.call("EventService", "update-event", encode(request)))
     }
-    fun deleteEvent(request: DeleteEventRequest): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("EventService", "delete-event", encode(request)))
+    fun deleteEvent(request: DeleteEventRequest): DeleteEventResponse {
+        return decode<DeleteEventResponse>(transport.call("EventService", "delete-event", encode(request)))
     }
     fun moveEvent(request: MoveEventRequest): Event {
         return decode<Event>(transport.call("EventService", "move-event", encode(request)))
@@ -198,6 +198,15 @@ class EventClient(private val transport: Transport) {
     }
     fun searchEvents(request: SearchEventsRequest): EventList {
         return decode<EventList>(transport.call("EventService", "search-events", encode(request)))
+    }
+    fun listTrash(request: ListTrashRequest): TrashList {
+        return decode<TrashList>(transport.call("EventService", "list-trash", encode(request)))
+    }
+    fun restoreEvent(request: RestoreEventRequest): Event {
+        return decode<Event>(transport.call("EventService", "restore-event", encode(request)))
+    }
+    fun importEvent(request: ImportEventRequest): Event {
+        return decode<Event>(transport.call("EventService", "import-event", encode(request)))
     }
 }
 

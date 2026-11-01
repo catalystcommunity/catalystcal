@@ -279,6 +279,97 @@ func (s *EventService) CreateEvent(ctx context.Context, req csil.Event) (csil.Ev
 	return s.reload(ctx, row.ID())
 }
 
+// ImportEvent creates an event with another creator, for a move of data
+// from another system. Only the calendar owner can call it. The creator
+// must reach the calendar with contribute access or more (a share, a
+// group, or ownership). An audit entry with the creator as the principal
+// records each call, so the creator sees it in their audit list.
+func (s *EventService) ImportEvent(ctx context.Context, req csil.ImportEventRequest) (csil.Event, error) {
+	id, r, err := s.begin(ctx)
+	if err != nil {
+		return csil.Event{}, err
+	}
+	ev := req.Event
+	clearReceiveOnly(&ev)
+	if ev.CalendarId == "" {
+		return csil.Event{}, badReq("event.calendar_id is required")
+	}
+	c, acc, err := r.loadCalendar(ctx, string(ev.CalendarId))
+	if err != nil {
+		return csil.Event{}, err
+	}
+	csilrpc.SetAuditTarget(ctx, "calendar:"+c.ID)
+	if acc.Role != access.Owner {
+		return csil.Event{}, csilrpc.Forbidden("only the calendar owner can import events with another creator")
+	}
+	if err := requireCreatable(c, acc); err != nil {
+		return csil.Event{}, err
+	}
+	if err := validateContent(&ev); err != nil {
+		return csil.Event{}, err
+	}
+	createdAt := s.now()
+	if req.CreatedAt != nil {
+		t, err := parseTS("created_at", *req.CreatedAt)
+		if err != nil {
+			return csil.Event{}, err
+		}
+		if t.After(createdAt) {
+			return csil.Event{}, badReq("created_at must not be after now")
+		}
+		createdAt = t
+	}
+	p, u, err := s.resolveRef(ctx, req.CreatedBy)
+	if err != nil {
+		return csil.Event{}, err
+	}
+	if u == nil || u.ID != c.OwnerID {
+		groups, err := s.Store.GroupsContaining(ctx, p)
+		if err != nil {
+			return csil.Event{}, internal(err, "load groups")
+		}
+		roles, err := s.Store.ShareRoles(ctx, c.ID, p, groups)
+		if err != nil {
+			return csil.Event{}, internal(err, "load shares")
+		}
+		if highestRole(roles) < access.Contribute {
+			return csil.Event{}, csilrpc.Forbidden("created_by must have contribute access or more to this calendar")
+		}
+	}
+	if u == nil {
+		made, err := s.Store.EnsureUser(ctx, p)
+		if err != nil {
+			return csil.Event{}, internal(err, "make creator")
+		}
+		u = &made
+	}
+	if ev.Uid == nil || strings.TrimSpace(*ev.Uid) == "" {
+		ev.Uid = ptr(store.NewID() + "@catalystcal")
+	}
+	var by []string
+	ev.Attendees, by = mergeAnswers(ev.Attendees, nil, nil, p.Domain, p.Subject)
+	ev.UpdatedVia = viaOf(id)
+	ev.CreatedAt = ts(createdAt)
+	row := store.Event{
+		Ev: ev, OrganizerID: u.ID, CreatedByID: u.ID, UpdatedByID: id.EffectiveUserID(),
+		RespondedBy: by, SeriesUntil: seriesUntil(ev), KeepCreatedAt: true,
+	}
+	if err := s.Store.CreateEvent(ctx, &row); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			return csil.Event{}, csilrpc.Conflict("an event with this uid is already on the calendar")
+		}
+		return csil.Event{}, internal(err, "import event")
+	}
+	csilrpc.SetAuditTarget(ctx, "event:"+row.ID())
+	if err := s.Store.InsertAudit(ctx, store.AuditRow{
+		ActorID: id.UserID, PrincipalID: u.ID, Via: viaOrSelf(id.Via), Application: id.Application,
+		Operation: "event.ImportEvent.created_by", Target: "event:" + row.ID(), Outcome: "ok",
+	}); err != nil {
+		return csil.Event{}, internal(err, "audit import")
+	}
+	return s.reload(ctx, row.ID())
+}
+
 func (s *EventService) reload(ctx context.Context, id string) (csil.Event, error) {
 	e, err := s.Store.GetEvent(ctx, id)
 	if err != nil {
@@ -487,19 +578,20 @@ func truncatedMaster(id *auth.Identity, prev store.Event, cut time.Time) (store.
 // ---- delete --------------------------------------------------------------
 
 // DeleteEvent removes an event, one instance (an EXDATE), or the instance
-// and every later one.
-func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequest) (csil.EmptyResponse, error) {
+// and every later one. Each delete goes to trash, and restore-event can
+// reverse it until the entry expires.
+func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequest) (csil.DeleteEventResponse, error) {
 	id, r, err := s.begin(ctx)
 	if err != nil {
-		return csil.EmptyResponse{}, err
+		return csil.DeleteEventResponse{}, err
 	}
 	row, c, acc, _, err := r.loadEvent(ctx, string(req.EventId))
 	if err != nil {
-		return csil.EmptyResponse{}, err
+		return csil.DeleteEventResponse{}, err
 	}
 	csilrpc.SetAuditTarget(ctx, "event:"+row.ID())
 	if err := s.requireEditable(ctx, id, c, acc, row); err != nil {
-		return csil.EmptyResponse{}, err
+		return csil.DeleteEventResponse{}, err
 	}
 	scope := scopeOf(req.Scope)
 	master := row
@@ -507,7 +599,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 	if req.RecurrenceId != nil {
 		t, err := parseTS("recurrence_id", *req.RecurrenceId)
 		if err != nil {
-			return csil.EmptyResponse{}, err
+			return csil.DeleteEventResponse{}, err
 		}
 		rid = &t
 	}
@@ -515,7 +607,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 		// An override: "all" removes the series; otherwise this instance.
 		m, err := s.Store.GetEvent(ctx, row.MasterID())
 		if err != nil {
-			return csil.EmptyResponse{}, internal(err, "load master")
+			return csil.DeleteEventResponse{}, internal(err, "load master")
 		}
 		master = m
 		if rid == nil {
@@ -523,18 +615,24 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 			rid = &t
 		}
 		if scope == "all" {
-			return s.deleteRow(ctx, master.ID())
+			return s.trashWhole(ctx, id, master)
 		}
 	} else if row.Ev.Recurrence == nil || scope == "all" {
-		return s.deleteRow(ctx, row.ID())
+		return s.trashWhole(ctx, id, row)
 	}
 	if rid == nil {
-		return csil.EmptyResponse{}, badReq("recurrence_id is required for scope " + scope)
+		return csil.DeleteEventResponse{}, badReq("recurrence_id is required for scope " + scope)
 	}
 	mstart, _, err := store.Bounds(master.Ev)
 	if err != nil {
-		return csil.EmptyResponse{}, internal(err, "master bounds")
+		return csil.DeleteEventResponse{}, internal(err, "master bounds")
 	}
+	entry := store.TrashEntry{
+		CalendarID: string(master.Ev.CalendarId), EventID: master.ID(), RecurrenceID: rid,
+		CreatedBy: master.CreatedByID, DeletedBy: id.EffectiveUserID(),
+		Snapshot: store.TrashSnapshot{Master: master},
+	}
+	var writes []store.EventWrite
 	switch scope {
 	case "this":
 		m := master
@@ -545,37 +643,61 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 		ev.Sequence++
 		ev.UpdatedVia = viaOf(id)
 		m.Ev, m.UpdatedByID = ev, id.EffectiveUserID()
-		writes := []store.EventWrite{{Update: &m}}
+		writes = []store.EventWrite{{Update: &m}}
 		if ov, err := s.Store.FindOverride(ctx, master.ID(), *rid); err == nil {
 			writes = append(writes, store.EventWrite{DeleteID: ov.ID()})
+			entry.Snapshot.Removed = []store.Event{ov}
 		}
-		if err := s.Store.ApplyEventWrites(ctx, writes); err != nil {
-			return csil.EmptyResponse{}, internal(err, "delete instance")
-		}
+		entry.Scope = store.TrashThis
 	case "this_and_future":
 		if !rid.After(mstart) {
-			return s.deleteRow(ctx, master.ID())
+			return s.trashWhole(ctx, id, master)
 		}
 		old, err := truncatedMaster(id, master, *rid)
 		if err != nil {
-			return csil.EmptyResponse{}, err
+			return csil.DeleteEventResponse{}, err
 		}
-		if err := s.Store.ApplyEventWrites(ctx, []store.EventWrite{
-			{Update: &old}, {DeleteOverridesOf: master.ID(), From: *rid},
-		}); err != nil {
-			return csil.EmptyResponse{}, internal(err, "truncate series")
+		ovs, err := s.Store.ListOverrides(ctx, master.ID())
+		if err != nil {
+			return csil.DeleteEventResponse{}, internal(err, "list overrides")
 		}
+		for _, ov := range ovs {
+			if t, err := store.ParseTime(string(*ov.Ev.RecurrenceId)); err == nil && !t.Before(*rid) {
+				entry.Snapshot.Removed = append(entry.Snapshot.Removed, ov)
+			}
+		}
+		writes = []store.EventWrite{{Update: &old}, {DeleteOverridesOf: master.ID(), From: *rid}}
+		entry.Scope = store.TrashThisAndFuture
+		entry.MasterSequence = &old.Ev.Sequence
 	default:
-		return csil.EmptyResponse{}, badReq("unknown scope " + scope)
+		return csil.DeleteEventResponse{}, badReq("unknown scope " + scope)
 	}
-	return csil.EmptyResponse{}, nil
+	if err := s.Store.TrashEvent(ctx, &entry, s.trashRetention(), writes); err != nil {
+		return csil.DeleteEventResponse{}, internal(err, "delete "+scope)
+	}
+	return csil.DeleteEventResponse{TrashId: ptr(csil.TrashID(entry.ID))}, nil
 }
 
-func (s *EventService) deleteRow(ctx context.Context, id string) (csil.EmptyResponse, error) {
-	if err := s.Store.DeleteEvent(ctx, id); err != nil && !errors.Is(err, store.ErrNotFound) {
-		return csil.EmptyResponse{}, internal(err, "delete event")
+// trashWhole deletes a single event or a whole series (with its
+// overrides) and records the trash entry.
+func (s *EventService) trashWhole(ctx context.Context, id *auth.Identity, master store.Event) (csil.DeleteEventResponse, error) {
+	removed := []store.Event{master}
+	if master.Ev.Recurrence != nil {
+		ovs, err := s.Store.ListOverrides(ctx, master.ID())
+		if err != nil {
+			return csil.DeleteEventResponse{}, internal(err, "list overrides")
+		}
+		removed = append(removed, ovs...)
 	}
-	return csil.EmptyResponse{}, nil
+	entry := store.TrashEntry{
+		CalendarID: string(master.Ev.CalendarId), EventID: master.ID(), Scope: store.TrashAll,
+		CreatedBy: master.CreatedByID, DeletedBy: id.EffectiveUserID(),
+		Snapshot: store.TrashSnapshot{Master: master, Removed: removed},
+	}
+	if err := s.Store.TrashEvent(ctx, &entry, s.trashRetention(), []store.EventWrite{{DeleteID: master.ID()}}); err != nil {
+		return csil.DeleteEventResponse{}, internal(err, "delete event")
+	}
+	return csil.DeleteEventResponse{TrashId: ptr(csil.TrashID(entry.ID))}, nil
 }
 
 // ---- move ----------------------------------------------------------------

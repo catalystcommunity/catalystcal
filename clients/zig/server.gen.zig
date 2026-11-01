@@ -84,11 +84,14 @@ pub const EventHandlers = struct {
     get_event: *const fn (ctx: *anyopaque, req: *const types.EventID, resp: *types.Event) anyerror!void,
     create_event: *const fn (ctx: *anyopaque, req: *const types.Event, resp: *types.Event) anyerror!void,
     update_event: *const fn (ctx: *anyopaque, req: *const types.UpdateEventRequest, resp: *types.Event) anyerror!void,
-    delete_event: *const fn (ctx: *anyopaque, req: *const types.DeleteEventRequest, resp: *types.EmptyResponse) anyerror!void,
+    delete_event: *const fn (ctx: *anyopaque, req: *const types.DeleteEventRequest, resp: *types.DeleteEventResponse) anyerror!void,
     move_event: *const fn (ctx: *anyopaque, req: *const types.MoveEventRequest, resp: *types.Event) anyerror!void,
     respond: *const fn (ctx: *anyopaque, req: *const types.RespondRequest, resp: *types.Event) anyerror!void,
     list_invitations: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.EventList) anyerror!void,
     search_events: *const fn (ctx: *anyopaque, req: *const types.SearchEventsRequest, resp: *types.EventList) anyerror!void,
+    list_trash: *const fn (ctx: *anyopaque, req: *const types.ListTrashRequest, resp: *types.TrashList) anyerror!void,
+    restore_event: *const fn (ctx: *anyopaque, req: *const types.RestoreEventRequest, resp: *types.Event) anyerror!void,
+    import_event: *const fn (ctx: *anyopaque, req: *const types.ImportEventRequest, resp: *types.Event) anyerror!void,
 };
 
 /// FreeBusyHandlers is the host's implementation of the FreeBusyService service.

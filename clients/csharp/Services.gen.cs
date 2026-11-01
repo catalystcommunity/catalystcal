@@ -84,11 +84,14 @@ public interface IEventService
     Event GetEvent(EventID eventID);
     Event CreateEvent(Event @event);
     Event UpdateEvent(UpdateEventRequest updateEventRequest);
-    EmptyResponse DeleteEvent(DeleteEventRequest deleteEventRequest);
+    DeleteEventResponse DeleteEvent(DeleteEventRequest deleteEventRequest);
     Event MoveEvent(MoveEventRequest moveEventRequest);
     Event Respond(RespondRequest respondRequest);
     EventList ListInvitations(EmptyRequest emptyRequest);
     EventList SearchEvents(SearchEventsRequest searchEventsRequest);
+    TrashList ListTrash(ListTrashRequest listTrashRequest);
+    Event RestoreEvent(RestoreEventRequest restoreEventRequest);
+    Event ImportEvent(ImportEventRequest importEventRequest);
 }
 
 /// <summary>Server handler interface for the FreeBusyService service.</summary>

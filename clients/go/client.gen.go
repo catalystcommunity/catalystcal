@@ -482,13 +482,13 @@ func (c *EventClient) UpdateEvent(ctx context.Context, req UpdateEventRequest) (
 	return DecodeEvent(csilResp)
 }
 
-func (c *EventClient) DeleteEvent(ctx context.Context, req DeleteEventRequest) (EmptyResponse, error) {
-	var csilZero EmptyResponse
+func (c *EventClient) DeleteEvent(ctx context.Context, req DeleteEventRequest) (DeleteEventResponse, error) {
+	var csilZero DeleteEventResponse
 	csilResp, csilErr := c.transport.Call(ctx, "EventService", "delete-event", EncodeDeleteEventRequest(req))
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	return DecodeDeleteEventResponse(csilResp)
 }
 
 func (c *EventClient) MoveEvent(ctx context.Context, req MoveEventRequest) (Event, error) {
@@ -525,6 +525,33 @@ func (c *EventClient) SearchEvents(ctx context.Context, req SearchEventsRequest)
 		return csilZero, csilErr
 	}
 	return DecodeEventList(csilResp)
+}
+
+func (c *EventClient) ListTrash(ctx context.Context, req ListTrashRequest) (TrashList, error) {
+	var csilZero TrashList
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "list-trash", EncodeListTrashRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeTrashList(csilResp)
+}
+
+func (c *EventClient) RestoreEvent(ctx context.Context, req RestoreEventRequest) (Event, error) {
+	var csilZero Event
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "restore-event", EncodeRestoreEventRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeEvent(csilResp)
+}
+
+func (c *EventClient) ImportEvent(ctx context.Context, req ImportEventRequest) (Event, error) {
+	var csilZero Event
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "import-event", EncodeImportEventRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeEvent(csilResp)
 }
 
 // FreeBusyClient is a typed client for the FreeBusyService service. The client owns

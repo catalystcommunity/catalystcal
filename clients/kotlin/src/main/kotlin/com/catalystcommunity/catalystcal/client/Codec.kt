@@ -1346,6 +1346,25 @@ fun deleteEventRequestFromCborValue(cbor: CborValue): DeleteEventRequest {
 /** Decode CSIL CBOR bytes into a DeleteEventRequest. */
 fun deleteEventRequestFromCbor(bytes: ByteArray): DeleteEventRequest = deleteEventRequestFromCborValue(CsilCbor.decode(bytes))
 
+/** The CBOR value tree for a DeleteEventResponse (deep, canonical key order). */
+fun DeleteEventResponse.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.trashId?.let { csilV -> csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a DeleteEventResponse to canonical CSIL CBOR bytes. */
+fun DeleteEventResponse.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a DeleteEventResponse from a decoded CBOR value tree. */
+fun deleteEventResponseFromCborValue(cbor: CborValue): DeleteEventResponse {
+    val trashId = CsilCbor.mapGet(cbor, "trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    return DeleteEventResponse(trashId = trashId)
+}
+
+/** Decode CSIL CBOR bytes into a DeleteEventResponse. */
+fun deleteEventResponseFromCbor(bytes: ByteArray): DeleteEventResponse = deleteEventResponseFromCborValue(CsilCbor.decode(bytes))
+
 /** The CBOR value tree for a MoveEventRequest (deep, canonical key order). */
 fun MoveEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
@@ -1366,6 +1385,125 @@ fun moveEventRequestFromCborValue(cbor: CborValue): MoveEventRequest {
 
 /** Decode CSIL CBOR bytes into a MoveEventRequest. */
 fun moveEventRequestFromCbor(bytes: ByteArray): MoveEventRequest = moveEventRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a TrashEntry (deep, canonical key order). */
+fun TrashEntry.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
+    csilEntries.add(CborValue.CText("scope") to this.scope.toCborValue())
+    csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
+    this.instance?.let { csilV -> csilEntries.add(CborValue.CText("instance") to csilV.toCborValue()) }
+    csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(this.trashId))
+    csilEntries.add(CborValue.CText("deleted_at") to CborValue.CText(this.deletedAt))
+    this.deletedBy?.let { csilV -> csilEntries.add(CborValue.CText("deleted_by") to csilV.toCborValue()) }
+    csilEntries.add(CborValue.CText("expires_at") to CborValue.CText(this.expiresAt))
+    csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a TrashEntry to canonical CSIL CBOR bytes. */
+fun TrashEntry.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a TrashEntry from a decoded CBOR value tree. */
+fun trashEntryFromCborValue(cbor: CborValue): TrashEntry {
+    val trashId = CsilCbor.asText(CsilCbor.require(cbor, "trash_id"))
+    val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
+    val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
+    val scope = recurrenceScopeFromCborValue(CsilCbor.require(cbor, "scope"))
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
+    val instance = CsilCbor.mapGet(cbor, "instance")?.let { csilV -> eventFromCborValue(csilV) }
+    val deletedBy = CsilCbor.mapGet(cbor, "deleted_by")?.let { csilV -> personSummaryFromCborValue(csilV) }
+    val deletedAt = CsilCbor.asText(CsilCbor.require(cbor, "deleted_at"))
+    val expiresAt = CsilCbor.asText(CsilCbor.require(cbor, "expires_at"))
+    return TrashEntry(trashId = trashId, calendarId = calendarId, eventId = eventId, scope = scope, recurrenceId = recurrenceId, event = event, instance = instance, deletedBy = deletedBy, deletedAt = deletedAt, expiresAt = expiresAt)
+}
+
+/** Decode CSIL CBOR bytes into a TrashEntry. */
+fun trashEntryFromCbor(bytes: ByteArray): TrashEntry = trashEntryFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a ListTrashRequest (deep, canonical key order). */
+fun ListTrashRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.limit?.let { csilV -> csilEntries.add(CborValue.CText("limit") to CborValue.CUint(csilV)) }
+    csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ListTrashRequest to canonical CSIL CBOR bytes. */
+fun ListTrashRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ListTrashRequest from a decoded CBOR value tree. */
+fun listTrashRequestFromCborValue(cbor: CborValue): ListTrashRequest {
+    val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
+    val limit = CsilCbor.mapGet(cbor, "limit")?.let { csilV -> CsilCbor.asULong(csilV) }
+    return ListTrashRequest(calendarId = calendarId, limit = limit)
+}
+
+/** Decode CSIL CBOR bytes into a ListTrashRequest. */
+fun listTrashRequestFromCbor(bytes: ByteArray): ListTrashRequest = listTrashRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a TrashList (deep, canonical key order). */
+fun TrashList.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("entries") to CborValue.CArray((this.entries).map { csilE -> csilE.toCborValue() }))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a TrashList to canonical CSIL CBOR bytes. */
+fun TrashList.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a TrashList from a decoded CBOR value tree. */
+fun trashListFromCborValue(cbor: CborValue): TrashList {
+    val entries = CsilCbor.asArray(CsilCbor.require(cbor, "entries")).map { csilE -> trashEntryFromCborValue(csilE) }
+    return TrashList(entries = entries)
+}
+
+/** Decode CSIL CBOR bytes into a TrashList. */
+fun trashListFromCbor(bytes: ByteArray): TrashList = trashListFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a RestoreEventRequest (deep, canonical key order). */
+fun RestoreEventRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(this.trashId))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a RestoreEventRequest to canonical CSIL CBOR bytes. */
+fun RestoreEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a RestoreEventRequest from a decoded CBOR value tree. */
+fun restoreEventRequestFromCborValue(cbor: CborValue): RestoreEventRequest {
+    val trashId = CsilCbor.asText(CsilCbor.require(cbor, "trash_id"))
+    return RestoreEventRequest(trashId = trashId)
+}
+
+/** Decode CSIL CBOR bytes into a RestoreEventRequest. */
+fun restoreEventRequestFromCbor(bytes: ByteArray): RestoreEventRequest = restoreEventRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a ImportEventRequest (deep, canonical key order). */
+fun ImportEventRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
+    this.createdAt?.let { csilV -> csilEntries.add(CborValue.CText("created_at") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("created_by") to this.createdBy.toCborValue())
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a ImportEventRequest to canonical CSIL CBOR bytes. */
+fun ImportEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a ImportEventRequest from a decoded CBOR value tree. */
+fun importEventRequestFromCborValue(cbor: CborValue): ImportEventRequest {
+    val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
+    val createdBy = identityRefFromCborValue(CsilCbor.require(cbor, "created_by"))
+    val createdAt = CsilCbor.mapGet(cbor, "created_at")?.let { csilV -> CsilCbor.asText(csilV) }
+    return ImportEventRequest(event = event, createdBy = createdBy, createdAt = createdAt)
+}
+
+/** Decode CSIL CBOR bytes into a ImportEventRequest. */
+fun importEventRequestFromCbor(bytes: ByteArray): ImportEventRequest = importEventRequestFromCborValue(CsilCbor.decode(bytes))
 
 /** The CBOR value tree for a RespondRequest (deep, canonical key order). */
 fun RespondRequest.toCborValue(): CborValue {
@@ -2153,7 +2291,13 @@ private fun csilToCborValue(value: Any?): CborValue = when (value) {
     is OccurrenceList -> value.toCborValue()
     is UpdateEventRequest -> value.toCborValue()
     is DeleteEventRequest -> value.toCborValue()
+    is DeleteEventResponse -> value.toCborValue()
     is MoveEventRequest -> value.toCborValue()
+    is TrashEntry -> value.toCborValue()
+    is ListTrashRequest -> value.toCborValue()
+    is TrashList -> value.toCborValue()
+    is RestoreEventRequest -> value.toCborValue()
+    is ImportEventRequest -> value.toCborValue()
     is RespondRequest -> value.toCborValue()
     is SearchEventsRequest -> value.toCborValue()
     is EventList -> value.toCborValue()
@@ -2225,7 +2369,13 @@ fun csilFromCborValue(type: kotlin.reflect.KClass<*>, cbor: CborValue): Any = wh
     OccurrenceList::class -> occurrenceListFromCborValue(cbor)
     UpdateEventRequest::class -> updateEventRequestFromCborValue(cbor)
     DeleteEventRequest::class -> deleteEventRequestFromCborValue(cbor)
+    DeleteEventResponse::class -> deleteEventResponseFromCborValue(cbor)
     MoveEventRequest::class -> moveEventRequestFromCborValue(cbor)
+    TrashEntry::class -> trashEntryFromCborValue(cbor)
+    ListTrashRequest::class -> listTrashRequestFromCborValue(cbor)
+    TrashList::class -> trashListFromCborValue(cbor)
+    RestoreEventRequest::class -> restoreEventRequestFromCborValue(cbor)
+    ImportEventRequest::class -> importEventRequestFromCborValue(cbor)
     RespondRequest::class -> respondRequestFromCborValue(cbor)
     SearchEventsRequest::class -> searchEventsRequestFromCborValue(cbor)
     EventList::class -> eventListFromCborValue(cbor)

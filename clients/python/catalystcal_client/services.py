@@ -246,7 +246,7 @@ class EventServiceHandlers(ABC):
         ...
 
     @abstractmethod
-    def delete_event(self, req: DeleteEventRequest, ctx: dict) -> Union[EmptyResponse, ServiceError]:
+    def delete_event(self, req: DeleteEventRequest, ctx: dict) -> Union[DeleteEventResponse, ServiceError]:
         """delete-event"""
         ...
 
@@ -268,6 +268,21 @@ class EventServiceHandlers(ABC):
     @abstractmethod
     def search_events(self, req: SearchEventsRequest, ctx: dict) -> Union[EventList, ServiceError]:
         """search-events"""
+        ...
+
+    @abstractmethod
+    def list_trash(self, req: ListTrashRequest, ctx: dict) -> Union[TrashList, ServiceError]:
+        """list-trash"""
+        ...
+
+    @abstractmethod
+    def restore_event(self, req: RestoreEventRequest, ctx: dict) -> Union[Event, ServiceError]:
+        """restore-event"""
+        ...
+
+    @abstractmethod
+    def import_event(self, req: ImportEventRequest, ctx: dict) -> Union[Event, ServiceError]:
+        """import-event"""
         ...
 
 class FreeBusyServiceHandlers(ABC):

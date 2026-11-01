@@ -119,6 +119,13 @@ func runServe(version string) error {
 	go every(workers, cfg.SubscriptionRefresh, "subscriptions", func(c context.Context) {
 		deps.SyncDueSubscriptions(c, cfg.SubscriptionRefresh)
 	})
+	go every(workers, time.Hour, "trash purge", func(c context.Context) {
+		if n, err := st.PurgeTrash(c); err != nil {
+			log.WithError(err).Warn("trash purge failed")
+		} else if n > 0 {
+			log.WithField("entries", n).Info("purged expired trash")
+		}
+	})
 	if deps.ActAs != nil {
 		go every(workers, 5*time.Minute, "act-as revocations", func(c context.Context) {
 			if err := deps.RefreshRevocations(c); err != nil {

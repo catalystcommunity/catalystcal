@@ -438,13 +438,13 @@ final class EventClient {
     return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 
-  EmptyResponse deleteEvent(DeleteEventRequest request) {
+  DeleteEventResponse deleteEvent(DeleteEventRequest request) {
     final csilResp = transport.call(
       'EventService',
       'delete-event',
       request.toCbor(),
     );
-    return EmptyResponse.fromCborValue(CsilCbor.decode(csilResp));
+    return DeleteEventResponse.fromCborValue(CsilCbor.decode(csilResp));
   }
 
   Event moveEvent(MoveEventRequest request) {
@@ -481,6 +481,33 @@ final class EventClient {
       request.toCbor(),
     );
     return EventList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  TrashList listTrash(ListTrashRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'list-trash',
+      request.toCbor(),
+    );
+    return TrashList.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Event restoreEvent(RestoreEventRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'restore-event',
+      request.toCbor(),
+    );
+    return Event.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Event importEvent(ImportEventRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'import-event',
+      request.toCbor(),
+    );
+    return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 }
 

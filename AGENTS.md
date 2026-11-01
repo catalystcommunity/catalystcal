@@ -64,6 +64,16 @@ code, files, and docs. Do not use other spellings or abbreviations.
   The tag `catalystcal-application-presentation-v1` and the digest input
   are in `api/internal/apppresent` and in the Go overlay. Change both, and
   both test vectors, together.
+- **Trash is a snapshot table.** A delete removes the rows from `events`
+  and writes an `event_trash` entry with a JSON snapshot
+  (`store.TrashEvent`). Do not add a `deleted_at` column to `events`: then
+  every read path must filter it. A new delete path must go through
+  `TrashEvent`. `ReplaceCalendarEvents` (subscription sync) does not use
+  trash.
+- **Attributed import.** `import-event` is the one path that sets
+  `created_by` to someone other than the caller. It can make a user row
+  for a person who did not sign in (`store.EnsureUser`, no
+  `last_seen_at`).
 - **csilgen lint warnings are expected.** The house CSIL style causes them.
   Only errors fail `./tools lint`.
 - **SQLite only.** The driver is `modernc.org/sqlite` (pure Go), so

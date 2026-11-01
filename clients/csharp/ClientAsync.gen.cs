@@ -142,8 +142,8 @@ public sealed class EventAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<Event>(await transport.Call("EventService", "create-event", Codec.Encode(@event)));
     public async System.Threading.Tasks.Task<Event> UpdateEventAsync(UpdateEventRequest updateEventRequest) =>
         Codec.Decode<Event>(await transport.Call("EventService", "update-event", Codec.Encode(updateEventRequest)));
-    public async System.Threading.Tasks.Task<EmptyResponse> DeleteEventAsync(DeleteEventRequest deleteEventRequest) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
+    public async System.Threading.Tasks.Task<DeleteEventResponse> DeleteEventAsync(DeleteEventRequest deleteEventRequest) =>
+        Codec.Decode<DeleteEventResponse>(await transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
     public async System.Threading.Tasks.Task<Event> MoveEventAsync(MoveEventRequest moveEventRequest) =>
         Codec.Decode<Event>(await transport.Call("EventService", "move-event", Codec.Encode(moveEventRequest)));
     public async System.Threading.Tasks.Task<Event> RespondAsync(RespondRequest respondRequest) =>
@@ -152,6 +152,12 @@ public sealed class EventAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<EventList>(await transport.Call("EventService", "list-invitations", Codec.Encode(emptyRequest)));
     public async System.Threading.Tasks.Task<EventList> SearchEventsAsync(SearchEventsRequest searchEventsRequest) =>
         Codec.Decode<EventList>(await transport.Call("EventService", "search-events", Codec.Encode(searchEventsRequest)));
+    public async System.Threading.Tasks.Task<TrashList> ListTrashAsync(ListTrashRequest listTrashRequest) =>
+        Codec.Decode<TrashList>(await transport.Call("EventService", "list-trash", Codec.Encode(listTrashRequest)));
+    public async System.Threading.Tasks.Task<Event> RestoreEventAsync(RestoreEventRequest restoreEventRequest) =>
+        Codec.Decode<Event>(await transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
+    public async System.Threading.Tasks.Task<Event> ImportEventAsync(ImportEventRequest importEventRequest) =>
+        Codec.Decode<Event>(await transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

@@ -140,6 +140,50 @@ catalystcal (the audience). It uses the same scope words.
    approved scopes. The bearer never outlives the grant.
 4. The dispatcher re-checks the grant id against the known revocations.
 
+## Trash
+
+A delete goes to trash. `EventService.restore-event` reverses it until
+the entry expires (`CATALYSTCAL_TRASH_RETENTION_DAYS`, default 30). Then
+the server purges the entry.
+
+- Every scope goes to trash: `all` (the event, or the series and its
+  overrides), `this` (one instance), and `this_and_future`.
+- Restore gives back the same `event_id`, `created_by`, attendees, and
+  answers.
+- The delete rule decides who sees and restores an entry. `write` and
+  higher: every entry. `contribute`: only the entries of the events that
+  the caller created. `read` and `free_busy`: no trash (403 on
+  `list-trash`, 404 on `restore-event`).
+- A deleted event is not in the events table. Lists, free/busy, feeds,
+  subscriptions, and search do not see it.
+- Restore answers 409 when a later change conflicts:
+  - an event with the same `uid` is on the calendar again;
+  - the series of an instance entry is gone or moved (restore the series
+    first);
+  - the instance has a new override;
+  - the series changed after a `this_and_future` delete.
+
+## Import with another creator
+
+`EventService.import-event` creates an event with `created_by` set to
+another identity. It is for a move of data from another system.
+
+- Only the calendar owner can call it (a person or an application
+  principal).
+- `created_by` must have `contribute` access or higher on the calendar,
+  through a share or a group, or be the owner.
+- The creator is also the organizer. `updated_by` is the caller.
+- `created_at` keeps the original time. It must not be after now.
+- A `uid` that is already on the calendar gives 409. Thus a repeated
+  import with the same `uid` changes nothing.
+- A creator who did not sign in yet gets a user row with no default
+  calendar. The first sign-in adds the default calendar. The person
+  directory does not show the user before that sign-in.
+- Each call writes an audit entry with the creator as the principal
+  (operation `event.ImportEvent.created_by`). The creator sees it in
+  `AuditService.list-audit`, also with `delegated_only`.
+- An override of one instance cannot be imported.
+
 ## Effective access, in one function
 
 For a calendar `c` and a caller identity `id`, effective access is:
@@ -180,4 +224,4 @@ They do not repeat the rules.
 | Calendar or event does not exist, or the caller has `none` access | 404 (do not reveal existence) |
 | The caller can see it but cannot do this | 403 |
 | Bad input | 400 |
-| Conflict, for example a duplicate group name or an old group revision | 409 |
+| Conflict, for example a duplicate group name, an old group revision, or a restore after a conflicting change | 409 |

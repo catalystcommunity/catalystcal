@@ -237,6 +237,9 @@ pub const AuditID = []const u8;
 /// GroupID is a type alias.
 pub const GroupID = []const u8;
 
+/// TrashID is a type alias.
+pub const TrashID = []const u8;
+
 /// SessionID is a type alias.
 pub const SessionID = []const u8;
 
@@ -333,6 +336,16 @@ pub const Reminder = struct {
 pub const OccurrenceList = struct {
     occurrences: []Occurrence,
     truncated: bool,
+};
+
+/// DeleteEventResponse is a structured data type.
+pub const DeleteEventResponse = struct {
+    trash_id: ?TrashID = null,
+};
+
+/// TrashList is a structured data type.
+pub const TrashList = struct {
+    entries: []TrashEntry,
 };
 
 /// SearchEventsRequest is a structured data type.
@@ -655,6 +668,38 @@ pub const DeleteEventRequest = struct {
 pub const MoveEventRequest = struct {
     event_id: EventID,
     calendar_id: CalendarID,
+};
+
+/// TrashEntry is a structured data type.
+pub const TrashEntry = struct {
+    trash_id: TrashID,
+    calendar_id: CalendarID,
+    event_id: EventID,
+    scope: RecurrenceScope,
+    recurrence_id: ?Timestamp = null,
+    event: Event,
+    instance: ?Event = null,
+    deleted_by: ?PersonSummary = null,
+    deleted_at: Timestamp,
+    expires_at: Timestamp,
+};
+
+/// ListTrashRequest is a structured data type.
+pub const ListTrashRequest = struct {
+    calendar_id: CalendarID,
+    limit: ?u64 = null,
+};
+
+/// RestoreEventRequest is a structured data type.
+pub const RestoreEventRequest = struct {
+    trash_id: TrashID,
+};
+
+/// ImportEventRequest is a structured data type.
+pub const ImportEventRequest = struct {
+    event: Event,
+    created_by: IdentityRef,
+    created_at: ?Timestamp = null,
 };
 
 /// RespondRequest is a structured data type.

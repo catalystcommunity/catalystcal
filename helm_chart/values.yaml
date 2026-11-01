@@ -52,6 +52,8 @@ config:
   allowedUsers: ""
   bearerTTLSeconds: ""
   sessionTTLHours: ""
+  # How long a deleted event stays restorable (days, 1 to 365). Empty: 30.
+  trashRetentionDays: ""
   # How often catalystcal fetches subscribed external calendars.
   subscriptionRefreshMinutes: ""
   # true lets subscriptions fetch private network addresses. Keep false on a

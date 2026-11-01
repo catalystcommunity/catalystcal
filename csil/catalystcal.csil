@@ -38,6 +38,7 @@ ShareID       = text
 DelegationID  = text
 AuditID       = text
 GroupID       = text
+TrashID       = text
 SessionID     = text
 ;; RFC3339 UTC, whole seconds, "Z" suffix: 2026-10-15T17:00:00Z.
 Timestamp     = text
@@ -522,9 +523,73 @@ DeleteEventRequest = {
     ? recurrence_id: Timestamp
 }
 
+DeleteEventResponse = {
+    ;; The trash entry that restore-event takes. Absent when nothing was
+    ;; removed (the event was already gone).
+    ? trash_id: TrashID
+}
+
 MoveEventRequest = {
     event_id: EventID,
     calendar_id: CalendarID
+}
+
+;; One delete that restore-event can reverse. A delete of every scope goes
+;; to trash: the whole event or series (all), one instance (this), and the
+;; instance and the later ones (this_and_future). The server purges an
+;; entry at expires_at.
+TrashEntry = {
+    trash_id: TrashID,
+    calendar_id: CalendarID,
+    ;; The single event or the series master that the delete changed.
+    event_id: EventID,
+    scope: RecurrenceScope,
+    ;; The instance, for scope this and this_and_future.
+    ? recurrence_id: Timestamp,
+    ;; The event or the series master as it was before the delete.
+    event: Event,
+    ;; For scope this: the instance as it was (its override, or the
+    ;; generated instance).
+    ? instance: Event,
+    ? deleted_by: PersonSummary,
+    deleted_at: Timestamp,
+    expires_at: Timestamp
+}
+
+;; A caller sees the trash entries of the events that the caller can
+;; delete: every entry with write access or more, only the entries of the
+;; caller's own events with contribute access.
+ListTrashRequest = {
+    calendar_id: CalendarID,
+    ? limit: uint .default 100
+}
+
+TrashList = {
+    ;; Newest first.
+    entries: [* TrashEntry]
+}
+
+;; Restore reverses one delete. It gives back the same event_id. It
+;; answers 409 when a later change conflicts: an event with the same uid is
+;; on the calendar again, the instance has a new override, or the series
+;; changed after a this_and_future delete. It returns the event or the
+;; series master.
+RestoreEventRequest = {
+    trash_id: TrashID
+}
+
+;; Create an event with another creator. Only the calendar owner can call
+;; it. created_by must reach the calendar with contribute access or more,
+;; through a share or a group (or be the owner). The creator is also the
+;; organizer. Each call writes an audit entry that the creator can see.
+;; A uid that is already on the calendar answers 409, so a repeated import
+;; with the same uid changes nothing. An override of one instance cannot
+;; be imported.
+ImportEventRequest = {
+    event: Event,
+    created_by: IdentityRef,
+    ;; The original creation time. Not after now. Default: now.
+    ? created_at: Timestamp
 }
 
 RespondRequest = {
@@ -852,11 +917,14 @@ service EventService {
     get-event:     EventID             -> Event          / ServiceError,
     create-event:  Event               -> Event          / ServiceError,
     update-event:  UpdateEventRequest  -> Event          / ServiceError,
-    delete-event:  DeleteEventRequest  -> EmptyResponse  / ServiceError,
+    delete-event:  DeleteEventRequest  -> DeleteEventResponse / ServiceError,
     move-event:    MoveEventRequest    -> Event          / ServiceError,
     respond:       RespondRequest      -> Event          / ServiceError,
     list-invitations: EmptyRequest     -> EventList      / ServiceError,
-    search-events: SearchEventsRequest -> EventList      / ServiceError
+    search-events: SearchEventsRequest -> EventList      / ServiceError,
+    list-trash:    ListTrashRequest    -> TrashList      / ServiceError,
+    restore-event: RestoreEventRequest -> Event          / ServiceError,
+    import-event:  ImportEventRequest  -> Event          / ServiceError
 }
 
 service FreeBusyService {

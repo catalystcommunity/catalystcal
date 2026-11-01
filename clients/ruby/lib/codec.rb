@@ -1219,6 +1219,30 @@ end) : nil),
   end
 end
 
+# CBOR codec for DeleteEventResponse: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class DeleteEventResponse
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["trash_id"] = trash_id unless trash_id.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      trash_id: (node.key?("trash_id") ? node["trash_id"] : nil)
+    )
+  end
+end
+
 # CBOR codec for MoveEventRequest: a map keyed by the verbatim CSIL field names in
 # canonical RFC 8949 order.
 class MoveEventRequest
@@ -1241,6 +1265,156 @@ class MoveEventRequest
     new(
       event_id: node["event_id"],
       calendar_id: node["calendar_id"]
+    )
+  end
+end
+
+# CBOR codec for TrashEntry: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class TrashEntry
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event"] = (event).csil_to_tree
+    csil_map["scope"] = (scope)
+    csil_map["event_id"] = event_id
+    csil_map["instance"] = (instance).csil_to_tree unless instance.nil?
+    csil_map["trash_id"] = trash_id
+    csil_map["deleted_at"] = deleted_at
+    csil_map["deleted_by"] = (deleted_by).csil_to_tree unless deleted_by.nil?
+    csil_map["expires_at"] = expires_at
+    csil_map["calendar_id"] = calendar_id
+    csil_map["recurrence_id"] = recurrence_id unless recurrence_id.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      trash_id: node["trash_id"],
+      calendar_id: node["calendar_id"],
+      event_id: node["event_id"],
+      scope: (case (node["scope"])
+when "all" then "all"
+when "this" then "this"
+when "this_and_future" then "this_and_future"
+else
+  raise ArgumentError, "csilgen: unknown inline literal #{(node["scope"]).inspect}"
+end),
+      recurrence_id: (node.key?("recurrence_id") ? node["recurrence_id"] : nil),
+      event: Event.csil_from_tree(node["event"]),
+      instance: (node.key?("instance") ? Event.csil_from_tree(node["instance"]) : nil),
+      deleted_by: (node.key?("deleted_by") ? PersonSummary.csil_from_tree(node["deleted_by"]) : nil),
+      deleted_at: node["deleted_at"],
+      expires_at: node["expires_at"]
+    )
+  end
+end
+
+# CBOR codec for ListTrashRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ListTrashRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["limit"] = limit unless limit.nil?
+    csil_map["calendar_id"] = calendar_id
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      calendar_id: node["calendar_id"],
+      limit: (node.key?("limit") ? node["limit"] : nil)
+    )
+  end
+end
+
+# CBOR codec for TrashList: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class TrashList
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["entries"] = (entries).map { |csil_e| (csil_e).csil_to_tree }
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      entries: (node["entries"]).map { |csil_e| TrashEntry.csil_from_tree(csil_e) }
+    )
+  end
+end
+
+# CBOR codec for RestoreEventRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class RestoreEventRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["trash_id"] = trash_id
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      trash_id: node["trash_id"]
+    )
+  end
+end
+
+# CBOR codec for ImportEventRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class ImportEventRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event"] = (event).csil_to_tree
+    csil_map["created_at"] = created_at unless created_at.nil?
+    csil_map["created_by"] = (created_by).csil_to_tree
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      event: Event.csil_from_tree(node["event"]),
+      created_by: IdentityRef.csil_from_tree(node["created_by"]),
+      created_at: (node.key?("created_at") ? node["created_at"] : nil)
     )
   end
 end

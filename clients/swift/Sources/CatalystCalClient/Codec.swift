@@ -1389,6 +1389,27 @@ public extension DeleteEventRequest {
     static func fromCbor(_ bytes: [UInt8]) throws -> DeleteEventRequest { try DeleteEventRequest(cborValue: CsilCbor.decode(bytes)) }
 }
 
+public extension DeleteEventResponse {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        if let csilV = self.trashId { csilEntries.append((.text("trash_id"), .text(csilV))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let trashId: TrashId? = if let csilV = CsilCbor.mapGet(cborValue, "trash_id") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(trashId: trashId)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> DeleteEventResponse { try DeleteEventResponse(cborValue: CsilCbor.decode(bytes)) }
+}
+
 public extension MoveEventRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
@@ -1410,6 +1431,135 @@ public extension MoveEventRequest {
 
     /// Decode a CSIL CBOR byte payload into this record.
     static func fromCbor(_ bytes: [UInt8]) throws -> MoveEventRequest { try MoveEventRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension TrashEntry {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        csilEntries.append((.text("scope"), self.scope.toCborValue()))
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.instance { csilEntries.append((.text("instance"), csilV.toCborValue())) }
+        csilEntries.append((.text("trash_id"), .text(self.trashId)))
+        csilEntries.append((.text("deleted_at"), .text(self.deletedAt)))
+        if let csilV = self.deletedBy { csilEntries.append((.text("deleted_by"), csilV.toCborValue())) }
+        csilEntries.append((.text("expires_at"), .text(self.expiresAt)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let trashId = try CsilCbor.asText((try CsilCbor.require(cborValue, "trash_id")))
+        let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
+        let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
+        let scope = try RecurrenceScope(cborValue: (try CsilCbor.require(cborValue, "scope")))
+        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
+        let instance: Event? = if let csilV = CsilCbor.mapGet(cborValue, "instance") { try Event(cborValue: csilV) } else { nil }
+        let deletedBy: PersonSummary? = if let csilV = CsilCbor.mapGet(cborValue, "deleted_by") { try PersonSummary(cborValue: csilV) } else { nil }
+        let deletedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "deleted_at")))
+        let expiresAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "expires_at")))
+        self.init(trashId: trashId, calendarId: calendarId, eventId: eventId, scope: scope, recurrenceId: recurrenceId, event: event, instance: instance, deletedBy: deletedBy, deletedAt: deletedAt, expiresAt: expiresAt)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> TrashEntry { try TrashEntry(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension ListTrashRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        if let csilV = self.limit { csilEntries.append((.text("limit"), .uint(csilV))) }
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
+        let limit: UInt64? = if let csilV = CsilCbor.mapGet(cborValue, "limit") { try CsilCbor.asU64(csilV) } else { nil }
+        self.init(calendarId: calendarId, limit: limit)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> ListTrashRequest { try ListTrashRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension TrashList {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("entries"), CsilCborValue.array(self.entries.map { $0.toCborValue() })))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let entries = try CsilCbor.asArray((try CsilCbor.require(cborValue, "entries"))).map { try TrashEntry(cborValue: $0) }
+        self.init(entries: entries)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> TrashList { try TrashList(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension RestoreEventRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("trash_id"), .text(self.trashId)))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let trashId = try CsilCbor.asText((try CsilCbor.require(cborValue, "trash_id")))
+        self.init(trashId: trashId)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> RestoreEventRequest { try RestoreEventRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension ImportEventRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        if let csilV = self.createdAt { csilEntries.append((.text("created_at"), .text(csilV))) }
+        csilEntries.append((.text("created_by"), self.createdBy.toCborValue()))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
+        let createdBy = try IdentityRef(cborValue: (try CsilCbor.require(cborValue, "created_by")))
+        let createdAt: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "created_at") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(event: event, createdBy: createdBy, createdAt: createdAt)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> ImportEventRequest { try ImportEventRequest(cborValue: CsilCbor.decode(bytes)) }
 }
 
 public extension RespondRequest {

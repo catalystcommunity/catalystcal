@@ -19,6 +19,8 @@ typedef AuditId = String;
 
 typedef GroupId = String;
 
+typedef TrashId = String;
+
 typedef SessionId = String;
 
 typedef Timestamp = String;
@@ -2727,6 +2729,53 @@ final class DeleteEventRequest {
       DeleteEventRequest.fromCborValue(CsilCbor.decode(bytes));
 }
 
+final class DeleteEventResponse {
+  final TrashId? trashId;
+
+  const DeleteEventResponse({this.trashId});
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    if (trashId != null) map['trash_id'] = trashId;
+    return map;
+  }
+
+  factory DeleteEventResponse.fromMap(Map<String, Object?> map) {
+    return DeleteEventResponse(trashId: map['trash_id'] as TrashId?);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! DeleteEventResponse) return false;
+    return trashId == other.trashId;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([trashId]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    if (trashId != null) map['trash_id'] = trashId!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory DeleteEventResponse.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return DeleteEventResponse(
+      trashId: map['trash_id'] == null ? null : map['trash_id'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory DeleteEventResponse.fromCbor(List<int> bytes) =>
+      DeleteEventResponse.fromCborValue(CsilCbor.decode(bytes));
+}
+
 final class MoveEventRequest {
   final EventId eventId;
   final CalendarId calendarId;
@@ -2779,6 +2828,355 @@ final class MoveEventRequest {
   /// Decode a CSIL CBOR byte payload into this record.
   factory MoveEventRequest.fromCbor(List<int> bytes) =>
       MoveEventRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class TrashEntry {
+  final TrashId trashId;
+  final CalendarId calendarId;
+  final EventId eventId;
+  final RecurrenceScope scope;
+  final Timestamp? recurrenceId;
+  final Event event;
+  final Event? instance;
+  final PersonSummary? deletedBy;
+  final Timestamp deletedAt;
+  final Timestamp expiresAt;
+
+  const TrashEntry({
+    required this.trashId,
+    required this.calendarId,
+    required this.eventId,
+    required this.scope,
+    this.recurrenceId,
+    required this.event,
+    this.instance,
+    this.deletedBy,
+    required this.deletedAt,
+    required this.expiresAt,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['trash_id'] = trashId;
+    map['calendar_id'] = calendarId;
+    map['event_id'] = eventId;
+    map['scope'] = scope;
+    if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
+    map['event'] = event;
+    if (instance != null) map['instance'] = instance;
+    if (deletedBy != null) map['deleted_by'] = deletedBy;
+    map['deleted_at'] = deletedAt;
+    map['expires_at'] = expiresAt;
+    return map;
+  }
+
+  factory TrashEntry.fromMap(Map<String, Object?> map) {
+    return TrashEntry(
+      trashId: map['trash_id'] as TrashId,
+      calendarId: map['calendar_id'] as CalendarId,
+      eventId: map['event_id'] as EventId,
+      scope: map['scope'] as RecurrenceScope,
+      recurrenceId: map['recurrence_id'] as Timestamp?,
+      event: map['event'] as Event,
+      instance: map['instance'] as Event?,
+      deletedBy: map['deleted_by'] as PersonSummary?,
+      deletedAt: map['deleted_at'] as Timestamp,
+      expiresAt: map['expires_at'] as Timestamp,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! TrashEntry) return false;
+    return trashId == other.trashId &&
+        calendarId == other.calendarId &&
+        eventId == other.eventId &&
+        scope == other.scope &&
+        recurrenceId == other.recurrenceId &&
+        event == other.event &&
+        instance == other.instance &&
+        deletedBy == other.deletedBy &&
+        deletedAt == other.deletedAt &&
+        expiresAt == other.expiresAt;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    trashId,
+    calendarId,
+    eventId,
+    scope,
+    recurrenceId,
+    event,
+    instance,
+    deletedBy,
+    deletedAt,
+    expiresAt,
+  ]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['trash_id'] = trashId;
+    map['calendar_id'] = calendarId;
+    map['event_id'] = eventId;
+    map['scope'] = scope;
+    if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
+    map['event'] = event.toCborValue();
+    if (instance != null) map['instance'] = instance!.toCborValue();
+    if (deletedBy != null) map['deleted_by'] = deletedBy!.toCborValue();
+    map['deleted_at'] = deletedAt;
+    map['expires_at'] = expiresAt;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory TrashEntry.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return TrashEntry(
+      trashId: map['trash_id'] as String,
+      calendarId: map['calendar_id'] as String,
+      eventId: map['event_id'] as String,
+      scope: CsilCbor.expectOneOf<String>(map['scope'], const [
+        'all',
+        'this',
+        'this_and_future',
+      ]),
+      recurrenceId: map['recurrence_id'] == null
+          ? null
+          : map['recurrence_id'] as String,
+      event: Event.fromCborValue(map['event']),
+      instance: map['instance'] == null
+          ? null
+          : Event.fromCborValue(map['instance']),
+      deletedBy: map['deleted_by'] == null
+          ? null
+          : PersonSummary.fromCborValue(map['deleted_by']),
+      deletedAt: map['deleted_at'] as String,
+      expiresAt: map['expires_at'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory TrashEntry.fromCbor(List<int> bytes) =>
+      TrashEntry.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class ListTrashRequest {
+  final CalendarId calendarId;
+  final int? limit;
+
+  const ListTrashRequest({required this.calendarId, this.limit});
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    if (limit != null) map['limit'] = limit;
+    return map;
+  }
+
+  factory ListTrashRequest.fromMap(Map<String, Object?> map) {
+    return ListTrashRequest(
+      calendarId: map['calendar_id'] as CalendarId,
+      limit: map['limit'] as int?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! ListTrashRequest) return false;
+    return calendarId == other.calendarId && limit == other.limit;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([calendarId, limit]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    if (limit != null) map['limit'] = limit!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory ListTrashRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return ListTrashRequest(
+      calendarId: map['calendar_id'] as String,
+      limit: map['limit'] == null ? null : map['limit'] as int,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory ListTrashRequest.fromCbor(List<int> bytes) =>
+      ListTrashRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class TrashList {
+  final List<TrashEntry> entries;
+
+  const TrashList({required this.entries});
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['entries'] = entries;
+    return map;
+  }
+
+  factory TrashList.fromMap(Map<String, Object?> map) {
+    return TrashList(entries: map['entries'] as List<TrashEntry>);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! TrashList) return false;
+    return entries == other.entries;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([entries]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['entries'] = entries.map((csilE) => csilE.toCborValue()).toList();
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory TrashList.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return TrashList(
+      entries: (map['entries'] as List)
+          .map((csilE) => TrashEntry.fromCborValue(csilE))
+          .cast<TrashEntry>()
+          .toList(),
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory TrashList.fromCbor(List<int> bytes) =>
+      TrashList.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class RestoreEventRequest {
+  final TrashId trashId;
+
+  const RestoreEventRequest({required this.trashId});
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['trash_id'] = trashId;
+    return map;
+  }
+
+  factory RestoreEventRequest.fromMap(Map<String, Object?> map) {
+    return RestoreEventRequest(trashId: map['trash_id'] as TrashId);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! RestoreEventRequest) return false;
+    return trashId == other.trashId;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([trashId]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['trash_id'] = trashId;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory RestoreEventRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return RestoreEventRequest(trashId: map['trash_id'] as String);
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory RestoreEventRequest.fromCbor(List<int> bytes) =>
+      RestoreEventRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class ImportEventRequest {
+  final Event event;
+  final IdentityRef createdBy;
+  final Timestamp? createdAt;
+
+  const ImportEventRequest({
+    required this.event,
+    required this.createdBy,
+    this.createdAt,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['event'] = event;
+    map['created_by'] = createdBy;
+    if (createdAt != null) map['created_at'] = createdAt;
+    return map;
+  }
+
+  factory ImportEventRequest.fromMap(Map<String, Object?> map) {
+    return ImportEventRequest(
+      event: map['event'] as Event,
+      createdBy: map['created_by'] as IdentityRef,
+      createdAt: map['created_at'] as Timestamp?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! ImportEventRequest) return false;
+    return event == other.event &&
+        createdBy == other.createdBy &&
+        createdAt == other.createdAt;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([event, createdBy, createdAt]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['event'] = event.toCborValue();
+    map['created_by'] = createdBy.toCborValue();
+    if (createdAt != null) map['created_at'] = createdAt!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory ImportEventRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return ImportEventRequest(
+      event: Event.fromCborValue(map['event']),
+      createdBy: IdentityRef.fromCborValue(map['created_by']),
+      createdAt: map['created_at'] == null ? null : map['created_at'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory ImportEventRequest.fromCbor(List<int> bytes) =>
+      ImportEventRequest.fromCborValue(CsilCbor.decode(bytes));
 }
 
 final class RespondRequest {

@@ -20,6 +20,8 @@ AuditId = str
 
 GroupId = str
 
+TrashId = str
+
 SessionId = str
 
 Timestamp = str
@@ -1162,6 +1164,31 @@ class DeleteEventRequest:
 
 
 @dataclass
+class DeleteEventResponse:
+    trash_id: Optional[TrashId] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'trash_id') and self.trash_id is not None:
+            result['trash_id'] = self.trash_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'DeleteEventResponse':
+        """Create instance from dictionary."""
+        return cls(trash_id=data.get('trash_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'DeleteEventResponse':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
 class MoveEventRequest:
     event_id: EventId
     calendar_id: CalendarId
@@ -1185,6 +1212,167 @@ class MoveEventRequest:
 
     @classmethod
     def from_json(cls, json_str: str) -> 'MoveEventRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class TrashEntry:
+    trash_id: TrashId
+    calendar_id: CalendarId
+    event_id: EventId
+    scope: RecurrenceScope
+    event: Event
+    deleted_at: Timestamp
+    expires_at: Timestamp
+    recurrence_id: Optional[Timestamp] = None
+    instance: Optional[Event] = None
+    deleted_by: Optional[PersonSummary] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'trash_id') and self.trash_id is not None:
+            result['trash_id'] = self.trash_id
+        if hasattr(self, 'calendar_id') and self.calendar_id is not None:
+            result['calendar_id'] = self.calendar_id
+        if hasattr(self, 'event_id') and self.event_id is not None:
+            result['event_id'] = self.event_id
+        if hasattr(self, 'scope') and self.scope is not None:
+            result['scope'] = self.scope
+        if hasattr(self, 'recurrence_id') and self.recurrence_id is not None:
+            result['recurrence_id'] = self.recurrence_id
+        if hasattr(self, 'event') and self.event is not None:
+            result['event'] = self.event
+        if hasattr(self, 'instance') and self.instance is not None:
+            result['instance'] = self.instance
+        if hasattr(self, 'deleted_by') and self.deleted_by is not None:
+            result['deleted_by'] = self.deleted_by
+        if hasattr(self, 'deleted_at') and self.deleted_at is not None:
+            result['deleted_at'] = self.deleted_at
+        if hasattr(self, 'expires_at') and self.expires_at is not None:
+            result['expires_at'] = self.expires_at
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'TrashEntry':
+        """Create instance from dictionary."""
+        return cls(trash_id=data.get('trash_id'), calendar_id=data.get('calendar_id'), event_id=data.get('event_id'), scope=data.get('scope'), recurrence_id=data.get('recurrence_id'), event=data.get('event'), instance=data.get('instance'), deleted_by=data.get('deleted_by'), deleted_at=data.get('deleted_at'), expires_at=data.get('expires_at'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'TrashEntry':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ListTrashRequest:
+    calendar_id: CalendarId
+    limit: Optional[int] = 100
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'calendar_id') and self.calendar_id is not None:
+            result['calendar_id'] = self.calendar_id
+        if hasattr(self, 'limit') and self.limit is not None:
+            result['limit'] = self.limit
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ListTrashRequest':
+        """Create instance from dictionary."""
+        return cls(calendar_id=data.get('calendar_id'), limit=data.get('limit'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ListTrashRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class TrashList:
+    entries: List[TrashEntry]
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'entries') and self.entries is not None:
+            result['entries'] = self.entries
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'TrashList':
+        """Create instance from dictionary."""
+        return cls(entries=data.get('entries'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'TrashList':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class RestoreEventRequest:
+    trash_id: TrashId
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'trash_id') and self.trash_id is not None:
+            result['trash_id'] = self.trash_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'RestoreEventRequest':
+        """Create instance from dictionary."""
+        return cls(trash_id=data.get('trash_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'RestoreEventRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class ImportEventRequest:
+    event: Event
+    created_by: IdentityRef
+    created_at: Optional[Timestamp] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'event') and self.event is not None:
+            result['event'] = self.event
+        if hasattr(self, 'created_by') and self.created_by is not None:
+            result['created_by'] = self.created_by
+        if hasattr(self, 'created_at') and self.created_at is not None:
+            result['created_at'] = self.created_at
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ImportEventRequest':
+        """Create instance from dictionary."""
+        return cls(event=data.get('event'), created_by=data.get('created_by'), created_at=data.get('created_at'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'ImportEventRequest':
         """Create instance from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

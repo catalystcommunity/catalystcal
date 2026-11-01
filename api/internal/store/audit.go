@@ -36,12 +36,13 @@ func (s *Store) InsertAudit(ctx context.Context, a AuditRow) error {
 
 // ListAudit returns entries where the user is the principal or the actor,
 // newest first. delegatedOnly keeps only entries where somebody else (a
-// delegate or an application) used the user's authority.
+// delegate or an application) used the user's authority, or named the user
+// (an attributed import).
 func (s *Store) ListAudit(ctx context.Context, userID string, delegatedOnly bool, limit int) ([]AuditRow, error) {
 	q := `SELECT id, at, actor_id, principal_id, via, application, operation, target, outcome FROM audit_log `
 	var args []any
 	if delegatedOnly {
-		q += `WHERE principal_id = ? AND via <> 'self' `
+		q += `WHERE principal_id = ? AND (via <> 'self' OR actor_id <> principal_id) `
 		args = append(args, userID)
 	} else {
 		q += `WHERE principal_id = ? OR actor_id = ? `

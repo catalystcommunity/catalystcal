@@ -217,6 +217,12 @@ module Event_service = struct
     list_invitations : bytes -> outcome;
     (* request payload decodes to: search_events_request *)
     search_events : bytes -> outcome;
+    (* request payload decodes to: list_trash_request *)
+    list_trash : bytes -> outcome;
+    (* request payload decodes to: restore_event_request *)
+    restore_event : bytes -> outcome;
+    (* request payload decodes to: import_event_request *)
+    import_event : bytes -> outcome;
   }
 
   (* Verbose router: dispatch one request by operation name to its handler
@@ -232,6 +238,9 @@ module Event_service = struct
     | "respond" -> h.respond payload
     | "list-invitations" -> h.list_invitations payload
     | "search-events" -> h.search_events payload
+    | "list-trash" -> h.list_trash payload
+    | "restore-event" -> h.restore_event payload
+    | "import-event" -> h.import_event payload
     | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
 end
 

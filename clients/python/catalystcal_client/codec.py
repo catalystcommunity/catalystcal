@@ -1451,6 +1451,31 @@ def _delete_event_request_from_cbor(data: bytes) -> "DeleteEventRequest":
 DeleteEventRequest.to_cbor = _delete_event_request_to_cbor
 DeleteEventRequest.from_cbor = staticmethod(_delete_event_request_from_cbor)
 
+def _encode_delete_event_response_value(v: "DeleteEventResponse") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.trash_id
+    if csil_x is not None:
+        csil_m["trash_id"] = csil_x
+    return csil_m
+
+def _decode_delete_event_response_value(tree: Any) -> "DeleteEventResponse":
+    tree = _csil_expect_map(tree)
+    return DeleteEventResponse(
+        trash_id=(None if tree.get("trash_id") is None else _csil_expect_text(tree["trash_id"])),
+    )
+
+
+def _delete_event_response_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_delete_event_response_value(self))
+
+
+def _delete_event_response_from_cbor(data: bytes) -> "DeleteEventResponse":
+    return _decode_delete_event_response_value(cbor_decode(data))
+
+
+DeleteEventResponse.to_cbor = _delete_event_response_to_cbor
+DeleteEventResponse.from_cbor = staticmethod(_delete_event_response_from_cbor)
+
 def _encode_move_event_request_value(v: "MoveEventRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
     csil_m["event_id"] = v.event_id
@@ -1475,6 +1500,155 @@ def _move_event_request_from_cbor(data: bytes) -> "MoveEventRequest":
 
 MoveEventRequest.to_cbor = _move_event_request_to_cbor
 MoveEventRequest.from_cbor = staticmethod(_move_event_request_from_cbor)
+
+def _encode_trash_entry_value(v: "TrashEntry") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["event"] = _encode_event_value(v.event)
+    csil_m["scope"] = v.scope
+    csil_m["event_id"] = v.event_id
+    csil_x = v.instance
+    if csil_x is not None:
+        csil_m["instance"] = _encode_event_value(csil_x)
+    csil_m["trash_id"] = v.trash_id
+    csil_m["deleted_at"] = v.deleted_at
+    csil_x = v.deleted_by
+    if csil_x is not None:
+        csil_m["deleted_by"] = _encode_person_summary_value(csil_x)
+    csil_m["expires_at"] = v.expires_at
+    csil_m["calendar_id"] = v.calendar_id
+    csil_x = v.recurrence_id
+    if csil_x is not None:
+        csil_m["recurrence_id"] = csil_x
+    return csil_m
+
+def _decode_trash_entry_value(tree: Any) -> "TrashEntry":
+    tree = _csil_expect_map(tree)
+    return TrashEntry(
+        trash_id=_csil_expect_text(tree["trash_id"]),
+        calendar_id=_csil_expect_text(tree["calendar_id"]),
+        event_id=_csil_expect_text(tree["event_id"]),
+        scope=_decode_recurrence_scope_value(tree["scope"]),
+        recurrence_id=(None if tree.get("recurrence_id") is None else _csil_expect_text(tree["recurrence_id"])),
+        event=_decode_event_value(tree["event"]),
+        instance=(None if tree.get("instance") is None else _decode_event_value(tree["instance"])),
+        deleted_by=(None if tree.get("deleted_by") is None else _decode_person_summary_value(tree["deleted_by"])),
+        deleted_at=_csil_expect_text(tree["deleted_at"]),
+        expires_at=_csil_expect_text(tree["expires_at"]),
+    )
+
+
+def _trash_entry_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_trash_entry_value(self))
+
+
+def _trash_entry_from_cbor(data: bytes) -> "TrashEntry":
+    return _decode_trash_entry_value(cbor_decode(data))
+
+
+TrashEntry.to_cbor = _trash_entry_to_cbor
+TrashEntry.from_cbor = staticmethod(_trash_entry_from_cbor)
+
+def _encode_list_trash_request_value(v: "ListTrashRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.limit
+    if csil_x is not None:
+        csil_m["limit"] = csil_x
+    csil_m["calendar_id"] = v.calendar_id
+    return csil_m
+
+def _decode_list_trash_request_value(tree: Any) -> "ListTrashRequest":
+    tree = _csil_expect_map(tree)
+    return ListTrashRequest(
+        calendar_id=_csil_expect_text(tree["calendar_id"]),
+        limit=(None if tree.get("limit") is None else _csil_expect_uint(tree["limit"])),
+    )
+
+
+def _list_trash_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_list_trash_request_value(self))
+
+
+def _list_trash_request_from_cbor(data: bytes) -> "ListTrashRequest":
+    return _decode_list_trash_request_value(cbor_decode(data))
+
+
+ListTrashRequest.to_cbor = _list_trash_request_to_cbor
+ListTrashRequest.from_cbor = staticmethod(_list_trash_request_from_cbor)
+
+def _encode_trash_list_value(v: "TrashList") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["entries"] = [_encode_trash_entry_value(csil_e) for csil_e in v.entries]
+    return csil_m
+
+def _decode_trash_list_value(tree: Any) -> "TrashList":
+    tree = _csil_expect_map(tree)
+    return TrashList(
+        entries=[_decode_trash_entry_value(csil_e) for csil_e in _csil_expect_array(tree["entries"])],
+    )
+
+
+def _trash_list_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_trash_list_value(self))
+
+
+def _trash_list_from_cbor(data: bytes) -> "TrashList":
+    return _decode_trash_list_value(cbor_decode(data))
+
+
+TrashList.to_cbor = _trash_list_to_cbor
+TrashList.from_cbor = staticmethod(_trash_list_from_cbor)
+
+def _encode_restore_event_request_value(v: "RestoreEventRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["trash_id"] = v.trash_id
+    return csil_m
+
+def _decode_restore_event_request_value(tree: Any) -> "RestoreEventRequest":
+    tree = _csil_expect_map(tree)
+    return RestoreEventRequest(
+        trash_id=_csil_expect_text(tree["trash_id"]),
+    )
+
+
+def _restore_event_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_restore_event_request_value(self))
+
+
+def _restore_event_request_from_cbor(data: bytes) -> "RestoreEventRequest":
+    return _decode_restore_event_request_value(cbor_decode(data))
+
+
+RestoreEventRequest.to_cbor = _restore_event_request_to_cbor
+RestoreEventRequest.from_cbor = staticmethod(_restore_event_request_from_cbor)
+
+def _encode_import_event_request_value(v: "ImportEventRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["event"] = _encode_event_value(v.event)
+    csil_x = v.created_at
+    if csil_x is not None:
+        csil_m["created_at"] = csil_x
+    csil_m["created_by"] = _encode_identity_ref_value(v.created_by)
+    return csil_m
+
+def _decode_import_event_request_value(tree: Any) -> "ImportEventRequest":
+    tree = _csil_expect_map(tree)
+    return ImportEventRequest(
+        event=_decode_event_value(tree["event"]),
+        created_by=_decode_identity_ref_value(tree["created_by"]),
+        created_at=(None if tree.get("created_at") is None else _csil_expect_text(tree["created_at"])),
+    )
+
+
+def _import_event_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_import_event_request_value(self))
+
+
+def _import_event_request_from_cbor(data: bytes) -> "ImportEventRequest":
+    return _decode_import_event_request_value(cbor_decode(data))
+
+
+ImportEventRequest.to_cbor = _import_event_request_to_cbor
+ImportEventRequest.from_cbor = staticmethod(_import_event_request_from_cbor)
 
 def _encode_respond_request_value(v: "RespondRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}

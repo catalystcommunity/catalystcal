@@ -262,6 +262,21 @@ class EventHandlers
   def search_events(req)
     raise NotImplementedError, "EventHandlers#search_events"
   end
+
+  # list-trash
+  def list_trash(req)
+    raise NotImplementedError, "EventHandlers#list_trash"
+  end
+
+  # restore-event
+  def restore_event(req)
+    raise NotImplementedError, "EventHandlers#restore_event"
+  end
+
+  # import-event
+  def import_event(req)
+    raise NotImplementedError, "EventHandlers#import_event"
+  end
 end
 
 # Server-side handlers for the FreeBusyService service. Subclass and override each

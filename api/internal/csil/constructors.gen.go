@@ -61,6 +61,14 @@ func NewDeleteEventRequest() *DeleteEventRequest {
 	}
 }
 
+// NewListTrashRequest creates a ListTrashRequest with default values:
+//   - limit: 100
+func NewListTrashRequest() *ListTrashRequest {
+	return &ListTrashRequest{
+		Limit: func() *uint64 { v := uint64(100); return &v }(),
+	}
+}
+
 // NewSearchEventsRequest creates a SearchEventsRequest with default values:
 //   - limit: 50
 func NewSearchEventsRequest() *SearchEventsRequest {

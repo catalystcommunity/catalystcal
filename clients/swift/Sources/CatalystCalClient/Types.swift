@@ -21,6 +21,8 @@ public typealias AuditId = String
 
 public typealias GroupId = String
 
+public typealias TrashId = String
+
 public typealias SessionId = String
 
 public typealias Timestamp = String
@@ -1065,6 +1067,21 @@ public struct DeleteEventRequest: Equatable, Sendable {
     ]
 }
 
+/// DeleteEventResponse is a generated CSIL record type.
+public struct DeleteEventResponse: Equatable, Sendable {
+    /// wire key: trash_id
+    public let trashId: TrashId?
+
+    public init(trashId: TrashId? = nil) {
+        self.trashId = trashId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "trashId": "trash_id"
+    ]
+}
+
 /// MoveEventRequest is a generated CSIL record type.
 public struct MoveEventRequest: Equatable, Sendable {
     /// wire key: event_id
@@ -1081,6 +1098,123 @@ public struct MoveEventRequest: Equatable, Sendable {
     public static let wireKeys: [String: String] = [
         "eventId": "event_id",
         "calendarId": "calendar_id"
+    ]
+}
+
+/// TrashEntry is a generated CSIL record type.
+public struct TrashEntry: Equatable, Sendable {
+    /// wire key: trash_id
+    public let trashId: TrashId
+    /// wire key: calendar_id
+    public let calendarId: CalendarId
+    /// wire key: event_id
+    public let eventId: EventId
+    public let scope: RecurrenceScope
+    /// wire key: recurrence_id
+    public let recurrenceId: Timestamp?
+    public let event: Event
+    public let instance: Event?
+    /// wire key: deleted_by
+    public let deletedBy: PersonSummary?
+    /// wire key: deleted_at
+    public let deletedAt: Timestamp
+    /// wire key: expires_at
+    public let expiresAt: Timestamp
+
+    public init(trashId: TrashId, calendarId: CalendarId, eventId: EventId, scope: RecurrenceScope, recurrenceId: Timestamp? = nil, event: Event, instance: Event? = nil, deletedBy: PersonSummary? = nil, deletedAt: Timestamp, expiresAt: Timestamp) {
+        self.trashId = trashId
+        self.calendarId = calendarId
+        self.eventId = eventId
+        self.scope = scope
+        self.recurrenceId = recurrenceId
+        self.event = event
+        self.instance = instance
+        self.deletedBy = deletedBy
+        self.deletedAt = deletedAt
+        self.expiresAt = expiresAt
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "trashId": "trash_id",
+        "calendarId": "calendar_id",
+        "eventId": "event_id",
+        "scope": "scope",
+        "recurrenceId": "recurrence_id",
+        "event": "event",
+        "instance": "instance",
+        "deletedBy": "deleted_by",
+        "deletedAt": "deleted_at",
+        "expiresAt": "expires_at"
+    ]
+}
+
+/// ListTrashRequest is a generated CSIL record type.
+public struct ListTrashRequest: Equatable, Sendable {
+    /// wire key: calendar_id
+    public let calendarId: CalendarId
+    public let limit: UInt64?
+
+    public init(calendarId: CalendarId, limit: UInt64? = 100) {
+        self.calendarId = calendarId
+        self.limit = limit
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "calendarId": "calendar_id",
+        "limit": "limit"
+    ]
+}
+
+/// TrashList is a generated CSIL record type.
+public struct TrashList: Equatable, Sendable {
+    public let entries: [TrashEntry]
+
+    public init(entries: [TrashEntry]) {
+        self.entries = entries
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "entries": "entries"
+    ]
+}
+
+/// RestoreEventRequest is a generated CSIL record type.
+public struct RestoreEventRequest: Equatable, Sendable {
+    /// wire key: trash_id
+    public let trashId: TrashId
+
+    public init(trashId: TrashId) {
+        self.trashId = trashId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "trashId": "trash_id"
+    ]
+}
+
+/// ImportEventRequest is a generated CSIL record type.
+public struct ImportEventRequest: Equatable, Sendable {
+    public let event: Event
+    /// wire key: created_by
+    public let createdBy: IdentityRef
+    /// wire key: created_at
+    public let createdAt: Timestamp?
+
+    public init(event: Event, createdBy: IdentityRef, createdAt: Timestamp? = nil) {
+        self.event = event
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "event": "event",
+        "createdBy": "created_by",
+        "createdAt": "created_at"
     ]
 }
 

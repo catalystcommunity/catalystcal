@@ -250,9 +250,9 @@ module Event_service = struct
     | Ok payload -> Ok (Codec.decode_event_bytes payload)
     | Error _ as e -> e
 
-  let delete_event (c : client) (req : delete_event_request) : (empty_response, string) result =
+  let delete_event (c : client) (req : delete_event_request) : (delete_event_response, string) result =
     match c.call ~service:"EventService" ~op:"delete-event" ~payload:(Codec.encode_delete_event_request_bytes req) with
-    | Ok payload -> Ok (Codec.decode_empty_response_bytes payload)
+    | Ok payload -> Ok (Codec.decode_delete_event_response_bytes payload)
     | Error _ as e -> e
 
   let move_event (c : client) (req : move_event_request) : (event, string) result =
@@ -273,6 +273,21 @@ module Event_service = struct
   let search_events (c : client) (req : search_events_request) : (event_list, string) result =
     match c.call ~service:"EventService" ~op:"search-events" ~payload:(Codec.encode_search_events_request_bytes req) with
     | Ok payload -> Ok (Codec.decode_event_list_bytes payload)
+    | Error _ as e -> e
+
+  let list_trash (c : client) (req : list_trash_request) : (trash_list, string) result =
+    match c.call ~service:"EventService" ~op:"list-trash" ~payload:(Codec.encode_list_trash_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_trash_list_bytes payload)
+    | Error _ as e -> e
+
+  let restore_event (c : client) (req : restore_event_request) : (event, string) result =
+    match c.call ~service:"EventService" ~op:"restore-event" ~payload:(Codec.encode_restore_event_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_event_bytes payload)
+    | Error _ as e -> e
+
+  let import_event (c : client) (req : import_event_request) : (event, string) result =
+    match c.call ~service:"EventService" ~op:"import-event" ~payload:(Codec.encode_import_event_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_event_bytes payload)
     | Error _ as e -> e
 end
 

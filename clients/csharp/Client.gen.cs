@@ -153,8 +153,8 @@ public sealed class EventClient(ICsilTransport transport)
         Codec.Decode<Event>(transport.Call("EventService", "create-event", Codec.Encode(@event)));
     public Event UpdateEvent(UpdateEventRequest updateEventRequest) =>
         Codec.Decode<Event>(transport.Call("EventService", "update-event", Codec.Encode(updateEventRequest)));
-    public EmptyResponse DeleteEvent(DeleteEventRequest deleteEventRequest) =>
-        Codec.Decode<EmptyResponse>(transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
+    public DeleteEventResponse DeleteEvent(DeleteEventRequest deleteEventRequest) =>
+        Codec.Decode<DeleteEventResponse>(transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
     public Event MoveEvent(MoveEventRequest moveEventRequest) =>
         Codec.Decode<Event>(transport.Call("EventService", "move-event", Codec.Encode(moveEventRequest)));
     public Event Respond(RespondRequest respondRequest) =>
@@ -163,6 +163,12 @@ public sealed class EventClient(ICsilTransport transport)
         Codec.Decode<EventList>(transport.Call("EventService", "list-invitations", Codec.Encode(emptyRequest)));
     public EventList SearchEvents(SearchEventsRequest searchEventsRequest) =>
         Codec.Decode<EventList>(transport.Call("EventService", "search-events", Codec.Encode(searchEventsRequest)));
+    public TrashList ListTrash(ListTrashRequest listTrashRequest) =>
+        Codec.Decode<TrashList>(transport.Call("EventService", "list-trash", Codec.Encode(listTrashRequest)));
+    public Event RestoreEvent(RestoreEventRequest restoreEventRequest) =>
+        Codec.Decode<Event>(transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
+    public Event ImportEvent(ImportEventRequest importEventRequest) =>
+        Codec.Decode<Event>(transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

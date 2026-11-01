@@ -24,6 +24,9 @@ type AuditID string
 // GroupID is a type alias
 type GroupID string
 
+// TrashID is a type alias
+type TrashID string
+
 // SessionID is a type alias
 type SessionID string
 
@@ -345,10 +348,52 @@ type DeleteEventRequest struct {
 	RecurrenceId *Timestamp       `json:"recurrence_id,omitempty" yaml:"recurrence_id,omitempty"`
 }
 
+// DeleteEventResponse represents a structured data type
+type DeleteEventResponse struct {
+	TrashId *TrashID `json:"trash_id,omitempty" yaml:"trash_id,omitempty"`
+}
+
 // MoveEventRequest represents a structured data type
 type MoveEventRequest struct {
 	EventId    EventID    `json:"event_id" yaml:"event_id"`
 	CalendarId CalendarID `json:"calendar_id" yaml:"calendar_id"`
+}
+
+// TrashEntry represents a structured data type
+type TrashEntry struct {
+	TrashId      TrashID         `json:"trash_id" yaml:"trash_id"`
+	CalendarId   CalendarID      `json:"calendar_id" yaml:"calendar_id"`
+	EventId      EventID         `json:"event_id" yaml:"event_id"`
+	Scope        RecurrenceScope `json:"scope" yaml:"scope"`
+	RecurrenceId *Timestamp      `json:"recurrence_id,omitempty" yaml:"recurrence_id,omitempty"`
+	Event        Event           `json:"event" yaml:"event"`
+	Instance     *Event          `json:"instance,omitempty" yaml:"instance,omitempty"`
+	DeletedBy    *PersonSummary  `json:"deleted_by,omitempty" yaml:"deleted_by,omitempty"`
+	DeletedAt    Timestamp       `json:"deleted_at" yaml:"deleted_at"`
+	ExpiresAt    Timestamp       `json:"expires_at" yaml:"expires_at"`
+}
+
+// ListTrashRequest represents a structured data type
+type ListTrashRequest struct {
+	CalendarId CalendarID `json:"calendar_id" yaml:"calendar_id"`
+	Limit      *uint64    `json:"limit,omitempty" yaml:"limit,omitempty"`
+}
+
+// TrashList represents a structured data type
+type TrashList struct {
+	Entries []TrashEntry `json:"entries" yaml:"entries"`
+}
+
+// RestoreEventRequest represents a structured data type
+type RestoreEventRequest struct {
+	TrashId TrashID `json:"trash_id" yaml:"trash_id"`
+}
+
+// ImportEventRequest represents a structured data type
+type ImportEventRequest struct {
+	Event     Event       `json:"event" yaml:"event"`
+	CreatedBy IdentityRef `json:"created_by" yaml:"created_by"`
+	CreatedAt *Timestamp  `json:"created_at,omitempty" yaml:"created_at,omitempty"`
 }
 
 // RespondRequest represents a structured data type

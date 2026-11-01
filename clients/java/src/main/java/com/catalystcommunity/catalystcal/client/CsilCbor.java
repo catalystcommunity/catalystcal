@@ -1786,6 +1786,31 @@ public final class CsilCbor {
         return decDeleteEventRequest(decode(data));
     }
 
+    static CborValue encDeleteEventResponse(DeleteEventResponse v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        if (v.trashId() != null) {
+            csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static DeleteEventResponse decDeleteEventResponse(CborValue csilRoot) {
+        TrashId trashId;
+        {
+            CborValue csilField = mapGet(csilRoot, "trash_id");
+            trashId = csilField != null ? new TrashId(asText(csilField)) : null;
+        }
+        return new DeleteEventResponse(trashId);
+    }
+
+    public static byte[] encodeDeleteEventResponse(DeleteEventResponse v) {
+        return encode(encDeleteEventResponse(v));
+    }
+
+    public static DeleteEventResponse decodeDeleteEventResponse(byte[] data) {
+        return decDeleteEventResponse(decode(data));
+    }
+
     static CborValue encMoveEventRequest(MoveEventRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(2);
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
@@ -1805,6 +1830,155 @@ public final class CsilCbor {
 
     public static MoveEventRequest decodeMoveEventRequest(byte[] data) {
         return decMoveEventRequest(decode(data));
+    }
+
+    static CborValue encTrashEntry(TrashEntry v) {
+        List<CborEntry> csilEntries = new ArrayList<>(10);
+        csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
+        csilEntries.add(new CborEntry(new CborText("scope"), encRecurrenceScope(v.scope())));
+        csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
+        if (v.instance() != null) {
+            csilEntries.add(new CborEntry(new CborText("instance"), encEvent(v.instance())));
+        }
+        csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
+        csilEntries.add(new CborEntry(new CborText("deleted_at"), new CborText((v.deletedAt()).value())));
+        if (v.deletedBy() != null) {
+            csilEntries.add(new CborEntry(new CborText("deleted_by"), encPersonSummary(v.deletedBy())));
+        }
+        csilEntries.add(new CborEntry(new CborText("expires_at"), new CborText((v.expiresAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
+        if (v.recurrenceId() != null) {
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static TrashEntry decTrashEntry(CborValue csilRoot) {
+        TrashId trashId = new TrashId(asText(require(csilRoot, "trash_id")));
+        CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
+        EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
+        RecurrenceScope scope = decRecurrenceScope(require(csilRoot, "scope"));
+        Timestamp recurrenceId;
+        {
+            CborValue csilField = mapGet(csilRoot, "recurrence_id");
+            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+        }
+        Event event = decEvent(require(csilRoot, "event"));
+        Event instance;
+        {
+            CborValue csilField = mapGet(csilRoot, "instance");
+            instance = csilField != null ? decEvent(csilField) : null;
+        }
+        PersonSummary deletedBy;
+        {
+            CborValue csilField = mapGet(csilRoot, "deleted_by");
+            deletedBy = csilField != null ? decPersonSummary(csilField) : null;
+        }
+        Timestamp deletedAt = new Timestamp(asText(require(csilRoot, "deleted_at")));
+        Timestamp expiresAt = new Timestamp(asText(require(csilRoot, "expires_at")));
+        return new TrashEntry(trashId, calendarId, eventId, scope, recurrenceId, event, instance, deletedBy, deletedAt, expiresAt);
+    }
+
+    public static byte[] encodeTrashEntry(TrashEntry v) {
+        return encode(encTrashEntry(v));
+    }
+
+    public static TrashEntry decodeTrashEntry(byte[] data) {
+        return decTrashEntry(decode(data));
+    }
+
+    static CborValue encListTrashRequest(ListTrashRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(2);
+        if (v.limit() != null) {
+            csilEntries.add(new CborEntry(new CborText("limit"), new CborUint(v.limit())));
+        }
+        csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
+        return new CborMap(csilEntries);
+    }
+
+    static ListTrashRequest decListTrashRequest(CborValue csilRoot) {
+        CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
+        Long limit;
+        {
+            CborValue csilField = mapGet(csilRoot, "limit");
+            limit = csilField != null ? asU64(csilField) : null;
+        }
+        return new ListTrashRequest(calendarId, limit);
+    }
+
+    public static byte[] encodeListTrashRequest(ListTrashRequest v) {
+        return encode(encListTrashRequest(v));
+    }
+
+    public static ListTrashRequest decodeListTrashRequest(byte[] data) {
+        return decListTrashRequest(decode(data));
+    }
+
+    static CborValue encTrashList(TrashList v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        csilEntries.add(new CborEntry(new CborText("entries"), encArray(v.entries(), csilElem0 -> encTrashEntry(csilElem0))));
+        return new CborMap(csilEntries);
+    }
+
+    static TrashList decTrashList(CborValue csilRoot) {
+        List<TrashEntry> entries = decArray(require(csilRoot, "entries"), csilE0 -> decTrashEntry(csilE0));
+        return new TrashList(entries);
+    }
+
+    public static byte[] encodeTrashList(TrashList v) {
+        return encode(encTrashList(v));
+    }
+
+    public static TrashList decodeTrashList(byte[] data) {
+        return decTrashList(decode(data));
+    }
+
+    static CborValue encRestoreEventRequest(RestoreEventRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(1);
+        csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
+        return new CborMap(csilEntries);
+    }
+
+    static RestoreEventRequest decRestoreEventRequest(CborValue csilRoot) {
+        TrashId trashId = new TrashId(asText(require(csilRoot, "trash_id")));
+        return new RestoreEventRequest(trashId);
+    }
+
+    public static byte[] encodeRestoreEventRequest(RestoreEventRequest v) {
+        return encode(encRestoreEventRequest(v));
+    }
+
+    public static RestoreEventRequest decodeRestoreEventRequest(byte[] data) {
+        return decRestoreEventRequest(decode(data));
+    }
+
+    static CborValue encImportEventRequest(ImportEventRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
+        if (v.createdAt() != null) {
+            csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        }
+        csilEntries.add(new CborEntry(new CborText("created_by"), encIdentityRef(v.createdBy())));
+        return new CborMap(csilEntries);
+    }
+
+    static ImportEventRequest decImportEventRequest(CborValue csilRoot) {
+        Event event = decEvent(require(csilRoot, "event"));
+        IdentityRef createdBy = decIdentityRef(require(csilRoot, "created_by"));
+        Timestamp createdAt;
+        {
+            CborValue csilField = mapGet(csilRoot, "created_at");
+            createdAt = csilField != null ? new Timestamp(asText(csilField)) : null;
+        }
+        return new ImportEventRequest(event, createdBy, createdAt);
+    }
+
+    public static byte[] encodeImportEventRequest(ImportEventRequest v) {
+        return encode(encImportEventRequest(v));
+    }
+
+    public static ImportEventRequest decodeImportEventRequest(byte[] data) {
+        return decImportEventRequest(decode(data));
     }
 
     static CborValue encRespondRequest(RespondRequest v) {
