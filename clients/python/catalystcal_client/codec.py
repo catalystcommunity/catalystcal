@@ -1650,6 +1650,124 @@ def _import_event_request_from_cbor(data: bytes) -> "ImportEventRequest":
 ImportEventRequest.to_cbor = _import_event_request_to_cbor
 ImportEventRequest.from_cbor = staticmethod(_import_event_request_from_cbor)
 
+def _encode_create_event_once_request_value(v: "CreateEventOnceRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["event"] = _encode_event_value(v.event)
+    csil_m["idempotency_key"] = v.idempotency_key
+    return csil_m
+
+def _decode_create_event_once_request_value(tree: Any) -> "CreateEventOnceRequest":
+    tree = _csil_expect_map(tree)
+    return CreateEventOnceRequest(
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+        event=_decode_event_value(tree["event"]),
+    )
+
+
+def _create_event_once_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_create_event_once_request_value(self))
+
+
+def _create_event_once_request_from_cbor(data: bytes) -> "CreateEventOnceRequest":
+    return _decode_create_event_once_request_value(cbor_decode(data))
+
+
+CreateEventOnceRequest.to_cbor = _create_event_once_request_to_cbor
+CreateEventOnceRequest.from_cbor = staticmethod(_create_event_once_request_from_cbor)
+
+def _encode_create_receipt_request_value(v: "CreateReceiptRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["calendar_id"] = v.calendar_id
+    csil_m["idempotency_key"] = v.idempotency_key
+    return csil_m
+
+def _decode_create_receipt_request_value(tree: Any) -> "CreateReceiptRequest":
+    tree = _csil_expect_map(tree)
+    return CreateReceiptRequest(
+        calendar_id=_csil_expect_text(tree["calendar_id"]),
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+    )
+
+
+def _create_receipt_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_create_receipt_request_value(self))
+
+
+def _create_receipt_request_from_cbor(data: bytes) -> "CreateReceiptRequest":
+    return _decode_create_receipt_request_value(cbor_decode(data))
+
+
+CreateReceiptRequest.to_cbor = _create_receipt_request_to_cbor
+CreateReceiptRequest.from_cbor = staticmethod(_create_receipt_request_from_cbor)
+
+def _encode_create_event_receipt_value(v: "CreateEventReceipt") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.event
+    if csil_x is not None:
+        csil_m["event"] = _encode_event_value(csil_x)
+    csil_m["state"] = v.state
+    csil_m["created"] = v.created
+    csil_m["event_id"] = v.event_id
+    csil_x = v.trash_id
+    if csil_x is not None:
+        csil_m["trash_id"] = csil_x
+    csil_m["created_at"] = v.created_at
+    csil_m["calendar_id"] = v.calendar_id
+    csil_m["idempotency_key"] = v.idempotency_key
+    return csil_m
+
+def _decode_create_event_receipt_value(tree: Any) -> "CreateEventReceipt":
+    tree = _csil_expect_map(tree)
+    return CreateEventReceipt(
+        calendar_id=_csil_expect_text(tree["calendar_id"]),
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+        event_id=_csil_expect_text(tree["event_id"]),
+        state=_decode_create_receipt_state_value(tree["state"]),
+        created=_csil_expect_bool(tree["created"]),
+        created_at=_csil_expect_text(tree["created_at"]),
+        event=(None if tree.get("event") is None else _decode_event_value(tree["event"])),
+        trash_id=(None if tree.get("trash_id") is None else _csil_expect_text(tree["trash_id"])),
+    )
+
+
+def _create_event_receipt_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_create_event_receipt_value(self))
+
+
+def _create_event_receipt_from_cbor(data: bytes) -> "CreateEventReceipt":
+    return _decode_create_event_receipt_value(cbor_decode(data))
+
+
+CreateEventReceipt.to_cbor = _create_event_receipt_to_cbor
+CreateEventReceipt.from_cbor = staticmethod(_create_event_receipt_from_cbor)
+
+def _encode_get_occurrence_request_value(v: "GetOccurrenceRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["event_id"] = v.event_id
+    csil_x = v.recurrence_id
+    if csil_x is not None:
+        csil_m["recurrence_id"] = csil_x
+    return csil_m
+
+def _decode_get_occurrence_request_value(tree: Any) -> "GetOccurrenceRequest":
+    tree = _csil_expect_map(tree)
+    return GetOccurrenceRequest(
+        event_id=_csil_expect_text(tree["event_id"]),
+        recurrence_id=(None if tree.get("recurrence_id") is None else _csil_expect_text(tree["recurrence_id"])),
+    )
+
+
+def _get_occurrence_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_get_occurrence_request_value(self))
+
+
+def _get_occurrence_request_from_cbor(data: bytes) -> "GetOccurrenceRequest":
+    return _decode_get_occurrence_request_value(cbor_decode(data))
+
+
+GetOccurrenceRequest.to_cbor = _get_occurrence_request_to_cbor
+GetOccurrenceRequest.from_cbor = staticmethod(_get_occurrence_request_from_cbor)
+
 def _encode_respond_request_value(v: "RespondRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
     csil_m["status"] = v.status
@@ -2193,6 +2311,9 @@ ExchangeActAsCredentialRequest.from_cbor = staticmethod(_exchange_act_as_credent
 
 def _encode_scope_set_request_value(v: "ScopeSetRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
+    csil_x = v.scopes
+    if csil_x is not None:
+        csil_m["scopes"] = csil_x
     csil_x = v.languages
     if csil_x is not None:
         csil_m["languages"] = csil_x
@@ -2208,6 +2329,7 @@ def _decode_scope_set_request_value(tree: Any) -> "ScopeSetRequest":
         grantee_user_id=_csil_expect_text(tree["grantee_user_id"]),
         grantee_application_id=_csil_expect_text(tree["grantee_application_id"]),
         languages=(None if tree.get("languages") is None else [_csil_expect_text(csil_e) for csil_e in _csil_expect_array(tree["languages"])]),
+        scopes=(None if tree.get("scopes") is None else [_csil_expect_text(csil_e) for csil_e in _csil_expect_array(tree["scopes"])]),
     )
 
 
@@ -2672,6 +2794,13 @@ def _decode_acting_via_value(csil_v):
     csil_v = _csil_expect_text(csil_v)
     if csil_v not in ("self", "delegation", "act_as_grant"):
         raise CsilDecodeError(f"csil cbor: unknown acting_via value {csil_v!r}")
+    return csil_v
+
+
+def _decode_create_receipt_state_value(csil_v):
+    csil_v = _csil_expect_text(csil_v)
+    if csil_v not in ("live", "trashed", "deleted", "hidden"):
+        raise CsilDecodeError(f"csil cbor: unknown create_receipt_state value {csil_v!r}")
     return csil_v
 
 

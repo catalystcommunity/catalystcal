@@ -82,6 +82,7 @@ public interface IEventService
 {
     OccurrenceList ListEvents(ListEventsRequest listEventsRequest);
     Event GetEvent(EventID eventID);
+    Occurrence GetOccurrence(GetOccurrenceRequest getOccurrenceRequest);
     Event CreateEvent(Event @event);
     Event UpdateEvent(UpdateEventRequest updateEventRequest);
     DeleteEventResponse DeleteEvent(DeleteEventRequest deleteEventRequest);
@@ -92,6 +93,8 @@ public interface IEventService
     TrashList ListTrash(ListTrashRequest listTrashRequest);
     Event RestoreEvent(RestoreEventRequest restoreEventRequest);
     Event ImportEvent(ImportEventRequest importEventRequest);
+    CreateEventReceipt CreateEventOnce(CreateEventOnceRequest createEventOnceRequest);
+    CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest);
 }
 
 /// <summary>Server handler interface for the FreeBusyService service.</summary>

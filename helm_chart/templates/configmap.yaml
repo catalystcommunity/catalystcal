@@ -74,6 +74,12 @@ data:
   {{- with .Values.actAs.appBearerTTLSeconds }}
   CATALYSTCAL_APP_BEARER_TTL_SECONDS: {{ . | toString | quote }}
   {{- end }}
+  {{- with .Values.actAs.homeTcpAddr }}
+  CATALYSTCAL_ACT_AS_HOME_TCP_ADDR: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.actAs.homeTcpFingerprints }}
+  CATALYSTCAL_ACT_AS_HOME_TCP_FINGERPRINTS: {{ . | quote }}
+  {{- end }}
   {{- end }}
   {{- range $k, $v := $c.extraEnv }}
   {{ $k }}: {{ $v | toString | quote }}

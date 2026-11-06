@@ -132,6 +132,11 @@ func runServe(version string) error {
 				log.WithError(err).Warn("act-as revocation refresh incomplete")
 			}
 		})
+		renew, err := attestationRenewer(cfg)
+		if err != nil {
+			return err
+		}
+		go every(workers, actas.RenewInterval, "act-as key attestations", renew)
 	}
 
 	apiSrv := &http.Server{
@@ -255,6 +260,34 @@ func buildPKI(cfg *config.Config) services.PKIClient {
 		return nil
 	}
 	return c
+}
+
+// attestationRenewer renews the attestations of catalystcal's application
+// keys at its home domain. An attestation lives 24 hours by default; without
+// renewal, scope sets and application sign-in stop working. The renewal is
+// signed by each key, so the transport carries no API key: the RP API key
+// never goes to another server.
+func attestationRenewer(cfg *config.Config) (func(context.Context), error) {
+	keys, err := actas.LoadAppKeys(cfg.ActAsAppKeysFile)
+	if err != nil {
+		return nil, err
+	}
+	addr, fps := cfg.ActAsHome()
+	t, err := regularrp.NewPinnedRpcTransport(regularrp.PinnedRpcTransportOptions{
+		TCPAddress: addr, Fingerprints: fps, APIKey: "application-signature",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("act-as key renewal needs CATALYSTCAL_ACT_AS_HOME_TCP_ADDR and CATALYSTCAL_ACT_AS_HOME_TCP_FINGERPRINTS (default: the RP TCP values): %w", err)
+	}
+	return func(c context.Context) {
+		ctx, cancel := context.WithTimeout(c, 2*time.Minute)
+		defer cancel()
+		if err := actas.RenewAttestations(ctx, t, keys); err != nil {
+			log.WithError(err).Error("act-as key attestation renewal failed")
+			return
+		}
+		log.WithField("keys", len(keys.SigningKeys)).Info("act-as key attestations renewed")
+	}, nil
 }
 
 // buildActAs makes the SDK-backed act-as audience and, when

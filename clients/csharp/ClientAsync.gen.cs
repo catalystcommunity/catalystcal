@@ -138,6 +138,8 @@ public sealed class EventAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<OccurrenceList>(await transport.Call("EventService", "list-events", Codec.Encode(listEventsRequest)));
     public async System.Threading.Tasks.Task<Event> GetEventAsync(EventID eventID) =>
         Codec.Decode<Event>(await transport.Call("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID)));
+    public async System.Threading.Tasks.Task<Occurrence> GetOccurrenceAsync(GetOccurrenceRequest getOccurrenceRequest) =>
+        Codec.Decode<Occurrence>(await transport.Call("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest)));
     public async System.Threading.Tasks.Task<Event> CreateEventAsync(Event @event) =>
         Codec.Decode<Event>(await transport.Call("EventService", "create-event", Codec.Encode(@event)));
     public async System.Threading.Tasks.Task<Event> UpdateEventAsync(UpdateEventRequest updateEventRequest) =>
@@ -158,6 +160,10 @@ public sealed class EventAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<Event>(await transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
     public async System.Threading.Tasks.Task<Event> ImportEventAsync(ImportEventRequest importEventRequest) =>
         Codec.Decode<Event>(await transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
+    public async System.Threading.Tasks.Task<CreateEventReceipt> CreateEventOnceAsync(CreateEventOnceRequest createEventOnceRequest) =>
+        Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
+    public async System.Threading.Tasks.Task<CreateEventReceipt> GetCreateReceiptAsync(CreateReceiptRequest createReceiptRequest) =>
+        Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

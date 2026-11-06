@@ -675,6 +675,20 @@ defmodule Csilgen.Generated.EventClient do
     Csilgen.Generated.Event.from_cbor(resp)
   end
 
+  @spec get_occurrence(t(), Csilgen.Generated.GetOccurrenceRequest.t()) ::
+          Csilgen.Generated.Occurrence.t()
+  def get_occurrence(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "get-occurrence",
+        Csilgen.Generated.GetOccurrenceRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.Occurrence.from_cbor(resp)
+  end
+
   @spec create_event(t(), Csilgen.Generated.Event.t()) :: Csilgen.Generated.Event.t()
   def create_event(%__MODULE__{transport: transport}, req) do
     resp =
@@ -807,6 +821,34 @@ defmodule Csilgen.Generated.EventClient do
       )
 
     Csilgen.Generated.Event.from_cbor(resp)
+  end
+
+  @spec create_event_once(t(), Csilgen.Generated.CreateEventOnceRequest.t()) ::
+          Csilgen.Generated.CreateEventReceipt.t()
+  def create_event_once(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "create-event-once",
+        Csilgen.Generated.CreateEventOnceRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.CreateEventReceipt.from_cbor(resp)
+  end
+
+  @spec get_create_receipt(t(), Csilgen.Generated.CreateReceiptRequest.t()) ::
+          Csilgen.Generated.CreateEventReceipt.t()
+  def get_create_receipt(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "get-create-receipt",
+        Csilgen.Generated.CreateReceiptRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.CreateEventReceipt.from_cbor(resp)
   end
 
   defp encode_get_event_request(req) do

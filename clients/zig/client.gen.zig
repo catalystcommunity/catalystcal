@@ -514,6 +514,17 @@ pub const EventClient = struct {
         try codec.decode_Event(alloc, csil_respb, out);
     }
 
+    /// Invoke EventService/get-occurrence with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn get_occurrence(self: EventClient, alloc: std.mem.Allocator, req: *const types.GetOccurrenceRequest, out: *types.Occurrence) anyerror!void {
+        const csil_reqb = try codec.encode_GetOccurrenceRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "get-occurrence", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_Occurrence(alloc, csil_respb, out);
+    }
+
     /// Invoke EventService/create-event with a typed request, returning the decoded
     /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
     /// and free it once when done.
@@ -622,6 +633,28 @@ pub const EventClient = struct {
         const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "import-event", csil_reqb);
         defer alloc.free(csil_respb);
         try codec.decode_Event(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/create-event-once with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn create_event_once(self: EventClient, alloc: std.mem.Allocator, req: *const types.CreateEventOnceRequest, out: *types.CreateEventReceipt) anyerror!void {
+        const csil_reqb = try codec.encode_CreateEventOnceRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "create-event-once", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_CreateEventReceipt(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/get-create-receipt with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn get_create_receipt(self: EventClient, alloc: std.mem.Allocator, req: *const types.CreateReceiptRequest, out: *types.CreateEventReceipt) anyerror!void {
+        const csil_reqb = try codec.encode_CreateReceiptRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "get-create-receipt", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_CreateEventReceipt(alloc, csil_respb, out);
     }
 };
 

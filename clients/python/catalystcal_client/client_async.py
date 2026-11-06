@@ -222,6 +222,10 @@ class EventAsyncClient:
         """get-event"""
         return Event.from_cbor(await self._transport.call("EventService", "get-event", encode_event_get_event_request(req)))
 
+    async def get_occurrence(self, req: GetOccurrenceRequest) -> Occurrence:
+        """get-occurrence"""
+        return Occurrence.from_cbor(await self._transport.call("EventService", "get-occurrence", req.to_cbor()))
+
     async def create_event(self, req: Event) -> Event:
         """create-event"""
         return Event.from_cbor(await self._transport.call("EventService", "create-event", req.to_cbor()))
@@ -261,6 +265,14 @@ class EventAsyncClient:
     async def import_event(self, req: ImportEventRequest) -> Event:
         """import-event"""
         return Event.from_cbor(await self._transport.call("EventService", "import-event", req.to_cbor()))
+
+    async def create_event_once(self, req: CreateEventOnceRequest) -> CreateEventReceipt:
+        """create-event-once"""
+        return CreateEventReceipt.from_cbor(await self._transport.call("EventService", "create-event-once", req.to_cbor()))
+
+    async def get_create_receipt(self, req: CreateReceiptRequest) -> CreateEventReceipt:
+        """get-create-receipt"""
+        return CreateEventReceipt.from_cbor(await self._transport.call("EventService", "get-create-receipt", req.to_cbor()))
 
 class FreeBusyAsyncClient:
     """Typed client for the FreeBusyService service."""

@@ -722,6 +722,24 @@ static inline int csil_event_get_event(const CsilgenTransport *t, const EventID 
     return csil_drc;
 }
 
+/* Invoke EventService/get-occurrence with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_get_occurrence(const CsilgenTransport *t, const GetOccurrenceRequest *req,
+                        Occurrence *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_GetOccurrenceRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "get-occurrence", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_Occurrence(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
 /* Invoke EventService/create-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
@@ -898,6 +916,42 @@ static inline int csil_event_import_event(const CsilgenTransport *t, const Impor
     free(csil_reqb);
     if (csil_rc != 0) { free(csil_respb); return csil_rc; }
     int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
+/* Invoke EventService/create-event-once with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_create_event_once(const CsilgenTransport *t, const CreateEventOnceRequest *req,
+                        CreateEventReceipt *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_CreateEventOnceRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "create-event-once", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_CreateEventReceipt(csil_respb, csil_respn, resp, resp_owner);
+    free(csil_respb);
+    return csil_drc;
+}
+
+/* Invoke EventService/get-create-receipt with a typed request and decode the typed
+ * response. *resp_owner holds the response's backing storage; free it once
+ * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
+static inline int csil_event_get_create_receipt(const CsilgenTransport *t, const CreateReceiptRequest *req,
+                        CreateEventReceipt *resp, CsilCodecArena **resp_owner) {
+    uint8_t *csil_reqb = NULL;
+    size_t csil_reqn = 0;
+    if (csil_encode_CreateReceiptRequest(req, &csil_reqb, &csil_reqn)) return -1;
+    uint8_t *csil_respb = NULL;
+    size_t csil_respn = 0;
+    int csil_rc = t->call(t->self, "EventService", "get-create-receipt", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    free(csil_reqb);
+    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
+    int csil_drc = csil_decode_CreateEventReceipt(csil_respb, csil_respn, resp, resp_owner);
     free(csil_respb);
     return csil_drc;
 }

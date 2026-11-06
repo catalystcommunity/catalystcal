@@ -358,6 +358,7 @@ public static class Codec
         ReminderMethod csilTyped => ReminderMethodToCborValue(csilTyped),
         RecurrenceScope csilTyped => RecurrenceScopeToCborValue(csilTyped),
         ActingVia csilTyped => ActingViaToCborValue(csilTyped),
+        CreateReceiptState csilTyped => CreateReceiptStateToCborValue(csilTyped),
         IdentityRef csilTyped => IdentityRefToCborValue(csilTyped),
         User csilTyped => UserToCborValue(csilTyped),
         PersonSummary csilTyped => PersonSummaryToCborValue(csilTyped),
@@ -394,6 +395,10 @@ public static class Codec
         TrashList csilTyped => TrashListToCborValue(csilTyped),
         RestoreEventRequest csilTyped => RestoreEventRequestToCborValue(csilTyped),
         ImportEventRequest csilTyped => ImportEventRequestToCborValue(csilTyped),
+        CreateEventOnceRequest csilTyped => CreateEventOnceRequestToCborValue(csilTyped),
+        CreateReceiptRequest csilTyped => CreateReceiptRequestToCborValue(csilTyped),
+        CreateEventReceipt csilTyped => CreateEventReceiptToCborValue(csilTyped),
+        GetOccurrenceRequest csilTyped => GetOccurrenceRequestToCborValue(csilTyped),
         RespondRequest csilTyped => RespondRequestToCborValue(csilTyped),
         SearchEventsRequest csilTyped => SearchEventsRequestToCborValue(csilTyped),
         EventList csilTyped => EventListToCborValue(csilTyped),
@@ -446,6 +451,7 @@ public static class Codec
         if (csilType == typeof(ReminderMethod)) return ReminderMethodFromCborValue(value);
         if (csilType == typeof(RecurrenceScope)) return RecurrenceScopeFromCborValue(value);
         if (csilType == typeof(ActingVia)) return ActingViaFromCborValue(value);
+        if (csilType == typeof(CreateReceiptState)) return CreateReceiptStateFromCborValue(value);
         if (csilType == typeof(IdentityRef)) return IdentityRefFromCborValue(value);
         if (csilType == typeof(User)) return UserFromCborValue(value);
         if (csilType == typeof(PersonSummary)) return PersonSummaryFromCborValue(value);
@@ -482,6 +488,10 @@ public static class Codec
         if (csilType == typeof(TrashList)) return TrashListFromCborValue(value);
         if (csilType == typeof(RestoreEventRequest)) return RestoreEventRequestFromCborValue(value);
         if (csilType == typeof(ImportEventRequest)) return ImportEventRequestFromCborValue(value);
+        if (csilType == typeof(CreateEventOnceRequest)) return CreateEventOnceRequestFromCborValue(value);
+        if (csilType == typeof(CreateReceiptRequest)) return CreateReceiptRequestFromCborValue(value);
+        if (csilType == typeof(CreateEventReceipt)) return CreateEventReceiptFromCborValue(value);
+        if (csilType == typeof(GetOccurrenceRequest)) return GetOccurrenceRequestFromCborValue(value);
         if (csilType == typeof(RespondRequest)) return RespondRequestFromCborValue(value);
         if (csilType == typeof(SearchEventsRequest)) return SearchEventsRequestFromCborValue(value);
         if (csilType == typeof(EventList)) return EventListFromCborValue(value);
@@ -771,6 +781,26 @@ public static class Codec
         "delegation" => ActingVia.Delegation,
         "act_as_grant" => ActingVia.ActAsGrant,
         _ => throw new CborException("invalid ActingVia value"),
+    };
+
+    /// <summary>The bare-literal CBOR value for a CreateReceiptState.</summary>
+    public static CborValue CreateReceiptStateToCborValue(CreateReceiptState value) => value switch
+    {
+        CreateReceiptState.Live => new CborValue.Text("live"),
+        CreateReceiptState.Trashed => new CborValue.Text("trashed"),
+        CreateReceiptState.Deleted => new CborValue.Text("deleted"),
+        CreateReceiptState.Hidden => new CborValue.Text("hidden"),
+        _ => throw new CborException("invalid CreateReceiptState"),
+    };
+
+    /// <summary>Reconstruct a CreateReceiptState from its bare-literal CBOR value.</summary>
+    public static CreateReceiptState CreateReceiptStateFromCborValue(CborValue value) => Cbor.AsText(value) switch
+    {
+        "live" => CreateReceiptState.Live,
+        "trashed" => CreateReceiptState.Trashed,
+        "deleted" => CreateReceiptState.Deleted,
+        "hidden" => CreateReceiptState.Hidden,
+        _ => throw new CborException("invalid CreateReceiptState value"),
     };
 
     /// <summary>The canonical CBOR value tree for a IdentityRef.</summary>
@@ -2126,6 +2156,117 @@ public static class Codec
         };
     }
 
+    /// <summary>The canonical CBOR value tree for a CreateEventOnceRequest.</summary>
+    public static CborValue CreateEventOnceRequestToCborValue(CreateEventOnceRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("event"), EventToCborValue(value.Event)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a CreateEventOnceRequest from a decoded CBOR value tree.</summary>
+    public static CreateEventOnceRequest CreateEventOnceRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        var csilField1 = EventFromCborValue(Cbor.Require(value, "event"));
+        return new CreateEventOnceRequest
+        {
+            IdempotencyKey = csilField0,
+            Event = csilField1,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a CreateReceiptRequest.</summary>
+    public static CborValue CreateReceiptRequestToCborValue(CreateReceiptRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a CreateReceiptRequest from a decoded CBOR value tree.</summary>
+    public static CreateReceiptRequest CreateReceiptRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        return new CreateReceiptRequest
+        {
+            CalendarId = csilField0,
+            IdempotencyKey = csilField1,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a CreateEventReceipt.</summary>
+    public static CborValue CreateEventReceiptToCborValue(CreateEventReceipt value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Event is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("event"), EventToCborValue(csilV0)));
+        }
+        csilEntries.Add((new CborValue.Text("state"), CreateReceiptStateToCborValue(value.State)));
+        csilEntries.Add((new CborValue.Text("created"), new CborValue.Bool(value.Created)));
+        csilEntries.Add((new CborValue.Text("event_id"), new CborValue.Text(value.EventId)));
+        if (value.TrashId is { } csilV4)
+        {
+            csilEntries.Add((new CborValue.Text("trash_id"), new CborValue.Text(csilV4)));
+        }
+        csilEntries.Add((new CborValue.Text("created_at"), new CborValue.Text(value.CreatedAt)));
+        csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a CreateEventReceipt from a decoded CBOR value tree.</summary>
+    public static CreateEventReceipt CreateEventReceiptFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "event_id"));
+        var csilField3 = CreateReceiptStateFromCborValue(Cbor.Require(value, "state"));
+        var csilField4 = Cbor.AsBool(Cbor.Require(value, "created"));
+        var csilField5 = Cbor.AsText(Cbor.Require(value, "created_at"));
+        Event? csilField6 = Cbor.MapGet(value, "event") is { } csilRaw6 ? EventFromCborValue(csilRaw6) : null;
+        TrashID? csilField7 = Cbor.MapGet(value, "trash_id") is { } csilRaw7 ? Cbor.AsText(csilRaw7) : null;
+        return new CreateEventReceipt
+        {
+            CalendarId = csilField0,
+            IdempotencyKey = csilField1,
+            EventId = csilField2,
+            State = csilField3,
+            Created = csilField4,
+            CreatedAt = csilField5,
+            Event = csilField6,
+            TrashId = csilField7,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a GetOccurrenceRequest.</summary>
+    public static CborValue GetOccurrenceRequestToCborValue(GetOccurrenceRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("event_id"), new CborValue.Text(value.EventId)));
+        if (value.RecurrenceId is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("recurrence_id"), new CborValue.Text(csilV1)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree.</summary>
+    public static GetOccurrenceRequest GetOccurrenceRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "event_id"));
+        Timestamp? csilField1 = Cbor.MapGet(value, "recurrence_id") is { } csilRaw1 ? Cbor.AsText(csilRaw1) : null;
+        return new GetOccurrenceRequest
+        {
+            EventId = csilField0,
+            RecurrenceId = csilField1,
+        };
+    }
+
     /// <summary>The canonical CBOR value tree for a RespondRequest.</summary>
     public static CborValue RespondRequestToCborValue(RespondRequest value)
     {
@@ -2628,9 +2769,13 @@ public static class Codec
     public static CborValue ScopeSetRequestToCborValue(ScopeSetRequest value)
     {
         var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
-        if (value.Languages is { } csilV0)
+        if (value.Scopes is { } csilV0)
         {
-            csilEntries.Add((new CborValue.Text("languages"), new CborValue.Array(csilV0.Select(csilElem => (CborValue)new CborValue.Text(csilElem)).ToList())));
+            csilEntries.Add((new CborValue.Text("scopes"), new CborValue.Array(csilV0.Select(csilElem => (CborValue)new CborValue.Text(csilElem)).ToList())));
+        }
+        if (value.Languages is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("languages"), new CborValue.Array(csilV1.Select(csilElem => (CborValue)new CborValue.Text(csilElem)).ToList())));
         }
         csilEntries.Add((new CborValue.Text("grantee_domain"), new CborValue.Text(value.GranteeDomain)));
         csilEntries.Add((new CborValue.Text("grantee_user_id"), new CborValue.Text(value.GranteeUserId)));
@@ -2645,12 +2790,14 @@ public static class Codec
         var csilField1 = Cbor.AsText(Cbor.Require(value, "grantee_user_id"));
         var csilField2 = Cbor.AsText(Cbor.Require(value, "grantee_application_id"));
         System.Collections.Generic.List<string>? csilField3 = Cbor.MapGet(value, "languages") is { } csilRaw3 ? Cbor.AsArray(csilRaw3).Select(csilElem => Cbor.AsText(csilElem)).ToList() : null;
+        System.Collections.Generic.List<string>? csilField4 = Cbor.MapGet(value, "scopes") is { } csilRaw4 ? Cbor.AsArray(csilRaw4).Select(csilElem => Cbor.AsText(csilElem)).ToList() : null;
         return new ScopeSetRequest
         {
             GranteeDomain = csilField0,
             GranteeUserId = csilField1,
             GranteeApplicationId = csilField2,
             Languages = csilField3,
+            Scopes = csilField4,
         };
     }
 

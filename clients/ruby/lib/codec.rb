@@ -1419,6 +1419,129 @@ class ImportEventRequest
   end
 end
 
+# CBOR codec for CreateEventOnceRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class CreateEventOnceRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event"] = (event).csil_to_tree
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      idempotency_key: node["idempotency_key"],
+      event: Event.csil_from_tree(node["event"])
+    )
+  end
+end
+
+# CBOR codec for CreateReceiptRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class CreateReceiptRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["calendar_id"] = calendar_id
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      calendar_id: node["calendar_id"],
+      idempotency_key: node["idempotency_key"]
+    )
+  end
+end
+
+# CBOR codec for CreateEventReceipt: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class CreateEventReceipt
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event"] = (event).csil_to_tree unless event.nil?
+    csil_map["state"] = (state)
+    csil_map["created"] = created
+    csil_map["event_id"] = event_id
+    csil_map["trash_id"] = trash_id unless trash_id.nil?
+    csil_map["created_at"] = created_at
+    csil_map["calendar_id"] = calendar_id
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      calendar_id: node["calendar_id"],
+      idempotency_key: node["idempotency_key"],
+      event_id: node["event_id"],
+      state: (case (node["state"])
+when "live" then "live"
+when "trashed" then "trashed"
+when "deleted" then "deleted"
+when "hidden" then "hidden"
+else
+  raise ArgumentError, "csilgen: unknown inline literal #{(node["state"]).inspect}"
+end),
+      created: node["created"],
+      created_at: node["created_at"],
+      event: (node.key?("event") ? Event.csil_from_tree(node["event"]) : nil),
+      trash_id: (node.key?("trash_id") ? node["trash_id"] : nil)
+    )
+  end
+end
+
+# CBOR codec for GetOccurrenceRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class GetOccurrenceRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event_id"] = event_id
+    csil_map["recurrence_id"] = recurrence_id unless recurrence_id.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      event_id: node["event_id"],
+      recurrence_id: (node.key?("recurrence_id") ? node["recurrence_id"] : nil)
+    )
+  end
+end
+
 # CBOR codec for RespondRequest: a map keyed by the verbatim CSIL field names in
 # canonical RFC 8949 order.
 class RespondRequest
@@ -1998,6 +2121,7 @@ class ScopeSetRequest
 
   def csil_to_tree
     csil_map = {}
+    csil_map["scopes"] = (scopes).map { |csil_e| csil_e } unless scopes.nil?
     csil_map["languages"] = (languages).map { |csil_e| csil_e } unless languages.nil?
     csil_map["grantee_domain"] = grantee_domain
     csil_map["grantee_user_id"] = grantee_user_id
@@ -2014,7 +2138,8 @@ class ScopeSetRequest
       grantee_domain: node["grantee_domain"],
       grantee_user_id: node["grantee_user_id"],
       grantee_application_id: node["grantee_application_id"],
-      languages: (node.key?("languages") ? (node["languages"]).map { |csil_e| csil_e } : nil)
+      languages: (node.key?("languages") ? (node["languages"]).map { |csil_e| csil_e } : nil),
+      scopes: (node.key?("scopes") ? (node["scopes"]).map { |csil_e| csil_e } : nil)
     )
   end
 end

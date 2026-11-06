@@ -53,6 +53,8 @@ typedef RecurrenceScope = String;
 
 typedef ActingVia = String;
 
+typedef CreateReceiptState = String;
+
 final class IdentityRef {
   final String domain;
   final String? userId;
@@ -3179,6 +3181,311 @@ final class ImportEventRequest {
       ImportEventRequest.fromCborValue(CsilCbor.decode(bytes));
 }
 
+final class CreateEventOnceRequest {
+  final String idempotencyKey;
+  final Event event;
+
+  const CreateEventOnceRequest({
+    required this.idempotencyKey,
+    required this.event,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['idempotency_key'] = idempotencyKey;
+    map['event'] = event;
+    return map;
+  }
+
+  factory CreateEventOnceRequest.fromMap(Map<String, Object?> map) {
+    return CreateEventOnceRequest(
+      idempotencyKey: map['idempotency_key'] as String,
+      event: map['event'] as Event,
+    );
+  }
+
+  /// Throws [ArgumentError] when a field constraint is violated.
+  void validate() {
+    if (idempotencyKey.isEmpty) {
+      throw ArgumentError('\'idempotencyKey\' must have length >= 1');
+    }
+    if (idempotencyKey.length > 200) {
+      throw ArgumentError('\'idempotencyKey\' must have length <= 200');
+    }
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! CreateEventOnceRequest) return false;
+    return idempotencyKey == other.idempotencyKey && event == other.event;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([idempotencyKey, event]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['idempotency_key'] = idempotencyKey;
+    map['event'] = event.toCborValue();
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory CreateEventOnceRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return CreateEventOnceRequest(
+      idempotencyKey: map['idempotency_key'] as String,
+      event: Event.fromCborValue(map['event']),
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory CreateEventOnceRequest.fromCbor(List<int> bytes) =>
+      CreateEventOnceRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class CreateReceiptRequest {
+  final CalendarId calendarId;
+  final String idempotencyKey;
+
+  const CreateReceiptRequest({
+    required this.calendarId,
+    required this.idempotencyKey,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    map['idempotency_key'] = idempotencyKey;
+    return map;
+  }
+
+  factory CreateReceiptRequest.fromMap(Map<String, Object?> map) {
+    return CreateReceiptRequest(
+      calendarId: map['calendar_id'] as CalendarId,
+      idempotencyKey: map['idempotency_key'] as String,
+    );
+  }
+
+  /// Throws [ArgumentError] when a field constraint is violated.
+  void validate() {
+    if (idempotencyKey.isEmpty) {
+      throw ArgumentError('\'idempotencyKey\' must have length >= 1');
+    }
+    if (idempotencyKey.length > 200) {
+      throw ArgumentError('\'idempotencyKey\' must have length <= 200');
+    }
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! CreateReceiptRequest) return false;
+    return calendarId == other.calendarId &&
+        idempotencyKey == other.idempotencyKey;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([calendarId, idempotencyKey]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    map['idempotency_key'] = idempotencyKey;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory CreateReceiptRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return CreateReceiptRequest(
+      calendarId: map['calendar_id'] as String,
+      idempotencyKey: map['idempotency_key'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory CreateReceiptRequest.fromCbor(List<int> bytes) =>
+      CreateReceiptRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class CreateEventReceipt {
+  final CalendarId calendarId;
+  final String idempotencyKey;
+  final EventId eventId;
+  final CreateReceiptState state;
+  final bool created;
+  final Timestamp createdAt;
+  final Event? event;
+  final TrashId? trashId;
+
+  const CreateEventReceipt({
+    required this.calendarId,
+    required this.idempotencyKey,
+    required this.eventId,
+    required this.state,
+    required this.created,
+    required this.createdAt,
+    this.event,
+    this.trashId,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    map['idempotency_key'] = idempotencyKey;
+    map['event_id'] = eventId;
+    map['state'] = state;
+    map['created'] = created;
+    map['created_at'] = createdAt;
+    if (event != null) map['event'] = event;
+    if (trashId != null) map['trash_id'] = trashId;
+    return map;
+  }
+
+  factory CreateEventReceipt.fromMap(Map<String, Object?> map) {
+    return CreateEventReceipt(
+      calendarId: map['calendar_id'] as CalendarId,
+      idempotencyKey: map['idempotency_key'] as String,
+      eventId: map['event_id'] as EventId,
+      state: map['state'] as CreateReceiptState,
+      created: map['created'] as bool,
+      createdAt: map['created_at'] as Timestamp,
+      event: map['event'] as Event?,
+      trashId: map['trash_id'] as TrashId?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! CreateEventReceipt) return false;
+    return calendarId == other.calendarId &&
+        idempotencyKey == other.idempotencyKey &&
+        eventId == other.eventId &&
+        state == other.state &&
+        created == other.created &&
+        createdAt == other.createdAt &&
+        event == other.event &&
+        trashId == other.trashId;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    calendarId,
+    idempotencyKey,
+    eventId,
+    state,
+    created,
+    createdAt,
+    event,
+    trashId,
+  ]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['calendar_id'] = calendarId;
+    map['idempotency_key'] = idempotencyKey;
+    map['event_id'] = eventId;
+    map['state'] = state;
+    map['created'] = created;
+    map['created_at'] = createdAt;
+    if (event != null) map['event'] = event!.toCborValue();
+    if (trashId != null) map['trash_id'] = trashId!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory CreateEventReceipt.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return CreateEventReceipt(
+      calendarId: map['calendar_id'] as String,
+      idempotencyKey: map['idempotency_key'] as String,
+      eventId: map['event_id'] as String,
+      state: CsilCbor.expectOneOf<String>(map['state'], const [
+        'live',
+        'trashed',
+        'deleted',
+        'hidden',
+      ]),
+      created: map['created'] as bool,
+      createdAt: map['created_at'] as String,
+      event: map['event'] == null ? null : Event.fromCborValue(map['event']),
+      trashId: map['trash_id'] == null ? null : map['trash_id'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory CreateEventReceipt.fromCbor(List<int> bytes) =>
+      CreateEventReceipt.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class GetOccurrenceRequest {
+  final EventId eventId;
+  final Timestamp? recurrenceId;
+
+  const GetOccurrenceRequest({required this.eventId, this.recurrenceId});
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['event_id'] = eventId;
+    if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
+    return map;
+  }
+
+  factory GetOccurrenceRequest.fromMap(Map<String, Object?> map) {
+    return GetOccurrenceRequest(
+      eventId: map['event_id'] as EventId,
+      recurrenceId: map['recurrence_id'] as Timestamp?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! GetOccurrenceRequest) return false;
+    return eventId == other.eventId && recurrenceId == other.recurrenceId;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([eventId, recurrenceId]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['event_id'] = eventId;
+    if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory GetOccurrenceRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return GetOccurrenceRequest(
+      eventId: map['event_id'] as String,
+      recurrenceId: map['recurrence_id'] == null
+          ? null
+          : map['recurrence_id'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory GetOccurrenceRequest.fromCbor(List<int> bytes) =>
+      GetOccurrenceRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
 final class RespondRequest {
   final EventId eventId;
   final ParticipationStatus status;
@@ -4466,12 +4773,14 @@ final class ScopeSetRequest {
   final String granteeUserId;
   final String granteeApplicationId;
   final List<String>? languages;
+  final List<String>? scopes;
 
   const ScopeSetRequest({
     required this.granteeDomain,
     required this.granteeUserId,
     required this.granteeApplicationId,
     this.languages,
+    this.scopes,
   });
 
   Map<String, Object?> toMap() {
@@ -4480,6 +4789,7 @@ final class ScopeSetRequest {
     map['grantee_user_id'] = granteeUserId;
     map['grantee_application_id'] = granteeApplicationId;
     if (languages != null) map['languages'] = languages;
+    if (scopes != null) map['scopes'] = scopes;
     return map;
   }
 
@@ -4489,6 +4799,7 @@ final class ScopeSetRequest {
       granteeUserId: map['grantee_user_id'] as String,
       granteeApplicationId: map['grantee_application_id'] as String,
       languages: map['languages'] as List<String>?,
+      scopes: map['scopes'] as List<String>?,
     );
   }
 
@@ -4498,7 +4809,8 @@ final class ScopeSetRequest {
     return granteeDomain == other.granteeDomain &&
         granteeUserId == other.granteeUserId &&
         granteeApplicationId == other.granteeApplicationId &&
-        languages == other.languages;
+        languages == other.languages &&
+        scopes == other.scopes;
   }
 
   @override
@@ -4507,6 +4819,7 @@ final class ScopeSetRequest {
     granteeUserId,
     granteeApplicationId,
     languages,
+    scopes,
   ]);
 
   /// The CBOR-encodable dynamic tree for this record (deep).
@@ -4516,6 +4829,7 @@ final class ScopeSetRequest {
     map['grantee_user_id'] = granteeUserId;
     map['grantee_application_id'] = granteeApplicationId;
     if (languages != null) map['languages'] = languages!;
+    if (scopes != null) map['scopes'] = scopes!;
     return map;
   }
 
@@ -4529,6 +4843,12 @@ final class ScopeSetRequest {
       languages: map['languages'] == null
           ? null
           : (map['languages'] as List)
+                .map((csilE) => csilE as String)
+                .cast<String>()
+                .toList(),
+      scopes: map['scopes'] == null
+          ? null
+          : (map['scopes'] as List)
                 .map((csilE) => csilE as String)
                 .cast<String>()
                 .toList(),

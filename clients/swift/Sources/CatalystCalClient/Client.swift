@@ -293,6 +293,11 @@ public struct EventClient {
         return try Event.fromCbor(csilResp)
     }
 
+    public func getOccurrence(_ request: GetOccurrenceRequest) throws -> Occurrence {
+        let csilResp = try transport.call(service: "EventService", op: "get-occurrence", request: request.toCbor())
+        return try Occurrence.fromCbor(csilResp)
+    }
+
     public func createEvent(_ request: Event) throws -> Event {
         let csilResp = try transport.call(service: "EventService", op: "create-event", request: request.toCbor())
         return try Event.fromCbor(csilResp)
@@ -341,6 +346,16 @@ public struct EventClient {
     public func importEvent(_ request: ImportEventRequest) throws -> Event {
         let csilResp = try transport.call(service: "EventService", op: "import-event", request: request.toCbor())
         return try Event.fromCbor(csilResp)
+    }
+
+    public func createEventOnce(_ request: CreateEventOnceRequest) throws -> CreateEventReceipt {
+        let csilResp = try transport.call(service: "EventService", op: "create-event-once", request: request.toCbor())
+        return try CreateEventReceipt.fromCbor(csilResp)
+    }
+
+    public func getCreateReceipt(_ request: CreateReceiptRequest) throws -> CreateEventReceipt {
+        let csilResp = try transport.call(service: "EventService", op: "get-create-receipt", request: request.toCbor())
+        return try CreateEventReceipt.fromCbor(csilResp)
     }
 
 }

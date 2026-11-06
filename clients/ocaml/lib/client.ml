@@ -240,6 +240,11 @@ module Event_service = struct
     | Ok payload -> Ok (Codec.decode_event_bytes payload)
     | Error _ as e -> e
 
+  let get_occurrence (c : client) (req : get_occurrence_request) : (occurrence, string) result =
+    match c.call ~service:"EventService" ~op:"get-occurrence" ~payload:(Codec.encode_get_occurrence_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_occurrence_bytes payload)
+    | Error _ as e -> e
+
   let create_event (c : client) (req : event) : (event, string) result =
     match c.call ~service:"EventService" ~op:"create-event" ~payload:(Codec.encode_event_bytes req) with
     | Ok payload -> Ok (Codec.decode_event_bytes payload)
@@ -288,6 +293,16 @@ module Event_service = struct
   let import_event (c : client) (req : import_event_request) : (event, string) result =
     match c.call ~service:"EventService" ~op:"import-event" ~payload:(Codec.encode_import_event_request_bytes req) with
     | Ok payload -> Ok (Codec.decode_event_bytes payload)
+    | Error _ as e -> e
+
+  let create_event_once (c : client) (req : create_event_once_request) : (create_event_receipt, string) result =
+    match c.call ~service:"EventService" ~op:"create-event-once" ~payload:(Codec.encode_create_event_once_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_create_event_receipt_bytes payload)
+    | Error _ as e -> e
+
+  let get_create_receipt (c : client) (req : create_receipt_request) : (create_event_receipt, string) result =
+    match c.call ~service:"EventService" ~op:"get-create-receipt" ~payload:(Codec.encode_create_receipt_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_create_event_receipt_bytes payload)
     | Error _ as e -> e
 end
 

@@ -59,6 +59,18 @@ fun Event.validate() {
     require(title.length <= 1024) { "field 'title' must have at most 1024 characters" }
 }
 
+/** Validate a CreateEventOnceRequest; throws IllegalArgumentException on a constraint breach. */
+fun CreateEventOnceRequest.validate() {
+    require(idempotencyKey.length >= 1) { "field 'idempotencyKey' must have at least 1 characters" }
+    require(idempotencyKey.length <= 200) { "field 'idempotencyKey' must have at most 200 characters" }
+}
+
+/** Validate a CreateReceiptRequest; throws IllegalArgumentException on a constraint breach. */
+fun CreateReceiptRequest.validate() {
+    require(idempotencyKey.length >= 1) { "field 'idempotencyKey' must have at least 1 characters" }
+    require(idempotencyKey.length <= 200) { "field 'idempotencyKey' must have at most 200 characters" }
+}
+
 /** Validate a SearchEventsRequest; throws IllegalArgumentException on a constraint breach. */
 fun SearchEventsRequest.validate() {
     require(query.length >= 1) { "field 'query' must have at least 1 characters" }

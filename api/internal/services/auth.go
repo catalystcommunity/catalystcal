@@ -483,9 +483,12 @@ func (s *AuthService) GetActAsScopeSet(ctx context.Context, req csil.ScopeSetReq
 	if req.GranteeDomain == "" || req.GranteeUserId == "" || req.GranteeApplicationId == "" {
 		return csil.ScopeSetResponse{}, csilrpc.BadRequest("grantee_domain, grantee_user_id, and grantee_application_id are required")
 	}
+	if _, err := actas.OfferedScopes(req.Scopes); err != nil {
+		return csil.ScopeSetResponse{}, csilrpc.BadRequest(err.Error())
+	}
 	raw, err := s.ActAs.SignScopeSet(ctx, actas.ScopeSetRequest{
 		GranteeDomain: req.GranteeDomain, GranteeUserID: req.GranteeUserId,
-		GranteeApplicationID: req.GranteeApplicationId, Languages: req.Languages,
+		GranteeApplicationID: req.GranteeApplicationId, Languages: req.Languages, Scopes: req.Scopes,
 	})
 	if err != nil {
 		return csil.ScopeSetResponse{}, internal(err, "sign scope set")
@@ -550,7 +553,7 @@ func (s *AuthService) ExchangeActAsCredential(ctx context.Context, req csil.Exch
 	ttl := min(s.bearerTTL(), v.ExpiresAt.Sub(now))
 	ident := auth.Identity{
 		UserID: u.ID, Domain: u.Domain, Subject: u.Subject, DisplayName: u.DisplayName,
-		Via: auth.ViaActAsGrant, PrincipalID: u.ID, GrantID: v.GrantID, Application: v.Application, Scopes: scopes,
+		Via: auth.ViaActAsGrant, PrincipalID: u.ID, GrantID: v.GrantID, Application: v.Application, Grantee: v.Grantee, Scopes: scopes,
 	}
 	if err := s.Store.InsertAudit(ctx, store.AuditRow{
 		ActorID: u.ID, PrincipalID: u.ID, Via: auth.ViaActAsGrant, Application: v.Application,

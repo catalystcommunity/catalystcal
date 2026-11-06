@@ -158,6 +158,15 @@ pub enum ActingVia {
     ActAsGrant,
 }
 
+/// CreateReceiptState variants
+#[derive(Debug, Clone, PartialEq)]
+pub enum CreateReceiptState {
+    Live,
+    Trashed,
+    Deleted,
+    Hidden,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IdentityRef {
     pub domain: String,
@@ -626,6 +635,70 @@ pub struct ImportEventRequest {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CreateEventOnceRequest {
+    /// constraint: size in 1..=200
+    pub idempotency_key: String,
+    pub event: Event,
+}
+
+impl CreateEventOnceRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.idempotency_key;
+            if v.is_empty() || v.len() > 200usize {
+                return Err(ValidationError {
+                    field: "idempotency_key".to_string(),
+                    message: "length must be in 1..=200".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateReceiptRequest {
+    pub calendar_id: CalendarID,
+    /// constraint: size in 1..=200
+    pub idempotency_key: String,
+}
+
+impl CreateReceiptRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.idempotency_key;
+            if v.is_empty() || v.len() > 200usize {
+                return Err(ValidationError {
+                    field: "idempotency_key".to_string(),
+                    message: "length must be in 1..=200".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateEventReceipt {
+    pub calendar_id: CalendarID,
+    pub idempotency_key: String,
+    pub event_id: EventID,
+    pub state: CreateReceiptState,
+    pub created: bool,
+    pub created_at: Timestamp,
+    pub event: Option<Event>,
+    pub trash_id: Option<TrashID>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GetOccurrenceRequest {
+    pub event_id: EventID,
+    pub recurrence_id: Option<Timestamp>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct RespondRequest {
     pub event_id: EventID,
     pub status: ParticipationStatus,
@@ -782,6 +855,7 @@ pub struct ScopeSetRequest {
     pub grantee_user_id: String,
     pub grantee_application_id: String,
     pub languages: Option<Vec<String>>,
+    pub scopes: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -524,6 +524,25 @@ public extension ActingVia {
     static func fromCbor(_ bytes: [UInt8]) throws -> ActingVia { try ActingVia(cborValue: CsilCbor.decode(bytes)) }
 }
 
+public extension CreateReceiptState {
+    /// The CBOR value tree for this enum: its wire string verbatim.
+    func toCborValue() -> CsilCborValue { .text(self.rawValue) }
+
+    /// Reconstruct this enum from a decoded CBOR value tree, rejecting a wire
+    /// string outside the declared closed set.
+    init(cborValue: CsilCborValue) throws {
+        let csilS = try CsilCbor.asText(cborValue)
+        guard let csilV = CreateReceiptState(rawValue: csilS) else { throw CsilCborError.typeMismatch }
+        self = csilV
+    }
+
+    /// Encode this enum to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this enum.
+    static func fromCbor(_ bytes: [UInt8]) throws -> CreateReceiptState { try CreateReceiptState(cborValue: CsilCbor.decode(bytes)) }
+}
+
 public extension IdentityRef {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
@@ -1562,6 +1581,110 @@ public extension ImportEventRequest {
     static func fromCbor(_ bytes: [UInt8]) throws -> ImportEventRequest { try ImportEventRequest(cborValue: CsilCbor.decode(bytes)) }
 }
 
+public extension CreateEventOnceRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
+        self.init(idempotencyKey: idempotencyKey, event: event)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> CreateEventOnceRequest { try CreateEventOnceRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension CreateReceiptRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        self.init(calendarId: calendarId, idempotencyKey: idempotencyKey)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> CreateReceiptRequest { try CreateReceiptRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension CreateEventReceipt {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        if let csilV = self.event { csilEntries.append((.text("event"), csilV.toCborValue())) }
+        csilEntries.append((.text("state"), self.state.toCborValue()))
+        csilEntries.append((.text("created"), .bool(self.created)))
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.trashId { csilEntries.append((.text("trash_id"), .text(csilV))) }
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
+        let state = try CreateReceiptState(cborValue: (try CsilCbor.require(cborValue, "state")))
+        let created = try CsilCbor.asBool((try CsilCbor.require(cborValue, "created")))
+        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
+        let event: Event? = if let csilV = CsilCbor.mapGet(cborValue, "event") { try Event(cborValue: csilV) } else { nil }
+        let trashId: TrashId? = if let csilV = CsilCbor.mapGet(cborValue, "trash_id") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(calendarId: calendarId, idempotencyKey: idempotencyKey, eventId: eventId, state: state, created: created, createdAt: createdAt, event: event, trashId: trashId)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> CreateEventReceipt { try CreateEventReceipt(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension GetOccurrenceRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("event_id"), .text(self.eventId)))
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
+        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(eventId: eventId, recurrenceId: recurrenceId)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> GetOccurrenceRequest { try GetOccurrenceRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
 public extension RespondRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
@@ -2037,6 +2160,7 @@ public extension ScopeSetRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        if let csilV = self.scopes { csilEntries.append((.text("scopes"), CsilCborValue.array(csilV.map { .text($0) }))) }
         if let csilV = self.languages { csilEntries.append((.text("languages"), CsilCborValue.array(csilV.map { .text($0) }))) }
         csilEntries.append((.text("grantee_domain"), .text(self.granteeDomain)))
         csilEntries.append((.text("grantee_user_id"), .text(self.granteeUserId)))
@@ -2050,7 +2174,8 @@ public extension ScopeSetRequest {
         let granteeUserId = try CsilCbor.asText((try CsilCbor.require(cborValue, "grantee_user_id")))
         let granteeApplicationId = try CsilCbor.asText((try CsilCbor.require(cborValue, "grantee_application_id")))
         let languages: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "languages") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
-        self.init(granteeDomain: granteeDomain, granteeUserId: granteeUserId, granteeApplicationId: granteeApplicationId, languages: languages)
+        let scopes: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "scopes") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        self.init(granteeDomain: granteeDomain, granteeUserId: granteeUserId, granteeApplicationId: granteeApplicationId, languages: languages, scopes: scopes)
     }
 
     /// Encode this record to canonical CSIL CBOR bytes.

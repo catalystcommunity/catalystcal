@@ -130,6 +130,14 @@ public enum ActingVia: String, Equatable, Sendable, CaseIterable {
     case actAsGrant = "act_as_grant"
 }
 
+/// CreateReceiptState is a generated CSIL string enum (a closed set of wire values).
+public enum CreateReceiptState: String, Equatable, Sendable, CaseIterable {
+    case live = "live"
+    case trashed = "trashed"
+    case deleted = "deleted"
+    case hidden = "hidden"
+}
+
 /// IdentityRef is a generated CSIL record type.
 public struct IdentityRef: Equatable, Sendable {
     public let domain: String
@@ -1218,6 +1226,122 @@ public struct ImportEventRequest: Equatable, Sendable {
     ]
 }
 
+/// CreateEventOnceRequest is a generated CSIL record type.
+public struct CreateEventOnceRequest: Equatable, Sendable {
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+    public let event: Event
+
+    public init(idempotencyKey: String, event: Event) {
+        self.idempotencyKey = idempotencyKey
+        self.event = event
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.idempotencyKey.count < 1 {
+            throw CsilValidationError("field 'idempotencyKey' must have at least 1 elements")
+        }
+        if self.idempotencyKey.count > 200 {
+            throw CsilValidationError("field 'idempotencyKey' must have at most 200 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "idempotencyKey": "idempotency_key",
+        "event": "event"
+    ]
+}
+
+/// CreateReceiptRequest is a generated CSIL record type.
+public struct CreateReceiptRequest: Equatable, Sendable {
+    /// wire key: calendar_id
+    public let calendarId: CalendarId
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+
+    public init(calendarId: CalendarId, idempotencyKey: String) {
+        self.calendarId = calendarId
+        self.idempotencyKey = idempotencyKey
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.idempotencyKey.count < 1 {
+            throw CsilValidationError("field 'idempotencyKey' must have at least 1 elements")
+        }
+        if self.idempotencyKey.count > 200 {
+            throw CsilValidationError("field 'idempotencyKey' must have at most 200 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "calendarId": "calendar_id",
+        "idempotencyKey": "idempotency_key"
+    ]
+}
+
+/// CreateEventReceipt is a generated CSIL record type.
+public struct CreateEventReceipt: Equatable, Sendable {
+    /// wire key: calendar_id
+    public let calendarId: CalendarId
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+    /// wire key: event_id
+    public let eventId: EventId
+    public let state: CreateReceiptState
+    public let created: Bool
+    /// wire key: created_at
+    public let createdAt: Timestamp
+    public let event: Event?
+    /// wire key: trash_id
+    public let trashId: TrashId?
+
+    public init(calendarId: CalendarId, idempotencyKey: String, eventId: EventId, state: CreateReceiptState, created: Bool, createdAt: Timestamp, event: Event? = nil, trashId: TrashId? = nil) {
+        self.calendarId = calendarId
+        self.idempotencyKey = idempotencyKey
+        self.eventId = eventId
+        self.state = state
+        self.created = created
+        self.createdAt = createdAt
+        self.event = event
+        self.trashId = trashId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "calendarId": "calendar_id",
+        "idempotencyKey": "idempotency_key",
+        "eventId": "event_id",
+        "state": "state",
+        "created": "created",
+        "createdAt": "created_at",
+        "event": "event",
+        "trashId": "trash_id"
+    ]
+}
+
+/// GetOccurrenceRequest is a generated CSIL record type.
+public struct GetOccurrenceRequest: Equatable, Sendable {
+    /// wire key: event_id
+    public let eventId: EventId
+    /// wire key: recurrence_id
+    public let recurrenceId: Timestamp?
+
+    public init(eventId: EventId, recurrenceId: Timestamp? = nil) {
+        self.eventId = eventId
+        self.recurrenceId = recurrenceId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "eventId": "event_id",
+        "recurrenceId": "recurrence_id"
+    ]
+}
+
 /// RespondRequest is a generated CSIL record type.
 public struct RespondRequest: Equatable, Sendable {
     /// wire key: event_id
@@ -1625,12 +1749,14 @@ public struct ScopeSetRequest: Equatable, Sendable {
     /// wire key: grantee_application_id
     public let granteeApplicationId: String
     public let languages: [String]?
+    public let scopes: [String]?
 
-    public init(granteeDomain: String, granteeUserId: String, granteeApplicationId: String, languages: [String]? = nil) {
+    public init(granteeDomain: String, granteeUserId: String, granteeApplicationId: String, languages: [String]? = nil, scopes: [String]? = nil) {
         self.granteeDomain = granteeDomain
         self.granteeUserId = granteeUserId
         self.granteeApplicationId = granteeApplicationId
         self.languages = languages
+        self.scopes = scopes
     }
 
     /// CBOR wire keys (verbatim) keyed by Swift property name.
@@ -1638,7 +1764,8 @@ public struct ScopeSetRequest: Equatable, Sendable {
         "granteeDomain": "grantee_domain",
         "granteeUserId": "grantee_user_id",
         "granteeApplicationId": "grantee_application_id",
-        "languages": "languages"
+        "languages": "languages",
+        "scopes": "scopes"
     ]
 }
 

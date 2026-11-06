@@ -673,6 +673,32 @@ fn dec_ActingVia(alloc: std.mem.Allocator, src: Value, out: *types.ActingVia) Co
     return error.WrongType;
 }
 
+fn enc_CreateReceiptState(out: *std.ArrayList(u8), v: *const types.CreateReceiptState) CodecError!void {
+    try w_text(out, v.wire_name());
+}
+
+fn dec_CreateReceiptState(alloc: std.mem.Allocator, src: Value, out: *types.CreateReceiptState) CodecError!void {
+    _ = alloc;
+    const csil_s = try as_text(src);
+    if (std.mem.eql(u8, csil_s, "live")) {
+        out.* = .live;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "trashed")) {
+        out.* = .trashed;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "deleted")) {
+        out.* = .deleted;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "hidden")) {
+        out.* = .hidden;
+        return;
+    }
+    return error.WrongType;
+}
+
 fn enc_IdentityRef(out: *std.ArrayList(u8), v: *const types.IdentityRef) CodecError!void {
     var csil_n: usize = 1;
     if (v.handle != null) csil_n += 1;
@@ -2799,6 +2825,146 @@ fn dec_ImportEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Import
     }
 }
 
+fn enc_CreateEventOnceRequest(out: *std.ArrayList(u8), v: *const types.CreateEventOnceRequest) CodecError!void {
+    try w_map_head(out, 2);
+    try w_text(out, "event");
+    try enc_Event(out, &(v.event));
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+}
+
+fn dec_CreateEventOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.CreateEventOnceRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "event");
+        try dec_Event(alloc, csil_fv, &(out.event));
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+}
+
+fn enc_CreateReceiptRequest(out: *std.ArrayList(u8), v: *const types.CreateReceiptRequest) CodecError!void {
+    try w_map_head(out, 2);
+    try w_text(out, "calendar_id");
+    try w_text(out, v.calendar_id);
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+}
+
+fn dec_CreateReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.CreateReceiptRequest) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "calendar_id");
+        out.calendar_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+}
+
+fn enc_CreateEventReceipt(out: *std.ArrayList(u8), v: *const types.CreateEventReceipt) CodecError!void {
+    var csil_n: usize = 6;
+    if (v.event != null) csil_n += 1;
+    if (v.trash_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.event) |csil_x| {
+        try w_text(out, "event");
+        try enc_Event(out, &(csil_x));
+    }
+    try w_text(out, "state");
+    try enc_CreateReceiptState(out, &(v.state));
+    try w_text(out, "created");
+    try w_bool(out, v.created);
+    try w_text(out, "event_id");
+    try w_text(out, v.event_id);
+    if (v.trash_id) |csil_x| {
+        try w_text(out, "trash_id");
+        try w_text(out, csil_x);
+    }
+    try w_text(out, "created_at");
+    try w_text(out, v.created_at);
+    try w_text(out, "calendar_id");
+    try w_text(out, v.calendar_id);
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+}
+
+fn dec_CreateEventReceipt(alloc: std.mem.Allocator, m: Value, out: *types.CreateEventReceipt) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "event")) |csil_fv| {
+            var csil_tmp: types.Event = undefined;
+            try dec_Event(alloc, csil_fv, &csil_tmp);
+            out.event = csil_tmp;
+        } else {
+            out.event = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "state");
+        try dec_CreateReceiptState(alloc, csil_fv, &(out.state));
+    }
+    {
+        const csil_fv = try req(m, "created");
+        out.created = try as_bool(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "event_id");
+        out.event_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "trash_id")) |csil_fv| {
+            out.trash_id = try as_text(csil_fv);
+        } else {
+            out.trash_id = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "created_at");
+        out.created_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "calendar_id");
+        out.calendar_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+}
+
+fn enc_GetOccurrenceRequest(out: *std.ArrayList(u8), v: *const types.GetOccurrenceRequest) CodecError!void {
+    var csil_n: usize = 1;
+    if (v.recurrence_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "event_id");
+    try w_text(out, v.event_id);
+    if (v.recurrence_id) |csil_x| {
+        try w_text(out, "recurrence_id");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_GetOccurrenceRequest(alloc: std.mem.Allocator, m: Value, out: *types.GetOccurrenceRequest) CodecError!void {
+    _ = alloc;
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "event_id");
+        out.event_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "recurrence_id")) |csil_fv| {
+            out.recurrence_id = try as_text(csil_fv);
+        } else {
+            out.recurrence_id = null;
+        }
+    }
+}
+
 fn enc_RespondRequest(out: *std.ArrayList(u8), v: *const types.RespondRequest) CodecError!void {
     var csil_n: usize = 2;
     if (v.comment != null) csil_n += 1;
@@ -3471,8 +3637,16 @@ fn dec_ExchangeActAsCredentialRequest(alloc: std.mem.Allocator, m: Value, out: *
 
 fn enc_ScopeSetRequest(out: *std.ArrayList(u8), v: *const types.ScopeSetRequest) CodecError!void {
     var csil_n: usize = 3;
+    if (v.scopes != null) csil_n += 1;
     if (v.languages != null) csil_n += 1;
     try w_map_head(out, csil_n);
+    if (v.scopes) |csil_arr| {
+        try w_text(out, "scopes");
+        try w_array_head(out, csil_arr.len);
+        for (csil_arr) |csil_it| {
+            try w_text(out, csil_it);
+        }
+    }
     if (v.languages) |csil_arr| {
         try w_text(out, "languages");
         try w_array_head(out, csil_arr.len);
@@ -3490,6 +3664,18 @@ fn enc_ScopeSetRequest(out: *std.ArrayList(u8), v: *const types.ScopeSetRequest)
 
 fn dec_ScopeSetRequest(alloc: std.mem.Allocator, m: Value, out: *types.ScopeSetRequest) CodecError!void {
     if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "scopes")) |csil_fv| {
+            if (csil_fv != .array) return error.WrongType;
+            const csil_tmp = try alloc.alloc([]const u8, csil_fv.array.len);
+            for (csil_fv.array, 0..) |csil_it, csil_i| {
+                csil_tmp[csil_i] = try as_text(csil_it);
+            }
+            out.scopes = csil_tmp;
+        } else {
+            out.scopes = null;
+        }
+    }
     {
         if (mget(m, "languages")) |csil_fv| {
             if (csil_fv != .array) return error.WrongType;
@@ -4069,6 +4255,22 @@ pub fn decode_ActingVia(alloc: std.mem.Allocator, bytes: []const u8, out: *types
     try dec_ActingVia(alloc, root, out);
 }
 
+/// Encode a CreateReceiptState to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_CreateReceiptState(alloc: std.mem.Allocator, v: *const types.CreateReceiptState) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_CreateReceiptState(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a CreateReceiptState. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_CreateReceiptState(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateReceiptState) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_CreateReceiptState(alloc, root, out);
+}
+
 /// Encode a IdentityRef to CBOR. The returned slice is owned by the caller
 /// (free it with alloc.free).
 pub fn encode_IdentityRef(alloc: std.mem.Allocator, v: *const types.IdentityRef) CodecError![]u8 {
@@ -4643,6 +4845,70 @@ pub fn encode_ImportEventRequest(alloc: std.mem.Allocator, v: *const types.Impor
 pub fn decode_ImportEventRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ImportEventRequest) CodecError!void {
     const root = try decode(alloc, bytes);
     try dec_ImportEventRequest(alloc, root, out);
+}
+
+/// Encode a CreateEventOnceRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_CreateEventOnceRequest(alloc: std.mem.Allocator, v: *const types.CreateEventOnceRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_CreateEventOnceRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a CreateEventOnceRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_CreateEventOnceRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateEventOnceRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_CreateEventOnceRequest(alloc, root, out);
+}
+
+/// Encode a CreateReceiptRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_CreateReceiptRequest(alloc: std.mem.Allocator, v: *const types.CreateReceiptRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_CreateReceiptRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a CreateReceiptRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_CreateReceiptRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateReceiptRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_CreateReceiptRequest(alloc, root, out);
+}
+
+/// Encode a CreateEventReceipt to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_CreateEventReceipt(alloc: std.mem.Allocator, v: *const types.CreateEventReceipt) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_CreateEventReceipt(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a CreateEventReceipt. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_CreateEventReceipt(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateEventReceipt) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_CreateEventReceipt(alloc, root, out);
+}
+
+/// Encode a GetOccurrenceRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_GetOccurrenceRequest(alloc: std.mem.Allocator, v: *const types.GetOccurrenceRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_GetOccurrenceRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a GetOccurrenceRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_GetOccurrenceRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.GetOccurrenceRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_GetOccurrenceRequest(alloc, root, out);
 }
 
 /// Encode a RespondRequest to CBOR. The returned slice is owned by the caller

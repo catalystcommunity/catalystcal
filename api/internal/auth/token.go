@@ -62,11 +62,14 @@ type Identity struct {
 	Via string `cbor:"via"`
 	// PrincipalID is the user whose authority this bearer uses. Empty for
 	// a self bearer.
-	PrincipalID  string   `cbor:"principal,omitempty"`
-	DelegationID string   `cbor:"delegation,omitempty"`
-	GrantID      string   `cbor:"grant,omitempty"`
-	Application  string   `cbor:"app,omitempty"`
-	Scopes       []string `cbor:"scopes,omitempty"`
+	PrincipalID  string `cbor:"principal,omitempty"`
+	DelegationID string `cbor:"delegation,omitempty"`
+	GrantID      string `cbor:"grant,omitempty"`
+	Application  string `cbor:"app,omitempty"`
+	// Grantee names the act-as grantee application exactly
+	// ("<user_id>@<domain>/<application_id>").
+	Grantee string   `cbor:"grantee,omitempty"`
+	Scopes  []string `cbor:"scopes,omitempty"`
 
 	// SessionID names the browser session that minted a self bearer.
 	SessionID string `cbor:"session,omitempty"`

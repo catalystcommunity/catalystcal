@@ -75,6 +75,9 @@ type RecurrenceScope string
 // ActingVia is a type alias
 type ActingVia string
 
+// CreateReceiptState is a type alias
+type CreateReceiptState string
+
 // IdentityRef represents a structured data type
 type IdentityRef struct {
 	Domain        string  `json:"domain" yaml:"domain"`
@@ -396,6 +399,36 @@ type ImportEventRequest struct {
 	CreatedAt *Timestamp  `json:"created_at,omitempty" yaml:"created_at,omitempty"`
 }
 
+// CreateEventOnceRequest represents a structured data type
+type CreateEventOnceRequest struct {
+	IdempotencyKey string `json:"idempotency_key" yaml:"idempotency_key"`
+	Event          Event  `json:"event" yaml:"event"`
+}
+
+// CreateReceiptRequest represents a structured data type
+type CreateReceiptRequest struct {
+	CalendarId     CalendarID `json:"calendar_id" yaml:"calendar_id"`
+	IdempotencyKey string     `json:"idempotency_key" yaml:"idempotency_key"`
+}
+
+// CreateEventReceipt represents a structured data type
+type CreateEventReceipt struct {
+	CalendarId     CalendarID         `json:"calendar_id" yaml:"calendar_id"`
+	IdempotencyKey string             `json:"idempotency_key" yaml:"idempotency_key"`
+	EventId        EventID            `json:"event_id" yaml:"event_id"`
+	State          CreateReceiptState `json:"state" yaml:"state"`
+	Created        bool               `json:"created" yaml:"created"`
+	CreatedAt      Timestamp          `json:"created_at" yaml:"created_at"`
+	Event          *Event             `json:"event,omitempty" yaml:"event,omitempty"`
+	TrashId        *TrashID           `json:"trash_id,omitempty" yaml:"trash_id,omitempty"`
+}
+
+// GetOccurrenceRequest represents a structured data type
+type GetOccurrenceRequest struct {
+	EventId      EventID    `json:"event_id" yaml:"event_id"`
+	RecurrenceId *Timestamp `json:"recurrence_id,omitempty" yaml:"recurrence_id,omitempty"`
+}
+
 // RespondRequest represents a structured data type
 type RespondRequest struct {
 	EventId      EventID             `json:"event_id" yaml:"event_id"`
@@ -533,6 +566,7 @@ type ScopeSetRequest struct {
 	GranteeUserId        string   `json:"grantee_user_id" yaml:"grantee_user_id"`
 	GranteeApplicationId string   `json:"grantee_application_id" yaml:"grantee_application_id"`
 	Languages            []string `json:"languages,omitempty" yaml:"languages,omitempty"`
+	Scopes               []string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
 }
 
 // ScopeSetResponse represents a structured data type

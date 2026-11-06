@@ -3818,6 +3818,311 @@ func DecodeImportEventRequest(csilData []byte) (ImportEventRequest, error) {
 	return csilDecImportEventRequest(csilRoot)
 }
 
+// csilEncCreateEventOnceRequest builds the canonical CBOR value tree for a CreateEventOnceRequest.
+func csilEncCreateEventOnceRequest(csilV CreateEventOnceRequest) cborValue {
+	csilEntries := make(cborMap, 0, 2)
+	csilEntries = append(csilEntries, cborEntry{cborText("event"), csilEncEvent(csilV.Event)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	return csilEntries
+}
+
+// csilDecCreateEventOnceRequest reconstructs a CreateEventOnceRequest from a decoded CBOR value tree.
+func csilDecCreateEventOnceRequest(csilRoot cborValue) (CreateEventOnceRequest, error) {
+	var csilOut CreateEventOnceRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Event = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeCreateEventOnceRequest encodes a CreateEventOnceRequest to canonical CSIL CBOR bytes.
+func EncodeCreateEventOnceRequest(csilV CreateEventOnceRequest) []byte {
+	return cborEncode(csilEncCreateEventOnceRequest(csilV))
+}
+
+// DecodeCreateEventOnceRequest decodes canonical CSIL CBOR bytes into a CreateEventOnceRequest.
+func DecodeCreateEventOnceRequest(csilData []byte) (CreateEventOnceRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero CreateEventOnceRequest
+		return csilZero, csilErr
+	}
+	return csilDecCreateEventOnceRequest(csilRoot)
+}
+
+// csilEncCreateReceiptRequest builds the canonical CBOR value tree for a CreateReceiptRequest.
+func csilEncCreateReceiptRequest(csilV CreateReceiptRequest) cborValue {
+	csilEntries := make(cborMap, 0, 2)
+	csilEntries = append(csilEntries, cborEntry{cborText("calendar_id"), cborText(csilV.CalendarId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	return csilEntries
+}
+
+// csilDecCreateReceiptRequest reconstructs a CreateReceiptRequest from a decoded CBOR value tree.
+func csilDecCreateReceiptRequest(csilRoot cborValue) (CreateReceiptRequest, error) {
+	var csilOut CreateReceiptRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "calendar_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CalendarID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return CalendarID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CalendarId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeCreateReceiptRequest encodes a CreateReceiptRequest to canonical CSIL CBOR bytes.
+func EncodeCreateReceiptRequest(csilV CreateReceiptRequest) []byte {
+	return cborEncode(csilEncCreateReceiptRequest(csilV))
+}
+
+// DecodeCreateReceiptRequest decodes canonical CSIL CBOR bytes into a CreateReceiptRequest.
+func DecodeCreateReceiptRequest(csilData []byte) (CreateReceiptRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero CreateReceiptRequest
+		return csilZero, csilErr
+	}
+	return csilDecCreateReceiptRequest(csilRoot)
+}
+
+// csilEncCreateEventReceipt builds the canonical CBOR value tree for a CreateEventReceipt.
+func csilEncCreateEventReceipt(csilV CreateEventReceipt) cborValue {
+	csilEntries := make(cborMap, 0, 8)
+	if csilV.Event != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("event"), csilEncEvent((*csilV.Event))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("state"), cborText(csilV.State)})
+	csilEntries = append(csilEntries, cborEntry{cborText("created"), cborBool(csilV.Created)})
+	csilEntries = append(csilEntries, cborEntry{cborText("event_id"), cborText(csilV.EventId)})
+	if csilV.TrashId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("trash_id"), cborText((*csilV.TrashId))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("created_at"), cborText(csilV.CreatedAt)})
+	csilEntries = append(csilEntries, cborEntry{cborText("calendar_id"), cborText(csilV.CalendarId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	return csilEntries
+}
+
+// csilDecCreateEventReceipt reconstructs a CreateEventReceipt from a decoded CBOR value tree.
+func csilDecCreateEventReceipt(csilRoot cborValue) (CreateEventReceipt, error) {
+	var csilOut CreateEventReceipt
+	{
+		csilField, csilErr := cborRequire(csilRoot, "calendar_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CalendarID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return CalendarID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CalendarId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.EventId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "state")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CreateReceiptState, error) {
+			csilInner, csilErr := (func(csilV cborValue) (string, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				if csilErr != nil {
+					var csilZero string
+					return csilZero, csilErr
+				}
+				if !(csilInner == "live" || csilInner == "trashed" || csilInner == "deleted" || csilInner == "hidden") {
+					var csilZero string
+					return csilZero, fmt.Errorf("csil cbor: value %v is not a member of the declared enum", csilInner)
+				}
+				return csilInner, nil
+			})(csilV)
+			return CreateReceiptState(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.State = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "created")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsBool)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Created = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "created_at")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CreatedAt = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "event"); csilOk {
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Event = &csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "trash_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.TrashId = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeCreateEventReceipt encodes a CreateEventReceipt to canonical CSIL CBOR bytes.
+func EncodeCreateEventReceipt(csilV CreateEventReceipt) []byte {
+	return cborEncode(csilEncCreateEventReceipt(csilV))
+}
+
+// DecodeCreateEventReceipt decodes canonical CSIL CBOR bytes into a CreateEventReceipt.
+func DecodeCreateEventReceipt(csilData []byte) (CreateEventReceipt, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero CreateEventReceipt
+		return csilZero, csilErr
+	}
+	return csilDecCreateEventReceipt(csilRoot)
+}
+
+// csilEncGetOccurrenceRequest builds the canonical CBOR value tree for a GetOccurrenceRequest.
+func csilEncGetOccurrenceRequest(csilV GetOccurrenceRequest) cborValue {
+	csilEntries := make(cborMap, 0, 2)
+	csilEntries = append(csilEntries, cborEntry{cborText("event_id"), cborText(csilV.EventId)})
+	if csilV.RecurrenceId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("recurrence_id"), cborText((*csilV.RecurrenceId))})
+	}
+	return csilEntries
+}
+
+// csilDecGetOccurrenceRequest reconstructs a GetOccurrenceRequest from a decoded CBOR value tree.
+func csilDecGetOccurrenceRequest(csilRoot cborValue) (GetOccurrenceRequest, error) {
+	var csilOut GetOccurrenceRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.EventId = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "recurrence_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.RecurrenceId = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeGetOccurrenceRequest encodes a GetOccurrenceRequest to canonical CSIL CBOR bytes.
+func EncodeGetOccurrenceRequest(csilV GetOccurrenceRequest) []byte {
+	return cborEncode(csilEncGetOccurrenceRequest(csilV))
+}
+
+// DecodeGetOccurrenceRequest decodes canonical CSIL CBOR bytes into a GetOccurrenceRequest.
+func DecodeGetOccurrenceRequest(csilData []byte) (GetOccurrenceRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero GetOccurrenceRequest
+		return csilZero, csilErr
+	}
+	return csilDecGetOccurrenceRequest(csilRoot)
+}
+
 // csilEncRespondRequest builds the canonical CBOR value tree for a RespondRequest.
 func csilEncRespondRequest(csilV RespondRequest) cborValue {
 	csilEntries := make(cborMap, 0, 4)
@@ -5085,7 +5390,10 @@ func DecodeExchangeActAsCredentialRequest(csilData []byte) (ExchangeActAsCredent
 
 // csilEncScopeSetRequest builds the canonical CBOR value tree for a ScopeSetRequest.
 func csilEncScopeSetRequest(csilV ScopeSetRequest) cborValue {
-	csilEntries := make(cborMap, 0, 4)
+	csilEntries := make(cborMap, 0, 5)
+	if csilV.Scopes != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("scopes"), cborEncArray(csilV.Scopes, func(csilElem string) cborValue { return cborText(csilElem) })})
+	}
 	if csilV.Languages != nil {
 		csilEntries = append(csilEntries, cborEntry{cborText("languages"), cborEncArray(csilV.Languages, func(csilElem string) cborValue { return cborText(csilElem) })})
 	}
@@ -5137,6 +5445,13 @@ func csilDecScopeSetRequest(csilRoot cborValue) (ScopeSetRequest, error) {
 			return csilOut, csilErr
 		}
 		csilOut.Languages = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "scopes"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) ([]string, error) { return cborDecArray(csilV, cborAsText) })(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Scopes = csilVal
 	}
 	return csilOut, nil
 }

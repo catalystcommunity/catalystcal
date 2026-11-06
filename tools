@@ -291,6 +291,8 @@ helm_lint() {
         --set actAs.existingSecret=catalystcal-act-as \
         --set actAs.allowedApplications='u1@a.example/app1\,u2@b.example/app2' \
         --set actAs.appBearerTTLSeconds=600 \
+        --set actAs.homeTcpAddr=lk.example:4987 \
+        --set actAs.homeTcpFingerprints=abc \
         --set config.trashRetentionDays=14 \
         --set secrets.existingSecret=catalystcal-secrets >/dev/null
     echo "Helm chart OK."

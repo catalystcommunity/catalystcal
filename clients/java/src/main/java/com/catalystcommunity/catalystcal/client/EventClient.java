@@ -21,6 +21,10 @@ public final class EventClient {
         return CsilCbor.decodeEvent(transport.call("EventService", "get-event", CsilCbor.encodeEventGetEventRequest(req)));
     }
 
+    public Occurrence getOccurrence(GetOccurrenceRequest req) throws ClientException {
+        return CsilCbor.decodeOccurrence(transport.call("EventService", "get-occurrence", CsilCbor.encodeGetOccurrenceRequest(req)));
+    }
+
     public Event createEvent(Event req) throws ClientException {
         return CsilCbor.decodeEvent(transport.call("EventService", "create-event", CsilCbor.encodeEvent(req)));
     }
@@ -59,5 +63,13 @@ public final class EventClient {
 
     public Event importEvent(ImportEventRequest req) throws ClientException {
         return CsilCbor.decodeEvent(transport.call("EventService", "import-event", CsilCbor.encodeImportEventRequest(req)));
+    }
+
+    public CreateEventReceipt createEventOnce(CreateEventOnceRequest req) throws ClientException {
+        return CsilCbor.decodeCreateEventReceipt(transport.call("EventService", "create-event-once", CsilCbor.encodeCreateEventOnceRequest(req)));
+    }
+
+    public CreateEventReceipt getCreateReceipt(CreateReceiptRequest req) throws ClientException {
+        return CsilCbor.decodeCreateEventReceipt(transport.call("EventService", "get-create-receipt", CsilCbor.encodeCreateReceiptRequest(req)));
     }
 }

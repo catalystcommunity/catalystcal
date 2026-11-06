@@ -8,6 +8,7 @@ public record ScopeSetRequest(
     String granteeDomain /* wire: "grantee_domain" */,
     String granteeUserId /* wire: "grantee_user_id" */,
     String granteeApplicationId /* wire: "grantee_application_id" */,
-    List<String> languages /* wire: "languages" */
+    List<String> languages /* wire: "languages" */,
+    List<String> scopes /* wire: "scopes" */
 ) {
 }

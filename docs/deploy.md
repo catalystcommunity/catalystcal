@@ -67,6 +67,8 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE` | no | Let subscriptions fetch private network addresses. Keep `false` on a shared instance. |
 | `CATALYSTCAL_ACT_AS_APP_KEYS_FILE` | file is **secret** | Path to the act-as application keys JSON file |
 | `CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS` | no | The oldest act-as presentation that catalystcal accepts |
+| `CATALYSTCAL_ACT_AS_HOME_TCP_ADDR` | no | The LinkKeys TCP server of the home domain of catalystcal's application account. The API renews its key attestations there. Default: `CATALYSTCAL_LINKKEYS_TCP_ADDR`. |
+| `CATALYSTCAL_ACT_AS_HOME_TCP_FINGERPRINTS` | no | The TLS key fingerprints of that server. Set it with `CATALYSTCAL_ACT_AS_HOME_TCP_ADDR`. Default: `CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS`. |
 | `CATALYSTCAL_ALLOWED_APPLICATIONS` | no | Comma-separated applications that can sign in as themselves: `<subject_user_id>@<domain>/<application_id>`. Needs the act-as keys file. |
 | `CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS` | no | The oldest application presentation that catalystcal accepts (1 to 900, default 300) |
 | `CATALYSTCAL_APP_BEARER_TTL_SECONDS` | no | The life of an application bearer (1 to 3600, default 900) |
@@ -251,8 +253,21 @@ The file contains private key seeds. Treat it as a secret.
 
 Without the file, the API works, but act-as grants do not.
 
-1. Register catalystcal as an application with your LinkKeys domain. Save the
-   identity and the key seeds in the JSON layout that the catalystcal API reads.
+1. Make the key file and enroll it at the LinkKeys server of your domain.
+   The account can be a service account. Its API key authorizes the
+   enrollment. Read the key from a file; do not type it in a command.
+
+   ```sh
+   catalystcal app-keys generate --file ./act-as-app-keys.json \
+     --domain example.com --user-id <account UUID> --instance-id catalystcal-prod-1
+   catalystcal app-keys enroll --file ./act-as-app-keys.json \
+     --tcp-addr linkkeys.example.com:4987 --fingerprints <fp>[,<fp>] \
+     --api-key-file ./account-api-key
+   ```
+
+   `generate` writes three Ed25519 signing keys (mode 0600). It does not
+   replace a file. The TCP address and the fingerprints are in the
+   `_linkkeys_apis` and `_linkkeys` TXT records of the domain.
 2. Make a Secret from the file:
 
    ```sh
@@ -277,6 +292,15 @@ production.
 
 With Docker Compose, mount the file read-only and set
 `CATALYSTCAL_ACT_AS_APP_KEYS_FILE` (see the comments in `docker-compose.yml`).
+
+An attestation of an application key lives 24 hours (the LinkKeys
+default). The API renews the attestations at start and every 6 hours, at
+the RP server, or at `actAs.homeTcpAddr` when the home domain of the
+account is a different LinkKeys server. The renewal is signed by each key;
+it sends no API key. If the renewal fails for a day, consent screens and
+application sign-in stop working. Look for "act-as key attestation
+renewal failed" in the API log. `catalystcal app-keys renew` renews by
+hand.
 
 ## Application principals
 

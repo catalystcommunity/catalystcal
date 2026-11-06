@@ -46,6 +46,9 @@ and encode_recurrence_scope (v : recurrence_scope) : Cbor.t =
 and encode_acting_via (v : acting_via) : Cbor.t =
   match v with Self -> Cbor.Text "self" | Delegation -> Cbor.Text "delegation" | Act_as_grant -> Cbor.Text "act_as_grant"
 
+and encode_create_receipt_state (v : create_receipt_state) : Cbor.t =
+  match v with Live -> Cbor.Text "live" | Trashed -> Cbor.Text "trashed" | Deleted -> Cbor.Text "deleted" | Hidden -> Cbor.Text "hidden"
+
 and encode_identity_ref (v : identity_ref) : Cbor.t =
   Cbor.Map
     (List.filter_map
@@ -475,6 +478,48 @@ and encode_import_event_request (v : import_event_request) : Cbor.t =
          Some (Cbor.Text "created_by", (encode_identity_ref v.created_by));
        ])
 
+and encode_create_event_once_request (v : create_event_once_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "event", (encode_event v.event));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+       ])
+
+and encode_create_receipt_request (v : create_receipt_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+       ])
+
+and encode_create_event_receipt (v : create_event_receipt) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.event with Some csil_x -> Some (Cbor.Text "event", (encode_event csil_x)) | None -> None);
+         Some (Cbor.Text "state", (encode_create_receipt_state v.state));
+         Some (Cbor.Text "created", (Cbor.Bool v.created));
+         Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
+         (match v.trash_id with Some csil_x -> Some (Cbor.Text "trash_id", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+       ])
+
+and encode_get_occurrence_request (v : get_occurrence_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+       ])
+
 and encode_respond_request (v : respond_request) : Cbor.t =
   Cbor.Map
     (List.filter_map
@@ -668,6 +713,7 @@ and encode_scope_set_request (v : scope_set_request) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
+         (match v.scopes with Some csil_x -> Some (Cbor.Text "scopes", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          (match v.languages with Some csil_x -> Some (Cbor.Text "languages", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          Some (Cbor.Text "grantee_domain", (Cbor.Text v.grantee_domain));
          Some (Cbor.Text "grantee_user_id", (Cbor.Text v.grantee_user_id));
@@ -828,6 +874,9 @@ and decode_recurrence_scope (csil_c : Cbor.t) : recurrence_scope =
 
 and decode_acting_via (csil_c : Cbor.t) : acting_via =
   match Cbor.to_text csil_c with "self" -> Self | "delegation" -> Delegation | "act_as_grant" -> Act_as_grant | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
+
+and decode_create_receipt_state (csil_c : Cbor.t) : create_receipt_state =
+  match Cbor.to_text csil_c with "live" -> Live | "trashed" -> Trashed | "deleted" -> Deleted | "hidden" -> Hidden | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
 
 and decode_identity_ref (csil_c : Cbor.t) : identity_ref =
   match csil_c with
@@ -1438,6 +1487,68 @@ and decode_import_event_request (csil_c : Cbor.t) : import_event_request =
       }
   | _ -> failwith "csilgen: expected map for import_event_request"
 
+and decode_create_event_once_request (csil_c : Cbor.t) : create_event_once_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event = (decode_event (csil_req "event"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+      }
+  | _ -> failwith "csilgen: expected map for create_event_once_request"
+
+and decode_create_receipt_request (csil_c : Cbor.t) : create_receipt_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        calendar_id = (Cbor.to_text (csil_req "calendar_id"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+      }
+  | _ -> failwith "csilgen: expected map for create_receipt_request"
+
+and decode_create_event_receipt (csil_c : Cbor.t) : create_event_receipt =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event = (match csil_field "event" with Some csil_v -> Some (decode_event csil_v) | None -> None);
+        state = (decode_create_receipt_state (csil_req "state"));
+        created = (Cbor.to_bool (csil_req "created"));
+        event_id = (Cbor.to_text (csil_req "event_id"));
+        trash_id = (match csil_field "trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        created_at = (Cbor.to_text (csil_req "created_at"));
+        calendar_id = (Cbor.to_text (csil_req "calendar_id"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+      }
+  | _ -> failwith "csilgen: expected map for create_event_receipt"
+
+and decode_get_occurrence_request (csil_c : Cbor.t) : get_occurrence_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event_id = (Cbor.to_text (csil_req "event_id"));
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for get_occurrence_request"
+
 and decode_respond_request (csil_c : Cbor.t) : respond_request =
   match csil_c with
   | Cbor.Map csil_kvs ->
@@ -1730,6 +1841,7 @@ and decode_scope_set_request (csil_c : Cbor.t) : scope_set_request =
       in
       ignore csil_req;
       {
+        scopes = (match csil_field "scopes" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         languages = (match csil_field "languages" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         grantee_domain = (Cbor.to_text (csil_req "grantee_domain"));
         grantee_user_id = (Cbor.to_text (csil_req "grantee_user_id"));
@@ -1967,6 +2079,10 @@ let encode_acting_via_bytes (v : acting_via) : bytes = Cbor.encode (encode_actin
 let decode_acting_via_bytes (b : bytes) : acting_via =
   match Cbor.decode b with Ok c -> decode_acting_via c | Error e -> failwith e
 
+let encode_create_receipt_state_bytes (v : create_receipt_state) : bytes = Cbor.encode (encode_create_receipt_state v)
+let decode_create_receipt_state_bytes (b : bytes) : create_receipt_state =
+  match Cbor.decode b with Ok c -> decode_create_receipt_state c | Error e -> failwith e
+
 let encode_identity_ref_bytes (v : identity_ref) : bytes = Cbor.encode (encode_identity_ref v)
 let decode_identity_ref_bytes (b : bytes) : identity_ref =
   match Cbor.decode b with Ok c -> decode_identity_ref c | Error e -> failwith e
@@ -2110,6 +2226,22 @@ let decode_restore_event_request_bytes (b : bytes) : restore_event_request =
 let encode_import_event_request_bytes (v : import_event_request) : bytes = Cbor.encode (encode_import_event_request v)
 let decode_import_event_request_bytes (b : bytes) : import_event_request =
   match Cbor.decode b with Ok c -> decode_import_event_request c | Error e -> failwith e
+
+let encode_create_event_once_request_bytes (v : create_event_once_request) : bytes = Cbor.encode (encode_create_event_once_request v)
+let decode_create_event_once_request_bytes (b : bytes) : create_event_once_request =
+  match Cbor.decode b with Ok c -> decode_create_event_once_request c | Error e -> failwith e
+
+let encode_create_receipt_request_bytes (v : create_receipt_request) : bytes = Cbor.encode (encode_create_receipt_request v)
+let decode_create_receipt_request_bytes (b : bytes) : create_receipt_request =
+  match Cbor.decode b with Ok c -> decode_create_receipt_request c | Error e -> failwith e
+
+let encode_create_event_receipt_bytes (v : create_event_receipt) : bytes = Cbor.encode (encode_create_event_receipt v)
+let decode_create_event_receipt_bytes (b : bytes) : create_event_receipt =
+  match Cbor.decode b with Ok c -> decode_create_event_receipt c | Error e -> failwith e
+
+let encode_get_occurrence_request_bytes (v : get_occurrence_request) : bytes = Cbor.encode (encode_get_occurrence_request v)
+let decode_get_occurrence_request_bytes (b : bytes) : get_occurrence_request =
+  match Cbor.decode b with Ok c -> decode_get_occurrence_request c | Error e -> failwith e
 
 let encode_respond_request_bytes (v : respond_request) : bytes = Cbor.encode (encode_respond_request v)
 let decode_respond_request_bytes (b : bytes) : respond_request =

@@ -50,6 +50,8 @@ export type RecurrenceScope = "all" | "this" | "this_and_future";
 
 export type ActingVia = "self" | "delegation" | "act_as_grant";
 
+export type CreateReceiptState = "live" | "trashed" | "deleted" | "hidden";
+
 export interface IdentityRef {
   domain: string;
   userId?: string;
@@ -335,6 +337,32 @@ export interface ImportEventRequest {
   createdAt?: Timestamp;
 }
 
+export interface CreateEventOnceRequest {
+  idempotencyKey: string;
+  event: Event;
+}
+
+export interface CreateReceiptRequest {
+  calendarId: CalendarID;
+  idempotencyKey: string;
+}
+
+export interface CreateEventReceipt {
+  calendarId: CalendarID;
+  idempotencyKey: string;
+  eventId: EventID;
+  state: CreateReceiptState;
+  created: boolean;
+  createdAt: Timestamp;
+  event?: Event;
+  trashId?: TrashID;
+}
+
+export interface GetOccurrenceRequest {
+  eventId: EventID;
+  recurrenceId?: Timestamp;
+}
+
 export interface RespondRequest {
   eventId: EventID;
   status: ParticipationStatus;
@@ -452,6 +480,7 @@ export interface ScopeSetRequest {
   granteeUserId: string;
   granteeApplicationId: string;
   languages?: string[];
+  scopes?: string[];
 }
 
 export interface ScopeSetResponse {
@@ -573,6 +602,18 @@ export function validateUpdateGroupRequest(value: UpdateGroupRequest): string[] 
 export function validateEvent(value: Event): string[] {
   const errors: string[] = [];
   if (value.title.length < 1 || value.title.length > 1024) errors.push("title: length must be between 1 and 1024");
+  return errors;
+}
+
+export function validateCreateEventOnceRequest(value: CreateEventOnceRequest): string[] {
+  const errors: string[] = [];
+  if (value.idempotencyKey.length < 1 || value.idempotencyKey.length > 200) errors.push("idempotencyKey: length must be between 1 and 200");
+  return errors;
+}
+
+export function validateCreateReceiptRequest(value: CreateReceiptRequest): string[] {
+  const errors: string[] = [];
+  if (value.idempotencyKey.length < 1 || value.idempotencyKey.length > 200) errors.push("idempotencyKey: length must be between 1 and 200");
   return errors;
 }
 

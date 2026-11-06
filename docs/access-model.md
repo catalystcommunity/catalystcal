@@ -129,7 +129,11 @@ catalystcal (the audience). It uses the same scope words.
 1. The grantee asks catalystcal for a signed scope set:
    `AuthService.get-act-as-scope-set`. catalystcal signs it with its application
    keys. This op works only when the server has application keys
-   (`CATALYSTCAL_ACT_AS_APP_KEYS_FILE`).
+   (`CATALYSTCAL_ACT_AS_APP_KEYS_FILE`). The optional `scopes` field
+   names the scopes to offer. Without it, the set offers every scope. The
+   set lists the scopes in the server order. An empty list, an unknown
+   word, or a repeated word gives 400. Ask only for the scopes that the
+   grantee needs: the user sees only these at consent.
 2. The user approves the grant at their home domain.
 3. The grantee calls `AuthService.exchange-act-as-credential` with an
    `ActAsCredential`. The presentation's request digest is SHA-256 of
@@ -216,6 +220,48 @@ Additional rules:
 The services call one shared function for this (`api/internal/access`).
 They do not repeat the rules.
 
+## Create once
+
+`EventService.create-event-once` makes an event at most once for each
+`idempotency_key`. A client that lost a response sends the same request
+again. `get-create-receipt` reads the receipt without a create.
+
+- The key is scoped to the calendar, the effective creator, and the
+  bearer. For an act-as bearer, the bearer part is the exact grantee
+  application (`<user_id>@<domain>/<application_id>`). For a delegated
+  bearer, it is the delegate. Another creator, calendar, or grantee with
+  the same key has a different receipt.
+- The receipt and the event are written in one transaction. Two calls
+  with the same key at the same time make one event.
+- A call with a known key and the same content makes nothing. It returns
+  the receipt with `created` false. A known key with other content gives
+  409.
+- The receipt stays after the event changes, moves, goes to trash, leaves
+  trash, or is purged. The key never makes a second event, and a call
+  never restores an event.
+- `state` tells what the event is now: `live` (with the event), `trashed`
+  (with `trash_id` when the caller can restore it), `deleted` (the trash
+  entry expired), or `hidden` (the caller cannot see the event now).
+- Each call checks access now. The caller must be able to add events to
+  the calendar of the receipt. Without it, the call gives 404 or 403 and
+  shows nothing.
+
+## Occurrence lookup
+
+`EventService.get-occurrence` finds one occurrence by its stable
+reference: `event_id` and the original `recurrence_id`. It returns the
+same `Occurrence` as `list-events`, with the override applied, also when
+the override moved the instance far from its original time.
+
+- A single event needs no `recurrence_id`. A series needs one (400).
+- The id of an override row also works.
+- 404 when the instance is excluded, cancelled, after the end of the
+  series, or deleted, or when the caller cannot see it. The read rules of
+  `list-events` apply.
+- A `this_and_future` update makes a new series for the instance and the
+  later ones. `update-event` returns its id. After the split, the old id
+  with a later `recurrence_id` gives 404.
+
 ## Errors
 
 | Case | Code |
@@ -224,4 +270,4 @@ They do not repeat the rules.
 | Calendar or event does not exist, or the caller has `none` access | 404 (do not reveal existence) |
 | The caller can see it but cannot do this | 403 |
 | Bad input | 400 |
-| Conflict, for example a duplicate group name, an old group revision, or a restore after a conflicting change | 409 |
+| Conflict, for example a duplicate group name, an old group revision, a restore after a conflicting change, or an idempotency key with other content | 409 |

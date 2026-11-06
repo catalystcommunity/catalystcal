@@ -115,6 +115,11 @@ actAs:
   appPresentationMaxAgeSeconds: ""
   # The life of an application bearer (1 to 3600). Empty: 900.
   appBearerTTLSeconds: ""
+  # The LinkKeys TCP server of the home domain of catalystcal's application
+  # account. The API renews its key attestations there every 6 hours. Set
+  # both or neither. Empty: the RP TCP values (linkkeysRp).
+  homeTcpAddr: ""
+  homeTcpFingerprints: ""
 
 # ---------------------------------------------------------------------------
 # LinkKeys relying party (RP). The API talks to the RP with CSIL-RPC over

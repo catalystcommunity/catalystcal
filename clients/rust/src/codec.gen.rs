@@ -2970,6 +2970,234 @@ pub fn decode_import_event_request(csil_data: &[u8]) -> Result<ImportEventReques
     csil_dec_import_event_request(&csil_root)
 }
 
+/// Build the canonical CBOR value tree for a CreateEventOnceRequest.
+fn csil_enc_create_event_once_request(csil_v: &CreateEventOnceRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a CreateEventOnceRequest from a decoded CBOR value tree.
+fn csil_dec_create_event_once_request(
+    csil_root: &CsilCborValue,
+) -> Result<CreateEventOnceRequest, CsilCborError> {
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let event = {
+        let csil_field = cbor_require(csil_root, "event")?;
+        let csil_decode = csil_dec_event;
+        csil_decode(csil_field)?
+    };
+    Ok(CreateEventOnceRequest {
+        idempotency_key,
+        event,
+    })
+}
+
+/// Encode a CreateEventOnceRequest to canonical CSIL CBOR bytes.
+pub fn encode_create_event_once_request(csil_v: &CreateEventOnceRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_create_event_once_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CreateEventOnceRequest.
+pub fn decode_create_event_once_request(
+    csil_data: &[u8],
+) -> Result<CreateEventOnceRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_create_event_once_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a CreateReceiptRequest.
+fn csil_enc_create_receipt_request(csil_v: &CreateReceiptRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
+    csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a CreateReceiptRequest from a decoded CBOR value tree.
+fn csil_dec_create_receipt_request(
+    csil_root: &CsilCborValue,
+) -> Result<CreateReceiptRequest, CsilCborError> {
+    let calendar_id = {
+        let csil_field = cbor_require(csil_root, "calendar_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    Ok(CreateReceiptRequest {
+        calendar_id,
+        idempotency_key,
+    })
+}
+
+/// Encode a CreateReceiptRequest to canonical CSIL CBOR bytes.
+pub fn encode_create_receipt_request(csil_v: &CreateReceiptRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_create_receipt_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CreateReceiptRequest.
+pub fn decode_create_receipt_request(
+    csil_data: &[u8],
+) -> Result<CreateReceiptRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_create_receipt_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a CreateEventReceipt.
+fn csil_enc_create_event_receipt(csil_v: &CreateEventReceipt) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
+    if let Some(csil_inner) = &csil_v.event {
+        csil_entries.push((cbor_text("event"), csil_enc_event(csil_inner)));
+    }
+    csil_entries.push((
+        cbor_text("state"),
+        csil_enc_create_receipt_state(&csil_v.state),
+    ));
+    csil_entries.push((cbor_text("created"), cbor_bool(csil_v.created)));
+    csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
+    if let Some(csil_inner) = &csil_v.trash_id {
+        csil_entries.push((cbor_text("trash_id"), cbor_text(csil_inner)));
+    }
+    csil_entries.push((cbor_text("created_at"), cbor_text(&csil_v.created_at)));
+    csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a CreateEventReceipt from a decoded CBOR value tree.
+fn csil_dec_create_event_receipt(
+    csil_root: &CsilCborValue,
+) -> Result<CreateEventReceipt, CsilCborError> {
+    let calendar_id = {
+        let csil_field = cbor_require(csil_root, "calendar_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let event_id = {
+        let csil_field = cbor_require(csil_root, "event_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let state = {
+        let csil_field = cbor_require(csil_root, "state")?;
+        let csil_decode = csil_dec_create_receipt_state;
+        csil_decode(csil_field)?
+    };
+    let created = {
+        let csil_field = cbor_require(csil_root, "created")?;
+        let csil_decode = cbor_as_bool;
+        csil_decode(csil_field)?
+    };
+    let created_at = {
+        let csil_field = cbor_require(csil_root, "created_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let event = match cbor_map_get(csil_root, "event") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_event;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let trash_id = match cbor_map_get(csil_root, "trash_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(CreateEventReceipt {
+        calendar_id,
+        idempotency_key,
+        event_id,
+        state,
+        created,
+        created_at,
+        event,
+        trash_id,
+    })
+}
+
+/// Encode a CreateEventReceipt to canonical CSIL CBOR bytes.
+pub fn encode_create_event_receipt(csil_v: &CreateEventReceipt) -> Vec<u8> {
+    cbor_encode(&csil_enc_create_event_receipt(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CreateEventReceipt.
+pub fn decode_create_event_receipt(csil_data: &[u8]) -> Result<CreateEventReceipt, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_create_event_receipt(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a GetOccurrenceRequest.
+fn csil_enc_get_occurrence_request(csil_v: &GetOccurrenceRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
+    csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
+    if let Some(csil_inner) = &csil_v.recurrence_id {
+        csil_entries.push((cbor_text("recurrence_id"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree.
+fn csil_dec_get_occurrence_request(
+    csil_root: &CsilCborValue,
+) -> Result<GetOccurrenceRequest, CsilCborError> {
+    let event_id = {
+        let csil_field = cbor_require(csil_root, "event_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let recurrence_id = match cbor_map_get(csil_root, "recurrence_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(GetOccurrenceRequest {
+        event_id,
+        recurrence_id,
+    })
+}
+
+/// Encode a GetOccurrenceRequest to canonical CSIL CBOR bytes.
+pub fn encode_get_occurrence_request(csil_v: &GetOccurrenceRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_get_occurrence_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a GetOccurrenceRequest.
+pub fn decode_get_occurrence_request(
+    csil_data: &[u8],
+) -> Result<GetOccurrenceRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_get_occurrence_request(&csil_root)
+}
+
 /// Build the canonical CBOR value tree for a RespondRequest.
 fn csil_enc_respond_request(csil_v: &RespondRequest) -> CsilCborValue {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
@@ -3897,7 +4125,13 @@ pub fn decode_exchange_act_as_credential_request(
 
 /// Build the canonical CBOR value tree for a ScopeSetRequest.
 fn csil_enc_scope_set_request(csil_v: &ScopeSetRequest) -> CsilCborValue {
-    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(5);
+    if let Some(csil_inner) = &csil_v.scopes {
+        csil_entries.push((
+            cbor_text("scopes"),
+            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+        ));
+    }
     if let Some(csil_inner) = &csil_v.languages {
         csil_entries.push((
             cbor_text("languages"),
@@ -3943,11 +4177,19 @@ fn csil_dec_scope_set_request(csil_root: &CsilCborValue) -> Result<ScopeSetReque
         }
         None => None,
     };
+    let scopes = match cbor_map_get(csil_root, "scopes") {
+        Some(csil_field) => {
+            let csil_decode = |csil_v| cbor_dec_array(csil_v, cbor_as_text);
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
     Ok(ScopeSetRequest {
         grantee_domain,
         grantee_user_id,
         grantee_application_id,
         languages,
+        scopes,
     })
 }
 
@@ -4868,6 +5110,32 @@ fn csil_dec_acting_via(csil_v: &CsilCborValue) -> Result<ActingVia, CsilCborErro
         "act_as_grant" => Ok(ActingVia::ActAsGrant),
         csil_other => Err(CsilCborError(format!(
             "csil cbor: unknown ActingVia value {csil_other:?}"
+        ))),
+    }
+}
+
+/// Encode a CreateReceiptState enum as its bare literal value.
+fn csil_enc_create_receipt_state(csil_v: &CreateReceiptState) -> CsilCborValue {
+    match csil_v {
+        CreateReceiptState::Live => cbor_text("live"),
+        CreateReceiptState::Trashed => cbor_text("trashed"),
+        CreateReceiptState::Deleted => cbor_text("deleted"),
+        CreateReceiptState::Hidden => cbor_text("hidden"),
+    }
+}
+
+/// Decode a bare literal value into a CreateReceiptState enum.
+fn csil_dec_create_receipt_state(
+    csil_v: &CsilCborValue,
+) -> Result<CreateReceiptState, CsilCborError> {
+    let csil_val = cbor_as_text(csil_v)?;
+    match csil_val.as_str() {
+        "live" => Ok(CreateReceiptState::Live),
+        "trashed" => Ok(CreateReceiptState::Trashed),
+        "deleted" => Ok(CreateReceiptState::Deleted),
+        "hidden" => Ok(CreateReceiptState::Hidden),
+        csil_other => Err(CsilCborError(format!(
+            "csil cbor: unknown CreateReceiptState value {csil_other:?}"
         ))),
     }
 }

@@ -113,6 +113,14 @@ typedef enum ActingVia {
     ACTING_VIA_ACT_AS_GRANT,
 } ActingVia;
 
+/* CreateReceiptState is an enumeration. */
+typedef enum CreateReceiptState {
+    CREATE_RECEIPT_STATE_LIVE,
+    CREATE_RECEIPT_STATE_TRASHED,
+    CREATE_RECEIPT_STATE_DELETED,
+    CREATE_RECEIPT_STATE_HIDDEN,
+} CreateReceiptState;
+
 /* Forward declarations (resolve mutual and out-of-order references). */
 typedef struct IdentityRef IdentityRef;
 typedef struct User User;
@@ -150,6 +158,10 @@ typedef struct ListTrashRequest ListTrashRequest;
 typedef struct TrashList TrashList;
 typedef struct RestoreEventRequest RestoreEventRequest;
 typedef struct ImportEventRequest ImportEventRequest;
+typedef struct CreateEventOnceRequest CreateEventOnceRequest;
+typedef struct CreateReceiptRequest CreateReceiptRequest;
+typedef struct CreateEventReceipt CreateEventReceipt;
+typedef struct GetOccurrenceRequest GetOccurrenceRequest;
 typedef struct RespondRequest RespondRequest;
 typedef struct SearchEventsRequest SearchEventsRequest;
 typedef struct EventList EventList;
@@ -556,6 +568,36 @@ typedef struct ImportEventRequest {
     Timestamp *created_at;
 } ImportEventRequest;
 
+/* CreateEventOnceRequest is a structured data type. */
+typedef struct CreateEventOnceRequest {
+    char *idempotency_key;
+    Event event;
+} CreateEventOnceRequest;
+
+/* CreateReceiptRequest is a structured data type. */
+typedef struct CreateReceiptRequest {
+    CalendarID calendar_id;
+    char *idempotency_key;
+} CreateReceiptRequest;
+
+/* CreateEventReceipt is a structured data type. */
+typedef struct CreateEventReceipt {
+    CalendarID calendar_id;
+    char *idempotency_key;
+    EventID event_id;
+    CreateReceiptState state;
+    bool created;
+    Timestamp created_at;
+    Event *event;
+    TrashID *trash_id;
+} CreateEventReceipt;
+
+/* GetOccurrenceRequest is a structured data type. */
+typedef struct GetOccurrenceRequest {
+    EventID event_id;
+    Timestamp *recurrence_id;
+} GetOccurrenceRequest;
+
 /* RespondRequest is a structured data type. */
 typedef struct RespondRequest {
     EventID event_id;
@@ -703,6 +745,8 @@ typedef struct ScopeSetRequest {
     char *grantee_application_id;
     char **languages;
     size_t languages_count;
+    char **scopes;
+    size_t scopes_count;
 } ScopeSetRequest;
 
 /* ScopeSetResponse is a structured data type. */

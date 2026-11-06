@@ -203,6 +203,8 @@ module Event_service = struct
     list_events : bytes -> outcome;
     (* request payload decodes to: event_id *)
     get_event : bytes -> outcome;
+    (* request payload decodes to: get_occurrence_request *)
+    get_occurrence : bytes -> outcome;
     (* request payload decodes to: event *)
     create_event : bytes -> outcome;
     (* request payload decodes to: update_event_request *)
@@ -223,6 +225,10 @@ module Event_service = struct
     restore_event : bytes -> outcome;
     (* request payload decodes to: import_event_request *)
     import_event : bytes -> outcome;
+    (* request payload decodes to: create_event_once_request *)
+    create_event_once : bytes -> outcome;
+    (* request payload decodes to: create_receipt_request *)
+    get_create_receipt : bytes -> outcome;
   }
 
   (* Verbose router: dispatch one request by operation name to its handler
@@ -231,6 +237,7 @@ module Event_service = struct
     match op with
     | "list-events" -> h.list_events payload
     | "get-event" -> h.get_event payload
+    | "get-occurrence" -> h.get_occurrence payload
     | "create-event" -> h.create_event payload
     | "update-event" -> h.update_event payload
     | "delete-event" -> h.delete_event payload
@@ -241,6 +248,8 @@ module Event_service = struct
     | "list-trash" -> h.list_trash payload
     | "restore-event" -> h.restore_event payload
     | "import-event" -> h.import_event payload
+    | "create-event-once" -> h.create_event_once payload
+    | "get-create-receipt" -> h.get_create_receipt payload
     | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
 end
 

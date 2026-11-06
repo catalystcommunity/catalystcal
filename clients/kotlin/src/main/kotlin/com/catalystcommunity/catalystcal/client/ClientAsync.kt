@@ -168,6 +168,9 @@ class EventAsyncClient(private val transport: AsyncTransport) {
     suspend fun getEvent(request: EventID): Event {
         return decode<Event>(transport.call("EventService", "get-event", encodeEventGetEventRequest(request)))
     }
+    suspend fun getOccurrence(request: GetOccurrenceRequest): Occurrence {
+        return decode<Occurrence>(transport.call("EventService", "get-occurrence", encode(request)))
+    }
     suspend fun createEvent(request: Event): Event {
         return decode<Event>(transport.call("EventService", "create-event", encode(request)))
     }
@@ -197,6 +200,12 @@ class EventAsyncClient(private val transport: AsyncTransport) {
     }
     suspend fun importEvent(request: ImportEventRequest): Event {
         return decode<Event>(transport.call("EventService", "import-event", encode(request)))
+    }
+    suspend fun createEventOnce(request: CreateEventOnceRequest): CreateEventReceipt {
+        return decode<CreateEventReceipt>(transport.call("EventService", "create-event-once", encode(request)))
+    }
+    suspend fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt {
+        return decode<CreateEventReceipt>(transport.call("EventService", "get-create-receipt", encode(request)))
     }
 }
 

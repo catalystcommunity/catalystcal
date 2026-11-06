@@ -72,6 +72,7 @@ interface DelegationService {
 interface EventService {
     fun listEvents(request: ListEventsRequest): OccurrenceList
     fun getEvent(request: EventID): Event
+    fun getOccurrence(request: GetOccurrenceRequest): Occurrence
     fun createEvent(request: Event): Event
     fun updateEvent(request: UpdateEventRequest): Event
     fun deleteEvent(request: DeleteEventRequest): DeleteEventResponse
@@ -82,6 +83,8 @@ interface EventService {
     fun listTrash(request: ListTrashRequest): TrashList
     fun restoreEvent(request: RestoreEventRequest): Event
     fun importEvent(request: ImportEventRequest): Event
+    fun createEventOnce(request: CreateEventOnceRequest): CreateEventReceipt
+    fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt
 }
 
 /** FreeBusyService service interface (host implements). */

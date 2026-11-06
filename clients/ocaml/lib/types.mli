@@ -40,6 +40,7 @@ and attendee_role = Chair | Required | Optional | Non_participant
 and reminder_method = Display | Email
 and recurrence_scope = All | This | This_and_future
 and acting_via = Self | Delegation | Act_as_grant
+and create_receipt_state = Live | Trashed | Deleted | Hidden
 
 and identity_ref = {
   domain : string;
@@ -290,6 +291,29 @@ and import_event_request = {
   created_at : timestamp option;
 }
 
+and create_event_once_request = { idempotency_key : string; event : event }
+
+and create_receipt_request = {
+  calendar_id : calendar_id;
+  idempotency_key : string;
+}
+
+and create_event_receipt = {
+  calendar_id : calendar_id;
+  idempotency_key : string;
+  event_id : event_id;
+  state : create_receipt_state;
+  created : bool;
+  created_at : timestamp;
+  event : event option;
+  trash_id : trash_id option;
+}
+
+and get_occurrence_request = {
+  event_id : event_id;
+  recurrence_id : timestamp option;
+}
+
 and respond_request = {
   event_id : event_id;
   status : participation_status;
@@ -373,6 +397,7 @@ and scope_set_request = {
   grantee_user_id : string;
   grantee_application_id : string;
   languages : string list option;
+  scopes : string list option;
 }
 
 and scope_set_response = { signed_scope_set : bytes }

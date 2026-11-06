@@ -259,6 +259,11 @@ class EventClient
     Event.from_cbor(@transport.call("EventService", "get-event", req.to_cbor))
   end
 
+  # get-occurrence: -> Occurrence
+  def get_occurrence(req)
+    Occurrence.from_cbor(@transport.call("EventService", "get-occurrence", req.to_cbor))
+  end
+
   # create-event: -> Event
   def create_event(req)
     Event.from_cbor(@transport.call("EventService", "create-event", req.to_cbor))
@@ -307,6 +312,16 @@ class EventClient
   # import-event: -> Event
   def import_event(req)
     Event.from_cbor(@transport.call("EventService", "import-event", req.to_cbor))
+  end
+
+  # create-event-once: -> CreateEventReceipt
+  def create_event_once(req)
+    CreateEventReceipt.from_cbor(@transport.call("EventService", "create-event-once", req.to_cbor))
+  end
+
+  # get-create-receipt: -> CreateEventReceipt
+  def get_create_receipt(req)
+    CreateEventReceipt.from_cbor(@transport.call("EventService", "get-create-receipt", req.to_cbor))
   end
 end
 

@@ -91,6 +91,7 @@ abstract interface class DelegationServiceHandler {
 abstract interface class EventServiceHandler {
   OccurrenceList listEvents(ListEventsRequest request);
   Event getEvent(EventId request);
+  Occurrence getOccurrence(GetOccurrenceRequest request);
   Event createEvent(Event request);
   Event updateEvent(UpdateEventRequest request);
   DeleteEventResponse deleteEvent(DeleteEventRequest request);
@@ -101,6 +102,8 @@ abstract interface class EventServiceHandler {
   TrashList listTrash(ListTrashRequest request);
   Event restoreEvent(RestoreEventRequest request);
   Event importEvent(ImportEventRequest request);
+  CreateEventReceipt createEventOnce(CreateEventOnceRequest request);
+  CreateEventReceipt getCreateReceipt(CreateReceiptRequest request);
 }
 
 /// The FreeBusyService service contract. A host `implements` this; the router

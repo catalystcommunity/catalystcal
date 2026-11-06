@@ -79,6 +79,9 @@ func Register(d *csilrpc.Dispatcher, deps *Deps, devAuth bool) {
 	d.RegisterTyped("event", "ListTrash", csilrpc.Route(e.ListTrash, csil.DecodeListTrashRequest, csil.EncodeTrashList))
 	d.RegisterTyped("event", "RestoreEvent", csilrpc.Route(e.RestoreEvent, csil.DecodeRestoreEventRequest, csil.EncodeEvent))
 	d.RegisterTyped("event", "ImportEvent", csilrpc.Route(e.ImportEvent, csil.DecodeImportEventRequest, csil.EncodeEvent))
+	d.RegisterTyped("event", "GetOccurrence", csilrpc.Route(e.GetOccurrence, csil.DecodeGetOccurrenceRequest, csil.EncodeOccurrence))
+	d.RegisterTyped("event", "CreateEventOnce", csilrpc.Route(e.CreateEventOnce, csil.DecodeCreateEventOnceRequest, csil.EncodeCreateEventReceipt))
+	d.RegisterTyped("event", "GetCreateReceipt", csilrpc.Route(e.GetCreateReceipt, csil.DecodeCreateReceiptRequest, csil.EncodeCreateEventReceipt))
 
 	fb := &FreeBusyService{deps}
 	d.RegisterTyped("freebusy", "Query", csilrpc.Route(fb.Query, csil.DecodeFreeBusyRequest, csil.EncodeFreeBusyResponse))
