@@ -17,7 +17,8 @@ code, files, and docs. Do not use other spellings or abbreviations.
 - **api/** is the Go module `github.com/catalystcommunity/catalystcal/api`.
   `main.go` holds `var Version = "dev"`. Builds set it with
   `-ldflags "-X main.Version=<version>"`. Subcommands: `serve` (default),
-  `migrate`, `version`.
+  `migrate`, `app-keys` (make, enroll, and renew the act-as application
+  keys), `version`. `serve` renews the key attestations every 6 hours.
   - Port 7080 (`CATALYSTCAL_API_PORT`): `POST /api/csil/v1/rpc` (also
     `/csil/v1/rpc`), `GET /api/v1/auth/start`, `GET /api/health`,
     `GET /ics/{token}` and `GET /api/ics/{token}`.
@@ -74,6 +75,9 @@ code, files, and docs. Do not use other spellings or abbreviations.
   `created_by` to someone other than the caller. It can make a user row
   for a person who did not sign in (`store.EnsureUser`, no
   `last_seen_at`).
+- **Create receipts are permanent.** `event_create_receipts.event_id` has
+  no foreign key. A delete, a move, or a purge must not remove a receipt.
+  Only a calendar or user delete removes it (cascade).
 - **csilgen lint warnings are expected.** The house CSIL style causes them.
   Only errors fail `./tools lint`.
 - **SQLite only.** The driver is `modernc.org/sqlite` (pure Go), so

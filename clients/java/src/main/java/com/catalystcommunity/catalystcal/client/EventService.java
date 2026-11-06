@@ -8,6 +8,7 @@ package com.catalystcommunity.catalystcal.client;
 public interface EventService {
     OccurrenceList listEvents(ListEventsRequest req);
     Event getEvent(EventId req);
+    Occurrence getOccurrence(GetOccurrenceRequest req);
     Event createEvent(Event req);
     Event updateEvent(UpdateEventRequest req);
     DeleteEventResponse deleteEvent(DeleteEventRequest req);
@@ -18,4 +19,6 @@ public interface EventService {
     TrashList listTrash(ListTrashRequest req);
     Event restoreEvent(RestoreEventRequest req);
     Event importEvent(ImportEventRequest req);
+    CreateEventReceipt createEventOnce(CreateEventOnceRequest req);
+    CreateEventReceipt getCreateReceipt(CreateReceiptRequest req);
 }

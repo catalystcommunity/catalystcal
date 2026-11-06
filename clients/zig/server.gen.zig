@@ -82,6 +82,7 @@ pub const DelegationHandlers = struct {
 pub const EventHandlers = struct {
     list_events: *const fn (ctx: *anyopaque, req: *const types.ListEventsRequest, resp: *types.OccurrenceList) anyerror!void,
     get_event: *const fn (ctx: *anyopaque, req: *const types.EventID, resp: *types.Event) anyerror!void,
+    get_occurrence: *const fn (ctx: *anyopaque, req: *const types.GetOccurrenceRequest, resp: *types.Occurrence) anyerror!void,
     create_event: *const fn (ctx: *anyopaque, req: *const types.Event, resp: *types.Event) anyerror!void,
     update_event: *const fn (ctx: *anyopaque, req: *const types.UpdateEventRequest, resp: *types.Event) anyerror!void,
     delete_event: *const fn (ctx: *anyopaque, req: *const types.DeleteEventRequest, resp: *types.DeleteEventResponse) anyerror!void,
@@ -92,6 +93,8 @@ pub const EventHandlers = struct {
     list_trash: *const fn (ctx: *anyopaque, req: *const types.ListTrashRequest, resp: *types.TrashList) anyerror!void,
     restore_event: *const fn (ctx: *anyopaque, req: *const types.RestoreEventRequest, resp: *types.Event) anyerror!void,
     import_event: *const fn (ctx: *anyopaque, req: *const types.ImportEventRequest, resp: *types.Event) anyerror!void,
+    create_event_once: *const fn (ctx: *anyopaque, req: *const types.CreateEventOnceRequest, resp: *types.CreateEventReceipt) anyerror!void,
+    get_create_receipt: *const fn (ctx: *anyopaque, req: *const types.CreateReceiptRequest, resp: *types.CreateEventReceipt) anyerror!void,
 };
 
 /// FreeBusyHandlers is the host's implementation of the FreeBusyService service.

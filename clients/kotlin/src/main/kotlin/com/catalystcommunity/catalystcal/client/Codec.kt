@@ -539,6 +539,23 @@ fun actingViaFromCborValue(cbor: CborValue): ActingVia = when (CsilCbor.asText(c
     else -> throw CborError("unknown ActingVia value")
 }
 
+/** Encode a CreateReceiptState enum as its bare literal value. */
+fun CreateReceiptState.toCborValue(): CborValue = when (this) {
+    CreateReceiptState.Live -> CborValue.CText("live")
+    CreateReceiptState.Trashed -> CborValue.CText("trashed")
+    CreateReceiptState.Deleted -> CborValue.CText("deleted")
+    CreateReceiptState.Hidden -> CborValue.CText("hidden")
+}
+
+/** Decode a bare literal value into a CreateReceiptState enum. */
+fun createReceiptStateFromCborValue(cbor: CborValue): CreateReceiptState = when (CsilCbor.asText(cbor)) {
+    "live" -> CreateReceiptState.Live
+    "trashed" -> CreateReceiptState.Trashed
+    "deleted" -> CreateReceiptState.Deleted
+    "hidden" -> CreateReceiptState.Hidden
+    else -> throw CborError("unknown CreateReceiptState value")
+}
+
 /** The CBOR value tree for a IdentityRef (deep, canonical key order). */
 fun IdentityRef.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
@@ -1505,6 +1522,102 @@ fun importEventRequestFromCborValue(cbor: CborValue): ImportEventRequest {
 /** Decode CSIL CBOR bytes into a ImportEventRequest. */
 fun importEventRequestFromCbor(bytes: ByteArray): ImportEventRequest = importEventRequestFromCborValue(CsilCbor.decode(bytes))
 
+/** The CBOR value tree for a CreateEventOnceRequest (deep, canonical key order). */
+fun CreateEventOnceRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a CreateEventOnceRequest to canonical CSIL CBOR bytes. */
+fun CreateEventOnceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a CreateEventOnceRequest from a decoded CBOR value tree. */
+fun createEventOnceRequestFromCborValue(cbor: CborValue): CreateEventOnceRequest {
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
+    return CreateEventOnceRequest(idempotencyKey = idempotencyKey, event = event)
+}
+
+/** Decode CSIL CBOR bytes into a CreateEventOnceRequest. */
+fun createEventOnceRequestFromCbor(bytes: ByteArray): CreateEventOnceRequest = createEventOnceRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a CreateReceiptRequest (deep, canonical key order). */
+fun CreateReceiptRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a CreateReceiptRequest to canonical CSIL CBOR bytes. */
+fun CreateReceiptRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a CreateReceiptRequest from a decoded CBOR value tree. */
+fun createReceiptRequestFromCborValue(cbor: CborValue): CreateReceiptRequest {
+    val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    return CreateReceiptRequest(calendarId = calendarId, idempotencyKey = idempotencyKey)
+}
+
+/** Decode CSIL CBOR bytes into a CreateReceiptRequest. */
+fun createReceiptRequestFromCbor(bytes: ByteArray): CreateReceiptRequest = createReceiptRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a CreateEventReceipt (deep, canonical key order). */
+fun CreateEventReceipt.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.event?.let { csilV -> csilEntries.add(CborValue.CText("event") to csilV.toCborValue()) }
+    csilEntries.add(CborValue.CText("state") to this.state.toCborValue())
+    csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
+    csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
+    this.trashId?.let { csilV -> csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a CreateEventReceipt to canonical CSIL CBOR bytes. */
+fun CreateEventReceipt.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a CreateEventReceipt from a decoded CBOR value tree. */
+fun createEventReceiptFromCborValue(cbor: CborValue): CreateEventReceipt {
+    val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
+    val state = createReceiptStateFromCborValue(CsilCbor.require(cbor, "state"))
+    val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
+    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val event = CsilCbor.mapGet(cbor, "event")?.let { csilV -> eventFromCborValue(csilV) }
+    val trashId = CsilCbor.mapGet(cbor, "trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    return CreateEventReceipt(calendarId = calendarId, idempotencyKey = idempotencyKey, eventId = eventId, state = state, created = created, createdAt = createdAt, event = event, trashId = trashId)
+}
+
+/** Decode CSIL CBOR bytes into a CreateEventReceipt. */
+fun createEventReceiptFromCbor(bytes: ByteArray): CreateEventReceipt = createEventReceiptFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a GetOccurrenceRequest (deep, canonical key order). */
+fun GetOccurrenceRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a GetOccurrenceRequest to canonical CSIL CBOR bytes. */
+fun GetOccurrenceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree. */
+fun getOccurrenceRequestFromCborValue(cbor: CborValue): GetOccurrenceRequest {
+    val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    return GetOccurrenceRequest(eventId = eventId, recurrenceId = recurrenceId)
+}
+
+/** Decode CSIL CBOR bytes into a GetOccurrenceRequest. */
+fun getOccurrenceRequestFromCbor(bytes: ByteArray): GetOccurrenceRequest = getOccurrenceRequestFromCborValue(CsilCbor.decode(bytes))
+
 /** The CBOR value tree for a RespondRequest (deep, canonical key order). */
 fun RespondRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
@@ -1941,6 +2054,7 @@ fun exchangeActAsCredentialRequestFromCbor(bytes: ByteArray): ExchangeActAsCrede
 /** The CBOR value tree for a ScopeSetRequest (deep, canonical key order). */
 fun ScopeSetRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.scopes?.let { csilV -> csilEntries.add(CborValue.CText("scopes") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     this.languages?.let { csilV -> csilEntries.add(CborValue.CText("languages") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     csilEntries.add(CborValue.CText("grantee_domain") to CborValue.CText(this.granteeDomain))
     csilEntries.add(CborValue.CText("grantee_user_id") to CborValue.CText(this.granteeUserId))
@@ -1957,7 +2071,8 @@ fun scopeSetRequestFromCborValue(cbor: CborValue): ScopeSetRequest {
     val granteeUserId = CsilCbor.asText(CsilCbor.require(cbor, "grantee_user_id"))
     val granteeApplicationId = CsilCbor.asText(CsilCbor.require(cbor, "grantee_application_id"))
     val languages = CsilCbor.mapGet(cbor, "languages")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
-    return ScopeSetRequest(granteeDomain = granteeDomain, granteeUserId = granteeUserId, granteeApplicationId = granteeApplicationId, languages = languages)
+    val scopes = CsilCbor.mapGet(cbor, "scopes")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    return ScopeSetRequest(granteeDomain = granteeDomain, granteeUserId = granteeUserId, granteeApplicationId = granteeApplicationId, languages = languages, scopes = scopes)
 }
 
 /** Decode CSIL CBOR bytes into a ScopeSetRequest. */
@@ -2298,6 +2413,10 @@ private fun csilToCborValue(value: Any?): CborValue = when (value) {
     is TrashList -> value.toCborValue()
     is RestoreEventRequest -> value.toCborValue()
     is ImportEventRequest -> value.toCborValue()
+    is CreateEventOnceRequest -> value.toCborValue()
+    is CreateReceiptRequest -> value.toCborValue()
+    is CreateEventReceipt -> value.toCborValue()
+    is GetOccurrenceRequest -> value.toCborValue()
     is RespondRequest -> value.toCborValue()
     is SearchEventsRequest -> value.toCborValue()
     is EventList -> value.toCborValue()
@@ -2376,6 +2495,10 @@ fun csilFromCborValue(type: kotlin.reflect.KClass<*>, cbor: CborValue): Any = wh
     TrashList::class -> trashListFromCborValue(cbor)
     RestoreEventRequest::class -> restoreEventRequestFromCborValue(cbor)
     ImportEventRequest::class -> importEventRequestFromCborValue(cbor)
+    CreateEventOnceRequest::class -> createEventOnceRequestFromCborValue(cbor)
+    CreateReceiptRequest::class -> createReceiptRequestFromCborValue(cbor)
+    CreateEventReceipt::class -> createEventReceiptFromCborValue(cbor)
+    GetOccurrenceRequest::class -> getOccurrenceRequestFromCborValue(cbor)
     RespondRequest::class -> respondRequestFromCborValue(cbor)
     SearchEventsRequest::class -> searchEventsRequestFromCborValue(cbor)
     EventList::class -> eventListFromCborValue(cbor)

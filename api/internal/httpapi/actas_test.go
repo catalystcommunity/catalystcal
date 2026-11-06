@@ -12,6 +12,8 @@ import (
 
 // fakeActAs accepts credentials by their bytes: "good-<nonce>".
 type fakeActAs struct {
+	// grantee is the exact grantee name; "" means the default one.
+	grantee string
 	scopes  []string
 	expires time.Time
 	revoked map[string]bool
@@ -22,6 +24,10 @@ func (f *fakeActAs) SignScopeSet(_ context.Context, req actas.ScopeSetRequest) (
 }
 
 func (f *fakeActAs) VerifyCredential(_ context.Context, cred []byte, known []string) (actas.Verified, error) {
+	grantee := f.grantee
+	if grantee == "" {
+		grantee = "acct-g@grantee.example/helper"
+	}
 	if len(cred) < 5 || string(cred[:5]) != "good-" {
 		return actas.Verified{}, errors.New("bad signature")
 	}
@@ -32,7 +38,7 @@ func (f *fakeActAs) VerifyCredential(_ context.Context, cred []byte, known []str
 	}
 	return actas.Verified{
 		GrantID: "grant-1", SubjectUserID: "acct-1", SubjectDomain: "home.example", Application: "helper@grantee.example",
-		Scopes: f.scopes, ExpiresAt: f.expires, Nonce: string(cred[5:]),
+		Grantee: grantee, Scopes: f.scopes, ExpiresAt: f.expires, Nonce: string(cred[5:]),
 	}, nil
 }
 

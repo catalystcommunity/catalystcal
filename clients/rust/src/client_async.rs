@@ -616,6 +616,22 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
         decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
 
+    /// get-occurrence (request/response).
+    pub async fn get_occurrence(
+        &self,
+        req: GetOccurrenceRequest,
+    ) -> Result<Occurrence, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "get-occurrence",
+                &encode_get_occurrence_request(&req),
+            )
+            .await?;
+        decode_occurrence(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
     /// create-event (request/response).
     pub async fn create_event(&self, req: Event) -> Result<Event, ClientError> {
         let csil_resp = self
@@ -739,6 +755,38 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
             )
             .await?;
         decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// create-event-once (request/response).
+    pub async fn create_event_once(
+        &self,
+        req: CreateEventOnceRequest,
+    ) -> Result<CreateEventReceipt, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "create-event-once",
+                &encode_create_event_once_request(&req),
+            )
+            .await?;
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// get-create-receipt (request/response).
+    pub async fn get_create_receipt(
+        &self,
+        req: CreateReceiptRequest,
+    ) -> Result<CreateEventReceipt, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "get-create-receipt",
+                &encode_create_receipt_request(&req),
+            )
+            .await?;
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
 }
 

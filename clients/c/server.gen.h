@@ -86,6 +86,7 @@ typedef struct DelegationHandlers {
 typedef struct EventHandlers {
     int (*list_events)(void *ctx, const ListEventsRequest *req, OccurrenceList *resp);
     int (*get_event)(void *ctx, const EventID *req, Event *resp);
+    int (*get_occurrence)(void *ctx, const GetOccurrenceRequest *req, Occurrence *resp);
     int (*create_event)(void *ctx, const Event *req, Event *resp);
     int (*update_event)(void *ctx, const UpdateEventRequest *req, Event *resp);
     int (*delete_event)(void *ctx, const DeleteEventRequest *req, DeleteEventResponse *resp);
@@ -96,6 +97,8 @@ typedef struct EventHandlers {
     int (*list_trash)(void *ctx, const ListTrashRequest *req, TrashList *resp);
     int (*restore_event)(void *ctx, const RestoreEventRequest *req, Event *resp);
     int (*import_event)(void *ctx, const ImportEventRequest *req, Event *resp);
+    int (*create_event_once)(void *ctx, const CreateEventOnceRequest *req, CreateEventReceipt *resp);
+    int (*get_create_receipt)(void *ctx, const CreateReceiptRequest *req, CreateEventReceipt *resp);
 } EventHandlers;
 
 /* FreeBusyHandlers is the host's implementation of the FreeBusyService service. */

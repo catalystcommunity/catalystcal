@@ -228,6 +228,11 @@ class EventHandlers
     raise NotImplementedError, "EventHandlers#get_event"
   end
 
+  # get-occurrence
+  def get_occurrence(req)
+    raise NotImplementedError, "EventHandlers#get_occurrence"
+  end
+
   # create-event
   def create_event(req)
     raise NotImplementedError, "EventHandlers#create_event"
@@ -276,6 +281,16 @@ class EventHandlers
   # import-event
   def import_event(req)
     raise NotImplementedError, "EventHandlers#import_event"
+  end
+
+  # create-event-once
+  def create_event_once(req)
+    raise NotImplementedError, "EventHandlers#create_event_once"
+  end
+
+  # get-create-receipt
+  def get_create_receipt(req)
+    raise NotImplementedError, "EventHandlers#get_create_receipt"
   end
 end
 

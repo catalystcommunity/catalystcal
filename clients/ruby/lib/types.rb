@@ -50,6 +50,8 @@
 
 # ActingVia is an alias for String.
 
+# CreateReceiptState is an alias for String.
+
 # domain [String]
 # user_id [String]
 # handle [String]
@@ -459,6 +461,50 @@ ImportEventRequest = Data.define(:event, :created_by, :created_at) do
   end
 end
 
+# idempotency_key [String]
+# event [Event]
+CreateEventOnceRequest = Data.define(:idempotency_key, :event) do
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'idempotency_key' must have at least 1 elements" if idempotency_key.length < 1
+    raise ArgumentError, "field 'idempotency_key' must have at most 200 elements" if idempotency_key.length > 200
+    nil
+  end
+end
+
+# calendar_id [CalendarId]
+# idempotency_key [String]
+CreateReceiptRequest = Data.define(:calendar_id, :idempotency_key) do
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'idempotency_key' must have at least 1 elements" if idempotency_key.length < 1
+    raise ArgumentError, "field 'idempotency_key' must have at most 200 elements" if idempotency_key.length > 200
+    nil
+  end
+end
+
+# calendar_id [CalendarId]
+# idempotency_key [String]
+# event_id [EventId]
+# state [CreateReceiptState]
+# created [Boolean]
+# created_at [Timestamp]
+# event [Event]
+# trash_id [TrashId]
+CreateEventReceipt = Data.define(:calendar_id, :idempotency_key, :event_id, :state, :created, :created_at, :event, :trash_id) do
+  def initialize(calendar_id:, idempotency_key:, event_id:, state:, created:, created_at:, event: nil, trash_id: nil)
+    super
+  end
+end
+
+# event_id [EventId]
+# recurrence_id [Timestamp]
+GetOccurrenceRequest = Data.define(:event_id, :recurrence_id) do
+  def initialize(event_id:, recurrence_id: nil)
+    super
+  end
+end
+
 # event_id [EventId]
 # status [ParticipationStatus]
 # recurrence_id [Timestamp]
@@ -607,8 +653,9 @@ ExchangeActAsCredentialRequest = Data.define(:credential)
 # grantee_user_id [String]
 # grantee_application_id [String]
 # languages [Array<String>]
-ScopeSetRequest = Data.define(:grantee_domain, :grantee_user_id, :grantee_application_id, :languages) do
-  def initialize(grantee_domain:, grantee_user_id:, grantee_application_id:, languages: nil)
+# scopes [Array<String>]
+ScopeSetRequest = Data.define(:grantee_domain, :grantee_user_id, :grantee_application_id, :languages, :scopes) do
+  def initialize(grantee_domain:, grantee_user_id:, grantee_application_id:, languages: nil, scopes: nil)
     super
   end
 end

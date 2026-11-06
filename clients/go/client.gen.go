@@ -464,6 +464,15 @@ func (c *EventClient) GetEvent(ctx context.Context, req EventID) (Event, error) 
 	return DecodeEvent(csilResp)
 }
 
+func (c *EventClient) GetOccurrence(ctx context.Context, req GetOccurrenceRequest) (Occurrence, error) {
+	var csilZero Occurrence
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "get-occurrence", EncodeGetOccurrenceRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeOccurrence(csilResp)
+}
+
 func (c *EventClient) CreateEvent(ctx context.Context, req Event) (Event, error) {
 	var csilZero Event
 	csilResp, csilErr := c.transport.Call(ctx, "EventService", "create-event", EncodeEvent(req))
@@ -552,6 +561,24 @@ func (c *EventClient) ImportEvent(ctx context.Context, req ImportEventRequest) (
 		return csilZero, csilErr
 	}
 	return DecodeEvent(csilResp)
+}
+
+func (c *EventClient) CreateEventOnce(ctx context.Context, req CreateEventOnceRequest) (CreateEventReceipt, error) {
+	var csilZero CreateEventReceipt
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "create-event-once", EncodeCreateEventOnceRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeCreateEventReceipt(csilResp)
+}
+
+func (c *EventClient) GetCreateReceipt(ctx context.Context, req CreateReceiptRequest) (CreateEventReceipt, error) {
+	var csilZero CreateEventReceipt
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "get-create-receipt", EncodeCreateReceiptRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeCreateEventReceipt(csilResp)
 }
 
 // FreeBusyClient is a typed client for the FreeBusyService service. The client owns

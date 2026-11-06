@@ -149,6 +149,8 @@ public sealed class EventClient(ICsilTransport transport)
         Codec.Decode<OccurrenceList>(transport.Call("EventService", "list-events", Codec.Encode(listEventsRequest)));
     public Event GetEvent(EventID eventID) =>
         Codec.Decode<Event>(transport.Call("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID)));
+    public Occurrence GetOccurrence(GetOccurrenceRequest getOccurrenceRequest) =>
+        Codec.Decode<Occurrence>(transport.Call("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest)));
     public Event CreateEvent(Event @event) =>
         Codec.Decode<Event>(transport.Call("EventService", "create-event", Codec.Encode(@event)));
     public Event UpdateEvent(UpdateEventRequest updateEventRequest) =>
@@ -169,6 +171,10 @@ public sealed class EventClient(ICsilTransport transport)
         Codec.Decode<Event>(transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
     public Event ImportEvent(ImportEventRequest importEventRequest) =>
         Codec.Decode<Event>(transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
+    public CreateEventReceipt CreateEventOnce(CreateEventOnceRequest createEventOnceRequest) =>
+        Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
+    public CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest) =>
+        Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

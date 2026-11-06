@@ -76,6 +76,7 @@ type DelegationService interface {
 type EventService interface {
 	ListEvents(ctx context.Context, req ListEventsRequest) (OccurrenceList, error)
 	GetEvent(ctx context.Context, req EventID) (Event, error)
+	GetOccurrence(ctx context.Context, req GetOccurrenceRequest) (Occurrence, error)
 	CreateEvent(ctx context.Context, req Event) (Event, error)
 	UpdateEvent(ctx context.Context, req UpdateEventRequest) (Event, error)
 	DeleteEvent(ctx context.Context, req DeleteEventRequest) (DeleteEventResponse, error)
@@ -86,6 +87,8 @@ type EventService interface {
 	ListTrash(ctx context.Context, req ListTrashRequest) (TrashList, error)
 	RestoreEvent(ctx context.Context, req RestoreEventRequest) (Event, error)
 	ImportEvent(ctx context.Context, req ImportEventRequest) (Event, error)
+	CreateEventOnce(ctx context.Context, req CreateEventOnceRequest) (CreateEventReceipt, error)
+	GetCreateReceipt(ctx context.Context, req CreateReceiptRequest) (CreateEventReceipt, error)
 }
 
 // FreeBusyService defines the service interface

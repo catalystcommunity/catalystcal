@@ -21,13 +21,30 @@ import (
 // env is one catalystcal server over a temporary SQLite file.
 type env struct {
 	t    *testing.T
+	path string
 	srv  *httptest.Server
 	deps *services.Deps
 }
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "catalystcal.db"))
+	e := &env{t: t, path: filepath.Join(t.TempDir(), "catalystcal.db")}
+	e.start()
+	return e
+}
+
+// restart stops the server and starts a new one on the same database file,
+// as a process restart does. Bearers stay valid: the secret is the same.
+func (e *env) restart() {
+	e.t.Helper()
+	e.srv.Close()
+	e.start()
+}
+
+func (e *env) start() {
+	t := e.t
+	t.Helper()
+	db, err := store.Open(e.path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,10 +70,9 @@ func newEnv(t *testing.T) *env {
 		Fetcher: &subscription.Fetcher{AllowPrivate: true},
 		Revoked: services.NewRevokedGrants(),
 	}
-	e := &env{t: t, deps: deps}
+	e.deps = deps
 	e.srv = httptest.NewServer(Handler(deps, true))
 	t.Cleanup(e.srv.Close)
-	return e
 }
 
 // client is one browser/app: a bearer and a cookie jar.

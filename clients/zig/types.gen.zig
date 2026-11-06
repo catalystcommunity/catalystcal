@@ -216,6 +216,23 @@ pub const ActingVia = enum {
     }
 };
 
+/// CreateReceiptState is an enumeration.
+pub const CreateReceiptState = enum {
+    live,
+    trashed,
+    deleted,
+    hidden,
+
+    pub fn wire_name(self: CreateReceiptState) []const u8 {
+        return switch (self) {
+            .live => "live",
+            .trashed => "trashed",
+            .deleted => "deleted",
+            .hidden => "hidden",
+        };
+    }
+};
+
 /// UserID is a type alias.
 pub const UserID = []const u8;
 
@@ -414,6 +431,7 @@ pub const ScopeSetRequest = struct {
     grantee_user_id: []const u8,
     grantee_application_id: []const u8,
     languages: ?[][]const u8 = null,
+    scopes: ?[][]const u8 = null,
 };
 
 /// ScopeSetResponse is a structured data type.
@@ -700,6 +718,36 @@ pub const ImportEventRequest = struct {
     event: Event,
     created_by: IdentityRef,
     created_at: ?Timestamp = null,
+};
+
+/// CreateEventOnceRequest is a structured data type.
+pub const CreateEventOnceRequest = struct {
+    idempotency_key: []const u8,
+    event: Event,
+};
+
+/// CreateReceiptRequest is a structured data type.
+pub const CreateReceiptRequest = struct {
+    calendar_id: CalendarID,
+    idempotency_key: []const u8,
+};
+
+/// CreateEventReceipt is a structured data type.
+pub const CreateEventReceipt = struct {
+    calendar_id: CalendarID,
+    idempotency_key: []const u8,
+    event_id: EventID,
+    state: CreateReceiptState,
+    created: bool,
+    created_at: Timestamp,
+    event: ?Event = null,
+    trash_id: ?TrashID = null,
+};
+
+/// GetOccurrenceRequest is a structured data type.
+pub const GetOccurrenceRequest = struct {
+    event_id: EventID,
+    recurrence_id: ?Timestamp = null,
 };
 
 /// RespondRequest is a structured data type.

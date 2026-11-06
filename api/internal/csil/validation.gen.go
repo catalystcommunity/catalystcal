@@ -103,6 +103,28 @@ func (v *Event) Validate() error {
 	return nil
 }
 
+// ValidateCreateEventOnceRequest validates the CreateEventOnceRequest struct
+func (v *CreateEventOnceRequest) Validate() error {
+	if len(v.IdempotencyKey) < 1 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
+	}
+	if len(v.IdempotencyKey) > 200 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at most 200 elements")
+	}
+	return nil
+}
+
+// ValidateCreateReceiptRequest validates the CreateReceiptRequest struct
+func (v *CreateReceiptRequest) Validate() error {
+	if len(v.IdempotencyKey) < 1 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
+	}
+	if len(v.IdempotencyKey) > 200 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at most 200 elements")
+	}
+	return nil
+}
+
 // ValidateSearchEventsRequest validates the SearchEventsRequest struct
 func (v *SearchEventsRequest) Validate() error {
 	if len(v.Query) < 1 {

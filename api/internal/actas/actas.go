@@ -55,6 +55,9 @@ type Verified struct {
 	// Application names the grantee, for the audit log:
 	// "<application_id>@<domain>" or "local-rp:<fingerprint>".
 	Application string
+	// Grantee names the grantee exactly: "<user_id>@<domain>/<application_id>"
+	// or "local-rp:<fingerprint>".
+	Grantee string
 	// Scopes are the approved scopes that are catalystcal Scope words. Unknown
 	// words are dropped.
 	Scopes    []string
@@ -69,6 +72,9 @@ type ScopeSetRequest struct {
 	GranteeUserID        string
 	GranteeApplicationID string
 	Languages            []string
+	// Scopes are the scopes to offer. nil offers every scope. The set
+	// lists them in ScopeOrder.
+	Scopes []string
 }
 
 // Provider is what AuthService needs from act-as.
@@ -202,7 +208,8 @@ func (v *Verifier) now() time.Time {
 // MaxPresentationAge implements Provider.
 func (v *Verifier) MaxPresentationAge() time.Duration { return v.MaxAge }
 
-// SignScopeSet implements Provider. It offers every catalystcal scope.
+// SignScopeSet implements Provider. It offers req.Scopes, or every
+// catalystcal scope when req.Scopes is nil.
 func (v *Verifier) SignScopeSet(_ context.Context, req ScopeSetRequest) ([]byte, error) {
 	if req.GranteeDomain == "" || req.GranteeUserID == "" || req.GranteeApplicationID == "" {
 		return nil, errors.New("grantee_domain, grantee_user_id, and grantee_application_id are required")
@@ -212,8 +219,12 @@ func (v *Verifier) SignScopeSet(_ context.Context, req ScopeSetRequest) ([]byte,
 	if ttl <= 0 {
 		ttl = 24 * time.Hour
 	}
-	entries := make([]api.ActAsScopeEntry, 0, len(ScopeOrder))
-	for _, s := range ScopeOrder {
+	offer, err := OfferedScopes(req.Scopes)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]api.ActAsScopeEntry, 0, len(offer))
+	for _, s := range offer {
 		d := ScopeDescriptions[s]
 		entries = append(entries, api.ActAsScopeEntry{Scope: s, Description: &d})
 	}
@@ -311,6 +322,7 @@ func (v *Verifier) VerifyCredential(ctx context.Context, raw []byte, knownRevoke
 		SubjectUserID: grant.UserId,
 		SubjectDomain: strings.ToLower(grant.SubjectDomain),
 		Application:   GranteeName(grant.Grantee),
+		Grantee:       GranteeKey(grant.Grantee),
 		Scopes:        MapScopes(verified.ApprovedScope),
 		ExpiresAt:     expires.UTC(),
 		Nonce:         hex.EncodeToString(verified.Nonce),
@@ -323,6 +335,15 @@ func (v *Verifier) RevokedGrants(ctx context.Context, domain string, grantIDs []
 }
 
 // GranteeName is the audit name of a grantee.
+// GranteeKey names a grantee with every field of its ApplicationRef, in
+// the CATALYSTCAL_ALLOWED_APPLICATIONS form.
+func GranteeKey(g api.GranteeRef) string {
+	if a := g.Application; a != nil {
+		return a.SubjectUserId + "@" + strings.ToLower(a.SubjectDomain) + "/" + a.ApplicationId
+	}
+	return GranteeName(g)
+}
+
 func GranteeName(g api.GranteeRef) string {
 	if g.Application != nil {
 		return g.Application.ApplicationId + "@" + strings.ToLower(g.Application.SubjectDomain)
@@ -331,6 +352,35 @@ func GranteeName(g api.GranteeRef) string {
 		return "local-rp:" + *g.LocalRpDescriptorFingerprint
 	}
 	return "unknown"
+}
+
+// OfferedScopes checks a requested scope list and returns it in
+// ScopeOrder. nil means every scope. An empty list, an unknown word, or a
+// repeated word is an error.
+func OfferedScopes(requested []string) ([]string, error) {
+	if requested == nil {
+		return ScopeOrder, nil
+	}
+	if len(requested) == 0 {
+		return nil, errors.New("scopes must not be empty")
+	}
+	want := map[string]bool{}
+	for _, s := range requested {
+		if _, ok := ScopeDescriptions[s]; !ok {
+			return nil, fmt.Errorf("unknown scope %q", s)
+		}
+		if want[s] {
+			return nil, fmt.Errorf("scope %q is repeated", s)
+		}
+		want[s] = true
+	}
+	out := make([]string, 0, len(want))
+	for _, s := range ScopeOrder {
+		if want[s] {
+			out = append(out, s)
+		}
+	}
+	return out, nil
 }
 
 // MapScopes keeps the approved scopes that are catalystcal Scope words, in the

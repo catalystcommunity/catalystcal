@@ -167,6 +167,18 @@ public enum ActingVia
     ActAsGrant,
 }
 
+public enum CreateReceiptState
+{
+    // wire value: live
+    Live,
+    // wire value: trashed
+    Trashed,
+    // wire value: deleted
+    Deleted,
+    // wire value: hidden
+    Hidden,
+}
+
 public sealed record IdentityRef
 {
     // CBOR key: domain
@@ -775,6 +787,76 @@ public sealed record ImportEventRequest
     public Timestamp? CreatedAt { get; init; }
 }
 
+public sealed record CreateEventOnceRequest
+{
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+    // CBOR key: event
+    public required Event Event { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (IdempotencyKey.Length < 1)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at least 1 elements");
+        }
+        if (IdempotencyKey.Length > 200)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at most 200 elements");
+        }
+    }
+}
+
+public sealed record CreateReceiptRequest
+{
+    // CBOR key: calendar_id
+    public required CalendarID CalendarId { get; init; }
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (IdempotencyKey.Length < 1)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at least 1 elements");
+        }
+        if (IdempotencyKey.Length > 200)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at most 200 elements");
+        }
+    }
+}
+
+public sealed record CreateEventReceipt
+{
+    // CBOR key: calendar_id
+    public required CalendarID CalendarId { get; init; }
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+    // CBOR key: event_id
+    public required EventID EventId { get; init; }
+    // CBOR key: state
+    public required CreateReceiptState State { get; init; }
+    // CBOR key: created
+    public required bool Created { get; init; }
+    // CBOR key: created_at
+    public required Timestamp CreatedAt { get; init; }
+    // CBOR key: event
+    public Event? Event { get; init; }
+    // CBOR key: trash_id
+    public TrashID? TrashId { get; init; }
+}
+
+public sealed record GetOccurrenceRequest
+{
+    // CBOR key: event_id
+    public required EventID EventId { get; init; }
+    // CBOR key: recurrence_id
+    public Timestamp? RecurrenceId { get; init; }
+}
+
 public sealed record RespondRequest
 {
     // CBOR key: event_id
@@ -984,6 +1066,8 @@ public sealed record ScopeSetRequest
     public required string GranteeApplicationId { get; init; }
     // CBOR key: languages
     public System.Collections.Generic.List<string>? Languages { get; init; }
+    // CBOR key: scopes
+    public System.Collections.Generic.List<string>? Scopes { get; init; }
 }
 
 public sealed record ScopeSetResponse

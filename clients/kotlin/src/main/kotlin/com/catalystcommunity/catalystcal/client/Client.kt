@@ -178,6 +178,9 @@ class EventClient(private val transport: Transport) {
     fun getEvent(request: EventID): Event {
         return decode<Event>(transport.call("EventService", "get-event", encodeEventGetEventRequest(request)))
     }
+    fun getOccurrence(request: GetOccurrenceRequest): Occurrence {
+        return decode<Occurrence>(transport.call("EventService", "get-occurrence", encode(request)))
+    }
     fun createEvent(request: Event): Event {
         return decode<Event>(transport.call("EventService", "create-event", encode(request)))
     }
@@ -207,6 +210,12 @@ class EventClient(private val transport: Transport) {
     }
     fun importEvent(request: ImportEventRequest): Event {
         return decode<Event>(transport.call("EventService", "import-event", encode(request)))
+    }
+    fun createEventOnce(request: CreateEventOnceRequest): CreateEventReceipt {
+        return decode<CreateEventReceipt>(transport.call("EventService", "create-event-once", encode(request)))
+    }
+    fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt {
+        return decode<CreateEventReceipt>(transport.call("EventService", "get-create-receipt", encode(request)))
     }
 }
 

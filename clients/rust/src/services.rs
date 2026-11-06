@@ -254,6 +254,12 @@ pub trait EventService {
     ) -> Result<OccurrenceList, ServiceError>;
     /// get-event (request/response).
     fn get_event(&self, ctx: &Self::Context, input: EventID) -> Result<Event, ServiceError>;
+    /// get-occurrence (request/response).
+    fn get_occurrence(
+        &self,
+        ctx: &Self::Context,
+        input: GetOccurrenceRequest,
+    ) -> Result<Occurrence, ServiceError>;
     /// create-event (request/response).
     fn create_event(&self, ctx: &Self::Context, input: Event) -> Result<Event, ServiceError>;
     /// update-event (request/response).
@@ -306,6 +312,18 @@ pub trait EventService {
         ctx: &Self::Context,
         input: ImportEventRequest,
     ) -> Result<Event, ServiceError>;
+    /// create-event-once (request/response).
+    fn create_event_once(
+        &self,
+        ctx: &Self::Context,
+        input: CreateEventOnceRequest,
+    ) -> Result<CreateEventReceipt, ServiceError>;
+    /// get-create-receipt (request/response).
+    fn get_create_receipt(
+        &self,
+        ctx: &Self::Context,
+        input: CreateReceiptRequest,
+    ) -> Result<CreateEventReceipt, ServiceError>;
 }
 
 /// FreeBusyService service trait

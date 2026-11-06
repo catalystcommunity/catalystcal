@@ -54,6 +54,8 @@ RecurrenceScope = Union[str, str, str]
 
 ActingVia = Union[str, str, str]
 
+CreateReceiptState = Union[str, str, str, str]
+
 @dataclass
 class IdentityRef:
     domain: str
@@ -1378,6 +1380,160 @@ class ImportEventRequest:
 
 
 @dataclass
+class CreateEventOnceRequest:
+    idempotency_key: str
+    event: Event
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        if hasattr(self, 'event') and self.event is not None:
+            result['event'] = self.event
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CreateEventOnceRequest':
+        """Create instance from dictionary."""
+        return cls(idempotency_key=data.get('idempotency_key'), event=data.get('event'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'CreateEventOnceRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.idempotency_key is not None and len(self.idempotency_key) < 1:
+            raise ValueError("Field 'idempotency_key' must have length >= 1")
+        if self.idempotency_key is not None and len(self.idempotency_key) > 200:
+            raise ValueError("Field 'idempotency_key' must have length <= 200")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class CreateReceiptRequest:
+    calendar_id: CalendarId
+    idempotency_key: str
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'calendar_id') and self.calendar_id is not None:
+            result['calendar_id'] = self.calendar_id
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CreateReceiptRequest':
+        """Create instance from dictionary."""
+        return cls(calendar_id=data.get('calendar_id'), idempotency_key=data.get('idempotency_key'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'CreateReceiptRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.idempotency_key is not None and len(self.idempotency_key) < 1:
+            raise ValueError("Field 'idempotency_key' must have length >= 1")
+        if self.idempotency_key is not None and len(self.idempotency_key) > 200:
+            raise ValueError("Field 'idempotency_key' must have length <= 200")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class CreateEventReceipt:
+    calendar_id: CalendarId
+    idempotency_key: str
+    event_id: EventId
+    state: CreateReceiptState
+    created: bool
+    created_at: Timestamp
+    event: Optional[Event] = None
+    trash_id: Optional[TrashId] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'calendar_id') and self.calendar_id is not None:
+            result['calendar_id'] = self.calendar_id
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        if hasattr(self, 'event_id') and self.event_id is not None:
+            result['event_id'] = self.event_id
+        if hasattr(self, 'state') and self.state is not None:
+            result['state'] = self.state
+        if hasattr(self, 'created') and self.created is not None:
+            result['created'] = self.created
+        if hasattr(self, 'created_at') and self.created_at is not None:
+            result['created_at'] = self.created_at
+        if hasattr(self, 'event') and self.event is not None:
+            result['event'] = self.event
+        if hasattr(self, 'trash_id') and self.trash_id is not None:
+            result['trash_id'] = self.trash_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'CreateEventReceipt':
+        """Create instance from dictionary."""
+        return cls(calendar_id=data.get('calendar_id'), idempotency_key=data.get('idempotency_key'), event_id=data.get('event_id'), state=data.get('state'), created=data.get('created'), created_at=data.get('created_at'), event=data.get('event'), trash_id=data.get('trash_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'CreateEventReceipt':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class GetOccurrenceRequest:
+    event_id: EventId
+    recurrence_id: Optional[Timestamp] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'event_id') and self.event_id is not None:
+            result['event_id'] = self.event_id
+        if hasattr(self, 'recurrence_id') and self.recurrence_id is not None:
+            result['recurrence_id'] = self.recurrence_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'GetOccurrenceRequest':
+        """Create instance from dictionary."""
+        return cls(event_id=data.get('event_id'), recurrence_id=data.get('recurrence_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'GetOccurrenceRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
 class RespondRequest:
     event_id: EventId
     status: ParticipationStatus
@@ -1978,6 +2134,7 @@ class ScopeSetRequest:
     grantee_user_id: str
     grantee_application_id: str
     languages: Optional[List[str]] = None
+    scopes: Optional[List[str]] = None
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         result = {}
@@ -1989,12 +2146,14 @@ class ScopeSetRequest:
             result['grantee_application_id'] = self.grantee_application_id
         if hasattr(self, 'languages') and self.languages is not None:
             result['languages'] = self.languages
+        if hasattr(self, 'scopes') and self.scopes is not None:
+            result['scopes'] = self.scopes
         return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ScopeSetRequest':
         """Create instance from dictionary."""
-        return cls(grantee_domain=data.get('grantee_domain'), grantee_user_id=data.get('grantee_user_id'), grantee_application_id=data.get('grantee_application_id'), languages=data.get('languages'))
+        return cls(grantee_domain=data.get('grantee_domain'), grantee_user_id=data.get('grantee_user_id'), grantee_application_id=data.get('grantee_application_id'), languages=data.get('languages'), scopes=data.get('scopes'))
 
     def to_json(self) -> str:
         """Convert to JSON string."""

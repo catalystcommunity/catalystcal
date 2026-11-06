@@ -420,6 +420,15 @@ final class EventClient {
     return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 
+  Occurrence getOccurrence(GetOccurrenceRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'get-occurrence',
+      request.toCbor(),
+    );
+    return Occurrence.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
   Event createEvent(Event request) {
     final csilResp = transport.call(
       'EventService',
@@ -508,6 +517,24 @@ final class EventClient {
       request.toCbor(),
     );
     return Event.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  CreateEventReceipt createEventOnce(CreateEventOnceRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'create-event-once',
+      request.toCbor(),
+    );
+    return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  CreateEventReceipt getCreateReceipt(CreateReceiptRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'get-create-receipt',
+      request.toCbor(),
+    );
+    return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
   }
 }
 

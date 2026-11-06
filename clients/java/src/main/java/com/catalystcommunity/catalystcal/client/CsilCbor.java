@@ -1981,6 +1981,120 @@ public final class CsilCbor {
         return decImportEventRequest(decode(data));
     }
 
+    static CborValue encCreateEventOnceRequest(CreateEventOnceRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(2);
+        csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        return new CborMap(csilEntries);
+    }
+
+    static CreateEventOnceRequest decCreateEventOnceRequest(CborValue csilRoot) {
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        Event event = decEvent(require(csilRoot, "event"));
+        return new CreateEventOnceRequest(idempotencyKey, event);
+    }
+
+    public static byte[] encodeCreateEventOnceRequest(CreateEventOnceRequest v) {
+        return encode(encCreateEventOnceRequest(v));
+    }
+
+    public static CreateEventOnceRequest decodeCreateEventOnceRequest(byte[] data) {
+        return decCreateEventOnceRequest(decode(data));
+    }
+
+    static CborValue encCreateReceiptRequest(CreateReceiptRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(2);
+        csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        return new CborMap(csilEntries);
+    }
+
+    static CreateReceiptRequest decCreateReceiptRequest(CborValue csilRoot) {
+        CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        return new CreateReceiptRequest(calendarId, idempotencyKey);
+    }
+
+    public static byte[] encodeCreateReceiptRequest(CreateReceiptRequest v) {
+        return encode(encCreateReceiptRequest(v));
+    }
+
+    public static CreateReceiptRequest decodeCreateReceiptRequest(byte[] data) {
+        return decCreateReceiptRequest(decode(data));
+    }
+
+    static CborValue encCreateEventReceipt(CreateEventReceipt v) {
+        List<CborEntry> csilEntries = new ArrayList<>(8);
+        if (v.event() != null) {
+            csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
+        }
+        csilEntries.add(new CborEntry(new CborText("state"), encCreateReceiptState(v.state())));
+        csilEntries.add(new CborEntry(new CborText("created"), new CborBool(v.created())));
+        csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
+        if (v.trashId() != null) {
+            csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
+        }
+        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        return new CborMap(csilEntries);
+    }
+
+    static CreateEventReceipt decCreateEventReceipt(CborValue csilRoot) {
+        CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
+        CreateReceiptState state = decCreateReceiptState(require(csilRoot, "state"));
+        boolean created = asBool(require(csilRoot, "created"));
+        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        Event event;
+        {
+            CborValue csilField = mapGet(csilRoot, "event");
+            event = csilField != null ? decEvent(csilField) : null;
+        }
+        TrashId trashId;
+        {
+            CborValue csilField = mapGet(csilRoot, "trash_id");
+            trashId = csilField != null ? new TrashId(asText(csilField)) : null;
+        }
+        return new CreateEventReceipt(calendarId, idempotencyKey, eventId, state, created, createdAt, event, trashId);
+    }
+
+    public static byte[] encodeCreateEventReceipt(CreateEventReceipt v) {
+        return encode(encCreateEventReceipt(v));
+    }
+
+    public static CreateEventReceipt decodeCreateEventReceipt(byte[] data) {
+        return decCreateEventReceipt(decode(data));
+    }
+
+    static CborValue encGetOccurrenceRequest(GetOccurrenceRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(2);
+        csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
+        if (v.recurrenceId() != null) {
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static GetOccurrenceRequest decGetOccurrenceRequest(CborValue csilRoot) {
+        EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
+        Timestamp recurrenceId;
+        {
+            CborValue csilField = mapGet(csilRoot, "recurrence_id");
+            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+        }
+        return new GetOccurrenceRequest(eventId, recurrenceId);
+    }
+
+    public static byte[] encodeGetOccurrenceRequest(GetOccurrenceRequest v) {
+        return encode(encGetOccurrenceRequest(v));
+    }
+
+    public static GetOccurrenceRequest decodeGetOccurrenceRequest(byte[] data) {
+        return decGetOccurrenceRequest(decode(data));
+    }
+
     static CborValue encRespondRequest(RespondRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(4);
         csilEntries.add(new CborEntry(new CborText("status"), encParticipationStatus(v.status())));
@@ -2511,7 +2625,10 @@ public final class CsilCbor {
     }
 
     static CborValue encScopeSetRequest(ScopeSetRequest v) {
-        List<CborEntry> csilEntries = new ArrayList<>(4);
+        List<CborEntry> csilEntries = new ArrayList<>(5);
+        if (v.scopes() != null) {
+            csilEntries.add(new CborEntry(new CborText("scopes"), encArray(v.scopes(), csilElem0 -> new CborText(csilElem0))));
+        }
         if (v.languages() != null) {
             csilEntries.add(new CborEntry(new CborText("languages"), encArray(v.languages(), csilElem0 -> new CborText(csilElem0))));
         }
@@ -2530,7 +2647,12 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "languages");
             languages = csilField != null ? decArray(csilField, csilE0 -> asText(csilE0)) : null;
         }
-        return new ScopeSetRequest(granteeDomain, granteeUserId, granteeApplicationId, languages);
+        List<String> scopes;
+        {
+            CborValue csilField = mapGet(csilRoot, "scopes");
+            scopes = csilField != null ? decArray(csilField, csilE0 -> asText(csilE0)) : null;
+        }
+        return new ScopeSetRequest(granteeDomain, granteeUserId, granteeApplicationId, languages, scopes);
     }
 
     public static byte[] encodeScopeSetRequest(ScopeSetRequest v) {
@@ -3031,6 +3153,18 @@ public final class CsilCbor {
             throw new CsilCborException("csil cbor: ActingVia value " + csilVal + " is not a member of the declared enum");
         }
         return new ActingVia(csilVal);
+    }
+
+    static CborValue encCreateReceiptState(CreateReceiptState v) {
+        return new CborText((String) v.value());
+    }
+
+    static CreateReceiptState decCreateReceiptState(CborValue csilRoot) {
+        var csilVal = asText(csilRoot);
+        if (!(Objects.equals(csilVal, "live") || Objects.equals(csilVal, "trashed") || Objects.equals(csilVal, "deleted") || Objects.equals(csilVal, "hidden"))) {
+            throw new CsilCborException("csil cbor: CreateReceiptState value " + csilVal + " is not a member of the declared enum");
+        }
+        return new CreateReceiptState(csilVal);
     }
 
     public static byte[] encodeCalendarGetCalendarRequest(CalendarId csilV) {

@@ -657,6 +657,8 @@ static inline int csilc_enc_RecurrenceScope(csilc_buf *b, const RecurrenceScope 
 static inline int csilc_dec_RecurrenceScope(const csilc_value *src, CsilCodecArena *a, RecurrenceScope *out);
 static inline int csilc_enc_ActingVia(csilc_buf *b, const ActingVia *v);
 static inline int csilc_dec_ActingVia(const csilc_value *src, CsilCodecArena *a, ActingVia *out);
+static inline int csilc_enc_CreateReceiptState(csilc_buf *b, const CreateReceiptState *v);
+static inline int csilc_dec_CreateReceiptState(const csilc_value *src, CsilCodecArena *a, CreateReceiptState *out);
 static inline int csilc_enc_IdentityRef(csilc_buf *b, const IdentityRef *v);
 static inline int csilc_dec_IdentityRef(const csilc_value *m, CsilCodecArena *a, IdentityRef *out);
 static inline int csilc_enc_User(csilc_buf *b, const User *v);
@@ -729,6 +731,14 @@ static inline int csilc_enc_RestoreEventRequest(csilc_buf *b, const RestoreEvent
 static inline int csilc_dec_RestoreEventRequest(const csilc_value *m, CsilCodecArena *a, RestoreEventRequest *out);
 static inline int csilc_enc_ImportEventRequest(csilc_buf *b, const ImportEventRequest *v);
 static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecArena *a, ImportEventRequest *out);
+static inline int csilc_enc_CreateEventOnceRequest(csilc_buf *b, const CreateEventOnceRequest *v);
+static inline int csilc_dec_CreateEventOnceRequest(const csilc_value *m, CsilCodecArena *a, CreateEventOnceRequest *out);
+static inline int csilc_enc_CreateReceiptRequest(csilc_buf *b, const CreateReceiptRequest *v);
+static inline int csilc_dec_CreateReceiptRequest(const csilc_value *m, CsilCodecArena *a, CreateReceiptRequest *out);
+static inline int csilc_enc_CreateEventReceipt(csilc_buf *b, const CreateEventReceipt *v);
+static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecArena *a, CreateEventReceipt *out);
+static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurrenceRequest *v);
+static inline int csilc_dec_GetOccurrenceRequest(const csilc_value *m, CsilCodecArena *a, GetOccurrenceRequest *out);
 static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v);
 static inline int csilc_dec_RespondRequest(const csilc_value *m, CsilCodecArena *a, RespondRequest *out);
 static inline int csilc_enc_SearchEventsRequest(csilc_buf *b, const SearchEventsRequest *v);
@@ -1127,6 +1137,32 @@ static inline int csilc_dec_ActingVia(const csilc_value *src, CsilCodecArena *a,
         if (strlen(csilc_ActingVia_names[csilc_i]) == src->as.bytes.len &&
             memcmp(csilc_ActingVia_names[csilc_i], src->as.bytes.ptr, src->as.bytes.len) == 0) {
             *out = (ActingVia)csilc_i;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static CSILC_UNUSED const char *const csilc_CreateReceiptState_names[] = {
+    "live",
+    "trashed",
+    "deleted",
+    "hidden",
+};
+/* csilc_enc_CreateReceiptState writes the CreateReceiptState variant's wire text. */
+static inline int csilc_enc_CreateReceiptState(csilc_buf *b, const CreateReceiptState *v) {
+    const char *csilc_s = csilc_CreateReceiptState_names[(size_t)(*v)];
+    return csilc_w_text(b, csilc_s, strlen(csilc_s));
+}
+
+/* csilc_dec_CreateReceiptState matches the wire text back to a CreateReceiptState variant. */
+static inline int csilc_dec_CreateReceiptState(const csilc_value *src, CsilCodecArena *a, CreateReceiptState *out) {
+    (void)a;
+    if (!src || src->kind != CSILC_TEXT) return -1;
+    for (size_t csilc_i = 0; csilc_i < sizeof(csilc_CreateReceiptState_names) / sizeof(csilc_CreateReceiptState_names[0]); csilc_i++) {
+        if (strlen(csilc_CreateReceiptState_names[csilc_i]) == src->as.bytes.len &&
+            memcmp(csilc_CreateReceiptState_names[csilc_i], src->as.bytes.ptr, src->as.bytes.len) == 0) {
+            *out = (CreateReceiptState)csilc_i;
             return 0;
         }
     }
@@ -3137,6 +3173,149 @@ static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecAr
     return 0;
 }
 
+/* csilc_enc_CreateEventOnceRequest writes CreateEventOnceRequest as a canonical CBOR map. */
+static inline int csilc_enc_CreateEventOnceRequest(csilc_buf *b, const CreateEventOnceRequest *v) {
+    size_t csilc_n = 2;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "event", 5)) return -1;
+    if (csilc_enc_Event(b, &(v->event))) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    return 0;
+}
+
+/* csilc_dec_CreateEventOnceRequest reads CreateEventOnceRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_CreateEventOnceRequest(const csilc_value *m, CsilCodecArena *a, CreateEventOnceRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event");
+    if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    return 0;
+}
+
+/* csilc_enc_CreateReceiptRequest writes CreateReceiptRequest as a canonical CBOR map. */
+static inline int csilc_enc_CreateReceiptRequest(csilc_buf *b, const CreateReceiptRequest *v) {
+    size_t csilc_n = 2;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "calendar_id", 11)) return -1;
+    if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    return 0;
+}
+
+/* csilc_dec_CreateReceiptRequest reads CreateReceiptRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_CreateReceiptRequest(const csilc_value *m, CsilCodecArena *a, CreateReceiptRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "calendar_id");
+    if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    return 0;
+}
+
+/* csilc_enc_CreateEventReceipt writes CreateEventReceipt as a canonical CBOR map. */
+static inline int csilc_enc_CreateEventReceipt(csilc_buf *b, const CreateEventReceipt *v) {
+    size_t csilc_n = 6;
+    if (v->event) csilc_n++;
+    if (v->trash_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->event) {
+        if (csilc_w_text(b, "event", 5)) return -1;
+        if (csilc_enc_Event(b, &((*v->event)))) return -1;
+    }
+    if (csilc_w_text(b, "state", 5)) return -1;
+    if (csilc_enc_CreateReceiptState(b, &(v->state))) return -1;
+    if (csilc_w_text(b, "created", 7)) return -1;
+    if (csilc_w_bool(b, (v->created))) return -1;
+    if (csilc_w_text(b, "event_id", 8)) return -1;
+    if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
+    if (v->trash_id) {
+        if (csilc_w_text(b, "trash_id", 8)) return -1;
+        if (csilc_w_text(b, ((*v->trash_id)), ((*v->trash_id)) ? strlen((*v->trash_id)) : 0)) return -1;
+    }
+    if (csilc_w_text(b, "created_at", 10)) return -1;
+    if (csilc_w_text(b, (v->created_at), (v->created_at) ? strlen(v->created_at) : 0)) return -1;
+    if (csilc_w_text(b, "calendar_id", 11)) return -1;
+    if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    return 0;
+}
+
+/* csilc_dec_CreateEventReceipt reads CreateEventReceipt from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecArena *a, CreateEventReceipt *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event");
+    out->event = NULL;
+    if (csilc_f) {
+        Event *csilc_p = (Event *)csilc_arena_alloc(a, sizeof(Event));
+        if (!csilc_p) return -1;
+        if (csilc_dec_Event(csilc_f, a, &((*csilc_p)))) return -1;
+        out->event = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "state");
+    if (csilc_dec_CreateReceiptState(csilc_f, a, &(out->state))) return -1;
+    csilc_f = csilc_map_get(m, "created");
+    if (!csilc_as_bool(csilc_f, &(out->created))) return -1;
+    csilc_f = csilc_map_get(m, "event_id");
+    if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
+    csilc_f = csilc_map_get(m, "trash_id");
+    out->trash_id = NULL;
+    if (csilc_f) {
+        TrashID *csilc_p = (TrashID *)csilc_arena_alloc(a, sizeof(TrashID));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->trash_id = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "created_at");
+    if (!csilc_get_text(csilc_f, &(out->created_at))) return -1;
+    csilc_f = csilc_map_get(m, "calendar_id");
+    if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    return 0;
+}
+
+/* csilc_enc_GetOccurrenceRequest writes GetOccurrenceRequest as a canonical CBOR map. */
+static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurrenceRequest *v) {
+    size_t csilc_n = 1;
+    if (v->recurrence_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "event_id", 8)) return -1;
+    if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
+    if (v->recurrence_id) {
+        if (csilc_w_text(b, "recurrence_id", 13)) return -1;
+        if (csilc_w_text(b, ((*v->recurrence_id)), ((*v->recurrence_id)) ? strlen((*v->recurrence_id)) : 0)) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_GetOccurrenceRequest reads GetOccurrenceRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_GetOccurrenceRequest(const csilc_value *m, CsilCodecArena *a, GetOccurrenceRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event_id");
+    if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
+    csilc_f = csilc_map_get(m, "recurrence_id");
+    out->recurrence_id = NULL;
+    if (csilc_f) {
+        Timestamp *csilc_p = (Timestamp *)csilc_arena_alloc(a, sizeof(Timestamp));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->recurrence_id = csilc_p;
+    }
+    return 0;
+}
+
 /* csilc_enc_RespondRequest writes RespondRequest as a canonical CBOR map. */
 static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v) {
     size_t csilc_n = 2;
@@ -3849,8 +4028,16 @@ static inline int csilc_dec_ExchangeActAsCredentialRequest(const csilc_value *m,
 /* csilc_enc_ScopeSetRequest writes ScopeSetRequest as a canonical CBOR map. */
 static inline int csilc_enc_ScopeSetRequest(csilc_buf *b, const ScopeSetRequest *v) {
     size_t csilc_n = 3;
+    if (v->scopes_count) csilc_n++;
     if (v->languages_count) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->scopes_count) {
+        if (csilc_w_text(b, "scopes", 6)) return -1;
+        if (csilc_w_array_head(b, v->scopes_count)) return -1;
+        for (size_t csilc_i = 0; csilc_i < v->scopes_count; csilc_i++) {
+            if (csilc_w_text(b, (v->scopes[csilc_i]), (v->scopes[csilc_i]) ? strlen(v->scopes[csilc_i]) : 0)) return -1;
+        }
+    }
     if (v->languages_count) {
         if (csilc_w_text(b, "languages", 9)) return -1;
         if (csilc_w_array_head(b, v->languages_count)) return -1;
@@ -3872,6 +4059,17 @@ static inline int csilc_dec_ScopeSetRequest(const csilc_value *m, CsilCodecArena
     (void)a;
     const csilc_value *csilc_f;
     if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "scopes");
+    if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
+    out->scopes_count = csilc_f->as.array.count;
+    out->scopes = NULL;
+    if (out->scopes_count) {
+        out->scopes = (char * *)csilc_arena_alloc(a, out->scopes_count * sizeof(char *));
+        if (!out->scopes) return -1;
+        for (size_t csilc_i = 0; csilc_i < out->scopes_count; csilc_i++) {
+            if (!csilc_get_text(&csilc_f->as.array.items[csilc_i], &(out->scopes[csilc_i]))) return -1;
+        }
+    }
     csilc_f = csilc_map_get(m, "languages");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->languages_count = csilc_f->as.array.count;
@@ -4615,6 +4813,29 @@ static inline int csil_decode_ActingVia(const uint8_t *in, size_t len, ActingVia
     const csilc_value *root;
     if (csilc_decode(in, len, &a, &root)) return -1;
     if (csilc_dec_ActingVia(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a CreateReceiptState to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_CreateReceiptState(const CreateReceiptState *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_CreateReceiptState(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a CreateReceiptState. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_CreateReceiptState(const uint8_t *in, size_t len, CreateReceiptState *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_CreateReceiptState(root, a, out)) { csil_codec_arena_free(a); return -1; }
     *owner = a;
     return 0;
 }
@@ -5443,6 +5664,98 @@ static inline int csil_decode_ImportEventRequest(const uint8_t *in, size_t len, 
     const csilc_value *root;
     if (csilc_decode(in, len, &a, &root)) return -1;
     if (csilc_dec_ImportEventRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a CreateEventOnceRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_CreateEventOnceRequest(const CreateEventOnceRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_CreateEventOnceRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a CreateEventOnceRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_CreateEventOnceRequest(const uint8_t *in, size_t len, CreateEventOnceRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_CreateEventOnceRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a CreateReceiptRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_CreateReceiptRequest(const CreateReceiptRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_CreateReceiptRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a CreateReceiptRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_CreateReceiptRequest(const uint8_t *in, size_t len, CreateReceiptRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_CreateReceiptRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a CreateEventReceipt to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_CreateEventReceipt(const CreateEventReceipt *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_CreateEventReceipt(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a CreateEventReceipt. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_CreateEventReceipt(const uint8_t *in, size_t len, CreateEventReceipt *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_CreateEventReceipt(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a GetOccurrenceRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_GetOccurrenceRequest(const GetOccurrenceRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_GetOccurrenceRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a GetOccurrenceRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_GetOccurrenceRequest(const uint8_t *in, size_t len, GetOccurrenceRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_GetOccurrenceRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
     *owner = a;
     return 0;
 }

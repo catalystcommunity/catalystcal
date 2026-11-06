@@ -55,6 +55,11 @@ type Config struct {
 
 	ActAsAppKeysFile        string
 	ActAsMaxPresentationAge time.Duration
+	// ActAsHomeTCPAddr and ActAsHomeTCPFingerprints name the LinkKeys server
+	// of the home domain of catalystcal's application account. The server
+	// renews its key attestations there. Default: the RP TCP values.
+	ActAsHomeTCPAddr         string
+	ActAsHomeTCPFingerprints []string
 
 	// AllowedApplications are the application principals that may sign in
 	// with an application presentation, as
@@ -100,8 +105,10 @@ func LoadFrom(getenv func(string) string) (*Config, error) {
 		SubscriptionRefresh:      time.Duration(r.int("CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES", 30)) * time.Minute,
 		SubscriptionAllowPrivate: r.bool("CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE"),
 
-		ActAsAppKeysFile:        r.str("CATALYSTCAL_ACT_AS_APP_KEYS_FILE", ""),
-		ActAsMaxPresentationAge: time.Duration(r.int("CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS", 300)) * time.Second,
+		ActAsAppKeysFile:         r.str("CATALYSTCAL_ACT_AS_APP_KEYS_FILE", ""),
+		ActAsMaxPresentationAge:  time.Duration(r.int("CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS", 300)) * time.Second,
+		ActAsHomeTCPAddr:         r.str("CATALYSTCAL_ACT_AS_HOME_TCP_ADDR", ""),
+		ActAsHomeTCPFingerprints: r.list("CATALYSTCAL_ACT_AS_HOME_TCP_FINGERPRINTS"),
 
 		AllowedApplications:   r.list("CATALYSTCAL_ALLOWED_APPLICATIONS"),
 		AppPresentationMaxAge: time.Duration(r.int("CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS", 300)) * time.Second,
@@ -145,6 +152,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ActAsMaxPresentationAge <= 0 {
 		return fmt.Errorf("CATALYSTCAL_ACT_AS_MAX_PRESENTATION_AGE_SECONDS must be positive")
+	}
+	if (c.ActAsHomeTCPAddr == "") != (len(c.ActAsHomeTCPFingerprints) == 0) {
+		return fmt.Errorf("set CATALYSTCAL_ACT_AS_HOME_TCP_ADDR and CATALYSTCAL_ACT_AS_HOME_TCP_FINGERPRINTS together")
 	}
 	if c.AppPresentationMaxAge <= 0 || c.AppPresentationMaxAge > 900*time.Second {
 		return fmt.Errorf("CATALYSTCAL_APP_PRESENTATION_MAX_AGE_SECONDS must be 1 to 900")
@@ -286,4 +296,14 @@ func lowerDomains(in []string) []string {
 		}
 	}
 	return in
+}
+
+// ActAsHome returns the LinkKeys TCP server where catalystcal renews the
+// attestations of its application keys: the home domain of its account.
+// Without a home setting it is the RP server.
+func (c *Config) ActAsHome() (addr string, fingerprints []string) {
+	if c.ActAsHomeTCPAddr != "" {
+		return c.ActAsHomeTCPAddr, c.ActAsHomeTCPFingerprints
+	}
+	return c.LinkkeysTCPAddr, c.LinkkeysTCPFingerprints
 }

@@ -150,6 +150,9 @@ defmodule Csilgen.Generated.EventServer do
               | {:error, Csilgen.Generated.ServiceError.t()}
   @callback get_event(req :: Csilgen.Generated.EventID.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback get_occurrence(req :: Csilgen.Generated.GetOccurrenceRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.Occurrence.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
   @callback create_event(req :: Csilgen.Generated.Event.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
   @callback update_event(req :: Csilgen.Generated.UpdateEventRequest.t(), ctx :: map()) ::
@@ -174,6 +177,12 @@ defmodule Csilgen.Generated.EventServer do
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
   @callback import_event(req :: Csilgen.Generated.ImportEventRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.Event.t()} | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback create_event_once(req :: Csilgen.Generated.CreateEventOnceRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.CreateEventReceipt.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback get_create_receipt(req :: Csilgen.Generated.CreateReceiptRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.CreateEventReceipt.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
 end
 
 defmodule Csilgen.Generated.FreeBusyServer do

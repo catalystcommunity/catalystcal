@@ -75,6 +75,9 @@ enum class RecurrenceScope { All, This, ThisAndFuture }
 /** ActingVia enum (bare-literal wire). */
 enum class ActingVia { Self, Delegation, ActAsGrant }
 
+/** CreateReceiptState enum (bare-literal wire). */
+enum class CreateReceiptState { Live, Trashed, Deleted, Hidden }
+
 /** IdentityRef record. */
 data class IdentityRef(
     val domain: String,
@@ -477,6 +480,46 @@ data class ImportEventRequest(
     val createdAt: Timestamp? = null
 )
 
+/** CreateEventOnceRequest record. */
+data class CreateEventOnceRequest(
+    // wire key: idempotency_key
+    val idempotencyKey: String,
+    val event: Event
+)
+
+/** CreateReceiptRequest record. */
+data class CreateReceiptRequest(
+    // wire key: calendar_id
+    val calendarId: CalendarID,
+    // wire key: idempotency_key
+    val idempotencyKey: String
+)
+
+/** CreateEventReceipt record. */
+data class CreateEventReceipt(
+    // wire key: calendar_id
+    val calendarId: CalendarID,
+    // wire key: idempotency_key
+    val idempotencyKey: String,
+    // wire key: event_id
+    val eventId: EventID,
+    val state: CreateReceiptState,
+    val created: Boolean,
+    // wire key: created_at
+    val createdAt: Timestamp,
+    val event: Event? = null,
+    // wire key: trash_id
+    val trashId: TrashID? = null
+)
+
+/** GetOccurrenceRequest record. */
+data class GetOccurrenceRequest(
+    // wire key: event_id
+    val eventId: EventID,
+    // wire key: recurrence_id
+    val recurrenceId: Timestamp? = null
+)
+
 /** RespondRequest record. */
 data class RespondRequest(
     // wire key: event_id
@@ -641,7 +684,8 @@ data class ScopeSetRequest(
     val granteeUserId: String,
     // wire key: grantee_application_id
     val granteeApplicationId: String,
-    val languages: List<String>? = null
+    val languages: List<String>? = null,
+    val scopes: List<String>? = null
 )
 
 /** ScopeSetResponse record. */

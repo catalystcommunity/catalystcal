@@ -270,6 +270,29 @@ func (s *series) isInstance(t time.Time) bool {
 	return len(got) == 1 && got[0].Equal(t)
 }
 
+// IsInstance reports if series ev has an instance that starts at rid
+// (from RRULE, RDATE, or DTSTART) that EXDATE does not remove. For an
+// all-day series the date of rid counts. A single event has no instance
+// here.
+func IsInstance(ev csil.Event, rid time.Time) (bool, error) {
+	if !isRecurring(ev) {
+		return false, nil
+	}
+	t, err := eventTiming(ev)
+	if err != nil {
+		return false, err
+	}
+	s, err := newSeries(ev, t)
+	if err != nil {
+		return false, err
+	}
+	rid = rid.UTC()
+	if t.allDay {
+		rid = midnight(rid)
+	}
+	return s.isInstance(rid), nil
+}
+
 // overlaps reports if [start, end) overlaps [rs, re). An instance with
 // zero length overlaps when its start is in [rs, re).
 func overlaps(start, end, rs, re time.Time) bool {

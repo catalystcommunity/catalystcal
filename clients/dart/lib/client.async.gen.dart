@@ -427,6 +427,15 @@ final class EventAsyncClient {
     return Event.fromCborValue(CsilCbor.decode(csilResp));
   }
 
+  Future<Occurrence> getOccurrence(GetOccurrenceRequest request) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'get-occurrence',
+      request.toCbor(),
+    );
+    return Occurrence.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
   Future<Event> createEvent(Event request) async {
     final csilResp = await transport.call(
       'EventService',
@@ -515,6 +524,28 @@ final class EventAsyncClient {
       request.toCbor(),
     );
     return Event.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<CreateEventReceipt> createEventOnce(
+    CreateEventOnceRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'create-event-once',
+      request.toCbor(),
+    );
+    return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<CreateEventReceipt> getCreateReceipt(
+    CreateReceiptRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'get-create-receipt',
+      request.toCbor(),
+    );
+    return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
   }
 }
 

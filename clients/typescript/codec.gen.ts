@@ -2,7 +2,7 @@
 // Source: <csil spec>
 // Target: typescript-codec
 
-import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateGroupRequest, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, RestoreEventRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, TrashEntry, TrashID, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
+import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, CreateReceiptState, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, RestoreEventRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, TrashEntry, TrashID, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
 
 /** A CBOR semantic tag wrapping an inner value (e.g. tag 0 timestamp, tag 4 decimal). */
 export type CborTag = { readonly tag: number; readonly value: CborValue };
@@ -1342,6 +1342,106 @@ export function fromImportEventRequestCbor(bytes: Uint8Array): ImportEventReques
   return fromImportEventRequestCborValue(decode(bytes));
 }
 
+export function toCreateEventOnceRequestCborValue(v: CreateEventOnceRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("event", toEventCborValue(v.event));
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  return csilMap;
+}
+
+export function fromCreateEventOnceRequestCborValue(value: CborValue): CreateEventOnceRequest {
+  return {
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+    event: fromEventCborValue(requireKey(value, "event")),
+  };
+}
+
+export function toCreateEventOnceRequestCbor(v: CreateEventOnceRequest): Uint8Array {
+  return encodeValue(toCreateEventOnceRequestCborValue(v));
+}
+
+export function fromCreateEventOnceRequestCbor(bytes: Uint8Array): CreateEventOnceRequest {
+  return fromCreateEventOnceRequestCborValue(decode(bytes));
+}
+
+export function toCreateReceiptRequestCborValue(v: CreateReceiptRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("calendar_id", v.calendarId);
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  return csilMap;
+}
+
+export function fromCreateReceiptRequestCborValue(value: CborValue): CreateReceiptRequest {
+  return {
+    calendarId: asString(requireKey(value, "calendar_id")),
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+  };
+}
+
+export function toCreateReceiptRequestCbor(v: CreateReceiptRequest): Uint8Array {
+  return encodeValue(toCreateReceiptRequestCborValue(v));
+}
+
+export function fromCreateReceiptRequestCbor(bytes: Uint8Array): CreateReceiptRequest {
+  return fromCreateReceiptRequestCborValue(decode(bytes));
+}
+
+export function toCreateEventReceiptCborValue(v: CreateEventReceipt): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.event !== undefined) csilMap.set("event", toEventCborValue(v.event));
+  csilMap.set("state", v.state);
+  csilMap.set("created", v.created);
+  csilMap.set("event_id", v.eventId);
+  if (v.trashId !== undefined) csilMap.set("trash_id", v.trashId);
+  csilMap.set("created_at", v.createdAt);
+  csilMap.set("calendar_id", v.calendarId);
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  return csilMap;
+}
+
+export function fromCreateEventReceiptCborValue(value: CborValue): CreateEventReceipt {
+  return {
+    calendarId: asString(requireKey(value, "calendar_id")),
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+    eventId: asString(requireKey(value, "event_id")),
+    state: (asEnumMember(asString(requireKey(value, "state")), ["live", "trashed", "deleted", "hidden"]) as "live" | "trashed" | "deleted" | "hidden"),
+    created: asBool(requireKey(value, "created")),
+    createdAt: asString(requireKey(value, "created_at")),
+    event: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromEventCborValue(csilV))(mapGet(value, "event")),
+    trashId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "trash_id")),
+  };
+}
+
+export function toCreateEventReceiptCbor(v: CreateEventReceipt): Uint8Array {
+  return encodeValue(toCreateEventReceiptCborValue(v));
+}
+
+export function fromCreateEventReceiptCbor(bytes: Uint8Array): CreateEventReceipt {
+  return fromCreateEventReceiptCborValue(decode(bytes));
+}
+
+export function toGetOccurrenceRequestCborValue(v: GetOccurrenceRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("event_id", v.eventId);
+  if (v.recurrenceId !== undefined) csilMap.set("recurrence_id", v.recurrenceId);
+  return csilMap;
+}
+
+export function fromGetOccurrenceRequestCborValue(value: CborValue): GetOccurrenceRequest {
+  return {
+    eventId: asString(requireKey(value, "event_id")),
+    recurrenceId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "recurrence_id")),
+  };
+}
+
+export function toGetOccurrenceRequestCbor(v: GetOccurrenceRequest): Uint8Array {
+  return encodeValue(toGetOccurrenceRequestCborValue(v));
+}
+
+export function fromGetOccurrenceRequestCbor(bytes: Uint8Array): GetOccurrenceRequest {
+  return fromGetOccurrenceRequestCborValue(decode(bytes));
+}
+
 export function toRespondRequestCborValue(v: RespondRequest): CborValue {
   const csilMap = new Map<CborValue, CborValue>();
   csilMap.set("status", v.status);
@@ -1796,6 +1896,7 @@ export function fromExchangeActAsCredentialRequestCbor(bytes: Uint8Array): Excha
 
 export function toScopeSetRequestCborValue(v: ScopeSetRequest): CborValue {
   const csilMap = new Map<CborValue, CborValue>();
+  if (v.scopes !== undefined) csilMap.set("scopes", v.scopes);
   if (v.languages !== undefined) csilMap.set("languages", v.languages);
   csilMap.set("grantee_domain", v.granteeDomain);
   csilMap.set("grantee_user_id", v.granteeUserId);
@@ -1809,6 +1910,7 @@ export function fromScopeSetRequestCborValue(value: CborValue): ScopeSetRequest 
     granteeUserId: asString(requireKey(value, "grantee_user_id")),
     granteeApplicationId: asString(requireKey(value, "grantee_application_id")),
     languages: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => asString(csilE)))(mapGet(value, "languages")),
+    scopes: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => asString(csilE)))(mapGet(value, "scopes")),
   };
 }
 

@@ -282,6 +282,11 @@ public struct EventAsyncClient {
         return try Event.fromCbor(csilResp)
     }
 
+    public func getOccurrence(_ request: GetOccurrenceRequest) async throws -> Occurrence {
+        let csilResp = try await transport.call(service: "EventService", op: "get-occurrence", request: request.toCbor())
+        return try Occurrence.fromCbor(csilResp)
+    }
+
     public func createEvent(_ request: Event) async throws -> Event {
         let csilResp = try await transport.call(service: "EventService", op: "create-event", request: request.toCbor())
         return try Event.fromCbor(csilResp)
@@ -330,6 +335,16 @@ public struct EventAsyncClient {
     public func importEvent(_ request: ImportEventRequest) async throws -> Event {
         let csilResp = try await transport.call(service: "EventService", op: "import-event", request: request.toCbor())
         return try Event.fromCbor(csilResp)
+    }
+
+    public func createEventOnce(_ request: CreateEventOnceRequest) async throws -> CreateEventReceipt {
+        let csilResp = try await transport.call(service: "EventService", op: "create-event-once", request: request.toCbor())
+        return try CreateEventReceipt.fromCbor(csilResp)
+    }
+
+    public func getCreateReceipt(_ request: CreateReceiptRequest) async throws -> CreateEventReceipt {
+        let csilResp = try await transport.call(service: "EventService", op: "get-create-receipt", request: request.toCbor())
+        return try CreateEventReceipt.fromCbor(csilResp)
     }
 
 }

@@ -1,4 +1,5 @@
-// Package cmd is the catalystcal command line: serve (default), migrate, version.
+// Package cmd is the catalystcal command line: serve (default), migrate,
+// app-keys, version.
 package cmd
 
 import (
@@ -19,6 +20,7 @@ const usage = `catalystcal: a calendaring service
 Usage:
   catalystcal [serve]   start the API server (applies migrations first)
   catalystcal migrate   apply the database migrations and exit
+  catalystcal app-keys  make, enroll, and renew the act-as application keys
   catalystcal version   print the version
   catalystcal help      print this text
 
@@ -42,6 +44,8 @@ func Run(version string, args []string) error {
 		return err
 	case "migrate":
 		return runMigrate()
+	case "app-keys":
+		return runAppKeys(args[1:])
 	case "version", "--version", "-v":
 		fmt.Printf("catalystcal %s\n", version)
 		return nil

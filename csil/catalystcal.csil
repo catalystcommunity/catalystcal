@@ -94,6 +94,14 @@ RecurrenceScope = "all" / "this" / "this_and_future"
 ;; How the caller authenticated for the current bearer.
 ActingVia = "self" / "delegation" / "act_as_grant"
 
+;; The state of the event that a create receipt names, at the time of the
+;; call.
+;;   live    - the event is on a calendar and the caller can see it
+;;   trashed - the event is in trash
+;;   deleted - the event is gone: its trash entry expired
+;;   hidden  - the event is on a calendar, but the caller cannot see it now
+CreateReceiptState = "live" / "trashed" / "deleted" / "hidden"
+
 ;; ============================================================
 ;; Identity
 ;; ============================================================
@@ -592,6 +600,73 @@ ImportEventRequest = {
     ? created_at: Timestamp
 }
 
+;; A create that a client can send again safely. The server keeps a
+;; receipt for each key. The key is scoped to the calendar, the effective
+;; creator, and the bearer: the grantee application for an act-as bearer,
+;; the delegate for a delegated bearer. The receipt and the event are
+;; written in one transaction. The receipt stays after the event changes,
+;; moves, goes to trash, leaves trash, or is purged. A key never makes a
+;; second event.
+;;
+;; A call with a known key and the same event content makes nothing and
+;; returns the receipt (created false). A known key with different content
+;; answers 409. A call never restores or makes again an event that was
+;; deleted. Each call checks the access of the caller now: the caller must
+;; be able to add events to the calendar.
+CreateEventOnceRequest = {
+    ;; 1 to 200 characters.
+    idempotency_key: text .size (1..200),
+    event: Event
+}
+
+;; Find the receipt of a create-event-once call. The same scope and the
+;; same access check as create-event-once apply. 404 when there is no
+;; receipt.
+CreateReceiptRequest = {
+    calendar_id: CalendarID,
+    idempotency_key: text .size (1..200)
+}
+
+CreateEventReceipt = {
+    ;; The calendar of the create. The event can be on another calendar now.
+    calendar_id: CalendarID,
+    idempotency_key: text,
+    ;; The event that the create made. It does not change.
+    event_id: EventID,
+    state: CreateReceiptState,
+    ;; True only for the call that made the event.
+    created: bool,
+    ;; When the create happened.
+    created_at: Timestamp,
+    ;; The event now, for state live.
+    ? event: Event,
+    ;; For state trashed, when the caller can restore the entry.
+    ? trash_id: TrashID
+}
+
+;; One occurrence by its stable reference: the series and the original
+;; start of the instance (recurrence_id). The answer has the same shape as
+;; a list-events occurrence. An override applies, also when it moved the
+;; instance far from its original time. recurrence_id stays the original
+;; start; start and end are the times now.
+;;
+;; - A single event needs no recurrence_id. A recurrence_id on a single
+;;   event gives 404.
+;; - A series needs recurrence_id (400 when absent).
+;; - The id of an override row is also accepted: the server uses its
+;;   series and its recurrence_id.
+;; - 404 when the instance is not in the series (excluded, deleted,
+;;   cancelled, or after the end of the series) or the caller cannot see
+;;   it.
+;; - An update with scope this_and_future makes a new series for the
+;;   instance and the later ones. update-event returns it. The old series
+;;   ends before the instance, so (old event_id, later recurrence_id)
+;;   gives 404 after the split. Use the new event_id.
+GetOccurrenceRequest = {
+    event_id: EventID,
+    ? recurrence_id: Timestamp
+}
+
 RespondRequest = {
     event_id: EventID,
     status: ParticipationStatus,
@@ -743,7 +818,11 @@ ScopeSetRequest = {
     grantee_domain: text,
     grantee_user_id: text,
     grantee_application_id: text,
-    ? languages: [* text]
+    ? languages: [* text],
+    ;; The scopes to offer: Scope words. Absent offers every scope. The
+    ;; signed set has the scopes in the server's scope order. An empty
+    ;; list, an unknown word, or a repeated word answers 400.
+    ? scopes: [* text]
 }
 
 ;; CBOR(SignedActAsScopeSet) from the LinkKeys CSIL.
@@ -836,7 +915,8 @@ ServiceError = {
 ;; Services
 ;; ============================================================
 
-;; complete, resume-session, end-session, get-application-identity,
+;; complete, resume-session, end-session, get-act-as-scope-set,
+;; exchange-act-as-credential, get-application-identity,
 ;; exchange-application-presentation, and the dev ops are public.
 ;; Every other op needs a bearer.
 service AuthService {
@@ -915,6 +995,7 @@ service DelegationService {
 service EventService {
     list-events:   ListEventsRequest   -> OccurrenceList / ServiceError,
     get-event:     EventID             -> Event          / ServiceError,
+    get-occurrence: GetOccurrenceRequest -> Occurrence   / ServiceError,
     create-event:  Event               -> Event          / ServiceError,
     update-event:  UpdateEventRequest  -> Event          / ServiceError,
     delete-event:  DeleteEventRequest  -> DeleteEventResponse / ServiceError,
@@ -924,7 +1005,9 @@ service EventService {
     search-events: SearchEventsRequest -> EventList      / ServiceError,
     list-trash:    ListTrashRequest    -> TrashList      / ServiceError,
     restore-event: RestoreEventRequest -> Event          / ServiceError,
-    import-event:  ImportEventRequest  -> Event          / ServiceError
+    import-event:  ImportEventRequest  -> Event          / ServiceError,
+    create-event-once:  CreateEventOnceRequest -> CreateEventReceipt / ServiceError,
+    get-create-receipt: CreateReceiptRequest   -> CreateEventReceipt / ServiceError
 }
 
 service FreeBusyService {

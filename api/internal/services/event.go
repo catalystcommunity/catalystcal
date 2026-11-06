@@ -258,17 +258,10 @@ func (s *EventService) CreateEvent(ctx context.Context, req csil.Event) (csil.Ev
 	if err := requireCreatable(c, acc); err != nil {
 		return csil.Event{}, err
 	}
-	if err := validateContent(&ev); err != nil {
+	row, err := newEventRow(id, r, ev)
+	if err != nil {
 		return csil.Event{}, err
 	}
-	if ev.Uid == nil || strings.TrimSpace(*ev.Uid) == "" {
-		ev.Uid = ptr(store.NewID() + "@catalystcal")
-	}
-	eff := id.EffectiveUserID()
-	var by []string
-	ev.Attendees, by = mergeAnswers(ev.Attendees, nil, nil, r.effDomain, r.effSubject)
-	ev.UpdatedVia = viaOf(id)
-	row := store.Event{Ev: ev, OrganizerID: eff, CreatedByID: eff, UpdatedByID: eff, RespondedBy: by, SeriesUntil: seriesUntil(ev)}
 	if err := s.Store.CreateEvent(ctx, &row); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			return csil.Event{}, csilrpc.Conflict("an event with this uid is already on the calendar")
@@ -277,6 +270,22 @@ func (s *EventService) CreateEvent(ctx context.Context, req csil.Event) (csil.Ev
 	}
 	csilrpc.SetAuditTarget(ctx, "event:"+row.ID())
 	return s.reload(ctx, row.ID())
+}
+
+// newEventRow checks the content of a new event and builds its row. The
+// organizer, the creator, and the updater are the effective user.
+func newEventRow(id *auth.Identity, r *resolver, ev csil.Event) (store.Event, error) {
+	if err := validateContent(&ev); err != nil {
+		return store.Event{}, err
+	}
+	if ev.Uid == nil || strings.TrimSpace(*ev.Uid) == "" {
+		ev.Uid = ptr(store.NewID() + "@catalystcal")
+	}
+	eff := id.EffectiveUserID()
+	var by []string
+	ev.Attendees, by = mergeAnswers(ev.Attendees, nil, nil, r.effDomain, r.effSubject)
+	ev.UpdatedVia = viaOf(id)
+	return store.Event{Ev: ev, OrganizerID: eff, CreatedByID: eff, UpdatedByID: eff, RespondedBy: by, SeriesUntil: seriesUntil(ev)}, nil
 }
 
 // ImportEvent creates an event with another creator, for a move of data

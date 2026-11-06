@@ -77,6 +77,7 @@ public protocol DelegationService {
 public protocol EventService {
     func listEvents(_ request: ListEventsRequest) throws -> OccurrenceList
     func getEvent(_ request: EventId) throws -> Event
+    func getOccurrence(_ request: GetOccurrenceRequest) throws -> Occurrence
     func createEvent(_ request: Event) throws -> Event
     func updateEvent(_ request: UpdateEventRequest) throws -> Event
     func deleteEvent(_ request: DeleteEventRequest) throws -> DeleteEventResponse
@@ -87,6 +88,8 @@ public protocol EventService {
     func listTrash(_ request: ListTrashRequest) throws -> TrashList
     func restoreEvent(_ request: RestoreEventRequest) throws -> Event
     func importEvent(_ request: ImportEventRequest) throws -> Event
+    func createEventOnce(_ request: CreateEventOnceRequest) throws -> CreateEventReceipt
+    func getCreateReceipt(_ request: CreateReceiptRequest) throws -> CreateEventReceipt
 }
 
 /// FreeBusyService is the server-side handler seam.

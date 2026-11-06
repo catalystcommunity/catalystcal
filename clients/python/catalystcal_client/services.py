@@ -236,6 +236,11 @@ class EventServiceHandlers(ABC):
         ...
 
     @abstractmethod
+    def get_occurrence(self, req: GetOccurrenceRequest, ctx: dict) -> Union[Occurrence, ServiceError]:
+        """get-occurrence"""
+        ...
+
+    @abstractmethod
     def create_event(self, req: Event, ctx: dict) -> Union[Event, ServiceError]:
         """create-event"""
         ...
@@ -283,6 +288,16 @@ class EventServiceHandlers(ABC):
     @abstractmethod
     def import_event(self, req: ImportEventRequest, ctx: dict) -> Union[Event, ServiceError]:
         """import-event"""
+        ...
+
+    @abstractmethod
+    def create_event_once(self, req: CreateEventOnceRequest, ctx: dict) -> Union[CreateEventReceipt, ServiceError]:
+        """create-event-once"""
+        ...
+
+    @abstractmethod
+    def get_create_receipt(self, req: CreateReceiptRequest, ctx: dict) -> Union[CreateEventReceipt, ServiceError]:
+        """get-create-receipt"""
         ...
 
 class FreeBusyServiceHandlers(ABC):
