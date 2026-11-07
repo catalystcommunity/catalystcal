@@ -6,7 +6,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Deterministic>true</Deterministic>
     <PackageId>CatalystCal.Client</PackageId>
-    <Version>0.1.2</Version>
+    <Version>0.2.0</Version>
     <RootNamespace>CatalystCal.Client</RootNamespace>
   </PropertyGroup>
 </Project>

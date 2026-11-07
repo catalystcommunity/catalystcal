@@ -4,7 +4,7 @@ defmodule CatalystcalClient.MixProject do
   def project do
     [
       app: :catalystcal_client,
-      version: "0.1.2",
+      version: "0.2.0",
       elixir: "~> 1.14",
       deps: deps()
     ]
