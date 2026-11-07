@@ -1597,6 +1597,141 @@ fun createEventReceiptFromCborValue(cbor: CborValue): CreateEventReceipt {
 /** Decode CSIL CBOR bytes into a CreateEventReceipt. */
 fun createEventReceiptFromCbor(bytes: ByteArray): CreateEventReceipt = createEventReceiptFromCborValue(CsilCbor.decode(bytes))
 
+/** The CBOR value tree for a SplitSeriesOnceRequest (deep, canonical key order). */
+fun SplitSeriesOnceRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
+    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(this.recurrenceId))
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SplitSeriesOnceRequest to canonical CSIL CBOR bytes. */
+fun SplitSeriesOnceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SplitSeriesOnceRequest from a decoded CBOR value tree. */
+fun splitSeriesOnceRequestFromCborValue(cbor: CborValue): SplitSeriesOnceRequest {
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
+    val recurrenceId = CsilCbor.asText(CsilCbor.require(cbor, "recurrence_id"))
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    return SplitSeriesOnceRequest(idempotencyKey = idempotencyKey, event = event, recurrenceId = recurrenceId, mapRecurrenceIds = mapRecurrenceIds)
+}
+
+/** Decode CSIL CBOR bytes into a SplitSeriesOnceRequest. */
+fun splitSeriesOnceRequestFromCbor(bytes: ByteArray): SplitSeriesOnceRequest = splitSeriesOnceRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a SplitReceiptRequest (deep, canonical key order). */
+fun SplitReceiptRequest.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SplitReceiptRequest to canonical CSIL CBOR bytes. */
+fun SplitReceiptRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SplitReceiptRequest from a decoded CBOR value tree. */
+fun splitReceiptRequestFromCborValue(cbor: CborValue): SplitReceiptRequest {
+    val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    return SplitReceiptRequest(seriesId = seriesId, idempotencyKey = idempotencyKey, mapRecurrenceIds = mapRecurrenceIds)
+}
+
+/** Decode CSIL CBOR bytes into a SplitReceiptRequest. */
+fun splitReceiptRequestFromCbor(bytes: ByteArray): SplitReceiptRequest = splitReceiptRequestFromCborValue(CsilCbor.decode(bytes))
+
+/** Encode a SplitMapResult enum as its bare literal value. */
+fun SplitMapResult.toCborValue(): CborValue = when (this) {
+    SplitMapResult.Original -> CborValue.CText("original")
+    SplitMapResult.Successor -> CborValue.CText("successor")
+    SplitMapResult.None -> CborValue.CText("none")
+}
+
+/** Decode a bare literal value into a SplitMapResult enum. */
+fun splitMapResultFromCborValue(cbor: CborValue): SplitMapResult = when (CsilCbor.asText(cbor)) {
+    "original" -> SplitMapResult.Original
+    "successor" -> SplitMapResult.Successor
+    "none" -> SplitMapResult.None
+    else -> throw CborError("unknown SplitMapResult value")
+}
+
+/** The CBOR value tree for a SplitOccurrenceMapping (deep, canonical key order). */
+fun SplitOccurrenceMapping.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    csilEntries.add(CborValue.CText("result") to this.result.toCborValue())
+    this.eventId?.let { csilV -> csilEntries.add(CborValue.CText("event_id") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(this.recurrenceId))
+    this.mappedRecurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("mapped_recurrence_id") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SplitOccurrenceMapping to canonical CSIL CBOR bytes. */
+fun SplitOccurrenceMapping.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree. */
+fun splitOccurrenceMappingFromCborValue(cbor: CborValue): SplitOccurrenceMapping {
+    val recurrenceId = CsilCbor.asText(CsilCbor.require(cbor, "recurrence_id"))
+    val result = splitMapResultFromCborValue(CsilCbor.require(cbor, "result"))
+    val eventId = CsilCbor.mapGet(cbor, "event_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val mappedRecurrenceId = CsilCbor.mapGet(cbor, "mapped_recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    return SplitOccurrenceMapping(recurrenceId = recurrenceId, result = result, eventId = eventId, mappedRecurrenceId = mappedRecurrenceId)
+}
+
+/** Decode CSIL CBOR bytes into a SplitOccurrenceMapping. */
+fun splitOccurrenceMappingFromCbor(bytes: ByteArray): SplitOccurrenceMapping = splitOccurrenceMappingFromCborValue(CsilCbor.decode(bytes))
+
+/** The CBOR value tree for a SplitSeriesReceipt (deep, canonical key order). */
+fun SplitSeriesReceipt.toCborValue(): CborValue {
+    val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
+    this.series?.let { csilV -> csilEntries.add(CborValue.CText("series") to csilV.toCborValue()) }
+    csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
+    csilEntries.add(CborValue.CText("in_place") to CborValue.CBool(this.inPlace))
+    csilEntries.add(CborValue.CText("mappings") to CborValue.CArray((this.mappings).map { csilE -> csilE.toCborValue() }))
+    csilEntries.add(CborValue.CText("split_at") to CborValue.CText(this.splitAt))
+    csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
+    this.successor?.let { csilV -> csilEntries.add(CborValue.CText("successor") to csilV.toCborValue()) }
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
+    csilEntries.add(CborValue.CText("series_state") to this.seriesState.toCborValue())
+    csilEntries.add(CborValue.CText("successor_id") to CborValue.CText(this.successorId))
+    csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
+    this.seriesTrashId?.let { csilV -> csilEntries.add(CborValue.CText("series_trash_id") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("successor_state") to this.successorState.toCborValue())
+    this.successorTrashId?.let { csilV -> csilEntries.add(CborValue.CText("successor_trash_id") to CborValue.CText(csilV)) }
+    return CborValue.CMap(csilEntries)
+}
+
+/** Encode a SplitSeriesReceipt to canonical CSIL CBOR bytes. */
+fun SplitSeriesReceipt.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
+
+/** Reconstruct a SplitSeriesReceipt from a decoded CBOR value tree. */
+fun splitSeriesReceiptFromCborValue(cbor: CborValue): SplitSeriesReceipt {
+    val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
+    val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
+    val successorId = CsilCbor.asText(CsilCbor.require(cbor, "successor_id"))
+    val splitAt = CsilCbor.asText(CsilCbor.require(cbor, "split_at"))
+    val inPlace = CsilCbor.asBoolean(CsilCbor.require(cbor, "in_place"))
+    val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
+    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
+    val seriesState = createReceiptStateFromCborValue(CsilCbor.require(cbor, "series_state"))
+    val series = CsilCbor.mapGet(cbor, "series")?.let { csilV -> eventFromCborValue(csilV) }
+    val seriesTrashId = CsilCbor.mapGet(cbor, "series_trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val successorState = createReceiptStateFromCborValue(CsilCbor.require(cbor, "successor_state"))
+    val successor = CsilCbor.mapGet(cbor, "successor")?.let { csilV -> eventFromCborValue(csilV) }
+    val successorTrashId = CsilCbor.mapGet(cbor, "successor_trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val mappings = CsilCbor.asArray(CsilCbor.require(cbor, "mappings")).map { csilE -> splitOccurrenceMappingFromCborValue(csilE) }
+    return SplitSeriesReceipt(seriesId = seriesId, idempotencyKey = idempotencyKey, successorId = successorId, splitAt = splitAt, inPlace = inPlace, created = created, createdAt = createdAt, calendarId = calendarId, seriesState = seriesState, series = series, seriesTrashId = seriesTrashId, successorState = successorState, successor = successor, successorTrashId = successorTrashId, mappings = mappings)
+}
+
+/** Decode CSIL CBOR bytes into a SplitSeriesReceipt. */
+fun splitSeriesReceiptFromCbor(bytes: ByteArray): SplitSeriesReceipt = splitSeriesReceiptFromCborValue(CsilCbor.decode(bytes))
+
 /** The CBOR value tree for a GetOccurrenceRequest (deep, canonical key order). */
 fun GetOccurrenceRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
@@ -2416,6 +2551,10 @@ private fun csilToCborValue(value: Any?): CborValue = when (value) {
     is CreateEventOnceRequest -> value.toCborValue()
     is CreateReceiptRequest -> value.toCborValue()
     is CreateEventReceipt -> value.toCborValue()
+    is SplitSeriesOnceRequest -> value.toCborValue()
+    is SplitReceiptRequest -> value.toCborValue()
+    is SplitOccurrenceMapping -> value.toCborValue()
+    is SplitSeriesReceipt -> value.toCborValue()
     is GetOccurrenceRequest -> value.toCborValue()
     is RespondRequest -> value.toCborValue()
     is SearchEventsRequest -> value.toCborValue()
@@ -2498,6 +2637,10 @@ fun csilFromCborValue(type: kotlin.reflect.KClass<*>, cbor: CborValue): Any = wh
     CreateEventOnceRequest::class -> createEventOnceRequestFromCborValue(cbor)
     CreateReceiptRequest::class -> createReceiptRequestFromCborValue(cbor)
     CreateEventReceipt::class -> createEventReceiptFromCborValue(cbor)
+    SplitSeriesOnceRequest::class -> splitSeriesOnceRequestFromCborValue(cbor)
+    SplitReceiptRequest::class -> splitReceiptRequestFromCborValue(cbor)
+    SplitOccurrenceMapping::class -> splitOccurrenceMappingFromCborValue(cbor)
+    SplitSeriesReceipt::class -> splitSeriesReceiptFromCborValue(cbor)
     GetOccurrenceRequest::class -> getOccurrenceRequestFromCborValue(cbor)
     RespondRequest::class -> respondRequestFromCborValue(cbor)
     SearchEventsRequest::class -> searchEventsRequestFromCborValue(cbor)

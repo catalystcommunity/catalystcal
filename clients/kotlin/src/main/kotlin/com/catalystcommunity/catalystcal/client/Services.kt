@@ -85,6 +85,8 @@ interface EventService {
     fun importEvent(request: ImportEventRequest): Event
     fun createEventOnce(request: CreateEventOnceRequest): CreateEventReceipt
     fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt
+    fun splitSeriesOnce(request: SplitSeriesOnceRequest): SplitSeriesReceipt
+    fun getSplitReceipt(request: SplitReceiptRequest): SplitSeriesReceipt
 }
 
 /** FreeBusyService service interface (host implements). */

@@ -95,6 +95,8 @@ pub const EventHandlers = struct {
     import_event: *const fn (ctx: *anyopaque, req: *const types.ImportEventRequest, resp: *types.Event) anyerror!void,
     create_event_once: *const fn (ctx: *anyopaque, req: *const types.CreateEventOnceRequest, resp: *types.CreateEventReceipt) anyerror!void,
     get_create_receipt: *const fn (ctx: *anyopaque, req: *const types.CreateReceiptRequest, resp: *types.CreateEventReceipt) anyerror!void,
+    split_series_once: *const fn (ctx: *anyopaque, req: *const types.SplitSeriesOnceRequest, resp: *types.SplitSeriesReceipt) anyerror!void,
+    get_split_receipt: *const fn (ctx: *anyopaque, req: *const types.SplitReceiptRequest, resp: *types.SplitSeriesReceipt) anyerror!void,
 };
 
 /// FreeBusyHandlers is the host's implementation of the FreeBusyService service.

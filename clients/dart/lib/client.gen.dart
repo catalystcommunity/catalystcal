@@ -536,6 +536,24 @@ final class EventClient {
     );
     return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
   }
+
+  SplitSeriesReceipt splitSeriesOnce(SplitSeriesOnceRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'split-series-once',
+      request.toCbor(),
+    );
+    return SplitSeriesReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  SplitSeriesReceipt getSplitReceipt(SplitReceiptRequest request) {
+    final csilResp = transport.call(
+      'EventService',
+      'get-split-receipt',
+      request.toCbor(),
+    );
+    return SplitSeriesReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
 }
 
 /// A typed, transport-agnostic client for the FreeBusyService service. The client owns

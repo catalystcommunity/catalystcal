@@ -1741,6 +1741,158 @@ def _create_event_receipt_from_cbor(data: bytes) -> "CreateEventReceipt":
 CreateEventReceipt.to_cbor = _create_event_receipt_to_cbor
 CreateEventReceipt.from_cbor = staticmethod(_create_event_receipt_from_cbor)
 
+def _encode_split_series_once_request_value(v: "SplitSeriesOnceRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["event"] = _encode_event_value(v.event)
+    csil_m["recurrence_id"] = v.recurrence_id
+    csil_m["idempotency_key"] = v.idempotency_key
+    csil_x = v.map_recurrence_ids
+    if csil_x is not None:
+        csil_m["map_recurrence_ids"] = csil_x
+    return csil_m
+
+def _decode_split_series_once_request_value(tree: Any) -> "SplitSeriesOnceRequest":
+    tree = _csil_expect_map(tree)
+    return SplitSeriesOnceRequest(
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+        event=_decode_event_value(tree["event"]),
+        recurrence_id=_csil_expect_text(tree["recurrence_id"]),
+        map_recurrence_ids=(None if tree.get("map_recurrence_ids") is None else [_csil_expect_text(csil_e) for csil_e in _csil_expect_array(tree["map_recurrence_ids"])]),
+    )
+
+
+def _split_series_once_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_split_series_once_request_value(self))
+
+
+def _split_series_once_request_from_cbor(data: bytes) -> "SplitSeriesOnceRequest":
+    return _decode_split_series_once_request_value(cbor_decode(data))
+
+
+SplitSeriesOnceRequest.to_cbor = _split_series_once_request_to_cbor
+SplitSeriesOnceRequest.from_cbor = staticmethod(_split_series_once_request_from_cbor)
+
+def _encode_split_receipt_request_value(v: "SplitReceiptRequest") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["series_id"] = v.series_id
+    csil_m["idempotency_key"] = v.idempotency_key
+    csil_x = v.map_recurrence_ids
+    if csil_x is not None:
+        csil_m["map_recurrence_ids"] = csil_x
+    return csil_m
+
+def _decode_split_receipt_request_value(tree: Any) -> "SplitReceiptRequest":
+    tree = _csil_expect_map(tree)
+    return SplitReceiptRequest(
+        series_id=_csil_expect_text(tree["series_id"]),
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+        map_recurrence_ids=(None if tree.get("map_recurrence_ids") is None else [_csil_expect_text(csil_e) for csil_e in _csil_expect_array(tree["map_recurrence_ids"])]),
+    )
+
+
+def _split_receipt_request_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_split_receipt_request_value(self))
+
+
+def _split_receipt_request_from_cbor(data: bytes) -> "SplitReceiptRequest":
+    return _decode_split_receipt_request_value(cbor_decode(data))
+
+
+SplitReceiptRequest.to_cbor = _split_receipt_request_to_cbor
+SplitReceiptRequest.from_cbor = staticmethod(_split_receipt_request_from_cbor)
+
+def _encode_split_occurrence_mapping_value(v: "SplitOccurrenceMapping") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_m["result"] = v.result
+    csil_x = v.event_id
+    if csil_x is not None:
+        csil_m["event_id"] = csil_x
+    csil_m["recurrence_id"] = v.recurrence_id
+    csil_x = v.mapped_recurrence_id
+    if csil_x is not None:
+        csil_m["mapped_recurrence_id"] = csil_x
+    return csil_m
+
+def _decode_split_occurrence_mapping_value(tree: Any) -> "SplitOccurrenceMapping":
+    tree = _csil_expect_map(tree)
+    return SplitOccurrenceMapping(
+        recurrence_id=_csil_expect_text(tree["recurrence_id"]),
+        result=_decode_split_map_result_value(tree["result"]),
+        event_id=(None if tree.get("event_id") is None else _csil_expect_text(tree["event_id"])),
+        mapped_recurrence_id=(None if tree.get("mapped_recurrence_id") is None else _csil_expect_text(tree["mapped_recurrence_id"])),
+    )
+
+
+def _split_occurrence_mapping_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_split_occurrence_mapping_value(self))
+
+
+def _split_occurrence_mapping_from_cbor(data: bytes) -> "SplitOccurrenceMapping":
+    return _decode_split_occurrence_mapping_value(cbor_decode(data))
+
+
+SplitOccurrenceMapping.to_cbor = _split_occurrence_mapping_to_cbor
+SplitOccurrenceMapping.from_cbor = staticmethod(_split_occurrence_mapping_from_cbor)
+
+def _encode_split_series_receipt_value(v: "SplitSeriesReceipt") -> Dict[Any, Any]:
+    csil_m: Dict[Any, Any] = {}
+    csil_x = v.series
+    if csil_x is not None:
+        csil_m["series"] = _encode_event_value(csil_x)
+    csil_m["created"] = v.created
+    csil_m["in_place"] = v.in_place
+    csil_m["mappings"] = [_encode_split_occurrence_mapping_value(csil_e) for csil_e in v.mappings]
+    csil_m["split_at"] = v.split_at
+    csil_m["series_id"] = v.series_id
+    csil_x = v.successor
+    if csil_x is not None:
+        csil_m["successor"] = _encode_event_value(csil_x)
+    csil_m["created_at"] = v.created_at
+    csil_m["calendar_id"] = v.calendar_id
+    csil_m["series_state"] = v.series_state
+    csil_m["successor_id"] = v.successor_id
+    csil_m["idempotency_key"] = v.idempotency_key
+    csil_x = v.series_trash_id
+    if csil_x is not None:
+        csil_m["series_trash_id"] = csil_x
+    csil_m["successor_state"] = v.successor_state
+    csil_x = v.successor_trash_id
+    if csil_x is not None:
+        csil_m["successor_trash_id"] = csil_x
+    return csil_m
+
+def _decode_split_series_receipt_value(tree: Any) -> "SplitSeriesReceipt":
+    tree = _csil_expect_map(tree)
+    return SplitSeriesReceipt(
+        series_id=_csil_expect_text(tree["series_id"]),
+        idempotency_key=_csil_expect_text(tree["idempotency_key"]),
+        successor_id=_csil_expect_text(tree["successor_id"]),
+        split_at=_csil_expect_text(tree["split_at"]),
+        in_place=_csil_expect_bool(tree["in_place"]),
+        created=_csil_expect_bool(tree["created"]),
+        created_at=_csil_expect_text(tree["created_at"]),
+        calendar_id=_csil_expect_text(tree["calendar_id"]),
+        series_state=_decode_create_receipt_state_value(tree["series_state"]),
+        series=(None if tree.get("series") is None else _decode_event_value(tree["series"])),
+        series_trash_id=(None if tree.get("series_trash_id") is None else _csil_expect_text(tree["series_trash_id"])),
+        successor_state=_decode_create_receipt_state_value(tree["successor_state"]),
+        successor=(None if tree.get("successor") is None else _decode_event_value(tree["successor"])),
+        successor_trash_id=(None if tree.get("successor_trash_id") is None else _csil_expect_text(tree["successor_trash_id"])),
+        mappings=[_decode_split_occurrence_mapping_value(csil_e) for csil_e in _csil_expect_array(tree["mappings"])],
+    )
+
+
+def _split_series_receipt_to_cbor(self) -> bytes:
+    return cbor_encode(_encode_split_series_receipt_value(self))
+
+
+def _split_series_receipt_from_cbor(data: bytes) -> "SplitSeriesReceipt":
+    return _decode_split_series_receipt_value(cbor_decode(data))
+
+
+SplitSeriesReceipt.to_cbor = _split_series_receipt_to_cbor
+SplitSeriesReceipt.from_cbor = staticmethod(_split_series_receipt_from_cbor)
+
 def _encode_get_occurrence_request_value(v: "GetOccurrenceRequest") -> Dict[Any, Any]:
     csil_m: Dict[Any, Any] = {}
     csil_m["event_id"] = v.event_id
@@ -2801,6 +2953,13 @@ def _decode_create_receipt_state_value(csil_v):
     csil_v = _csil_expect_text(csil_v)
     if csil_v not in ("live", "trashed", "deleted", "hidden"):
         raise CsilDecodeError(f"csil cbor: unknown create_receipt_state value {csil_v!r}")
+    return csil_v
+
+
+def _decode_split_map_result_value(csil_v):
+    csil_v = _csil_expect_text(csil_v)
+    if csil_v not in ("original", "successor", "none"):
+        raise CsilDecodeError(f"csil cbor: unknown split_map_result value {csil_v!r}")
     return csil_v
 
 

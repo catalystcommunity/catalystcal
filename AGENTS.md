@@ -75,9 +75,13 @@ code, files, and docs. Do not use other spellings or abbreviations.
   `created_by` to someone other than the caller. It can make a user row
   for a person who did not sign in (`store.EnsureUser`, no
   `last_seen_at`).
-- **Create receipts are permanent.** `event_create_receipts.event_id` has
-  no foreign key. A delete, a move, or a purge must not remove a receipt.
-  Only a calendar or user delete removes it (cascade).
+- **Create and split receipts are permanent.**
+  `event_create_receipts.event_id` and `event_split_receipts.series_id` /
+  `successor_id` have no foreign key. A delete, a move, or a purge must
+  not remove a receipt. Only a calendar or user delete removes it
+  (cascade). A split receipt keeps the series before the split and the
+  successor as CBOR. The mapping uses only these copies. A
+  `this_and_future` change goes through `planSplit`.
 - **csilgen lint warnings are expected.** The house CSIL style causes them.
   Only errors fail `./tools lint`.
 - **SQLite only.** The driver is `modernc.org/sqlite` (pure Go), so

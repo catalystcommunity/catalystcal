@@ -183,6 +183,12 @@ defmodule Csilgen.Generated.EventServer do
   @callback get_create_receipt(req :: Csilgen.Generated.CreateReceiptRequest.t(), ctx :: map()) ::
               {:ok, Csilgen.Generated.CreateEventReceipt.t()}
               | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback split_series_once(req :: Csilgen.Generated.SplitSeriesOnceRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.SplitSeriesReceipt.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
+  @callback get_split_receipt(req :: Csilgen.Generated.SplitReceiptRequest.t(), ctx :: map()) ::
+              {:ok, Csilgen.Generated.SplitSeriesReceipt.t()}
+              | {:error, Csilgen.Generated.ServiceError.t()}
 end
 
 defmodule Csilgen.Generated.FreeBusyServer do

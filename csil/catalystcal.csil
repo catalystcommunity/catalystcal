@@ -644,6 +644,96 @@ CreateEventReceipt = {
     ? trash_id: TrashID
 }
 
+;; A this_and_future change that a client can send again safely. The
+;; server keeps a receipt for each key. The key is scoped to the series
+;; (event.event_id), the effective user, and the bearer, as for
+;; create-event-once. The split and the receipt are written in one
+;; transaction. The receipt stays after later edits, moves, deletes, and
+;; purges. A key never splits a second time.
+;;
+;; The change is the same as update-event with scope this_and_future.
+;; event.event_id must be a series master. event.start (event.start_date
+;; for an all-day series) is the new start of the instance at
+;; recurrence_id: the first instance of the successor series. A
+;; recurrence_id at or before the first instance changes the series in
+;; place: then successor_id is the series id and in_place is true. The
+;; overrides of the instances at and after the split are removed.
+;;
+;; A call with a known key and the same event and recurrence_id changes
+;; nothing and returns the receipt (created false). A known key with other
+;; content answers 409. Each call checks the access of the caller now, on
+;; the calendar of the split: the caller must be able to change the series.
+SplitSeriesOnceRequest = {
+    ;; 1 to 200 characters.
+    idempotency_key: text .size (1..200),
+    event: Event,
+    recurrence_id: Timestamp,
+    ;; Recurrence ids of the series before the split to map (at most 500).
+    ;; Not part of the content of the request.
+    ? map_recurrence_ids: [* Timestamp]
+}
+
+;; Find the receipt of a split-series-once call. The same scope and the
+;; same access check apply. 404 when there is no receipt.
+SplitReceiptRequest = {
+    ;; event.event_id of the split request.
+    series_id: EventID,
+    idempotency_key: text .size (1..200),
+    ? map_recurrence_ids: [* Timestamp]
+}
+
+;; Where an instance of the series before the split is after the split.
+;;   original  - before the split: the same series, the same recurrence id
+;;   successor - the successor series, at mapped_recurrence_id
+;;   none      - no occurrence: the time was not an instance of the series
+;;               before the split, or the mapped time is not an instance
+;;               of the successor
+SplitMapResult = "original" / "successor" / "none"
+
+;; The mapping is fixed at the split. It uses the series before the split
+;; and the successor as the split wrote it. It does not change after later
+;; edits. Use get-occurrence for the occurrence now.
+;;
+;; An instance at or after the split moves by the same wall-clock amount
+;; as the first instance: mapped = R + (successor start - split instance),
+;; in local time of each series (time_zone; UTC for all-day). So a change
+;; across daylight time keeps the local time. For an all-day successor the
+;; mapped time is 00:00:00Z of the date.
+SplitOccurrenceMapping = {
+    recurrence_id: Timestamp,
+    result: SplitMapResult,
+    ;; For original and successor.
+    ? event_id: EventID,
+    ? mapped_recurrence_id: Timestamp
+}
+
+SplitSeriesReceipt = {
+    ;; The series of the request. It does not change.
+    series_id: EventID,
+    idempotency_key: text,
+    ;; The series that took the instance at the split and the later ones.
+    successor_id: EventID,
+    ;; The first instance that the successor took: the request
+    ;; recurrence_id, or the first instance for an in-place change.
+    split_at: Timestamp,
+    in_place: bool,
+    ;; True only for the call that made the split.
+    created: bool,
+    ;; When the split happened.
+    created_at: Timestamp,
+    ;; The calendar of the split.
+    calendar_id: CalendarID,
+    ;; The two series now. The states are as in CreateEventReceipt.
+    series_state: CreateReceiptState,
+    ? series: Event,
+    ? series_trash_id: TrashID,
+    successor_state: CreateReceiptState,
+    ? successor: Event,
+    ? successor_trash_id: TrashID,
+    ;; One entry for each map_recurrence_ids value, in request order.
+    mappings: [* SplitOccurrenceMapping]
+}
+
 ;; One occurrence by its stable reference: the series and the original
 ;; start of the instance (recurrence_id). The answer has the same shape as
 ;; a list-events occurrence. An override applies, also when it moved the
@@ -662,6 +752,7 @@ CreateEventReceipt = {
 ;;   instance and the later ones. update-event returns it. The old series
 ;;   ends before the instance, so (old event_id, later recurrence_id)
 ;;   gives 404 after the split. Use the new event_id.
+;;   split-series-once keeps a receipt that maps the old references.
 GetOccurrenceRequest = {
     event_id: EventID,
     ? recurrence_id: Timestamp
@@ -1007,7 +1098,9 @@ service EventService {
     restore-event: RestoreEventRequest -> Event          / ServiceError,
     import-event:  ImportEventRequest  -> Event          / ServiceError,
     create-event-once:  CreateEventOnceRequest -> CreateEventReceipt / ServiceError,
-    get-create-receipt: CreateReceiptRequest   -> CreateEventReceipt / ServiceError
+    get-create-receipt: CreateReceiptRequest   -> CreateEventReceipt / ServiceError,
+    split-series-once:  SplitSeriesOnceRequest -> SplitSeriesReceipt / ServiceError,
+    get-split-receipt:  SplitReceiptRequest    -> SplitSeriesReceipt / ServiceError
 }
 
 service FreeBusyService {

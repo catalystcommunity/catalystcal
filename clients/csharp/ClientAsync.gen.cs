@@ -164,6 +164,10 @@ public sealed class EventAsyncClient(ICsilAsyncTransport transport)
         Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
     public async System.Threading.Tasks.Task<CreateEventReceipt> GetCreateReceiptAsync(CreateReceiptRequest createReceiptRequest) =>
         Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
+    public async System.Threading.Tasks.Task<SplitSeriesReceipt> SplitSeriesOnceAsync(SplitSeriesOnceRequest splitSeriesOnceRequest) =>
+        Codec.Decode<SplitSeriesReceipt>(await transport.Call("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest)));
+    public async System.Threading.Tasks.Task<SplitSeriesReceipt> GetSplitReceiptAsync(SplitReceiptRequest splitReceiptRequest) =>
+        Codec.Decode<SplitSeriesReceipt>(await transport.Call("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

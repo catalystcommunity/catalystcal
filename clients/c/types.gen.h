@@ -121,6 +121,13 @@ typedef enum CreateReceiptState {
     CREATE_RECEIPT_STATE_HIDDEN,
 } CreateReceiptState;
 
+/* SplitMapResult is an enumeration. */
+typedef enum SplitMapResult {
+    SPLIT_MAP_RESULT_ORIGINAL,
+    SPLIT_MAP_RESULT_SUCCESSOR,
+    SPLIT_MAP_RESULT_NONE,
+} SplitMapResult;
+
 /* Forward declarations (resolve mutual and out-of-order references). */
 typedef struct IdentityRef IdentityRef;
 typedef struct User User;
@@ -161,6 +168,10 @@ typedef struct ImportEventRequest ImportEventRequest;
 typedef struct CreateEventOnceRequest CreateEventOnceRequest;
 typedef struct CreateReceiptRequest CreateReceiptRequest;
 typedef struct CreateEventReceipt CreateEventReceipt;
+typedef struct SplitSeriesOnceRequest SplitSeriesOnceRequest;
+typedef struct SplitReceiptRequest SplitReceiptRequest;
+typedef struct SplitOccurrenceMapping SplitOccurrenceMapping;
+typedef struct SplitSeriesReceipt SplitSeriesReceipt;
 typedef struct GetOccurrenceRequest GetOccurrenceRequest;
 typedef struct RespondRequest RespondRequest;
 typedef struct SearchEventsRequest SearchEventsRequest;
@@ -591,6 +602,51 @@ typedef struct CreateEventReceipt {
     Event *event;
     TrashID *trash_id;
 } CreateEventReceipt;
+
+/* SplitSeriesOnceRequest is a structured data type. */
+typedef struct SplitSeriesOnceRequest {
+    char *idempotency_key;
+    Event event;
+    Timestamp recurrence_id;
+    Timestamp *map_recurrence_ids;
+    size_t map_recurrence_ids_count;
+} SplitSeriesOnceRequest;
+
+/* SplitReceiptRequest is a structured data type. */
+typedef struct SplitReceiptRequest {
+    EventID series_id;
+    char *idempotency_key;
+    Timestamp *map_recurrence_ids;
+    size_t map_recurrence_ids_count;
+} SplitReceiptRequest;
+
+/* SplitOccurrenceMapping is a structured data type. */
+typedef struct SplitOccurrenceMapping {
+    Timestamp recurrence_id;
+    SplitMapResult result;
+    EventID *event_id;
+    Timestamp *mapped_recurrence_id;
+} SplitOccurrenceMapping;
+
+/* SplitSeriesReceipt is a structured data type. */
+typedef struct SplitSeriesReceipt {
+    EventID series_id;
+    char *idempotency_key;
+    EventID successor_id;
+    Timestamp split_at;
+    bool in_place;
+    bool created;
+    Timestamp created_at;
+    CalendarID calendar_id;
+    CreateReceiptState series_state;
+    Event *series;
+    TrashID *series_trash_id;
+    CreateReceiptState successor_state;
+    Event *successor;
+    TrashID *successor_trash_id;
+    SplitOccurrenceMapping *mappings;
+    size_t mappings_count;
+} SplitSeriesReceipt;
 
 /* GetOccurrenceRequest is a structured data type. */
 typedef struct GetOccurrenceRequest {

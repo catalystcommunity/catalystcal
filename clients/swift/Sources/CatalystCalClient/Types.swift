@@ -1323,6 +1323,175 @@ public struct CreateEventReceipt: Equatable, Sendable {
     ]
 }
 
+/// SplitSeriesOnceRequest is a generated CSIL record type.
+public struct SplitSeriesOnceRequest: Equatable, Sendable {
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+    public let event: Event
+    /// wire key: recurrence_id
+    public let recurrenceId: Timestamp
+    /// wire key: map_recurrence_ids
+    public let mapRecurrenceIds: [Timestamp]?
+
+    public init(idempotencyKey: String, event: Event, recurrenceId: Timestamp, mapRecurrenceIds: [Timestamp]? = nil) {
+        self.idempotencyKey = idempotencyKey
+        self.event = event
+        self.recurrenceId = recurrenceId
+        self.mapRecurrenceIds = mapRecurrenceIds
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.idempotencyKey.count < 1 {
+            throw CsilValidationError("field 'idempotencyKey' must have at least 1 elements")
+        }
+        if self.idempotencyKey.count > 200 {
+            throw CsilValidationError("field 'idempotencyKey' must have at most 200 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "idempotencyKey": "idempotency_key",
+        "event": "event",
+        "recurrenceId": "recurrence_id",
+        "mapRecurrenceIds": "map_recurrence_ids"
+    ]
+}
+
+/// SplitReceiptRequest is a generated CSIL record type.
+public struct SplitReceiptRequest: Equatable, Sendable {
+    /// wire key: series_id
+    public let seriesId: EventId
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+    /// wire key: map_recurrence_ids
+    public let mapRecurrenceIds: [Timestamp]?
+
+    public init(seriesId: EventId, idempotencyKey: String, mapRecurrenceIds: [Timestamp]? = nil) {
+        self.seriesId = seriesId
+        self.idempotencyKey = idempotencyKey
+        self.mapRecurrenceIds = mapRecurrenceIds
+    }
+
+    /// Validate field constraints, throwing CsilValidationError on the first failure.
+    public func validate() throws {
+        if self.idempotencyKey.count < 1 {
+            throw CsilValidationError("field 'idempotencyKey' must have at least 1 elements")
+        }
+        if self.idempotencyKey.count > 200 {
+            throw CsilValidationError("field 'idempotencyKey' must have at most 200 elements")
+        }
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "seriesId": "series_id",
+        "idempotencyKey": "idempotency_key",
+        "mapRecurrenceIds": "map_recurrence_ids"
+    ]
+}
+
+/// SplitMapResult is a generated CSIL string enum (a closed set of wire values).
+public enum SplitMapResult: String, Equatable, Sendable, CaseIterable {
+    case original = "original"
+    case successor = "successor"
+    case none = "none"
+}
+
+/// SplitOccurrenceMapping is a generated CSIL record type.
+public struct SplitOccurrenceMapping: Equatable, Sendable {
+    /// wire key: recurrence_id
+    public let recurrenceId: Timestamp
+    public let result: SplitMapResult
+    /// wire key: event_id
+    public let eventId: EventId?
+    /// wire key: mapped_recurrence_id
+    public let mappedRecurrenceId: Timestamp?
+
+    public init(recurrenceId: Timestamp, result: SplitMapResult, eventId: EventId? = nil, mappedRecurrenceId: Timestamp? = nil) {
+        self.recurrenceId = recurrenceId
+        self.result = result
+        self.eventId = eventId
+        self.mappedRecurrenceId = mappedRecurrenceId
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "recurrenceId": "recurrence_id",
+        "result": "result",
+        "eventId": "event_id",
+        "mappedRecurrenceId": "mapped_recurrence_id"
+    ]
+}
+
+/// SplitSeriesReceipt is a generated CSIL record type.
+public struct SplitSeriesReceipt: Equatable, Sendable {
+    /// wire key: series_id
+    public let seriesId: EventId
+    /// wire key: idempotency_key
+    public let idempotencyKey: String
+    /// wire key: successor_id
+    public let successorId: EventId
+    /// wire key: split_at
+    public let splitAt: Timestamp
+    /// wire key: in_place
+    public let inPlace: Bool
+    public let created: Bool
+    /// wire key: created_at
+    public let createdAt: Timestamp
+    /// wire key: calendar_id
+    public let calendarId: CalendarId
+    /// wire key: series_state
+    public let seriesState: CreateReceiptState
+    public let series: Event?
+    /// wire key: series_trash_id
+    public let seriesTrashId: TrashId?
+    /// wire key: successor_state
+    public let successorState: CreateReceiptState
+    public let successor: Event?
+    /// wire key: successor_trash_id
+    public let successorTrashId: TrashId?
+    public let mappings: [SplitOccurrenceMapping]
+
+    public init(seriesId: EventId, idempotencyKey: String, successorId: EventId, splitAt: Timestamp, inPlace: Bool, created: Bool, createdAt: Timestamp, calendarId: CalendarId, seriesState: CreateReceiptState, series: Event? = nil, seriesTrashId: TrashId? = nil, successorState: CreateReceiptState, successor: Event? = nil, successorTrashId: TrashId? = nil, mappings: [SplitOccurrenceMapping]) {
+        self.seriesId = seriesId
+        self.idempotencyKey = idempotencyKey
+        self.successorId = successorId
+        self.splitAt = splitAt
+        self.inPlace = inPlace
+        self.created = created
+        self.createdAt = createdAt
+        self.calendarId = calendarId
+        self.seriesState = seriesState
+        self.series = series
+        self.seriesTrashId = seriesTrashId
+        self.successorState = successorState
+        self.successor = successor
+        self.successorTrashId = successorTrashId
+        self.mappings = mappings
+    }
+
+    /// CBOR wire keys (verbatim) keyed by Swift property name.
+    public static let wireKeys: [String: String] = [
+        "seriesId": "series_id",
+        "idempotencyKey": "idempotency_key",
+        "successorId": "successor_id",
+        "splitAt": "split_at",
+        "inPlace": "in_place",
+        "created": "created",
+        "createdAt": "created_at",
+        "calendarId": "calendar_id",
+        "seriesState": "series_state",
+        "series": "series",
+        "seriesTrashId": "series_trash_id",
+        "successorState": "successor_state",
+        "successor": "successor",
+        "successorTrashId": "successor_trash_id",
+        "mappings": "mappings"
+    ]
+}
+
 /// GetOccurrenceRequest is a generated CSIL record type.
 public struct GetOccurrenceRequest: Equatable, Sendable {
     /// wire key: event_id

@@ -513,44 +513,62 @@ func (s *EventService) UpdateEvent(ctx context.Context, req csil.UpdateEventRequ
 		if err != nil {
 			return csil.Event{}, err
 		}
-		mstart, _, err := store.Bounds(prev.Ev)
-		if err != nil {
-			return csil.Event{}, internal(err, "master bounds")
-		}
-		if !rid.After(mstart) {
-			row := nextContent(id, r, prev, content)
-			if err := s.Store.UpdateEvent(ctx, &row); err != nil {
-				return csil.Event{}, internal(err, "update event")
-			}
-			return s.reload(ctx, row.ID())
-		}
-		old, err := truncatedMaster(id, prev, rid)
+		sp, err := planSplit(id, r, prev, content, rid)
 		if err != nil {
 			return csil.Event{}, err
 		}
-		// The new series: the client's content, from the instance onward.
-		if content.Recurrence == nil {
-			_, exAfter := splitTimes(prev.Ev.Recurrence.Exdates, rid)
-			_, rdAfter := splitTimes(prev.Ev.Recurrence.Rdates, rid)
-			content.Recurrence = &csil.Recurrence{Rrule: prev.Ev.Recurrence.Rrule, Exdates: exAfter, Rdates: rdAfter}
-		}
-		base := prev
-		base.Ev.EventId = ""
-		base.Ev.Uid = ptr(store.NewID() + "@catalystcal")
-		base.Ev.Sequence = -1
-		next := nextContent(id, r, base, content)
-		next.Ev.EventId = ""
-		if err := s.Store.ApplyEventWrites(ctx, []store.EventWrite{
-			{Update: &old},
-			{DeleteOverridesOf: prev.ID(), From: rid},
-			{Insert: &next},
-		}); err != nil {
+		if err := s.Store.ApplyEventWrites(ctx, sp.writes); err != nil {
 			return csil.Event{}, internal(err, "split series")
 		}
-		csilrpc.SetAuditTarget(ctx, "event:"+next.ID())
-		return s.reload(ctx, next.ID())
+		csilrpc.SetAuditTarget(ctx, "event:"+sp.result.ID())
+		return s.reload(ctx, sp.result.ID())
 	}
 	return csil.Event{}, badReq("unknown scope " + scope)
+}
+
+// seriesSplit is a this_and_future change before it is written.
+type seriesSplit struct {
+	writes []store.EventWrite
+	// result is the successor series, or the master for an in-place
+	// change. The writes point to it.
+	result  *store.Event
+	inPlace bool
+	// at is the first instance that result takes.
+	at time.Time
+}
+
+// planSplit builds the writes of a this_and_future change at rid. A rid at
+// or before the first instance changes the series in place.
+func planSplit(id *auth.Identity, r *resolver, prev store.Event, content csil.Event, rid time.Time) (seriesSplit, error) {
+	mstart, _, err := store.Bounds(prev.Ev)
+	if err != nil {
+		return seriesSplit{}, internal(err, "master bounds")
+	}
+	if !rid.After(mstart) {
+		row := nextContent(id, r, prev, content)
+		return seriesSplit{writes: []store.EventWrite{{Update: &row}}, result: &row, inPlace: true, at: mstart}, nil
+	}
+	old, err := truncatedMaster(id, prev, rid)
+	if err != nil {
+		return seriesSplit{}, err
+	}
+	// The new series: the client's content, from the instance onward.
+	if content.Recurrence == nil {
+		_, exAfter := splitTimes(prev.Ev.Recurrence.Exdates, rid)
+		_, rdAfter := splitTimes(prev.Ev.Recurrence.Rdates, rid)
+		content.Recurrence = &csil.Recurrence{Rrule: prev.Ev.Recurrence.Rrule, Exdates: exAfter, Rdates: rdAfter}
+	}
+	base := prev
+	base.Ev.EventId = ""
+	base.Ev.Uid = ptr(store.NewID() + "@catalystcal")
+	base.Ev.Sequence = -1
+	next := nextContent(id, r, base, content)
+	next.Ev.EventId = csil.EventID(store.NewID())
+	return seriesSplit{writes: []store.EventWrite{
+		{Update: &old},
+		{DeleteOverridesOf: prev.ID(), From: rid},
+		{Insert: &next},
+	}, result: &next, at: rid}, nil
 }
 
 // truncatedMaster returns the master changed to end before cut.

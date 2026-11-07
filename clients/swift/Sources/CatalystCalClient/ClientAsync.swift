@@ -347,6 +347,16 @@ public struct EventAsyncClient {
         return try CreateEventReceipt.fromCbor(csilResp)
     }
 
+    public func splitSeriesOnce(_ request: SplitSeriesOnceRequest) async throws -> SplitSeriesReceipt {
+        let csilResp = try await transport.call(service: "EventService", op: "split-series-once", request: request.toCbor())
+        return try SplitSeriesReceipt.fromCbor(csilResp)
+    }
+
+    public func getSplitReceipt(_ request: SplitReceiptRequest) async throws -> SplitSeriesReceipt {
+        let csilResp = try await transport.call(service: "EventService", op: "get-split-receipt", request: request.toCbor())
+        return try SplitSeriesReceipt.fromCbor(csilResp)
+    }
+
 }
 
 /// FreeBusyAsyncClient is a typed client for the FreeBusyService service. The client owns

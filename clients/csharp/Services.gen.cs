@@ -95,6 +95,8 @@ public interface IEventService
     Event ImportEvent(ImportEventRequest importEventRequest);
     CreateEventReceipt CreateEventOnce(CreateEventOnceRequest createEventOnceRequest);
     CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest);
+    SplitSeriesReceipt SplitSeriesOnce(SplitSeriesOnceRequest splitSeriesOnceRequest);
+    SplitSeriesReceipt GetSplitReceipt(SplitReceiptRequest splitReceiptRequest);
 }
 
 /// <summary>Server handler interface for the FreeBusyService service.</summary>

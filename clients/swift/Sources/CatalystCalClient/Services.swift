@@ -90,6 +90,8 @@ public protocol EventService {
     func importEvent(_ request: ImportEventRequest) throws -> Event
     func createEventOnce(_ request: CreateEventOnceRequest) throws -> CreateEventReceipt
     func getCreateReceipt(_ request: CreateReceiptRequest) throws -> CreateEventReceipt
+    func splitSeriesOnce(_ request: SplitSeriesOnceRequest) throws -> SplitSeriesReceipt
+    func getSplitReceipt(_ request: SplitReceiptRequest) throws -> SplitSeriesReceipt
 }
 
 /// FreeBusyService is the server-side handler seam.

@@ -217,6 +217,12 @@ class EventClient(private val transport: Transport) {
     fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt {
         return decode<CreateEventReceipt>(transport.call("EventService", "get-create-receipt", encode(request)))
     }
+    fun splitSeriesOnce(request: SplitSeriesOnceRequest): SplitSeriesReceipt {
+        return decode<SplitSeriesReceipt>(transport.call("EventService", "split-series-once", encode(request)))
+    }
+    fun getSplitReceipt(request: SplitReceiptRequest): SplitSeriesReceipt {
+        return decode<SplitSeriesReceipt>(transport.call("EventService", "get-split-receipt", encode(request)))
+    }
 }
 
 /** Typed client for the FreeBusyService service. The client owns (de)serialization;

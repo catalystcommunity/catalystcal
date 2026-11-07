@@ -851,6 +851,34 @@ defmodule Csilgen.Generated.EventClient do
     Csilgen.Generated.CreateEventReceipt.from_cbor(resp)
   end
 
+  @spec split_series_once(t(), Csilgen.Generated.SplitSeriesOnceRequest.t()) ::
+          Csilgen.Generated.SplitSeriesReceipt.t()
+  def split_series_once(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "split-series-once",
+        Csilgen.Generated.SplitSeriesOnceRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.SplitSeriesReceipt.from_cbor(resp)
+  end
+
+  @spec get_split_receipt(t(), Csilgen.Generated.SplitReceiptRequest.t()) ::
+          Csilgen.Generated.SplitSeriesReceipt.t()
+  def get_split_receipt(%__MODULE__{transport: transport}, req) do
+    resp =
+      Csilgen.Generated.Transport.call(
+        transport,
+        "EventService",
+        "get-split-receipt",
+        Csilgen.Generated.SplitReceiptRequest.to_cbor(req)
+      )
+
+    Csilgen.Generated.SplitSeriesReceipt.from_cbor(resp)
+  end
+
   defp encode_get_event_request(req) do
     Csilgen.Generated.Cbor.encode({:text, req})
   end

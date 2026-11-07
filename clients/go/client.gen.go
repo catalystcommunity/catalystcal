@@ -581,6 +581,24 @@ func (c *EventClient) GetCreateReceipt(ctx context.Context, req CreateReceiptReq
 	return DecodeCreateEventReceipt(csilResp)
 }
 
+func (c *EventClient) SplitSeriesOnce(ctx context.Context, req SplitSeriesOnceRequest) (SplitSeriesReceipt, error) {
+	var csilZero SplitSeriesReceipt
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "split-series-once", EncodeSplitSeriesOnceRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeSplitSeriesReceipt(csilResp)
+}
+
+func (c *EventClient) GetSplitReceipt(ctx context.Context, req SplitReceiptRequest) (SplitSeriesReceipt, error) {
+	var csilZero SplitSeriesReceipt
+	csilResp, csilErr := c.transport.Call(ctx, "EventService", "get-split-receipt", EncodeSplitReceiptRequest(req))
+	if csilErr != nil {
+		return csilZero, csilErr
+	}
+	return DecodeSplitSeriesReceipt(csilResp)
+}
+
 // FreeBusyClient is a typed client for the FreeBusyService service. The client owns
 // (de)serialization via the generated codec; the transport only moves bytes.
 type FreeBusyClient struct {

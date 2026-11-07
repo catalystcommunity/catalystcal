@@ -788,6 +788,38 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
             .await?;
         decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
     }
+
+    /// split-series-once (request/response).
+    pub async fn split_series_once(
+        &self,
+        req: SplitSeriesOnceRequest,
+    ) -> Result<SplitSeriesReceipt, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "split-series-once",
+                &encode_split_series_once_request(&req),
+            )
+            .await?;
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
+
+    /// get-split-receipt (request/response).
+    pub async fn get_split_receipt(
+        &self,
+        req: SplitReceiptRequest,
+    ) -> Result<SplitSeriesReceipt, ClientError> {
+        let csil_resp = self
+            .transport
+            .call(
+                "EventService",
+                "get-split-receipt",
+                &encode_split_receipt_request(&req),
+            )
+            .await?;
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+    }
 }
 
 /// Typed client for the FreeBusyService service.

@@ -511,6 +511,63 @@ and encode_create_event_receipt (v : create_event_receipt) : Cbor.t =
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
        ])
 
+and encode_split_series_once_request (v : split_series_once_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "event", (encode_event v.event));
+         Some (Cbor.Text "recurrence_id", (Cbor.Text v.recurrence_id));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
+       ])
+
+and encode_split_receipt_request (v : split_receipt_request) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
+       ])
+
+and encode_split_map_result (v : split_map_result) : Cbor.t =
+  match v with Original -> Cbor.Text "original" | Successor -> Cbor.Text "successor" | None -> Cbor.Text "none"
+
+and encode_split_occurrence_mapping (v : split_occurrence_mapping) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         Some (Cbor.Text "result", (encode_split_map_result v.result));
+         (match v.event_id with Some csil_x -> Some (Cbor.Text "event_id", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "recurrence_id", (Cbor.Text v.recurrence_id));
+         (match v.mapped_recurrence_id with Some csil_x -> Some (Cbor.Text "mapped_recurrence_id", (Cbor.Text csil_x)) | None -> None);
+       ])
+
+and encode_split_series_receipt (v : split_series_receipt) : Cbor.t =
+  Cbor.Map
+    (List.filter_map
+       (fun x -> x)
+       [
+         (match v.series with Some csil_x -> Some (Cbor.Text "series", (encode_event csil_x)) | None -> None);
+         Some (Cbor.Text "created", (Cbor.Bool v.created));
+         Some (Cbor.Text "in_place", (Cbor.Bool v.in_place));
+         Some (Cbor.Text "mappings", (Cbor.Array (List.map (fun csil_e -> (encode_split_occurrence_mapping csil_e)) v.mappings)));
+         Some (Cbor.Text "split_at", (Cbor.Text v.split_at));
+         Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
+         (match v.successor with Some csil_x -> Some (Cbor.Text "successor", (encode_event csil_x)) | None -> None);
+         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
+         Some (Cbor.Text "series_state", (encode_create_receipt_state v.series_state));
+         Some (Cbor.Text "successor_id", (Cbor.Text v.successor_id));
+         Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
+         (match v.series_trash_id with Some csil_x -> Some (Cbor.Text "series_trash_id", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "successor_state", (encode_create_receipt_state v.successor_state));
+         (match v.successor_trash_id with Some csil_x -> Some (Cbor.Text "successor_trash_id", (Cbor.Text csil_x)) | None -> None);
+       ])
+
 and encode_get_occurrence_request (v : get_occurrence_request) : Cbor.t =
   Cbor.Map
     (List.filter_map
@@ -1535,6 +1592,83 @@ and decode_create_event_receipt (csil_c : Cbor.t) : create_event_receipt =
       }
   | _ -> failwith "csilgen: expected map for create_event_receipt"
 
+and decode_split_series_once_request (csil_c : Cbor.t) : split_series_once_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        event = (decode_event (csil_req "event"));
+        recurrence_id = (Cbor.to_text (csil_req "recurrence_id"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for split_series_once_request"
+
+and decode_split_receipt_request (csil_c : Cbor.t) : split_receipt_request =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        series_id = (Cbor.to_text (csil_req "series_id"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for split_receipt_request"
+
+and decode_split_map_result (csil_c : Cbor.t) : split_map_result =
+  match Cbor.to_text csil_c with "original" -> Original | "successor" -> Successor | "none" -> None | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
+
+and decode_split_occurrence_mapping (csil_c : Cbor.t) : split_occurrence_mapping =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        result = (decode_split_map_result (csil_req "result"));
+        event_id = (match csil_field "event_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (Cbor.to_text (csil_req "recurrence_id"));
+        mapped_recurrence_id = (match csil_field "mapped_recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for split_occurrence_mapping"
+
+and decode_split_series_receipt (csil_c : Cbor.t) : split_series_receipt =
+  match csil_c with
+  | Cbor.Map csil_kvs ->
+      let csil_field k = List.assoc_opt (Cbor.Text k) csil_kvs in
+      let csil_req k =
+        match csil_field k with Some v -> v | None -> failwith ("csilgen: missing field " ^ k)
+      in
+      ignore csil_req;
+      {
+        series = (match csil_field "series" with Some csil_v -> Some (decode_event csil_v) | None -> None);
+        created = (Cbor.to_bool (csil_req "created"));
+        in_place = (Cbor.to_bool (csil_req "in_place"));
+        mappings = (match (csil_req "mappings") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_split_occurrence_mapping csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
+        split_at = (Cbor.to_text (csil_req "split_at"));
+        series_id = (Cbor.to_text (csil_req "series_id"));
+        successor = (match csil_field "successor" with Some csil_v -> Some (decode_event csil_v) | None -> None);
+        created_at = (Cbor.to_text (csil_req "created_at"));
+        calendar_id = (Cbor.to_text (csil_req "calendar_id"));
+        series_state = (decode_create_receipt_state (csil_req "series_state"));
+        successor_id = (Cbor.to_text (csil_req "successor_id"));
+        idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
+        series_trash_id = (match csil_field "series_trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        successor_state = (decode_create_receipt_state (csil_req "successor_state"));
+        successor_trash_id = (match csil_field "successor_trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+      }
+  | _ -> failwith "csilgen: expected map for split_series_receipt"
+
 and decode_get_occurrence_request (csil_c : Cbor.t) : get_occurrence_request =
   match csil_c with
   | Cbor.Map csil_kvs ->
@@ -2238,6 +2372,26 @@ let decode_create_receipt_request_bytes (b : bytes) : create_receipt_request =
 let encode_create_event_receipt_bytes (v : create_event_receipt) : bytes = Cbor.encode (encode_create_event_receipt v)
 let decode_create_event_receipt_bytes (b : bytes) : create_event_receipt =
   match Cbor.decode b with Ok c -> decode_create_event_receipt c | Error e -> failwith e
+
+let encode_split_series_once_request_bytes (v : split_series_once_request) : bytes = Cbor.encode (encode_split_series_once_request v)
+let decode_split_series_once_request_bytes (b : bytes) : split_series_once_request =
+  match Cbor.decode b with Ok c -> decode_split_series_once_request c | Error e -> failwith e
+
+let encode_split_receipt_request_bytes (v : split_receipt_request) : bytes = Cbor.encode (encode_split_receipt_request v)
+let decode_split_receipt_request_bytes (b : bytes) : split_receipt_request =
+  match Cbor.decode b with Ok c -> decode_split_receipt_request c | Error e -> failwith e
+
+let encode_split_map_result_bytes (v : split_map_result) : bytes = Cbor.encode (encode_split_map_result v)
+let decode_split_map_result_bytes (b : bytes) : split_map_result =
+  match Cbor.decode b with Ok c -> decode_split_map_result c | Error e -> failwith e
+
+let encode_split_occurrence_mapping_bytes (v : split_occurrence_mapping) : bytes = Cbor.encode (encode_split_occurrence_mapping v)
+let decode_split_occurrence_mapping_bytes (b : bytes) : split_occurrence_mapping =
+  match Cbor.decode b with Ok c -> decode_split_occurrence_mapping c | Error e -> failwith e
+
+let encode_split_series_receipt_bytes (v : split_series_receipt) : bytes = Cbor.encode (encode_split_series_receipt v)
+let decode_split_series_receipt_bytes (b : bytes) : split_series_receipt =
+  match Cbor.decode b with Ok c -> decode_split_series_receipt c | Error e -> failwith e
 
 let encode_get_occurrence_request_bytes (v : get_occurrence_request) : bytes = Cbor.encode (encode_get_occurrence_request v)
 let decode_get_occurrence_request_bytes (b : bytes) : get_occurrence_request =

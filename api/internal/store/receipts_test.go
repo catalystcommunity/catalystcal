@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
@@ -57,5 +58,45 @@ func TestCreateEventWithReceiptOnce(t *testing.T) {
 	}
 	if got, err := s.GetCreateReceipt(ctx, cal, u.ID, "", "k"); err != nil || got.EventID != first.ID() {
 		t.Fatalf("receipt after delete %+v %v", got, err)
+	}
+}
+
+func TestSplitWithReceiptOnce(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	u, _, err := s.UpsertUser(ctx, UserInput{Domain: "dev.local", Subject: "alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cals, err := s.ListCalendarsByOwner(ctx, u.ID)
+	if err != nil || len(cals) != 1 {
+		t.Fatalf("calendars %v %v", cals, err)
+	}
+	cal := cals[0].ID
+	newRow := func(uid string) *Event {
+		start, end := csil.Timestamp("2026-11-10T15:00:00Z"), csil.Timestamp("2026-11-10T16:00:00Z")
+		return &Event{Ev: csil.Event{EventId: csil.EventID(NewID()), CalendarId: csil.CalendarID(cal), Uid: &uid, Title: "x",
+			Start: &start, End: &end, Recurrence: &csil.Recurrence{Rrule: "FREQ=WEEKLY"}},
+			OrganizerID: u.ID, CreatedByID: u.ID, UpdatedByID: u.ID}
+	}
+	rc := SplitReceipt{SeriesID: "series", CreatorID: u.ID, Key: "k", CalendarID: cal, ContentHash: "h", SeriesCreator: u.ID,
+		SplitAt: time.Date(2026, 11, 17, 15, 0, 0, 0, time.UTC), Before: newRow("before@x").Ev}
+	first := newRow("a@x")
+	if err := s.SplitWithReceipt(ctx, []EventWrite{{Insert: first}}, first, &rc); err != nil {
+		t.Fatal(err)
+	}
+	// The same key again: refused, and the writes are rolled back.
+	again := rc
+	second := newRow("b@x")
+	if err := s.SplitWithReceipt(ctx, []EventWrite{{Insert: second}}, second, &again); !errors.Is(err, ErrReceiptTaken) {
+		t.Fatalf("second: %v", err)
+	}
+	if _, err := s.GetEvent(ctx, second.ID()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second split written: %v", err)
+	}
+	got, err := s.GetSplitReceipt(ctx, "series", u.ID, "", "k")
+	if err != nil || got.SuccessorID != first.ID() || !got.SplitAt.Equal(rc.SplitAt) || got.After.Title != "x" ||
+		got.After.Recurrence == nil || string(got.Before.EventId) != string(rc.Before.EventId) {
+		t.Fatalf("receipt %+v %v", got, err)
 	}
 }

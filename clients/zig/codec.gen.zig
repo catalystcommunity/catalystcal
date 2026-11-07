@@ -2937,6 +2937,295 @@ fn dec_CreateEventReceipt(alloc: std.mem.Allocator, m: Value, out: *types.Create
     }
 }
 
+fn enc_SplitSeriesOnceRequest(out: *std.ArrayList(u8), v: *const types.SplitSeriesOnceRequest) CodecError!void {
+    var csil_n: usize = 3;
+    if (v.map_recurrence_ids != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "event");
+    try enc_Event(out, &(v.event));
+    try w_text(out, "recurrence_id");
+    try w_text(out, v.recurrence_id);
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+    if (v.map_recurrence_ids) |csil_arr| {
+        try w_text(out, "map_recurrence_ids");
+        try w_array_head(out, csil_arr.len);
+        for (csil_arr) |csil_it| {
+            try w_text(out, csil_it);
+        }
+    }
+}
+
+fn dec_SplitSeriesOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.SplitSeriesOnceRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "event");
+        try dec_Event(alloc, csil_fv, &(out.event));
+    }
+    {
+        const csil_fv = try req(m, "recurrence_id");
+        out.recurrence_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "map_recurrence_ids")) |csil_fv| {
+            if (csil_fv != .array) return error.WrongType;
+            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            for (csil_fv.array, 0..) |csil_it, csil_i| {
+                csil_tmp[csil_i] = try as_text(csil_it);
+            }
+            out.map_recurrence_ids = csil_tmp;
+        } else {
+            out.map_recurrence_ids = null;
+        }
+    }
+}
+
+fn enc_SplitReceiptRequest(out: *std.ArrayList(u8), v: *const types.SplitReceiptRequest) CodecError!void {
+    var csil_n: usize = 2;
+    if (v.map_recurrence_ids != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "series_id");
+    try w_text(out, v.series_id);
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+    if (v.map_recurrence_ids) |csil_arr| {
+        try w_text(out, "map_recurrence_ids");
+        try w_array_head(out, csil_arr.len);
+        for (csil_arr) |csil_it| {
+            try w_text(out, csil_it);
+        }
+    }
+}
+
+fn dec_SplitReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.SplitReceiptRequest) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "series_id");
+        out.series_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "map_recurrence_ids")) |csil_fv| {
+            if (csil_fv != .array) return error.WrongType;
+            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            for (csil_fv.array, 0..) |csil_it, csil_i| {
+                csil_tmp[csil_i] = try as_text(csil_it);
+            }
+            out.map_recurrence_ids = csil_tmp;
+        } else {
+            out.map_recurrence_ids = null;
+        }
+    }
+}
+
+fn enc_SplitMapResult(out: *std.ArrayList(u8), v: *const types.SplitMapResult) CodecError!void {
+    try w_text(out, v.wire_name());
+}
+
+fn dec_SplitMapResult(alloc: std.mem.Allocator, src: Value, out: *types.SplitMapResult) CodecError!void {
+    _ = alloc;
+    const csil_s = try as_text(src);
+    if (std.mem.eql(u8, csil_s, "original")) {
+        out.* = .original;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "successor")) {
+        out.* = .successor;
+        return;
+    }
+    if (std.mem.eql(u8, csil_s, "none")) {
+        out.* = .none;
+        return;
+    }
+    return error.WrongType;
+}
+
+fn enc_SplitOccurrenceMapping(out: *std.ArrayList(u8), v: *const types.SplitOccurrenceMapping) CodecError!void {
+    var csil_n: usize = 2;
+    if (v.event_id != null) csil_n += 1;
+    if (v.mapped_recurrence_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    try w_text(out, "result");
+    try enc_SplitMapResult(out, &(v.result));
+    if (v.event_id) |csil_x| {
+        try w_text(out, "event_id");
+        try w_text(out, csil_x);
+    }
+    try w_text(out, "recurrence_id");
+    try w_text(out, v.recurrence_id);
+    if (v.mapped_recurrence_id) |csil_x| {
+        try w_text(out, "mapped_recurrence_id");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_SplitOccurrenceMapping(alloc: std.mem.Allocator, m: Value, out: *types.SplitOccurrenceMapping) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        const csil_fv = try req(m, "result");
+        try dec_SplitMapResult(alloc, csil_fv, &(out.result));
+    }
+    {
+        if (mget(m, "event_id")) |csil_fv| {
+            out.event_id = try as_text(csil_fv);
+        } else {
+            out.event_id = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "recurrence_id");
+        out.recurrence_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "mapped_recurrence_id")) |csil_fv| {
+            out.mapped_recurrence_id = try as_text(csil_fv);
+        } else {
+            out.mapped_recurrence_id = null;
+        }
+    }
+}
+
+fn enc_SplitSeriesReceipt(out: *std.ArrayList(u8), v: *const types.SplitSeriesReceipt) CodecError!void {
+    var csil_n: usize = 11;
+    if (v.series != null) csil_n += 1;
+    if (v.successor != null) csil_n += 1;
+    if (v.series_trash_id != null) csil_n += 1;
+    if (v.successor_trash_id != null) csil_n += 1;
+    try w_map_head(out, csil_n);
+    if (v.series) |csil_x| {
+        try w_text(out, "series");
+        try enc_Event(out, &(csil_x));
+    }
+    try w_text(out, "created");
+    try w_bool(out, v.created);
+    try w_text(out, "in_place");
+    try w_bool(out, v.in_place);
+    try w_text(out, "mappings");
+    try w_array_head(out, v.mappings.len);
+    for (v.mappings) |csil_it| {
+        try enc_SplitOccurrenceMapping(out, &(csil_it));
+    }
+    try w_text(out, "split_at");
+    try w_text(out, v.split_at);
+    try w_text(out, "series_id");
+    try w_text(out, v.series_id);
+    if (v.successor) |csil_x| {
+        try w_text(out, "successor");
+        try enc_Event(out, &(csil_x));
+    }
+    try w_text(out, "created_at");
+    try w_text(out, v.created_at);
+    try w_text(out, "calendar_id");
+    try w_text(out, v.calendar_id);
+    try w_text(out, "series_state");
+    try enc_CreateReceiptState(out, &(v.series_state));
+    try w_text(out, "successor_id");
+    try w_text(out, v.successor_id);
+    try w_text(out, "idempotency_key");
+    try w_text(out, v.idempotency_key);
+    if (v.series_trash_id) |csil_x| {
+        try w_text(out, "series_trash_id");
+        try w_text(out, csil_x);
+    }
+    try w_text(out, "successor_state");
+    try enc_CreateReceiptState(out, &(v.successor_state));
+    if (v.successor_trash_id) |csil_x| {
+        try w_text(out, "successor_trash_id");
+        try w_text(out, csil_x);
+    }
+}
+
+fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitSeriesReceipt) CodecError!void {
+    if (m != .map) return error.WrongType;
+    {
+        if (mget(m, "series")) |csil_fv| {
+            var csil_tmp: types.Event = undefined;
+            try dec_Event(alloc, csil_fv, &csil_tmp);
+            out.series = csil_tmp;
+        } else {
+            out.series = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "created");
+        out.created = try as_bool(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "in_place");
+        out.in_place = try as_bool(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "mappings");
+        if (csil_fv != .array) return error.WrongType;
+        out.mappings = try alloc.alloc(types.SplitOccurrenceMapping, csil_fv.array.len);
+        for (csil_fv.array, 0..) |csil_it, csil_i| {
+            try dec_SplitOccurrenceMapping(alloc, csil_it, &(out.mappings[csil_i]));
+        }
+    }
+    {
+        const csil_fv = try req(m, "split_at");
+        out.split_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "series_id");
+        out.series_id = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "successor")) |csil_fv| {
+            var csil_tmp: types.Event = undefined;
+            try dec_Event(alloc, csil_fv, &csil_tmp);
+            out.successor = csil_tmp;
+        } else {
+            out.successor = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "created_at");
+        out.created_at = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "calendar_id");
+        out.calendar_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "series_state");
+        try dec_CreateReceiptState(alloc, csil_fv, &(out.series_state));
+    }
+    {
+        const csil_fv = try req(m, "successor_id");
+        out.successor_id = try as_text(csil_fv);
+    }
+    {
+        const csil_fv = try req(m, "idempotency_key");
+        out.idempotency_key = try as_text(csil_fv);
+    }
+    {
+        if (mget(m, "series_trash_id")) |csil_fv| {
+            out.series_trash_id = try as_text(csil_fv);
+        } else {
+            out.series_trash_id = null;
+        }
+    }
+    {
+        const csil_fv = try req(m, "successor_state");
+        try dec_CreateReceiptState(alloc, csil_fv, &(out.successor_state));
+    }
+    {
+        if (mget(m, "successor_trash_id")) |csil_fv| {
+            out.successor_trash_id = try as_text(csil_fv);
+        } else {
+            out.successor_trash_id = null;
+        }
+    }
+}
+
 fn enc_GetOccurrenceRequest(out: *std.ArrayList(u8), v: *const types.GetOccurrenceRequest) CodecError!void {
     var csil_n: usize = 1;
     if (v.recurrence_id != null) csil_n += 1;
@@ -4893,6 +5182,86 @@ pub fn encode_CreateEventReceipt(alloc: std.mem.Allocator, v: *const types.Creat
 pub fn decode_CreateEventReceipt(alloc: std.mem.Allocator, bytes: []const u8, out: *types.CreateEventReceipt) CodecError!void {
     const root = try decode(alloc, bytes);
     try dec_CreateEventReceipt(alloc, root, out);
+}
+
+/// Encode a SplitSeriesOnceRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SplitSeriesOnceRequest(alloc: std.mem.Allocator, v: *const types.SplitSeriesOnceRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SplitSeriesOnceRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SplitSeriesOnceRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SplitSeriesOnceRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SplitSeriesOnceRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SplitSeriesOnceRequest(alloc, root, out);
+}
+
+/// Encode a SplitReceiptRequest to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SplitReceiptRequest(alloc: std.mem.Allocator, v: *const types.SplitReceiptRequest) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SplitReceiptRequest(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SplitReceiptRequest. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SplitReceiptRequest(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SplitReceiptRequest) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SplitReceiptRequest(alloc, root, out);
+}
+
+/// Encode a SplitMapResult to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SplitMapResult(alloc: std.mem.Allocator, v: *const types.SplitMapResult) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SplitMapResult(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SplitMapResult. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SplitMapResult(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SplitMapResult) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SplitMapResult(alloc, root, out);
+}
+
+/// Encode a SplitOccurrenceMapping to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SplitOccurrenceMapping(alloc: std.mem.Allocator, v: *const types.SplitOccurrenceMapping) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SplitOccurrenceMapping(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SplitOccurrenceMapping. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SplitOccurrenceMapping(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SplitOccurrenceMapping) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SplitOccurrenceMapping(alloc, root, out);
+}
+
+/// Encode a SplitSeriesReceipt to CBOR. The returned slice is owned by the caller
+/// (free it with alloc.free).
+pub fn encode_SplitSeriesReceipt(alloc: std.mem.Allocator, v: *const types.SplitSeriesReceipt) CodecError![]u8 {
+    var out = std.ArrayList(u8).init(alloc);
+    errdefer out.deinit();
+    try enc_SplitSeriesReceipt(&out, v);
+    return out.toOwnedSlice();
+}
+
+/// Decode CBOR into a SplitSeriesReceipt. Every string/slice/map inside `out` is
+/// allocated from `alloc`; pass an arena and free it all at once.
+pub fn decode_SplitSeriesReceipt(alloc: std.mem.Allocator, bytes: []const u8, out: *types.SplitSeriesReceipt) CodecError!void {
+    const root = try decode(alloc, bytes);
+    try dec_SplitSeriesReceipt(alloc, root, out);
 }
 
 /// Encode a GetOccurrenceRequest to CBOR. The returned slice is owned by the caller

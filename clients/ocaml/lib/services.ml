@@ -229,6 +229,10 @@ module Event_service = struct
     create_event_once : bytes -> outcome;
     (* request payload decodes to: create_receipt_request *)
     get_create_receipt : bytes -> outcome;
+    (* request payload decodes to: split_series_once_request *)
+    split_series_once : bytes -> outcome;
+    (* request payload decodes to: split_receipt_request *)
+    get_split_receipt : bytes -> outcome;
   }
 
   (* Verbose router: dispatch one request by operation name to its handler
@@ -250,6 +254,8 @@ module Event_service = struct
     | "import-event" -> h.import_event payload
     | "create-event-once" -> h.create_event_once payload
     | "get-create-receipt" -> h.get_create_receipt payload
+    | "split-series-once" -> h.split_series_once payload
+    | "get-split-receipt" -> h.get_split_receipt payload
     | other -> transport_error ~status:2L ~message:("unknown op: " ^ other)
 end
 

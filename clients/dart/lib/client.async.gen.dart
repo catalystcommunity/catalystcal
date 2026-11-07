@@ -547,6 +547,28 @@ final class EventAsyncClient {
     );
     return CreateEventReceipt.fromCborValue(CsilCbor.decode(csilResp));
   }
+
+  Future<SplitSeriesReceipt> splitSeriesOnce(
+    SplitSeriesOnceRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'split-series-once',
+      request.toCbor(),
+    );
+    return SplitSeriesReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
+
+  Future<SplitSeriesReceipt> getSplitReceipt(
+    SplitReceiptRequest request,
+  ) async {
+    final csilResp = await transport.call(
+      'EventService',
+      'get-split-receipt',
+      request.toCbor(),
+    );
+    return SplitSeriesReceipt.fromCborValue(CsilCbor.decode(csilResp));
+  }
 }
 
 /// A typed, transport-agnostic client for the FreeBusyService service. The client owns

@@ -309,6 +309,46 @@ and create_event_receipt = {
   trash_id : trash_id option;
 }
 
+and split_series_once_request = {
+  idempotency_key : string;
+  event : event;
+  recurrence_id : timestamp;
+  map_recurrence_ids : timestamp list option;
+}
+
+and split_receipt_request = {
+  series_id : event_id;
+  idempotency_key : string;
+  map_recurrence_ids : timestamp list option;
+}
+
+and split_map_result = Original | Successor | None
+
+and split_occurrence_mapping = {
+  recurrence_id : timestamp;
+  result : split_map_result;
+  event_id : event_id option;
+  mapped_recurrence_id : timestamp option;
+}
+
+and split_series_receipt = {
+  series_id : event_id;
+  idempotency_key : string;
+  successor_id : event_id;
+  split_at : timestamp;
+  in_place : bool;
+  created : bool;
+  created_at : timestamp;
+  calendar_id : calendar_id;
+  series_state : create_receipt_state;
+  series : event option;
+  series_trash_id : trash_id option;
+  successor_state : create_receipt_state;
+  successor : event option;
+  successor_trash_id : trash_id option;
+  mappings : split_occurrence_mapping list;
+}
+
 and get_occurrence_request = {
   event_id : event_id;
   recurrence_id : timestamp option;

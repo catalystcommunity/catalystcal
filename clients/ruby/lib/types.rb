@@ -497,6 +497,72 @@ CreateEventReceipt = Data.define(:calendar_id, :idempotency_key, :event_id, :sta
   end
 end
 
+# idempotency_key [String]
+# event [Event]
+# recurrence_id [Timestamp]
+# map_recurrence_ids [Array<Timestamp>]
+SplitSeriesOnceRequest = Data.define(:idempotency_key, :event, :recurrence_id, :map_recurrence_ids) do
+  def initialize(idempotency_key:, event:, recurrence_id:, map_recurrence_ids: nil)
+    super
+  end
+
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'idempotency_key' must have at least 1 elements" if idempotency_key.length < 1
+    raise ArgumentError, "field 'idempotency_key' must have at most 200 elements" if idempotency_key.length > 200
+    nil
+  end
+end
+
+# series_id [EventId]
+# idempotency_key [String]
+# map_recurrence_ids [Array<Timestamp>]
+SplitReceiptRequest = Data.define(:series_id, :idempotency_key, :map_recurrence_ids) do
+  def initialize(series_id:, idempotency_key:, map_recurrence_ids: nil)
+    super
+  end
+
+  # Raises ArgumentError on the first constraint violation.
+  def validate
+    raise ArgumentError, "field 'idempotency_key' must have at least 1 elements" if idempotency_key.length < 1
+    raise ArgumentError, "field 'idempotency_key' must have at most 200 elements" if idempotency_key.length > 200
+    nil
+  end
+end
+
+# SplitMapResult is an alias for String.
+
+# recurrence_id [Timestamp]
+# result [SplitMapResult]
+# event_id [EventId]
+# mapped_recurrence_id [Timestamp]
+SplitOccurrenceMapping = Data.define(:recurrence_id, :result, :event_id, :mapped_recurrence_id) do
+  def initialize(recurrence_id:, result:, event_id: nil, mapped_recurrence_id: nil)
+    super
+  end
+end
+
+# series_id [EventId]
+# idempotency_key [String]
+# successor_id [EventId]
+# split_at [Timestamp]
+# in_place [Boolean]
+# created [Boolean]
+# created_at [Timestamp]
+# calendar_id [CalendarId]
+# series_state [CreateReceiptState]
+# series [Event]
+# series_trash_id [TrashId]
+# successor_state [CreateReceiptState]
+# successor [Event]
+# successor_trash_id [TrashId]
+# mappings [Array<SplitOccurrenceMapping>]
+SplitSeriesReceipt = Data.define(:series_id, :idempotency_key, :successor_id, :split_at, :in_place, :created, :created_at, :calendar_id, :series_state, :series, :series_trash_id, :successor_state, :successor, :successor_trash_id, :mappings) do
+  def initialize(series_id:, idempotency_key:, successor_id:, split_at:, in_place:, created:, created_at:, calendar_id:, series_state:, successor_state:, mappings:, series: nil, series_trash_id: nil, successor: nil, successor_trash_id: nil)
+    super
+  end
+end
+
 # event_id [EventId]
 # recurrence_id [Timestamp]
 GetOccurrenceRequest = Data.define(:event_id, :recurrence_id) do

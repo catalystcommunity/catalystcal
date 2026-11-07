@@ -170,6 +170,40 @@ defmodule Csilgen.Generated.Validation do
     end
   end
 
+  @spec validate_split_series_once_request(Csilgen.Generated.SplitSeriesOnceRequest.t()) ::
+          :ok | {:error, String.t()}
+  def validate_split_series_once_request(%Csilgen.Generated.SplitSeriesOnceRequest{} = v) do
+    with :ok <-
+           if(String.length(v.idempotency_key) >= 1,
+             do: :ok,
+             else: {:error, "field 'idempotency_key' must have at least 1 elements"}
+           ),
+         :ok <-
+           if(String.length(v.idempotency_key) <= 200,
+             do: :ok,
+             else: {:error, "field 'idempotency_key' must have at most 200 elements"}
+           ) do
+      :ok
+    end
+  end
+
+  @spec validate_split_receipt_request(Csilgen.Generated.SplitReceiptRequest.t()) ::
+          :ok | {:error, String.t()}
+  def validate_split_receipt_request(%Csilgen.Generated.SplitReceiptRequest{} = v) do
+    with :ok <-
+           if(String.length(v.idempotency_key) >= 1,
+             do: :ok,
+             else: {:error, "field 'idempotency_key' must have at least 1 elements"}
+           ),
+         :ok <-
+           if(String.length(v.idempotency_key) <= 200,
+             do: :ok,
+             else: {:error, "field 'idempotency_key' must have at most 200 elements"}
+           ) do
+      :ok
+    end
+  end
+
   @spec validate_search_events_request(Csilgen.Generated.SearchEventsRequest.t()) ::
           :ok | {:error, String.t()}
   def validate_search_events_request(%Csilgen.Generated.SearchEventsRequest{} = v) do

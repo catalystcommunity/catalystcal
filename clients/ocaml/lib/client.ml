@@ -304,6 +304,16 @@ module Event_service = struct
     match c.call ~service:"EventService" ~op:"get-create-receipt" ~payload:(Codec.encode_create_receipt_request_bytes req) with
     | Ok payload -> Ok (Codec.decode_create_event_receipt_bytes payload)
     | Error _ as e -> e
+
+  let split_series_once (c : client) (req : split_series_once_request) : (split_series_receipt, string) result =
+    match c.call ~service:"EventService" ~op:"split-series-once" ~payload:(Codec.encode_split_series_once_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_split_series_receipt_bytes payload)
+    | Error _ as e -> e
+
+  let get_split_receipt (c : client) (req : split_receipt_request) : (split_series_receipt, string) result =
+    match c.call ~service:"EventService" ~op:"get-split-receipt" ~payload:(Codec.encode_split_receipt_request_bytes req) with
+    | Ok payload -> Ok (Codec.decode_split_series_receipt_bytes payload)
+    | Error _ as e -> e
 end
 
 module Free_busy_service = struct

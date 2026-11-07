@@ -300,6 +300,16 @@ class EventServiceHandlers(ABC):
         """get-create-receipt"""
         ...
 
+    @abstractmethod
+    def split_series_once(self, req: SplitSeriesOnceRequest, ctx: dict) -> Union[SplitSeriesReceipt, ServiceError]:
+        """split-series-once"""
+        ...
+
+    @abstractmethod
+    def get_split_receipt(self, req: SplitReceiptRequest, ctx: dict) -> Union[SplitSeriesReceipt, ServiceError]:
+        """get-split-receipt"""
+        ...
+
 class FreeBusyServiceHandlers(ABC):
     """Server-side handlers for FreeBusyService service operations."""
 

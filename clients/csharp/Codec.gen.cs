@@ -398,6 +398,11 @@ public static class Codec
         CreateEventOnceRequest csilTyped => CreateEventOnceRequestToCborValue(csilTyped),
         CreateReceiptRequest csilTyped => CreateReceiptRequestToCborValue(csilTyped),
         CreateEventReceipt csilTyped => CreateEventReceiptToCborValue(csilTyped),
+        SplitSeriesOnceRequest csilTyped => SplitSeriesOnceRequestToCborValue(csilTyped),
+        SplitReceiptRequest csilTyped => SplitReceiptRequestToCborValue(csilTyped),
+        SplitMapResult csilTyped => SplitMapResultToCborValue(csilTyped),
+        SplitOccurrenceMapping csilTyped => SplitOccurrenceMappingToCborValue(csilTyped),
+        SplitSeriesReceipt csilTyped => SplitSeriesReceiptToCborValue(csilTyped),
         GetOccurrenceRequest csilTyped => GetOccurrenceRequestToCborValue(csilTyped),
         RespondRequest csilTyped => RespondRequestToCborValue(csilTyped),
         SearchEventsRequest csilTyped => SearchEventsRequestToCborValue(csilTyped),
@@ -491,6 +496,11 @@ public static class Codec
         if (csilType == typeof(CreateEventOnceRequest)) return CreateEventOnceRequestFromCborValue(value);
         if (csilType == typeof(CreateReceiptRequest)) return CreateReceiptRequestFromCborValue(value);
         if (csilType == typeof(CreateEventReceipt)) return CreateEventReceiptFromCborValue(value);
+        if (csilType == typeof(SplitSeriesOnceRequest)) return SplitSeriesOnceRequestFromCborValue(value);
+        if (csilType == typeof(SplitReceiptRequest)) return SplitReceiptRequestFromCborValue(value);
+        if (csilType == typeof(SplitMapResult)) return SplitMapResultFromCborValue(value);
+        if (csilType == typeof(SplitOccurrenceMapping)) return SplitOccurrenceMappingFromCborValue(value);
+        if (csilType == typeof(SplitSeriesReceipt)) return SplitSeriesReceiptFromCborValue(value);
         if (csilType == typeof(GetOccurrenceRequest)) return GetOccurrenceRequestFromCborValue(value);
         if (csilType == typeof(RespondRequest)) return RespondRequestFromCborValue(value);
         if (csilType == typeof(SearchEventsRequest)) return SearchEventsRequestFromCborValue(value);
@@ -2240,6 +2250,186 @@ public static class Codec
             CreatedAt = csilField5,
             Event = csilField6,
             TrashId = csilField7,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a SplitSeriesOnceRequest.</summary>
+    public static CborValue SplitSeriesOnceRequestToCborValue(SplitSeriesOnceRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("event"), EventToCborValue(value.Event)));
+        csilEntries.Add((new CborValue.Text("recurrence_id"), new CborValue.Text(value.RecurrenceId)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        if (value.MapRecurrenceIds is { } csilV3)
+        {
+            csilEntries.Add((new CborValue.Text("map_recurrence_ids"), new CborValue.Array(csilV3.Select(csilElem => (CborValue)new CborValue.Text(csilElem)).ToList())));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SplitSeriesOnceRequest from a decoded CBOR value tree.</summary>
+    public static SplitSeriesOnceRequest SplitSeriesOnceRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        var csilField1 = EventFromCborValue(Cbor.Require(value, "event"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "recurrence_id"));
+        System.Collections.Generic.List<Timestamp>? csilField3 = Cbor.MapGet(value, "map_recurrence_ids") is { } csilRaw3 ? Cbor.AsArray(csilRaw3).Select(csilElem => Cbor.AsText(csilElem)).ToList() : null;
+        return new SplitSeriesOnceRequest
+        {
+            IdempotencyKey = csilField0,
+            Event = csilField1,
+            RecurrenceId = csilField2,
+            MapRecurrenceIds = csilField3,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a SplitReceiptRequest.</summary>
+    public static CborValue SplitReceiptRequestToCborValue(SplitReceiptRequest value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("series_id"), new CborValue.Text(value.SeriesId)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        if (value.MapRecurrenceIds is { } csilV2)
+        {
+            csilEntries.Add((new CborValue.Text("map_recurrence_ids"), new CborValue.Array(csilV2.Select(csilElem => (CborValue)new CborValue.Text(csilElem)).ToList())));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SplitReceiptRequest from a decoded CBOR value tree.</summary>
+    public static SplitReceiptRequest SplitReceiptRequestFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "series_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        System.Collections.Generic.List<Timestamp>? csilField2 = Cbor.MapGet(value, "map_recurrence_ids") is { } csilRaw2 ? Cbor.AsArray(csilRaw2).Select(csilElem => Cbor.AsText(csilElem)).ToList() : null;
+        return new SplitReceiptRequest
+        {
+            SeriesId = csilField0,
+            IdempotencyKey = csilField1,
+            MapRecurrenceIds = csilField2,
+        };
+    }
+
+    /// <summary>The bare-literal CBOR value for a SplitMapResult.</summary>
+    public static CborValue SplitMapResultToCborValue(SplitMapResult value) => value switch
+    {
+        SplitMapResult.Original => new CborValue.Text("original"),
+        SplitMapResult.Successor => new CborValue.Text("successor"),
+        SplitMapResult.None => new CborValue.Text("none"),
+        _ => throw new CborException("invalid SplitMapResult"),
+    };
+
+    /// <summary>Reconstruct a SplitMapResult from its bare-literal CBOR value.</summary>
+    public static SplitMapResult SplitMapResultFromCborValue(CborValue value) => Cbor.AsText(value) switch
+    {
+        "original" => SplitMapResult.Original,
+        "successor" => SplitMapResult.Successor,
+        "none" => SplitMapResult.None,
+        _ => throw new CborException("invalid SplitMapResult value"),
+    };
+
+    /// <summary>The canonical CBOR value tree for a SplitOccurrenceMapping.</summary>
+    public static CborValue SplitOccurrenceMappingToCborValue(SplitOccurrenceMapping value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        csilEntries.Add((new CborValue.Text("result"), SplitMapResultToCborValue(value.Result)));
+        if (value.EventId is { } csilV1)
+        {
+            csilEntries.Add((new CborValue.Text("event_id"), new CborValue.Text(csilV1)));
+        }
+        csilEntries.Add((new CborValue.Text("recurrence_id"), new CborValue.Text(value.RecurrenceId)));
+        if (value.MappedRecurrenceId is { } csilV3)
+        {
+            csilEntries.Add((new CborValue.Text("mapped_recurrence_id"), new CborValue.Text(csilV3)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree.</summary>
+    public static SplitOccurrenceMapping SplitOccurrenceMappingFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "recurrence_id"));
+        var csilField1 = SplitMapResultFromCborValue(Cbor.Require(value, "result"));
+        EventID? csilField2 = Cbor.MapGet(value, "event_id") is { } csilRaw2 ? Cbor.AsText(csilRaw2) : null;
+        Timestamp? csilField3 = Cbor.MapGet(value, "mapped_recurrence_id") is { } csilRaw3 ? Cbor.AsText(csilRaw3) : null;
+        return new SplitOccurrenceMapping
+        {
+            RecurrenceId = csilField0,
+            Result = csilField1,
+            EventId = csilField2,
+            MappedRecurrenceId = csilField3,
+        };
+    }
+
+    /// <summary>The canonical CBOR value tree for a SplitSeriesReceipt.</summary>
+    public static CborValue SplitSeriesReceiptToCborValue(SplitSeriesReceipt value)
+    {
+        var csilEntries = new System.Collections.Generic.List<(CborValue, CborValue)>();
+        if (value.Series is { } csilV0)
+        {
+            csilEntries.Add((new CborValue.Text("series"), EventToCborValue(csilV0)));
+        }
+        csilEntries.Add((new CborValue.Text("created"), new CborValue.Bool(value.Created)));
+        csilEntries.Add((new CborValue.Text("in_place"), new CborValue.Bool(value.InPlace)));
+        csilEntries.Add((new CborValue.Text("mappings"), new CborValue.Array(value.Mappings.Select(csilElem => (CborValue)SplitOccurrenceMappingToCborValue(csilElem)).ToList())));
+        csilEntries.Add((new CborValue.Text("split_at"), new CborValue.Text(value.SplitAt)));
+        csilEntries.Add((new CborValue.Text("series_id"), new CborValue.Text(value.SeriesId)));
+        if (value.Successor is { } csilV6)
+        {
+            csilEntries.Add((new CborValue.Text("successor"), EventToCborValue(csilV6)));
+        }
+        csilEntries.Add((new CborValue.Text("created_at"), new CborValue.Text(value.CreatedAt)));
+        csilEntries.Add((new CborValue.Text("calendar_id"), new CborValue.Text(value.CalendarId)));
+        csilEntries.Add((new CborValue.Text("series_state"), CreateReceiptStateToCborValue(value.SeriesState)));
+        csilEntries.Add((new CborValue.Text("successor_id"), new CborValue.Text(value.SuccessorId)));
+        csilEntries.Add((new CborValue.Text("idempotency_key"), new CborValue.Text(value.IdempotencyKey)));
+        if (value.SeriesTrashId is { } csilV12)
+        {
+            csilEntries.Add((new CborValue.Text("series_trash_id"), new CborValue.Text(csilV12)));
+        }
+        csilEntries.Add((new CborValue.Text("successor_state"), CreateReceiptStateToCborValue(value.SuccessorState)));
+        if (value.SuccessorTrashId is { } csilV14)
+        {
+            csilEntries.Add((new CborValue.Text("successor_trash_id"), new CborValue.Text(csilV14)));
+        }
+        return new CborValue.Map(csilEntries);
+    }
+
+    /// <summary>Reconstruct a SplitSeriesReceipt from a decoded CBOR value tree.</summary>
+    public static SplitSeriesReceipt SplitSeriesReceiptFromCborValue(CborValue value)
+    {
+        var csilField0 = Cbor.AsText(Cbor.Require(value, "series_id"));
+        var csilField1 = Cbor.AsText(Cbor.Require(value, "idempotency_key"));
+        var csilField2 = Cbor.AsText(Cbor.Require(value, "successor_id"));
+        var csilField3 = Cbor.AsText(Cbor.Require(value, "split_at"));
+        var csilField4 = Cbor.AsBool(Cbor.Require(value, "in_place"));
+        var csilField5 = Cbor.AsBool(Cbor.Require(value, "created"));
+        var csilField6 = Cbor.AsText(Cbor.Require(value, "created_at"));
+        var csilField7 = Cbor.AsText(Cbor.Require(value, "calendar_id"));
+        var csilField8 = CreateReceiptStateFromCborValue(Cbor.Require(value, "series_state"));
+        Event? csilField9 = Cbor.MapGet(value, "series") is { } csilRaw9 ? EventFromCborValue(csilRaw9) : null;
+        TrashID? csilField10 = Cbor.MapGet(value, "series_trash_id") is { } csilRaw10 ? Cbor.AsText(csilRaw10) : null;
+        var csilField11 = CreateReceiptStateFromCborValue(Cbor.Require(value, "successor_state"));
+        Event? csilField12 = Cbor.MapGet(value, "successor") is { } csilRaw12 ? EventFromCborValue(csilRaw12) : null;
+        TrashID? csilField13 = Cbor.MapGet(value, "successor_trash_id") is { } csilRaw13 ? Cbor.AsText(csilRaw13) : null;
+        var csilField14 = Cbor.AsArray(Cbor.Require(value, "mappings")).Select(csilElem => SplitOccurrenceMappingFromCborValue(csilElem)).ToList();
+        return new SplitSeriesReceipt
+        {
+            SeriesId = csilField0,
+            IdempotencyKey = csilField1,
+            SuccessorId = csilField2,
+            SplitAt = csilField3,
+            InPlace = csilField4,
+            Created = csilField5,
+            CreatedAt = csilField6,
+            CalendarId = csilField7,
+            SeriesState = csilField8,
+            Series = csilField9,
+            SeriesTrashId = csilField10,
+            SuccessorState = csilField11,
+            Successor = csilField12,
+            SuccessorTrashId = csilField13,
+            Mappings = csilField14,
         };
     }
 

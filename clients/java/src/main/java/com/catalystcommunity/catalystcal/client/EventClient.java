@@ -72,4 +72,12 @@ public final class EventClient {
     public CreateEventReceipt getCreateReceipt(CreateReceiptRequest req) throws ClientException {
         return CsilCbor.decodeCreateEventReceipt(transport.call("EventService", "get-create-receipt", CsilCbor.encodeCreateReceiptRequest(req)));
     }
+
+    public SplitSeriesReceipt splitSeriesOnce(SplitSeriesOnceRequest req) throws ClientException {
+        return CsilCbor.decodeSplitSeriesReceipt(transport.call("EventService", "split-series-once", CsilCbor.encodeSplitSeriesOnceRequest(req)));
+    }
+
+    public SplitSeriesReceipt getSplitReceipt(SplitReceiptRequest req) throws ClientException {
+        return CsilCbor.decodeSplitSeriesReceipt(transport.call("EventService", "get-split-receipt", CsilCbor.encodeSplitReceiptRequest(req)));
+    }
 }

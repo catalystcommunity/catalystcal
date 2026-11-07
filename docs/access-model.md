@@ -260,7 +260,59 @@ the override moved the instance far from its original time.
   `list-events` apply.
 - A `this_and_future` update makes a new series for the instance and the
   later ones. `update-event` returns its id. After the split, the old id
-  with a later `recurrence_id` gives 404.
+  with a later `recurrence_id` gives 404. Use `split-series-once` to keep
+  a receipt that maps the old references.
+
+## Split once
+
+`EventService.split-series-once` makes a `this_and_future` change at most
+once for each `idempotency_key`. It does the same change as
+`update-event`. `get-split-receipt` reads the receipt without a change.
+
+- `event.event_id` must be a series master (400 for a single event or an
+  override). `event.start` (`start_date` for all-day) is the new start of
+  the instance at `recurrence_id`.
+- The key is scoped to the series id of the request, the effective user,
+  and the bearer, as for create once.
+- The split and the receipt are written in one transaction. Two calls with
+  the same key at the same time make one split.
+- A known key with the same `event` and `recurrence_id` changes nothing
+  (`created` false). A known key with other content gives 409.
+  `map_recurrence_ids` is not part of the content.
+- A `recurrence_id` at or before the first instance changes the series in
+  place: `in_place` is true and `successor_id` is the series id.
+- The overrides of the instances at and after the split are removed, as
+  for `update-event`.
+- The receipt stays after later edits, moves, deletes, and purges. It
+  reports both series now (`series_state`, `successor_state`, as in a
+  create receipt).
+- Each call checks access now, on the calendar of the split. The caller
+  must be able to change the series: write access, or contribute access
+  and the caller created the series.
+
+### Mapping
+
+`map_recurrence_ids` lists recurrence ids of the series before the split.
+The receipt gives one mapping for each, in request order:
+
+- `original`: the instance is before the split. It stays in the series
+  with the same recurrence id.
+- `successor`: the instance is at or after the split. `event_id` is the
+  successor and `mapped_recurrence_id` is its new recurrence id.
+- `none`: the time was not an instance of the series before the split,
+  or the moved time is not an instance of the successor (for example the
+  rule changed from weekly to every two weeks).
+
+An instance at or after the split moves by the same wall-clock amount as
+the first instance: `mapped = R + (successor start - split_at)`. The
+server computes this in the local time of each series (`time_zone`, UTC
+for all-day), so a split across daylight time keeps the local time. An
+all-day successor maps to `00:00:00Z` of the date.
+
+The mapping uses the series before the split and the successor as the
+split wrote it. These are kept in the receipt, so the mapping does not
+change after later edits. Use `get-occurrence` on the mapped reference
+for the occurrence now.
 
 ## Errors
 
@@ -270,4 +322,4 @@ the override moved the instance far from its original time.
 | Calendar or event does not exist, or the caller has `none` access | 404 (do not reveal existence) |
 | The caller can see it but cannot do this | 403 |
 | Bad input | 400 |
-| Conflict, for example a duplicate group name, an old group revision, a restore after a conflicting change, or an idempotency key with other content | 409 |
+| Conflict, for example a duplicate group name, an old group revision, a restore after a conflicting change, or an idempotency key with other content or another split | 409 |

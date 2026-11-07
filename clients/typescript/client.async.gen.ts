@@ -2,8 +2,8 @@
 // Source: <csil spec>
 // Target: typescript-client
 
-import type { ApplicationIdentityResponse, AssumePrincipalRequest, AuditList, AuditQuery, Calendar, CalendarID, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, IcsDocument, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, PersonSummary, RespondRequest, RestoreEventRequest, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, SubscribeCalendarRequest, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User } from "./types.gen";
-import { encodeValue, fromApplicationIdentityResponseCbor, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromCreateEventReceiptCbor, fromDelegationCbor, fromDelegationListCbor, fromDeleteEventResponseCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromGroupCbor, fromGroupListCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromTrashListCbor, fromUserCbor, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toCreateEventOnceRequestCbor, toCreateGroupRequestCbor, toCreateReceiptRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExchangeApplicationPresentationRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toGetOccurrenceRequestCbor, toImportEventRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toListTrashRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toRestoreEventRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toSetGroupMembersRequestCbor, toShareCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateGroupRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
+import type { ApplicationIdentityResponse, AssumePrincipalRequest, AuditList, AuditQuery, Calendar, CalendarID, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, IcsDocument, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, PersonSummary, RespondRequest, RestoreEventRequest, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, SplitReceiptRequest, SplitSeriesOnceRequest, SplitSeriesReceipt, SubscribeCalendarRequest, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User } from "./types.gen";
+import { encodeValue, fromApplicationIdentityResponseCbor, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromCreateEventReceiptCbor, fromDelegationCbor, fromDelegationListCbor, fromDeleteEventResponseCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromGroupCbor, fromGroupListCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromSplitSeriesReceiptCbor, fromTrashListCbor, fromUserCbor, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toCreateEventOnceRequestCbor, toCreateGroupRequestCbor, toCreateReceiptRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExchangeApplicationPresentationRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toGetOccurrenceRequestCbor, toImportEventRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toListTrashRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toRestoreEventRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toSetGroupMembersRequestCbor, toShareCbor, toSplitReceiptRequestCbor, toSplitSeriesOnceRequestCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateGroupRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
 
 export interface AsyncServiceTransport {
   call(service: string, op: string, req: Uint8Array): Promise<Uint8Array>;
@@ -399,6 +399,24 @@ export class EventAsyncClient {
   async getCreateReceipt(req: CreateReceiptRequest): Promise<CreateEventReceipt> {
     const csilResp = await this.t.call("EventService", "get-create-receipt", toCreateReceiptRequestCbor(req));
     return fromCreateEventReceiptCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async splitSeriesOnce(req: SplitSeriesOnceRequest): Promise<SplitSeriesReceipt> {
+    const csilResp = await this.t.call("EventService", "split-series-once", toSplitSeriesOnceRequestCbor(req));
+    return fromSplitSeriesReceiptCbor(csilResp);
+  }
+
+  /**
+   * @throws {ServiceError} when the API returns an error response
+   * @throws transport errors (network, timeout) raised by the transport
+   */
+  async getSplitReceipt(req: SplitReceiptRequest): Promise<SplitSeriesReceipt> {
+    const csilResp = await this.t.call("EventService", "get-split-receipt", toSplitReceiptRequestCbor(req));
+    return fromSplitSeriesReceiptCbor(csilResp);
   }
 }
 

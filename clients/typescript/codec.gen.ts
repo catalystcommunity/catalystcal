@@ -2,7 +2,7 @@
 // Source: <csil spec>
 // Target: typescript-codec
 
-import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, CreateReceiptState, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, RestoreEventRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SubscribeCalendarRequest, Timestamp, TrashEntry, TrashID, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
+import type { AccessPath, AccessRole, ActingVia, ApplicationIdentityResponse, ApplicationPresentation, ApplicationRef, AssumePrincipalRequest, Attendee, AttendeeRole, AuditEntry, AuditID, AuditList, AuditQuery, BusyInterval, Calendar, CalendarID, CalendarKind, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, CreateReceiptState, DateText, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUser, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, EventStatus, EventTransparency, EventVisibility, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, GroupMember, IcsDocument, IdentityRef, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, ParticipationStatus, PersonFreeBusy, PersonSummary, Recurrence, RecurrenceScope, Reminder, ReminderMethod, RespondRequest, RestoreEventRequest, Scope, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, ServiceError, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, ShareRole, SignedApplicationPresentation, SplitMapResult, SplitOccurrenceMapping, SplitReceiptRequest, SplitSeriesOnceRequest, SplitSeriesReceipt, SubscribeCalendarRequest, Timestamp, TrashEntry, TrashID, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User, UserID } from "./types.gen";
 
 /** A CBOR semantic tag wrapping an inner value (e.g. tag 0 timestamp, tag 4 decimal). */
 export type CborTag = { readonly tag: number; readonly value: CborValue };
@@ -1418,6 +1418,130 @@ export function toCreateEventReceiptCbor(v: CreateEventReceipt): Uint8Array {
 
 export function fromCreateEventReceiptCbor(bytes: Uint8Array): CreateEventReceipt {
   return fromCreateEventReceiptCborValue(decode(bytes));
+}
+
+export function toSplitSeriesOnceRequestCborValue(v: SplitSeriesOnceRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("event", toEventCborValue(v.event));
+  csilMap.set("recurrence_id", v.recurrenceId);
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  if (v.mapRecurrenceIds !== undefined) csilMap.set("map_recurrence_ids", v.mapRecurrenceIds);
+  return csilMap;
+}
+
+export function fromSplitSeriesOnceRequestCborValue(value: CborValue): SplitSeriesOnceRequest {
+  return {
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+    event: fromEventCborValue(requireKey(value, "event")),
+    recurrenceId: asString(requireKey(value, "recurrence_id")),
+    mapRecurrenceIds: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => asString(csilE)))(mapGet(value, "map_recurrence_ids")),
+  };
+}
+
+export function toSplitSeriesOnceRequestCbor(v: SplitSeriesOnceRequest): Uint8Array {
+  return encodeValue(toSplitSeriesOnceRequestCborValue(v));
+}
+
+export function fromSplitSeriesOnceRequestCbor(bytes: Uint8Array): SplitSeriesOnceRequest {
+  return fromSplitSeriesOnceRequestCborValue(decode(bytes));
+}
+
+export function toSplitReceiptRequestCborValue(v: SplitReceiptRequest): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("series_id", v.seriesId);
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  if (v.mapRecurrenceIds !== undefined) csilMap.set("map_recurrence_ids", v.mapRecurrenceIds);
+  return csilMap;
+}
+
+export function fromSplitReceiptRequestCborValue(value: CborValue): SplitReceiptRequest {
+  return {
+    seriesId: asString(requireKey(value, "series_id")),
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+    mapRecurrenceIds: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => asString(csilE)))(mapGet(value, "map_recurrence_ids")),
+  };
+}
+
+export function toSplitReceiptRequestCbor(v: SplitReceiptRequest): Uint8Array {
+  return encodeValue(toSplitReceiptRequestCborValue(v));
+}
+
+export function fromSplitReceiptRequestCbor(bytes: Uint8Array): SplitReceiptRequest {
+  return fromSplitReceiptRequestCborValue(decode(bytes));
+}
+
+export function toSplitOccurrenceMappingCborValue(v: SplitOccurrenceMapping): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  csilMap.set("result", v.result);
+  if (v.eventId !== undefined) csilMap.set("event_id", v.eventId);
+  csilMap.set("recurrence_id", v.recurrenceId);
+  if (v.mappedRecurrenceId !== undefined) csilMap.set("mapped_recurrence_id", v.mappedRecurrenceId);
+  return csilMap;
+}
+
+export function fromSplitOccurrenceMappingCborValue(value: CborValue): SplitOccurrenceMapping {
+  return {
+    recurrenceId: asString(requireKey(value, "recurrence_id")),
+    result: (asEnumMember(asString(requireKey(value, "result")), ["original", "successor", "none"]) as "original" | "successor" | "none"),
+    eventId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "event_id")),
+    mappedRecurrenceId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "mapped_recurrence_id")),
+  };
+}
+
+export function toSplitOccurrenceMappingCbor(v: SplitOccurrenceMapping): Uint8Array {
+  return encodeValue(toSplitOccurrenceMappingCborValue(v));
+}
+
+export function fromSplitOccurrenceMappingCbor(bytes: Uint8Array): SplitOccurrenceMapping {
+  return fromSplitOccurrenceMappingCborValue(decode(bytes));
+}
+
+export function toSplitSeriesReceiptCborValue(v: SplitSeriesReceipt): CborValue {
+  const csilMap = new Map<CborValue, CborValue>();
+  if (v.series !== undefined) csilMap.set("series", toEventCborValue(v.series));
+  csilMap.set("created", v.created);
+  csilMap.set("in_place", v.inPlace);
+  csilMap.set("mappings", v.mappings.map((csilE): CborValue => toSplitOccurrenceMappingCborValue(csilE)));
+  csilMap.set("split_at", v.splitAt);
+  csilMap.set("series_id", v.seriesId);
+  if (v.successor !== undefined) csilMap.set("successor", toEventCborValue(v.successor));
+  csilMap.set("created_at", v.createdAt);
+  csilMap.set("calendar_id", v.calendarId);
+  csilMap.set("series_state", v.seriesState);
+  csilMap.set("successor_id", v.successorId);
+  csilMap.set("idempotency_key", v.idempotencyKey);
+  if (v.seriesTrashId !== undefined) csilMap.set("series_trash_id", v.seriesTrashId);
+  csilMap.set("successor_state", v.successorState);
+  if (v.successorTrashId !== undefined) csilMap.set("successor_trash_id", v.successorTrashId);
+  return csilMap;
+}
+
+export function fromSplitSeriesReceiptCborValue(value: CborValue): SplitSeriesReceipt {
+  return {
+    seriesId: asString(requireKey(value, "series_id")),
+    idempotencyKey: asString(requireKey(value, "idempotency_key")),
+    successorId: asString(requireKey(value, "successor_id")),
+    splitAt: asString(requireKey(value, "split_at")),
+    inPlace: asBool(requireKey(value, "in_place")),
+    created: asBool(requireKey(value, "created")),
+    createdAt: asString(requireKey(value, "created_at")),
+    calendarId: asString(requireKey(value, "calendar_id")),
+    seriesState: (asEnumMember(asString(requireKey(value, "series_state")), ["live", "trashed", "deleted", "hidden"]) as "live" | "trashed" | "deleted" | "hidden"),
+    series: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromEventCborValue(csilV))(mapGet(value, "series")),
+    seriesTrashId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "series_trash_id")),
+    successorState: (asEnumMember(asString(requireKey(value, "successor_state")), ["live", "trashed", "deleted", "hidden"]) as "live" | "trashed" | "deleted" | "hidden"),
+    successor: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromEventCborValue(csilV))(mapGet(value, "successor")),
+    successorTrashId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "successor_trash_id")),
+    mappings: asArray(requireKey(value, "mappings")).map((csilE) => fromSplitOccurrenceMappingCborValue(csilE)),
+  };
+}
+
+export function toSplitSeriesReceiptCbor(v: SplitSeriesReceipt): Uint8Array {
+  return encodeValue(toSplitSeriesReceiptCborValue(v));
+}
+
+export function fromSplitSeriesReceiptCbor(bytes: Uint8Array): SplitSeriesReceipt {
+  return fromSplitSeriesReceiptCborValue(decode(bytes));
 }
 
 export function toGetOccurrenceRequestCborValue(v: GetOccurrenceRequest): CborValue {

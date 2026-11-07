@@ -99,6 +99,8 @@ typedef struct EventHandlers {
     int (*import_event)(void *ctx, const ImportEventRequest *req, Event *resp);
     int (*create_event_once)(void *ctx, const CreateEventOnceRequest *req, CreateEventReceipt *resp);
     int (*get_create_receipt)(void *ctx, const CreateReceiptRequest *req, CreateEventReceipt *resp);
+    int (*split_series_once)(void *ctx, const SplitSeriesOnceRequest *req, SplitSeriesReceipt *resp);
+    int (*get_split_receipt)(void *ctx, const SplitReceiptRequest *req, SplitSeriesReceipt *resp);
 } EventHandlers;
 
 /* FreeBusyHandlers is the host's implementation of the FreeBusyService service. */
