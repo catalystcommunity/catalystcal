@@ -43,8 +43,8 @@ func TestEveryGeneratedOpIsRegistered(t *testing.T) {
 		}
 	}
 	// 10 + 2 + 3 + 8 + 3 + 6 + 5 + 9 + 1 + 3 + 1 ops in csil/catalystcal.csil.
-	if total != 57 {
-		t.Fatalf("walked %d ops, want 57: a service interface is missing from generatedServices", total)
+	if total != 59 {
+		t.Fatalf("walked %d ops, want 59: a service interface is missing from generatedServices", total)
 	}
 }
 

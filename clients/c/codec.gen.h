@@ -737,6 +737,16 @@ static inline int csilc_enc_CreateReceiptRequest(csilc_buf *b, const CreateRecei
 static inline int csilc_dec_CreateReceiptRequest(const csilc_value *m, CsilCodecArena *a, CreateReceiptRequest *out);
 static inline int csilc_enc_CreateEventReceipt(csilc_buf *b, const CreateEventReceipt *v);
 static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecArena *a, CreateEventReceipt *out);
+static inline int csilc_enc_SplitSeriesOnceRequest(csilc_buf *b, const SplitSeriesOnceRequest *v);
+static inline int csilc_dec_SplitSeriesOnceRequest(const csilc_value *m, CsilCodecArena *a, SplitSeriesOnceRequest *out);
+static inline int csilc_enc_SplitReceiptRequest(csilc_buf *b, const SplitReceiptRequest *v);
+static inline int csilc_dec_SplitReceiptRequest(const csilc_value *m, CsilCodecArena *a, SplitReceiptRequest *out);
+static inline int csilc_enc_SplitMapResult(csilc_buf *b, const SplitMapResult *v);
+static inline int csilc_dec_SplitMapResult(const csilc_value *src, CsilCodecArena *a, SplitMapResult *out);
+static inline int csilc_enc_SplitOccurrenceMapping(csilc_buf *b, const SplitOccurrenceMapping *v);
+static inline int csilc_dec_SplitOccurrenceMapping(const csilc_value *m, CsilCodecArena *a, SplitOccurrenceMapping *out);
+static inline int csilc_enc_SplitSeriesReceipt(csilc_buf *b, const SplitSeriesReceipt *v);
+static inline int csilc_dec_SplitSeriesReceipt(const csilc_value *m, CsilCodecArena *a, SplitSeriesReceipt *out);
 static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurrenceRequest *v);
 static inline int csilc_dec_GetOccurrenceRequest(const csilc_value *m, CsilCodecArena *a, GetOccurrenceRequest *out);
 static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v);
@@ -3284,6 +3294,291 @@ static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecAr
     return 0;
 }
 
+/* csilc_enc_SplitSeriesOnceRequest writes SplitSeriesOnceRequest as a canonical CBOR map. */
+static inline int csilc_enc_SplitSeriesOnceRequest(csilc_buf *b, const SplitSeriesOnceRequest *v) {
+    size_t csilc_n = 3;
+    if (v->map_recurrence_ids_count) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "event", 5)) return -1;
+    if (csilc_enc_Event(b, &(v->event))) return -1;
+    if (csilc_w_text(b, "recurrence_id", 13)) return -1;
+    if (csilc_w_text(b, (v->recurrence_id), (v->recurrence_id) ? strlen(v->recurrence_id) : 0)) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    if (v->map_recurrence_ids_count) {
+        if (csilc_w_text(b, "map_recurrence_ids", 18)) return -1;
+        if (csilc_w_array_head(b, v->map_recurrence_ids_count)) return -1;
+        for (size_t csilc_i = 0; csilc_i < v->map_recurrence_ids_count; csilc_i++) {
+            if (csilc_w_text(b, (v->map_recurrence_ids[csilc_i]), (v->map_recurrence_ids[csilc_i]) ? strlen(v->map_recurrence_ids[csilc_i]) : 0)) return -1;
+        }
+    }
+    return 0;
+}
+
+/* csilc_dec_SplitSeriesOnceRequest reads SplitSeriesOnceRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_SplitSeriesOnceRequest(const csilc_value *m, CsilCodecArena *a, SplitSeriesOnceRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "event");
+    if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
+    csilc_f = csilc_map_get(m, "recurrence_id");
+    if (!csilc_get_text(csilc_f, &(out->recurrence_id))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    csilc_f = csilc_map_get(m, "map_recurrence_ids");
+    if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
+    out->map_recurrence_ids_count = csilc_f->as.array.count;
+    out->map_recurrence_ids = NULL;
+    if (out->map_recurrence_ids_count) {
+        out->map_recurrence_ids = (Timestamp *)csilc_arena_alloc(a, out->map_recurrence_ids_count * sizeof(Timestamp));
+        if (!out->map_recurrence_ids) return -1;
+        for (size_t csilc_i = 0; csilc_i < out->map_recurrence_ids_count; csilc_i++) {
+            if (!csilc_get_text(&csilc_f->as.array.items[csilc_i], &(out->map_recurrence_ids[csilc_i]))) return -1;
+        }
+    }
+    return 0;
+}
+
+/* csilc_enc_SplitReceiptRequest writes SplitReceiptRequest as a canonical CBOR map. */
+static inline int csilc_enc_SplitReceiptRequest(csilc_buf *b, const SplitReceiptRequest *v) {
+    size_t csilc_n = 2;
+    if (v->map_recurrence_ids_count) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "series_id", 9)) return -1;
+    if (csilc_w_text(b, (v->series_id), (v->series_id) ? strlen(v->series_id) : 0)) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    if (v->map_recurrence_ids_count) {
+        if (csilc_w_text(b, "map_recurrence_ids", 18)) return -1;
+        if (csilc_w_array_head(b, v->map_recurrence_ids_count)) return -1;
+        for (size_t csilc_i = 0; csilc_i < v->map_recurrence_ids_count; csilc_i++) {
+            if (csilc_w_text(b, (v->map_recurrence_ids[csilc_i]), (v->map_recurrence_ids[csilc_i]) ? strlen(v->map_recurrence_ids[csilc_i]) : 0)) return -1;
+        }
+    }
+    return 0;
+}
+
+/* csilc_dec_SplitReceiptRequest reads SplitReceiptRequest from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_SplitReceiptRequest(const csilc_value *m, CsilCodecArena *a, SplitReceiptRequest *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "series_id");
+    if (!csilc_get_text(csilc_f, &(out->series_id))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    csilc_f = csilc_map_get(m, "map_recurrence_ids");
+    if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
+    out->map_recurrence_ids_count = csilc_f->as.array.count;
+    out->map_recurrence_ids = NULL;
+    if (out->map_recurrence_ids_count) {
+        out->map_recurrence_ids = (Timestamp *)csilc_arena_alloc(a, out->map_recurrence_ids_count * sizeof(Timestamp));
+        if (!out->map_recurrence_ids) return -1;
+        for (size_t csilc_i = 0; csilc_i < out->map_recurrence_ids_count; csilc_i++) {
+            if (!csilc_get_text(&csilc_f->as.array.items[csilc_i], &(out->map_recurrence_ids[csilc_i]))) return -1;
+        }
+    }
+    return 0;
+}
+
+static CSILC_UNUSED const char *const csilc_SplitMapResult_names[] = {
+    "original",
+    "successor",
+    "none",
+};
+/* csilc_enc_SplitMapResult writes the SplitMapResult variant's wire text. */
+static inline int csilc_enc_SplitMapResult(csilc_buf *b, const SplitMapResult *v) {
+    const char *csilc_s = csilc_SplitMapResult_names[(size_t)(*v)];
+    return csilc_w_text(b, csilc_s, strlen(csilc_s));
+}
+
+/* csilc_dec_SplitMapResult matches the wire text back to a SplitMapResult variant. */
+static inline int csilc_dec_SplitMapResult(const csilc_value *src, CsilCodecArena *a, SplitMapResult *out) {
+    (void)a;
+    if (!src || src->kind != CSILC_TEXT) return -1;
+    for (size_t csilc_i = 0; csilc_i < sizeof(csilc_SplitMapResult_names) / sizeof(csilc_SplitMapResult_names[0]); csilc_i++) {
+        if (strlen(csilc_SplitMapResult_names[csilc_i]) == src->as.bytes.len &&
+            memcmp(csilc_SplitMapResult_names[csilc_i], src->as.bytes.ptr, src->as.bytes.len) == 0) {
+            *out = (SplitMapResult)csilc_i;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/* csilc_enc_SplitOccurrenceMapping writes SplitOccurrenceMapping as a canonical CBOR map. */
+static inline int csilc_enc_SplitOccurrenceMapping(csilc_buf *b, const SplitOccurrenceMapping *v) {
+    size_t csilc_n = 2;
+    if (v->event_id) csilc_n++;
+    if (v->mapped_recurrence_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (csilc_w_text(b, "result", 6)) return -1;
+    if (csilc_enc_SplitMapResult(b, &(v->result))) return -1;
+    if (v->event_id) {
+        if (csilc_w_text(b, "event_id", 8)) return -1;
+        if (csilc_w_text(b, ((*v->event_id)), ((*v->event_id)) ? strlen((*v->event_id)) : 0)) return -1;
+    }
+    if (csilc_w_text(b, "recurrence_id", 13)) return -1;
+    if (csilc_w_text(b, (v->recurrence_id), (v->recurrence_id) ? strlen(v->recurrence_id) : 0)) return -1;
+    if (v->mapped_recurrence_id) {
+        if (csilc_w_text(b, "mapped_recurrence_id", 20)) return -1;
+        if (csilc_w_text(b, ((*v->mapped_recurrence_id)), ((*v->mapped_recurrence_id)) ? strlen((*v->mapped_recurrence_id)) : 0)) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_SplitOccurrenceMapping reads SplitOccurrenceMapping from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_SplitOccurrenceMapping(const csilc_value *m, CsilCodecArena *a, SplitOccurrenceMapping *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "result");
+    if (csilc_dec_SplitMapResult(csilc_f, a, &(out->result))) return -1;
+    csilc_f = csilc_map_get(m, "event_id");
+    out->event_id = NULL;
+    if (csilc_f) {
+        EventID *csilc_p = (EventID *)csilc_arena_alloc(a, sizeof(EventID));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->event_id = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "recurrence_id");
+    if (!csilc_get_text(csilc_f, &(out->recurrence_id))) return -1;
+    csilc_f = csilc_map_get(m, "mapped_recurrence_id");
+    out->mapped_recurrence_id = NULL;
+    if (csilc_f) {
+        Timestamp *csilc_p = (Timestamp *)csilc_arena_alloc(a, sizeof(Timestamp));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->mapped_recurrence_id = csilc_p;
+    }
+    return 0;
+}
+
+/* csilc_enc_SplitSeriesReceipt writes SplitSeriesReceipt as a canonical CBOR map. */
+static inline int csilc_enc_SplitSeriesReceipt(csilc_buf *b, const SplitSeriesReceipt *v) {
+    size_t csilc_n = 11;
+    if (v->series) csilc_n++;
+    if (v->successor) csilc_n++;
+    if (v->series_trash_id) csilc_n++;
+    if (v->successor_trash_id) csilc_n++;
+    if (csilc_w_map_head(b, csilc_n)) return -1;
+    if (v->series) {
+        if (csilc_w_text(b, "series", 6)) return -1;
+        if (csilc_enc_Event(b, &((*v->series)))) return -1;
+    }
+    if (csilc_w_text(b, "created", 7)) return -1;
+    if (csilc_w_bool(b, (v->created))) return -1;
+    if (csilc_w_text(b, "in_place", 8)) return -1;
+    if (csilc_w_bool(b, (v->in_place))) return -1;
+    if (csilc_w_text(b, "mappings", 8)) return -1;
+    if (csilc_w_array_head(b, v->mappings_count)) return -1;
+    for (size_t csilc_i = 0; csilc_i < v->mappings_count; csilc_i++) {
+        if (csilc_enc_SplitOccurrenceMapping(b, &(v->mappings[csilc_i]))) return -1;
+    }
+    if (csilc_w_text(b, "split_at", 8)) return -1;
+    if (csilc_w_text(b, (v->split_at), (v->split_at) ? strlen(v->split_at) : 0)) return -1;
+    if (csilc_w_text(b, "series_id", 9)) return -1;
+    if (csilc_w_text(b, (v->series_id), (v->series_id) ? strlen(v->series_id) : 0)) return -1;
+    if (v->successor) {
+        if (csilc_w_text(b, "successor", 9)) return -1;
+        if (csilc_enc_Event(b, &((*v->successor)))) return -1;
+    }
+    if (csilc_w_text(b, "created_at", 10)) return -1;
+    if (csilc_w_text(b, (v->created_at), (v->created_at) ? strlen(v->created_at) : 0)) return -1;
+    if (csilc_w_text(b, "calendar_id", 11)) return -1;
+    if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
+    if (csilc_w_text(b, "series_state", 12)) return -1;
+    if (csilc_enc_CreateReceiptState(b, &(v->series_state))) return -1;
+    if (csilc_w_text(b, "successor_id", 12)) return -1;
+    if (csilc_w_text(b, (v->successor_id), (v->successor_id) ? strlen(v->successor_id) : 0)) return -1;
+    if (csilc_w_text(b, "idempotency_key", 15)) return -1;
+    if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
+    if (v->series_trash_id) {
+        if (csilc_w_text(b, "series_trash_id", 15)) return -1;
+        if (csilc_w_text(b, ((*v->series_trash_id)), ((*v->series_trash_id)) ? strlen((*v->series_trash_id)) : 0)) return -1;
+    }
+    if (csilc_w_text(b, "successor_state", 15)) return -1;
+    if (csilc_enc_CreateReceiptState(b, &(v->successor_state))) return -1;
+    if (v->successor_trash_id) {
+        if (csilc_w_text(b, "successor_trash_id", 18)) return -1;
+        if (csilc_w_text(b, ((*v->successor_trash_id)), ((*v->successor_trash_id)) ? strlen((*v->successor_trash_id)) : 0)) return -1;
+    }
+    return 0;
+}
+
+/* csilc_dec_SplitSeriesReceipt reads SplitSeriesReceipt from a decoded CBOR map (arena-borrowed). */
+static inline int csilc_dec_SplitSeriesReceipt(const csilc_value *m, CsilCodecArena *a, SplitSeriesReceipt *out) {
+    (void)a;
+    const csilc_value *csilc_f;
+    if (!m || m->kind != CSILC_MAP) return -1;
+    csilc_f = csilc_map_get(m, "series");
+    out->series = NULL;
+    if (csilc_f) {
+        Event *csilc_p = (Event *)csilc_arena_alloc(a, sizeof(Event));
+        if (!csilc_p) return -1;
+        if (csilc_dec_Event(csilc_f, a, &((*csilc_p)))) return -1;
+        out->series = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "created");
+    if (!csilc_as_bool(csilc_f, &(out->created))) return -1;
+    csilc_f = csilc_map_get(m, "in_place");
+    if (!csilc_as_bool(csilc_f, &(out->in_place))) return -1;
+    csilc_f = csilc_map_get(m, "mappings");
+    if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
+    out->mappings_count = csilc_f->as.array.count;
+    out->mappings = NULL;
+    if (out->mappings_count) {
+        out->mappings = (SplitOccurrenceMapping *)csilc_arena_alloc(a, out->mappings_count * sizeof(SplitOccurrenceMapping));
+        if (!out->mappings) return -1;
+        for (size_t csilc_i = 0; csilc_i < out->mappings_count; csilc_i++) {
+            if (csilc_dec_SplitOccurrenceMapping(&csilc_f->as.array.items[csilc_i], a, &(out->mappings[csilc_i]))) return -1;
+        }
+    }
+    csilc_f = csilc_map_get(m, "split_at");
+    if (!csilc_get_text(csilc_f, &(out->split_at))) return -1;
+    csilc_f = csilc_map_get(m, "series_id");
+    if (!csilc_get_text(csilc_f, &(out->series_id))) return -1;
+    csilc_f = csilc_map_get(m, "successor");
+    out->successor = NULL;
+    if (csilc_f) {
+        Event *csilc_p = (Event *)csilc_arena_alloc(a, sizeof(Event));
+        if (!csilc_p) return -1;
+        if (csilc_dec_Event(csilc_f, a, &((*csilc_p)))) return -1;
+        out->successor = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "created_at");
+    if (!csilc_get_text(csilc_f, &(out->created_at))) return -1;
+    csilc_f = csilc_map_get(m, "calendar_id");
+    if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
+    csilc_f = csilc_map_get(m, "series_state");
+    if (csilc_dec_CreateReceiptState(csilc_f, a, &(out->series_state))) return -1;
+    csilc_f = csilc_map_get(m, "successor_id");
+    if (!csilc_get_text(csilc_f, &(out->successor_id))) return -1;
+    csilc_f = csilc_map_get(m, "idempotency_key");
+    if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
+    csilc_f = csilc_map_get(m, "series_trash_id");
+    out->series_trash_id = NULL;
+    if (csilc_f) {
+        TrashID *csilc_p = (TrashID *)csilc_arena_alloc(a, sizeof(TrashID));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->series_trash_id = csilc_p;
+    }
+    csilc_f = csilc_map_get(m, "successor_state");
+    if (csilc_dec_CreateReceiptState(csilc_f, a, &(out->successor_state))) return -1;
+    csilc_f = csilc_map_get(m, "successor_trash_id");
+    out->successor_trash_id = NULL;
+    if (csilc_f) {
+        TrashID *csilc_p = (TrashID *)csilc_arena_alloc(a, sizeof(TrashID));
+        if (!csilc_p) return -1;
+        if (!csilc_get_text(csilc_f, &((*csilc_p)))) return -1;
+        out->successor_trash_id = csilc_p;
+    }
+    return 0;
+}
+
 /* csilc_enc_GetOccurrenceRequest writes GetOccurrenceRequest as a canonical CBOR map. */
 static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurrenceRequest *v) {
     size_t csilc_n = 1;
@@ -5733,6 +6028,121 @@ static inline int csil_decode_CreateEventReceipt(const uint8_t *in, size_t len, 
     const csilc_value *root;
     if (csilc_decode(in, len, &a, &root)) return -1;
     if (csilc_dec_CreateEventReceipt(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a SplitSeriesOnceRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_SplitSeriesOnceRequest(const SplitSeriesOnceRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_SplitSeriesOnceRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a SplitSeriesOnceRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_SplitSeriesOnceRequest(const uint8_t *in, size_t len, SplitSeriesOnceRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_SplitSeriesOnceRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a SplitReceiptRequest to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_SplitReceiptRequest(const SplitReceiptRequest *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_SplitReceiptRequest(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a SplitReceiptRequest. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_SplitReceiptRequest(const uint8_t *in, size_t len, SplitReceiptRequest *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_SplitReceiptRequest(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a SplitMapResult to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_SplitMapResult(const SplitMapResult *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_SplitMapResult(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a SplitMapResult. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_SplitMapResult(const uint8_t *in, size_t len, SplitMapResult *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_SplitMapResult(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a SplitOccurrenceMapping to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_SplitOccurrenceMapping(const SplitOccurrenceMapping *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_SplitOccurrenceMapping(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a SplitOccurrenceMapping. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_SplitOccurrenceMapping(const uint8_t *in, size_t len, SplitOccurrenceMapping *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_SplitOccurrenceMapping(root, a, out)) { csil_codec_arena_free(a); return -1; }
+    *owner = a;
+    return 0;
+}
+
+/* Encode a SplitSeriesReceipt to CBOR. On success *out is a malloc'd buffer of
+ * *out_len bytes the caller frees with free(); returns non-zero on failure. */
+static inline int csil_encode_SplitSeriesReceipt(const SplitSeriesReceipt *v, uint8_t **out, size_t *out_len) {
+    csilc_buf b;
+    csilc_buf_init(&b);
+    if (csilc_enc_SplitSeriesReceipt(&b, v)) { csilc_buf_dispose(&b); return -1; }
+    *out = b.data;
+    *out_len = b.len;
+    return 0;
+}
+
+/* Decode CBOR into a SplitSeriesReceipt. On success *owner holds the backing
+ * storage (every string/bytes/array inside *out borrows from it); free it
+ * once with csil_codec_arena_free when done. Returns non-zero on failure. */
+static inline int csil_decode_SplitSeriesReceipt(const uint8_t *in, size_t len, SplitSeriesReceipt *out, CsilCodecArena **owner) {
+    CsilCodecArena *a;
+    const csilc_value *root;
+    if (csilc_decode(in, len, &a, &root)) return -1;
+    if (csilc_dec_SplitSeriesReceipt(root, a, out)) { csil_codec_arena_free(a); return -1; }
     *owner = a;
     return 0;
 }

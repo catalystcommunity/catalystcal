@@ -233,6 +233,21 @@ pub const CreateReceiptState = enum {
     }
 };
 
+/// SplitMapResult is an enumeration.
+pub const SplitMapResult = enum {
+    original,
+    successor,
+    none,
+
+    pub fn wire_name(self: SplitMapResult) []const u8 {
+        return switch (self) {
+            .original => "original",
+            .successor => "successor",
+            .none => "none",
+        };
+    }
+};
+
 /// UserID is a type alias.
 pub const UserID = []const u8;
 
@@ -742,6 +757,48 @@ pub const CreateEventReceipt = struct {
     created_at: Timestamp,
     event: ?Event = null,
     trash_id: ?TrashID = null,
+};
+
+/// SplitSeriesOnceRequest is a structured data type.
+pub const SplitSeriesOnceRequest = struct {
+    idempotency_key: []const u8,
+    event: Event,
+    recurrence_id: Timestamp,
+    map_recurrence_ids: ?[]Timestamp = null,
+};
+
+/// SplitReceiptRequest is a structured data type.
+pub const SplitReceiptRequest = struct {
+    series_id: EventID,
+    idempotency_key: []const u8,
+    map_recurrence_ids: ?[]Timestamp = null,
+};
+
+/// SplitOccurrenceMapping is a structured data type.
+pub const SplitOccurrenceMapping = struct {
+    recurrence_id: Timestamp,
+    result: SplitMapResult,
+    event_id: ?EventID = null,
+    mapped_recurrence_id: ?Timestamp = null,
+};
+
+/// SplitSeriesReceipt is a structured data type.
+pub const SplitSeriesReceipt = struct {
+    series_id: EventID,
+    idempotency_key: []const u8,
+    successor_id: EventID,
+    split_at: Timestamp,
+    in_place: bool,
+    created: bool,
+    created_at: Timestamp,
+    calendar_id: CalendarID,
+    series_state: CreateReceiptState,
+    series: ?Event = null,
+    series_trash_id: ?TrashID = null,
+    successor_state: CreateReceiptState,
+    successor: ?Event = null,
+    successor_trash_id: ?TrashID = null,
+    mappings: []SplitOccurrenceMapping,
 };
 
 /// GetOccurrenceRequest is a structured data type.

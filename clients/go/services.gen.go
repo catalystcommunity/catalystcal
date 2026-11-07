@@ -89,6 +89,8 @@ type EventService interface {
 	ImportEvent(ctx context.Context, req ImportEventRequest) (Event, error)
 	CreateEventOnce(ctx context.Context, req CreateEventOnceRequest) (CreateEventReceipt, error)
 	GetCreateReceipt(ctx context.Context, req CreateReceiptRequest) (CreateEventReceipt, error)
+	SplitSeriesOnce(ctx context.Context, req SplitSeriesOnceRequest) (SplitSeriesReceipt, error)
+	GetSplitReceipt(ctx context.Context, req SplitReceiptRequest) (SplitSeriesReceipt, error)
 }
 
 // FreeBusyService defines the service interface

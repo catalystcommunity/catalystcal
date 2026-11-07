@@ -1516,6 +1516,166 @@ end),
   end
 end
 
+# CBOR codec for SplitSeriesOnceRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SplitSeriesOnceRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["event"] = (event).csil_to_tree
+    csil_map["recurrence_id"] = recurrence_id
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| csil_e } unless map_recurrence_ids.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      idempotency_key: node["idempotency_key"],
+      event: Event.csil_from_tree(node["event"]),
+      recurrence_id: node["recurrence_id"],
+      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| csil_e } : nil)
+    )
+  end
+end
+
+# CBOR codec for SplitReceiptRequest: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SplitReceiptRequest
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["series_id"] = series_id
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| csil_e } unless map_recurrence_ids.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      series_id: node["series_id"],
+      idempotency_key: node["idempotency_key"],
+      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| csil_e } : nil)
+    )
+  end
+end
+
+# CBOR codec for SplitOccurrenceMapping: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SplitOccurrenceMapping
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["result"] = (result)
+    csil_map["event_id"] = event_id unless event_id.nil?
+    csil_map["recurrence_id"] = recurrence_id
+    csil_map["mapped_recurrence_id"] = mapped_recurrence_id unless mapped_recurrence_id.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      recurrence_id: node["recurrence_id"],
+      result: (case (node["result"])
+when "original" then "original"
+when "successor" then "successor"
+when "none" then "none"
+else
+  raise ArgumentError, "csilgen: unknown inline literal #{(node["result"]).inspect}"
+end),
+      event_id: (node.key?("event_id") ? node["event_id"] : nil),
+      mapped_recurrence_id: (node.key?("mapped_recurrence_id") ? node["mapped_recurrence_id"] : nil)
+    )
+  end
+end
+
+# CBOR codec for SplitSeriesReceipt: a map keyed by the verbatim CSIL field names in
+# canonical RFC 8949 order.
+class SplitSeriesReceipt
+  def to_cbor
+    CsilCbor.encode(csil_to_tree)
+  end
+
+  def csil_to_tree
+    csil_map = {}
+    csil_map["series"] = (series).csil_to_tree unless series.nil?
+    csil_map["created"] = created
+    csil_map["in_place"] = in_place
+    csil_map["mappings"] = (mappings).map { |csil_e| (csil_e).csil_to_tree }
+    csil_map["split_at"] = split_at
+    csil_map["series_id"] = series_id
+    csil_map["successor"] = (successor).csil_to_tree unless successor.nil?
+    csil_map["created_at"] = created_at
+    csil_map["calendar_id"] = calendar_id
+    csil_map["series_state"] = (series_state)
+    csil_map["successor_id"] = successor_id
+    csil_map["idempotency_key"] = idempotency_key
+    csil_map["series_trash_id"] = series_trash_id unless series_trash_id.nil?
+    csil_map["successor_state"] = (successor_state)
+    csil_map["successor_trash_id"] = successor_trash_id unless successor_trash_id.nil?
+    csil_map
+  end
+
+  def self.from_cbor(bytes)
+    csil_from_tree(CsilCbor.decode(bytes))
+  end
+
+  def self.csil_from_tree(node)
+    new(
+      series_id: node["series_id"],
+      idempotency_key: node["idempotency_key"],
+      successor_id: node["successor_id"],
+      split_at: node["split_at"],
+      in_place: node["in_place"],
+      created: node["created"],
+      created_at: node["created_at"],
+      calendar_id: node["calendar_id"],
+      series_state: (case (node["series_state"])
+when "live" then "live"
+when "trashed" then "trashed"
+when "deleted" then "deleted"
+when "hidden" then "hidden"
+else
+  raise ArgumentError, "csilgen: unknown inline literal #{(node["series_state"]).inspect}"
+end),
+      series: (node.key?("series") ? Event.csil_from_tree(node["series"]) : nil),
+      series_trash_id: (node.key?("series_trash_id") ? node["series_trash_id"] : nil),
+      successor_state: (case (node["successor_state"])
+when "live" then "live"
+when "trashed" then "trashed"
+when "deleted" then "deleted"
+when "hidden" then "hidden"
+else
+  raise ArgumentError, "csilgen: unknown inline literal #{(node["successor_state"]).inspect}"
+end),
+      successor: (node.key?("successor") ? Event.csil_from_tree(node["successor"]) : nil),
+      successor_trash_id: (node.key?("successor_trash_id") ? node["successor_trash_id"] : nil),
+      mappings: (node["mappings"]).map { |csil_e| SplitOccurrenceMapping.csil_from_tree(csil_e) }
+    )
+  end
+end
+
 # CBOR codec for GetOccurrenceRequest: a map keyed by the verbatim CSIL field names in
 # canonical RFC 8949 order.
 class GetOccurrenceRequest

@@ -358,6 +358,46 @@ export interface CreateEventReceipt {
   trashId?: TrashID;
 }
 
+export interface SplitSeriesOnceRequest {
+  idempotencyKey: string;
+  event: Event;
+  recurrenceId: Timestamp;
+  mapRecurrenceIds?: Timestamp[];
+}
+
+export interface SplitReceiptRequest {
+  seriesId: EventID;
+  idempotencyKey: string;
+  mapRecurrenceIds?: Timestamp[];
+}
+
+export type SplitMapResult = "original" | "successor" | "none";
+
+export interface SplitOccurrenceMapping {
+  recurrenceId: Timestamp;
+  result: SplitMapResult;
+  eventId?: EventID;
+  mappedRecurrenceId?: Timestamp;
+}
+
+export interface SplitSeriesReceipt {
+  seriesId: EventID;
+  idempotencyKey: string;
+  successorId: EventID;
+  splitAt: Timestamp;
+  inPlace: boolean;
+  created: boolean;
+  createdAt: Timestamp;
+  calendarId: CalendarID;
+  seriesState: CreateReceiptState;
+  series?: Event;
+  seriesTrashId?: TrashID;
+  successorState: CreateReceiptState;
+  successor?: Event;
+  successorTrashId?: TrashID;
+  mappings: SplitOccurrenceMapping[];
+}
+
 export interface GetOccurrenceRequest {
   eventId: EventID;
   recurrenceId?: Timestamp;
@@ -612,6 +652,18 @@ export function validateCreateEventOnceRequest(value: CreateEventOnceRequest): s
 }
 
 export function validateCreateReceiptRequest(value: CreateReceiptRequest): string[] {
+  const errors: string[] = [];
+  if (value.idempotencyKey.length < 1 || value.idempotencyKey.length > 200) errors.push("idempotencyKey: length must be between 1 and 200");
+  return errors;
+}
+
+export function validateSplitSeriesOnceRequest(value: SplitSeriesOnceRequest): string[] {
+  const errors: string[] = [];
+  if (value.idempotencyKey.length < 1 || value.idempotencyKey.length > 200) errors.push("idempotencyKey: length must be between 1 and 200");
+  return errors;
+}
+
+export function validateSplitReceiptRequest(value: SplitReceiptRequest): string[] {
   const errors: string[] = [];
   if (value.idempotencyKey.length < 1 || value.idempotencyKey.length > 200) errors.push("idempotencyKey: length must be between 1 and 200");
   return errors;

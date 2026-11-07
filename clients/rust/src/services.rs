@@ -324,6 +324,18 @@ pub trait EventService {
         ctx: &Self::Context,
         input: CreateReceiptRequest,
     ) -> Result<CreateEventReceipt, ServiceError>;
+    /// split-series-once (request/response).
+    fn split_series_once(
+        &self,
+        ctx: &Self::Context,
+        input: SplitSeriesOnceRequest,
+    ) -> Result<SplitSeriesReceipt, ServiceError>;
+    /// get-split-receipt (request/response).
+    fn get_split_receipt(
+        &self,
+        ctx: &Self::Context,
+        input: SplitReceiptRequest,
+    ) -> Result<SplitSeriesReceipt, ServiceError>;
 }
 
 /// FreeBusyService service trait

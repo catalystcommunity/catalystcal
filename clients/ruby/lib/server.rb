@@ -292,6 +292,16 @@ class EventHandlers
   def get_create_receipt(req)
     raise NotImplementedError, "EventHandlers#get_create_receipt"
   end
+
+  # split-series-once
+  def split_series_once(req)
+    raise NotImplementedError, "EventHandlers#split_series_once"
+  end
+
+  # get-split-receipt
+  def get_split_receipt(req)
+    raise NotImplementedError, "EventHandlers#get_split_receipt"
+  end
 end
 
 # Server-side handlers for the FreeBusyService service. Subclass and override each

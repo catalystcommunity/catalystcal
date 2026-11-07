@@ -21,4 +21,6 @@ public interface EventService {
     Event importEvent(ImportEventRequest req);
     CreateEventReceipt createEventOnce(CreateEventOnceRequest req);
     CreateEventReceipt getCreateReceipt(CreateReceiptRequest req);
+    SplitSeriesReceipt splitSeriesOnce(SplitSeriesOnceRequest req);
+    SplitSeriesReceipt getSplitReceipt(SplitReceiptRequest req);
 }

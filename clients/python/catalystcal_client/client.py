@@ -274,6 +274,14 @@ class EventClient:
         """get-create-receipt"""
         return CreateEventReceipt.from_cbor(self._transport.call("EventService", "get-create-receipt", req.to_cbor()))
 
+    def split_series_once(self, req: SplitSeriesOnceRequest) -> SplitSeriesReceipt:
+        """split-series-once"""
+        return SplitSeriesReceipt.from_cbor(self._transport.call("EventService", "split-series-once", req.to_cbor()))
+
+    def get_split_receipt(self, req: SplitReceiptRequest) -> SplitSeriesReceipt:
+        """get-split-receipt"""
+        return SplitSeriesReceipt.from_cbor(self._transport.call("EventService", "get-split-receipt", req.to_cbor()))
+
 class FreeBusyClient:
     """Typed client for the FreeBusyService service."""
     def __init__(self, transport: Transport):

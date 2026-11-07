@@ -656,6 +656,28 @@ pub const EventClient = struct {
         defer alloc.free(csil_respb);
         try codec.decode_CreateEventReceipt(alloc, csil_respb, out);
     }
+
+    /// Invoke EventService/split-series-once with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn split_series_once(self: EventClient, alloc: std.mem.Allocator, req: *const types.SplitSeriesOnceRequest, out: *types.SplitSeriesReceipt) anyerror!void {
+        const csil_reqb = try codec.encode_SplitSeriesOnceRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "split-series-once", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_SplitSeriesReceipt(alloc, csil_respb, out);
+    }
+
+    /// Invoke EventService/get-split-receipt with a typed request, returning the decoded
+    /// typed response. Everything in `out` is allocated from `alloc`; pass an arena
+    /// and free it once when done.
+    pub fn get_split_receipt(self: EventClient, alloc: std.mem.Allocator, req: *const types.SplitReceiptRequest, out: *types.SplitSeriesReceipt) anyerror!void {
+        const csil_reqb = try codec.encode_SplitReceiptRequest(alloc, req);
+        defer alloc.free(csil_reqb);
+        const csil_respb = try self.transport.call(self.transport.ptr, alloc, "EventService", "get-split-receipt", csil_reqb);
+        defer alloc.free(csil_respb);
+        try codec.decode_SplitSeriesReceipt(alloc, csil_respb, out);
+    }
 };
 
 /// FreeBusyClient is a typed client for the FreeBusyService service over a CsilgenTransport.

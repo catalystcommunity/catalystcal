@@ -849,6 +849,110 @@ public sealed record CreateEventReceipt
     public TrashID? TrashId { get; init; }
 }
 
+public sealed record SplitSeriesOnceRequest
+{
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+    // CBOR key: event
+    public required Event Event { get; init; }
+    // CBOR key: recurrence_id
+    public required Timestamp RecurrenceId { get; init; }
+    // CBOR key: map_recurrence_ids
+    public System.Collections.Generic.List<Timestamp>? MapRecurrenceIds { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (IdempotencyKey.Length < 1)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at least 1 elements");
+        }
+        if (IdempotencyKey.Length > 200)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at most 200 elements");
+        }
+    }
+}
+
+public sealed record SplitReceiptRequest
+{
+    // CBOR key: series_id
+    public required EventID SeriesId { get; init; }
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+    // CBOR key: map_recurrence_ids
+    public System.Collections.Generic.List<Timestamp>? MapRecurrenceIds { get; init; }
+
+    /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
+    public void Validate()
+    {
+        if (IdempotencyKey.Length < 1)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at least 1 elements");
+        }
+        if (IdempotencyKey.Length > 200)
+        {
+            throw new System.ArgumentException("field 'IdempotencyKey' must have at most 200 elements");
+        }
+    }
+}
+
+public enum SplitMapResult
+{
+    // wire value: original
+    Original,
+    // wire value: successor
+    Successor,
+    // wire value: none
+    None,
+}
+
+public sealed record SplitOccurrenceMapping
+{
+    // CBOR key: recurrence_id
+    public required Timestamp RecurrenceId { get; init; }
+    // CBOR key: result
+    public required SplitMapResult Result { get; init; }
+    // CBOR key: event_id
+    public EventID? EventId { get; init; }
+    // CBOR key: mapped_recurrence_id
+    public Timestamp? MappedRecurrenceId { get; init; }
+}
+
+public sealed record SplitSeriesReceipt
+{
+    // CBOR key: series_id
+    public required EventID SeriesId { get; init; }
+    // CBOR key: idempotency_key
+    public required string IdempotencyKey { get; init; }
+    // CBOR key: successor_id
+    public required EventID SuccessorId { get; init; }
+    // CBOR key: split_at
+    public required Timestamp SplitAt { get; init; }
+    // CBOR key: in_place
+    public required bool InPlace { get; init; }
+    // CBOR key: created
+    public required bool Created { get; init; }
+    // CBOR key: created_at
+    public required Timestamp CreatedAt { get; init; }
+    // CBOR key: calendar_id
+    public required CalendarID CalendarId { get; init; }
+    // CBOR key: series_state
+    public required CreateReceiptState SeriesState { get; init; }
+    // CBOR key: series
+    public Event? Series { get; init; }
+    // CBOR key: series_trash_id
+    public TrashID? SeriesTrashId { get; init; }
+    // CBOR key: successor_state
+    public required CreateReceiptState SuccessorState { get; init; }
+    // CBOR key: successor
+    public Event? Successor { get; init; }
+    // CBOR key: successor_trash_id
+    public TrashID? SuccessorTrashId { get; init; }
+    // CBOR key: mappings
+    public required System.Collections.Generic.List<SplitOccurrenceMapping> Mappings { get; init; }
+}
+
 public sealed record GetOccurrenceRequest
 {
     // CBOR key: event_id

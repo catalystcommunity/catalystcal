@@ -148,43 +148,59 @@ func (s *EventService) receiptOut(ctx context.Context, id *auth.Identity, r *res
 		CalendarId: csil.CalendarID(rc.CalendarID), IdempotencyKey: rc.Key, EventId: csil.EventID(rc.EventID),
 		CreatedAt: ts(rc.CreatedAt),
 	}
-	e, err := s.Store.GetEvent(ctx, rc.EventID)
+	st, err := s.eventState(ctx, id, r, rc.EventID)
+	if err != nil {
+		return csil.CreateEventReceipt{}, err
+	}
+	out.State, out.Event, out.TrashId = st.state, st.event, st.trashID
+	return out, nil
+}
+
+// receiptEvent is the state of an event that a receipt names.
+type receiptEvent struct {
+	state   csil.CreateReceiptState
+	event   *csil.Event
+	trashID *csil.TrashID
+}
+
+// eventState finds an event that a receipt names: on a calendar (live or
+// hidden), in trash, or gone. The caller's access now decides what it
+// shows.
+func (s *EventService) eventState(ctx context.Context, id *auth.Identity, r *resolver, eventID string) (receiptEvent, error) {
+	e, err := s.Store.GetEvent(ctx, eventID)
 	switch {
 	case err == nil:
 		c, err := s.Store.GetCalendar(ctx, string(e.Ev.CalendarId))
 		if err != nil {
-			return csil.CreateEventReceipt{}, internal(err, "load event calendar")
+			return receiptEvent{}, internal(err, "load event calendar")
 		}
 		acc, err := r.calendar(ctx, c)
 		if err != nil {
-			return csil.CreateEventReceipt{}, err
+			return receiptEvent{}, err
 		}
 		view := access.ViewEvent(id, acc, access.IsPrivate(e.Ev.Visibility), r.isAttendee(e.Ev))
 		if !view.CanSee() {
-			out.State = "hidden"
-			return out, nil
+			return receiptEvent{state: "hidden"}, nil
 		}
 		ev, err := s.people().viewOut(ctx, e, view)
 		if err != nil {
-			return csil.CreateEventReceipt{}, err
+			return receiptEvent{}, err
 		}
-		out.State, out.Event = "live", &ev
-		return out, nil
+		return receiptEvent{state: "live", event: &ev}, nil
 	case !errors.Is(err, store.ErrNotFound):
-		return csil.CreateEventReceipt{}, internal(err, "load event")
+		return receiptEvent{}, internal(err, "load event")
 	}
-	t, err := s.Store.TrashForEvent(ctx, rc.EventID)
+	t, err := s.Store.TrashForEvent(ctx, eventID)
 	if errors.Is(err, store.ErrNotFound) {
-		out.State = "deleted"
-		return out, nil
+		return receiptEvent{state: "deleted"}, nil
 	}
 	if err != nil {
-		return csil.CreateEventReceipt{}, internal(err, "load trash entry")
+		return receiptEvent{}, internal(err, "load trash entry")
 	}
-	out.State = "trashed"
+	out := receiptEvent{state: "trashed"}
 	if tc, tacc, err := r.loadCalendar(ctx, t.CalendarID); err == nil {
 		if createdBy, ok := trashCreatorFilter(id, tc, tacc); ok && (createdBy == "" || createdBy == t.CreatedBy) {
-			out.TrashId = ptr(csil.TrashID(t.ID))
+			out.trashID = ptr(csil.TrashID(t.ID))
 		}
 	}
 	return out, nil

@@ -1506,6 +1506,198 @@ class CreateEventReceipt:
 
 
 @dataclass
+class SplitSeriesOnceRequest:
+    idempotency_key: str
+    event: Event
+    recurrence_id: Timestamp
+    map_recurrence_ids: Optional[List[Timestamp]] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        if hasattr(self, 'event') and self.event is not None:
+            result['event'] = self.event
+        if hasattr(self, 'recurrence_id') and self.recurrence_id is not None:
+            result['recurrence_id'] = self.recurrence_id
+        if hasattr(self, 'map_recurrence_ids') and self.map_recurrence_ids is not None:
+            result['map_recurrence_ids'] = self.map_recurrence_ids
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SplitSeriesOnceRequest':
+        """Create instance from dictionary."""
+        return cls(idempotency_key=data.get('idempotency_key'), event=data.get('event'), recurrence_id=data.get('recurrence_id'), map_recurrence_ids=data.get('map_recurrence_ids'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SplitSeriesOnceRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.idempotency_key is not None and len(self.idempotency_key) < 1:
+            raise ValueError("Field 'idempotency_key' must have length >= 1")
+        if self.idempotency_key is not None and len(self.idempotency_key) > 200:
+            raise ValueError("Field 'idempotency_key' must have length <= 200")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+@dataclass
+class SplitReceiptRequest:
+    series_id: EventId
+    idempotency_key: str
+    map_recurrence_ids: Optional[List[Timestamp]] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'series_id') and self.series_id is not None:
+            result['series_id'] = self.series_id
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        if hasattr(self, 'map_recurrence_ids') and self.map_recurrence_ids is not None:
+            result['map_recurrence_ids'] = self.map_recurrence_ids
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SplitReceiptRequest':
+        """Create instance from dictionary."""
+        return cls(series_id=data.get('series_id'), idempotency_key=data.get('idempotency_key'), map_recurrence_ids=data.get('map_recurrence_ids'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SplitReceiptRequest':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+    def validate(self) -> bool:
+        """Validate field dependencies and constraints."""
+        if self.idempotency_key is not None and len(self.idempotency_key) < 1:
+            raise ValueError("Field 'idempotency_key' must have length >= 1")
+        if self.idempotency_key is not None and len(self.idempotency_key) > 200:
+            raise ValueError("Field 'idempotency_key' must have length <= 200")
+        return True
+
+    def __post_init__(self):
+        """Validate object after initialization."""
+        self.validate()
+
+
+SplitMapResult = Union[str, str, str]
+
+@dataclass
+class SplitOccurrenceMapping:
+    recurrence_id: Timestamp
+    result: SplitMapResult
+    event_id: Optional[EventId] = None
+    mapped_recurrence_id: Optional[Timestamp] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'recurrence_id') and self.recurrence_id is not None:
+            result['recurrence_id'] = self.recurrence_id
+        if hasattr(self, 'result') and self.result is not None:
+            result['result'] = self.result
+        if hasattr(self, 'event_id') and self.event_id is not None:
+            result['event_id'] = self.event_id
+        if hasattr(self, 'mapped_recurrence_id') and self.mapped_recurrence_id is not None:
+            result['mapped_recurrence_id'] = self.mapped_recurrence_id
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SplitOccurrenceMapping':
+        """Create instance from dictionary."""
+        return cls(recurrence_id=data.get('recurrence_id'), result=data.get('result'), event_id=data.get('event_id'), mapped_recurrence_id=data.get('mapped_recurrence_id'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SplitOccurrenceMapping':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
+class SplitSeriesReceipt:
+    series_id: EventId
+    idempotency_key: str
+    successor_id: EventId
+    split_at: Timestamp
+    in_place: bool
+    created: bool
+    created_at: Timestamp
+    calendar_id: CalendarId
+    series_state: CreateReceiptState
+    successor_state: CreateReceiptState
+    mappings: List[SplitOccurrenceMapping]
+    series: Optional[Event] = None
+    series_trash_id: Optional[TrashId] = None
+    successor: Optional[Event] = None
+    successor_trash_id: Optional[TrashId] = None
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        result = {}
+        if hasattr(self, 'series_id') and self.series_id is not None:
+            result['series_id'] = self.series_id
+        if hasattr(self, 'idempotency_key') and self.idempotency_key is not None:
+            result['idempotency_key'] = self.idempotency_key
+        if hasattr(self, 'successor_id') and self.successor_id is not None:
+            result['successor_id'] = self.successor_id
+        if hasattr(self, 'split_at') and self.split_at is not None:
+            result['split_at'] = self.split_at
+        if hasattr(self, 'in_place') and self.in_place is not None:
+            result['in_place'] = self.in_place
+        if hasattr(self, 'created') and self.created is not None:
+            result['created'] = self.created
+        if hasattr(self, 'created_at') and self.created_at is not None:
+            result['created_at'] = self.created_at
+        if hasattr(self, 'calendar_id') and self.calendar_id is not None:
+            result['calendar_id'] = self.calendar_id
+        if hasattr(self, 'series_state') and self.series_state is not None:
+            result['series_state'] = self.series_state
+        if hasattr(self, 'series') and self.series is not None:
+            result['series'] = self.series
+        if hasattr(self, 'series_trash_id') and self.series_trash_id is not None:
+            result['series_trash_id'] = self.series_trash_id
+        if hasattr(self, 'successor_state') and self.successor_state is not None:
+            result['successor_state'] = self.successor_state
+        if hasattr(self, 'successor') and self.successor is not None:
+            result['successor'] = self.successor
+        if hasattr(self, 'successor_trash_id') and self.successor_trash_id is not None:
+            result['successor_trash_id'] = self.successor_trash_id
+        if hasattr(self, 'mappings') and self.mappings is not None:
+            result['mappings'] = self.mappings
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'SplitSeriesReceipt':
+        """Create instance from dictionary."""
+        return cls(series_id=data.get('series_id'), idempotency_key=data.get('idempotency_key'), successor_id=data.get('successor_id'), split_at=data.get('split_at'), in_place=data.get('in_place'), created=data.get('created'), created_at=data.get('created_at'), calendar_id=data.get('calendar_id'), series_state=data.get('series_state'), series=data.get('series'), series_trash_id=data.get('series_trash_id'), successor_state=data.get('successor_state'), successor=data.get('successor'), successor_trash_id=data.get('successor_trash_id'), mappings=data.get('mappings'))
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'SplitSeriesReceipt':
+        """Create instance from JSON string."""
+        return cls.from_dict(json.loads(json_str))
+
+
+@dataclass
 class GetOccurrenceRequest:
     event_id: EventId
     recurrence_id: Optional[Timestamp] = None

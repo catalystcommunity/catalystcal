@@ -71,6 +71,18 @@ fun CreateReceiptRequest.validate() {
     require(idempotencyKey.length <= 200) { "field 'idempotencyKey' must have at most 200 characters" }
 }
 
+/** Validate a SplitSeriesOnceRequest; throws IllegalArgumentException on a constraint breach. */
+fun SplitSeriesOnceRequest.validate() {
+    require(idempotencyKey.length >= 1) { "field 'idempotencyKey' must have at least 1 characters" }
+    require(idempotencyKey.length <= 200) { "field 'idempotencyKey' must have at most 200 characters" }
+}
+
+/** Validate a SplitReceiptRequest; throws IllegalArgumentException on a constraint breach. */
+fun SplitReceiptRequest.validate() {
+    require(idempotencyKey.length >= 1) { "field 'idempotencyKey' must have at least 1 characters" }
+    require(idempotencyKey.length <= 200) { "field 'idempotencyKey' must have at most 200 characters" }
+}
+
 /** Validate a SearchEventsRequest; throws IllegalArgumentException on a constraint breach. */
 fun SearchEventsRequest.validate() {
     require(query.length >= 1) { "field 'query' must have at least 1 characters" }

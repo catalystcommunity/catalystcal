@@ -3430,6 +3430,440 @@ final class CreateEventReceipt {
       CreateEventReceipt.fromCborValue(CsilCbor.decode(bytes));
 }
 
+final class SplitSeriesOnceRequest {
+  final String idempotencyKey;
+  final Event event;
+  final Timestamp recurrenceId;
+  final List<Timestamp>? mapRecurrenceIds;
+
+  const SplitSeriesOnceRequest({
+    required this.idempotencyKey,
+    required this.event,
+    required this.recurrenceId,
+    this.mapRecurrenceIds,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['idempotency_key'] = idempotencyKey;
+    map['event'] = event;
+    map['recurrence_id'] = recurrenceId;
+    if (mapRecurrenceIds != null) map['map_recurrence_ids'] = mapRecurrenceIds;
+    return map;
+  }
+
+  factory SplitSeriesOnceRequest.fromMap(Map<String, Object?> map) {
+    return SplitSeriesOnceRequest(
+      idempotencyKey: map['idempotency_key'] as String,
+      event: map['event'] as Event,
+      recurrenceId: map['recurrence_id'] as Timestamp,
+      mapRecurrenceIds: map['map_recurrence_ids'] as List<Timestamp>?,
+    );
+  }
+
+  /// Throws [ArgumentError] when a field constraint is violated.
+  void validate() {
+    if (idempotencyKey.isEmpty) {
+      throw ArgumentError('\'idempotencyKey\' must have length >= 1');
+    }
+    if (idempotencyKey.length > 200) {
+      throw ArgumentError('\'idempotencyKey\' must have length <= 200');
+    }
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! SplitSeriesOnceRequest) return false;
+    return idempotencyKey == other.idempotencyKey &&
+        event == other.event &&
+        recurrenceId == other.recurrenceId &&
+        mapRecurrenceIds == other.mapRecurrenceIds;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hashAll([idempotencyKey, event, recurrenceId, mapRecurrenceIds]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['idempotency_key'] = idempotencyKey;
+    map['event'] = event.toCborValue();
+    map['recurrence_id'] = recurrenceId;
+    if (mapRecurrenceIds != null) map['map_recurrence_ids'] = mapRecurrenceIds!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory SplitSeriesOnceRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return SplitSeriesOnceRequest(
+      idempotencyKey: map['idempotency_key'] as String,
+      event: Event.fromCborValue(map['event']),
+      recurrenceId: map['recurrence_id'] as String,
+      mapRecurrenceIds: map['map_recurrence_ids'] == null
+          ? null
+          : (map['map_recurrence_ids'] as List)
+                .map((csilE) => csilE as String)
+                .cast<Timestamp>()
+                .toList(),
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory SplitSeriesOnceRequest.fromCbor(List<int> bytes) =>
+      SplitSeriesOnceRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class SplitReceiptRequest {
+  final EventId seriesId;
+  final String idempotencyKey;
+  final List<Timestamp>? mapRecurrenceIds;
+
+  const SplitReceiptRequest({
+    required this.seriesId,
+    required this.idempotencyKey,
+    this.mapRecurrenceIds,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['series_id'] = seriesId;
+    map['idempotency_key'] = idempotencyKey;
+    if (mapRecurrenceIds != null) map['map_recurrence_ids'] = mapRecurrenceIds;
+    return map;
+  }
+
+  factory SplitReceiptRequest.fromMap(Map<String, Object?> map) {
+    return SplitReceiptRequest(
+      seriesId: map['series_id'] as EventId,
+      idempotencyKey: map['idempotency_key'] as String,
+      mapRecurrenceIds: map['map_recurrence_ids'] as List<Timestamp>?,
+    );
+  }
+
+  /// Throws [ArgumentError] when a field constraint is violated.
+  void validate() {
+    if (idempotencyKey.isEmpty) {
+      throw ArgumentError('\'idempotencyKey\' must have length >= 1');
+    }
+    if (idempotencyKey.length > 200) {
+      throw ArgumentError('\'idempotencyKey\' must have length <= 200');
+    }
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! SplitReceiptRequest) return false;
+    return seriesId == other.seriesId &&
+        idempotencyKey == other.idempotencyKey &&
+        mapRecurrenceIds == other.mapRecurrenceIds;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hashAll([seriesId, idempotencyKey, mapRecurrenceIds]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['series_id'] = seriesId;
+    map['idempotency_key'] = idempotencyKey;
+    if (mapRecurrenceIds != null) map['map_recurrence_ids'] = mapRecurrenceIds!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory SplitReceiptRequest.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return SplitReceiptRequest(
+      seriesId: map['series_id'] as String,
+      idempotencyKey: map['idempotency_key'] as String,
+      mapRecurrenceIds: map['map_recurrence_ids'] == null
+          ? null
+          : (map['map_recurrence_ids'] as List)
+                .map((csilE) => csilE as String)
+                .cast<Timestamp>()
+                .toList(),
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory SplitReceiptRequest.fromCbor(List<int> bytes) =>
+      SplitReceiptRequest.fromCborValue(CsilCbor.decode(bytes));
+}
+
+typedef SplitMapResult = String;
+
+final class SplitOccurrenceMapping {
+  final Timestamp recurrenceId;
+  final SplitMapResult result;
+  final EventId? eventId;
+  final Timestamp? mappedRecurrenceId;
+
+  const SplitOccurrenceMapping({
+    required this.recurrenceId,
+    required this.result,
+    this.eventId,
+    this.mappedRecurrenceId,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['recurrence_id'] = recurrenceId;
+    map['result'] = result;
+    if (eventId != null) map['event_id'] = eventId;
+    if (mappedRecurrenceId != null)
+      map['mapped_recurrence_id'] = mappedRecurrenceId;
+    return map;
+  }
+
+  factory SplitOccurrenceMapping.fromMap(Map<String, Object?> map) {
+    return SplitOccurrenceMapping(
+      recurrenceId: map['recurrence_id'] as Timestamp,
+      result: map['result'] as SplitMapResult,
+      eventId: map['event_id'] as EventId?,
+      mappedRecurrenceId: map['mapped_recurrence_id'] as Timestamp?,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! SplitOccurrenceMapping) return false;
+    return recurrenceId == other.recurrenceId &&
+        result == other.result &&
+        eventId == other.eventId &&
+        mappedRecurrenceId == other.mappedRecurrenceId;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hashAll([recurrenceId, result, eventId, mappedRecurrenceId]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['recurrence_id'] = recurrenceId;
+    map['result'] = result;
+    if (eventId != null) map['event_id'] = eventId!;
+    if (mappedRecurrenceId != null)
+      map['mapped_recurrence_id'] = mappedRecurrenceId!;
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory SplitOccurrenceMapping.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return SplitOccurrenceMapping(
+      recurrenceId: map['recurrence_id'] as String,
+      result: CsilCbor.expectOneOf<String>(map['result'], const [
+        'original',
+        'successor',
+        'none',
+      ]),
+      eventId: map['event_id'] == null ? null : map['event_id'] as String,
+      mappedRecurrenceId: map['mapped_recurrence_id'] == null
+          ? null
+          : map['mapped_recurrence_id'] as String,
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory SplitOccurrenceMapping.fromCbor(List<int> bytes) =>
+      SplitOccurrenceMapping.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class SplitSeriesReceipt {
+  final EventId seriesId;
+  final String idempotencyKey;
+  final EventId successorId;
+  final Timestamp splitAt;
+  final bool inPlace;
+  final bool created;
+  final Timestamp createdAt;
+  final CalendarId calendarId;
+  final CreateReceiptState seriesState;
+  final Event? series;
+  final TrashId? seriesTrashId;
+  final CreateReceiptState successorState;
+  final Event? successor;
+  final TrashId? successorTrashId;
+  final List<SplitOccurrenceMapping> mappings;
+
+  const SplitSeriesReceipt({
+    required this.seriesId,
+    required this.idempotencyKey,
+    required this.successorId,
+    required this.splitAt,
+    required this.inPlace,
+    required this.created,
+    required this.createdAt,
+    required this.calendarId,
+    required this.seriesState,
+    this.series,
+    this.seriesTrashId,
+    required this.successorState,
+    this.successor,
+    this.successorTrashId,
+    required this.mappings,
+  });
+
+  Map<String, Object?> toMap() {
+    final map = <String, Object?>{};
+    map['series_id'] = seriesId;
+    map['idempotency_key'] = idempotencyKey;
+    map['successor_id'] = successorId;
+    map['split_at'] = splitAt;
+    map['in_place'] = inPlace;
+    map['created'] = created;
+    map['created_at'] = createdAt;
+    map['calendar_id'] = calendarId;
+    map['series_state'] = seriesState;
+    if (series != null) map['series'] = series;
+    if (seriesTrashId != null) map['series_trash_id'] = seriesTrashId;
+    map['successor_state'] = successorState;
+    if (successor != null) map['successor'] = successor;
+    if (successorTrashId != null) map['successor_trash_id'] = successorTrashId;
+    map['mappings'] = mappings;
+    return map;
+  }
+
+  factory SplitSeriesReceipt.fromMap(Map<String, Object?> map) {
+    return SplitSeriesReceipt(
+      seriesId: map['series_id'] as EventId,
+      idempotencyKey: map['idempotency_key'] as String,
+      successorId: map['successor_id'] as EventId,
+      splitAt: map['split_at'] as Timestamp,
+      inPlace: map['in_place'] as bool,
+      created: map['created'] as bool,
+      createdAt: map['created_at'] as Timestamp,
+      calendarId: map['calendar_id'] as CalendarId,
+      seriesState: map['series_state'] as CreateReceiptState,
+      series: map['series'] as Event?,
+      seriesTrashId: map['series_trash_id'] as TrashId?,
+      successorState: map['successor_state'] as CreateReceiptState,
+      successor: map['successor'] as Event?,
+      successorTrashId: map['successor_trash_id'] as TrashId?,
+      mappings: map['mappings'] as List<SplitOccurrenceMapping>,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! SplitSeriesReceipt) return false;
+    return seriesId == other.seriesId &&
+        idempotencyKey == other.idempotencyKey &&
+        successorId == other.successorId &&
+        splitAt == other.splitAt &&
+        inPlace == other.inPlace &&
+        created == other.created &&
+        createdAt == other.createdAt &&
+        calendarId == other.calendarId &&
+        seriesState == other.seriesState &&
+        series == other.series &&
+        seriesTrashId == other.seriesTrashId &&
+        successorState == other.successorState &&
+        successor == other.successor &&
+        successorTrashId == other.successorTrashId &&
+        mappings == other.mappings;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    seriesId,
+    idempotencyKey,
+    successorId,
+    splitAt,
+    inPlace,
+    created,
+    createdAt,
+    calendarId,
+    seriesState,
+    series,
+    seriesTrashId,
+    successorState,
+    successor,
+    successorTrashId,
+    mappings,
+  ]);
+
+  /// The CBOR-encodable dynamic tree for this record (deep).
+  Map<String, Object?> toCborValue() {
+    final map = <String, Object?>{};
+    map['series_id'] = seriesId;
+    map['idempotency_key'] = idempotencyKey;
+    map['successor_id'] = successorId;
+    map['split_at'] = splitAt;
+    map['in_place'] = inPlace;
+    map['created'] = created;
+    map['created_at'] = createdAt;
+    map['calendar_id'] = calendarId;
+    map['series_state'] = seriesState;
+    if (series != null) map['series'] = series!.toCborValue();
+    if (seriesTrashId != null) map['series_trash_id'] = seriesTrashId!;
+    map['successor_state'] = successorState;
+    if (successor != null) map['successor'] = successor!.toCborValue();
+    if (successorTrashId != null) map['successor_trash_id'] = successorTrashId!;
+    map['mappings'] = mappings.map((csilE) => csilE.toCborValue()).toList();
+    return map;
+  }
+
+  /// Reconstruct this record from a decoded CBOR dynamic tree.
+  factory SplitSeriesReceipt.fromCborValue(Object? cbor) {
+    final map = cbor as Map;
+    return SplitSeriesReceipt(
+      seriesId: map['series_id'] as String,
+      idempotencyKey: map['idempotency_key'] as String,
+      successorId: map['successor_id'] as String,
+      splitAt: map['split_at'] as String,
+      inPlace: map['in_place'] as bool,
+      created: map['created'] as bool,
+      createdAt: map['created_at'] as String,
+      calendarId: map['calendar_id'] as String,
+      seriesState: CsilCbor.expectOneOf<String>(map['series_state'], const [
+        'live',
+        'trashed',
+        'deleted',
+        'hidden',
+      ]),
+      series: map['series'] == null ? null : Event.fromCborValue(map['series']),
+      seriesTrashId: map['series_trash_id'] == null
+          ? null
+          : map['series_trash_id'] as String,
+      successorState: CsilCbor.expectOneOf<String>(
+        map['successor_state'],
+        const ['live', 'trashed', 'deleted', 'hidden'],
+      ),
+      successor: map['successor'] == null
+          ? null
+          : Event.fromCborValue(map['successor']),
+      successorTrashId: map['successor_trash_id'] == null
+          ? null
+          : map['successor_trash_id'] as String,
+      mappings: (map['mappings'] as List)
+          .map((csilE) => SplitOccurrenceMapping.fromCborValue(csilE))
+          .cast<SplitOccurrenceMapping>()
+          .toList(),
+    );
+  }
+
+  /// Encode this record to canonical CSIL CBOR bytes.
+  Uint8List toCbor() => CsilCbor.encodeValue(toCborValue());
+
+  /// Decode a CSIL CBOR byte payload into this record.
+  factory SplitSeriesReceipt.fromCbor(List<int> bytes) =>
+      SplitSeriesReceipt.fromCborValue(CsilCbor.decode(bytes));
+}
+
 final class GetOccurrenceRequest {
   final EventId eventId;
   final Timestamp? recurrenceId;

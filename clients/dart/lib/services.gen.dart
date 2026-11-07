@@ -104,6 +104,8 @@ abstract interface class EventServiceHandler {
   Event importEvent(ImportEventRequest request);
   CreateEventReceipt createEventOnce(CreateEventOnceRequest request);
   CreateEventReceipt getCreateReceipt(CreateReceiptRequest request);
+  SplitSeriesReceipt splitSeriesOnce(SplitSeriesOnceRequest request);
+  SplitSeriesReceipt getSplitReceipt(SplitReceiptRequest request);
 }
 
 /// The FreeBusyService service contract. A host `implements` this; the router

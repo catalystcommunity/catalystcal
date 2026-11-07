@@ -693,6 +693,90 @@ pub struct CreateEventReceipt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct SplitSeriesOnceRequest {
+    /// constraint: size in 1..=200
+    pub idempotency_key: String,
+    pub event: Event,
+    pub recurrence_id: Timestamp,
+    pub map_recurrence_ids: Option<Vec<Timestamp>>,
+}
+
+impl SplitSeriesOnceRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.idempotency_key;
+            if v.is_empty() || v.len() > 200usize {
+                return Err(ValidationError {
+                    field: "idempotency_key".to_string(),
+                    message: "length must be in 1..=200".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SplitReceiptRequest {
+    pub series_id: EventID,
+    /// constraint: size in 1..=200
+    pub idempotency_key: String,
+    pub map_recurrence_ids: Option<Vec<Timestamp>>,
+}
+
+impl SplitReceiptRequest {
+    /// Validate this value against the constraints declared in the CSIL spec.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        {
+            let v = &self.idempotency_key;
+            if v.is_empty() || v.len() > 200usize {
+                return Err(ValidationError {
+                    field: "idempotency_key".to_string(),
+                    message: "length must be in 1..=200".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// SplitMapResult variants
+#[derive(Debug, Clone, PartialEq)]
+pub enum SplitMapResult {
+    Original,
+    Successor,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SplitOccurrenceMapping {
+    pub recurrence_id: Timestamp,
+    pub result: SplitMapResult,
+    pub event_id: Option<EventID>,
+    pub mapped_recurrence_id: Option<Timestamp>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SplitSeriesReceipt {
+    pub series_id: EventID,
+    pub idempotency_key: String,
+    pub successor_id: EventID,
+    pub split_at: Timestamp,
+    pub in_place: bool,
+    pub created: bool,
+    pub created_at: Timestamp,
+    pub calendar_id: CalendarID,
+    pub series_state: CreateReceiptState,
+    pub series: Option<Event>,
+    pub series_trash_id: Option<TrashID>,
+    pub successor_state: CreateReceiptState,
+    pub successor: Option<Event>,
+    pub successor_trash_id: Option<TrashID>,
+    pub mappings: Vec<SplitOccurrenceMapping>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct GetOccurrenceRequest {
     pub event_id: EventID,
     pub recurrence_id: Option<Timestamp>,

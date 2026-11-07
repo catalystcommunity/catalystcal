@@ -423,6 +423,51 @@ type CreateEventReceipt struct {
 	TrashId        *TrashID           `json:"trash_id,omitempty" yaml:"trash_id,omitempty"`
 }
 
+// SplitSeriesOnceRequest represents a structured data type
+type SplitSeriesOnceRequest struct {
+	IdempotencyKey   string      `json:"idempotency_key" yaml:"idempotency_key"`
+	Event            Event       `json:"event" yaml:"event"`
+	RecurrenceId     Timestamp   `json:"recurrence_id" yaml:"recurrence_id"`
+	MapRecurrenceIds []Timestamp `json:"map_recurrence_ids,omitempty" yaml:"map_recurrence_ids,omitempty"`
+}
+
+// SplitReceiptRequest represents a structured data type
+type SplitReceiptRequest struct {
+	SeriesId         EventID     `json:"series_id" yaml:"series_id"`
+	IdempotencyKey   string      `json:"idempotency_key" yaml:"idempotency_key"`
+	MapRecurrenceIds []Timestamp `json:"map_recurrence_ids,omitempty" yaml:"map_recurrence_ids,omitempty"`
+}
+
+// SplitMapResult is a type alias
+type SplitMapResult string
+
+// SplitOccurrenceMapping represents a structured data type
+type SplitOccurrenceMapping struct {
+	RecurrenceId       Timestamp      `json:"recurrence_id" yaml:"recurrence_id"`
+	Result             SplitMapResult `json:"result" yaml:"result"`
+	EventId            *EventID       `json:"event_id,omitempty" yaml:"event_id,omitempty"`
+	MappedRecurrenceId *Timestamp     `json:"mapped_recurrence_id,omitempty" yaml:"mapped_recurrence_id,omitempty"`
+}
+
+// SplitSeriesReceipt represents a structured data type
+type SplitSeriesReceipt struct {
+	SeriesId         EventID                  `json:"series_id" yaml:"series_id"`
+	IdempotencyKey   string                   `json:"idempotency_key" yaml:"idempotency_key"`
+	SuccessorId      EventID                  `json:"successor_id" yaml:"successor_id"`
+	SplitAt          Timestamp                `json:"split_at" yaml:"split_at"`
+	InPlace          bool                     `json:"in_place" yaml:"in_place"`
+	Created          bool                     `json:"created" yaml:"created"`
+	CreatedAt        Timestamp                `json:"created_at" yaml:"created_at"`
+	CalendarId       CalendarID               `json:"calendar_id" yaml:"calendar_id"`
+	SeriesState      CreateReceiptState       `json:"series_state" yaml:"series_state"`
+	Series           *Event                   `json:"series,omitempty" yaml:"series,omitempty"`
+	SeriesTrashId    *TrashID                 `json:"series_trash_id,omitempty" yaml:"series_trash_id,omitempty"`
+	SuccessorState   CreateReceiptState       `json:"successor_state" yaml:"successor_state"`
+	Successor        *Event                   `json:"successor,omitempty" yaml:"successor,omitempty"`
+	SuccessorTrashId *TrashID                 `json:"successor_trash_id,omitempty" yaml:"successor_trash_id,omitempty"`
+	Mappings         []SplitOccurrenceMapping `json:"mappings" yaml:"mappings"`
+}
+
 // GetOccurrenceRequest represents a structured data type
 type GetOccurrenceRequest struct {
 	EventId      EventID    `json:"event_id" yaml:"event_id"`

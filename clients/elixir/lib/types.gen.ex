@@ -3554,6 +3554,443 @@ defmodule Csilgen.Generated.CreateEventReceipt do
   def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
 end
 
+defmodule Csilgen.Generated.SplitSeriesOnceRequest do
+  @moduledoc "Generated struct for the SplitSeriesOnceRequest type."
+
+  @enforce_keys [:idempotency_key, :event, :recurrence_id]
+  defstruct [:idempotency_key, :event, :recurrence_id, :map_recurrence_ids]
+
+  @type t :: %__MODULE__{
+          idempotency_key: String.t(),
+          event: Csilgen.Generated.Event.t(),
+          recurrence_id: Csilgen.Generated.Timestamp.t(),
+          map_recurrence_ids: [Csilgen.Generated.Timestamp.t()] | nil
+        }
+
+  @wire_keys [
+    idempotency_key: "idempotency_key",
+    event: "event",
+    recurrence_id: "recurrence_id",
+    map_recurrence_ids: "map_recurrence_ids"
+  ]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
+         {{:text, "recurrence_id"}, {:text, v.recurrence_id}},
+         {{:text, "idempotency_key"}, {:text, v.idempotency_key}},
+         if(is_nil(v.map_recurrence_ids),
+           do: nil,
+           else:
+             {{:text, "map_recurrence_ids"},
+              {:array, Enum.map(v.map_recurrence_ids, fn csil_e -> {:text, csil_e} end)}}
+         )
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
+      recurrence_id:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "recurrence_id"})),
+      idempotency_key:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "idempotency_key"})),
+      map_recurrence_ids:
+        case Map.get(csil_fields, {:text, "map_recurrence_ids"}) do
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:array, csil_xs} ->
+                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+            end
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.SplitReceiptRequest do
+  @moduledoc "Generated struct for the SplitReceiptRequest type."
+
+  @enforce_keys [:series_id, :idempotency_key]
+  defstruct [:series_id, :idempotency_key, :map_recurrence_ids]
+
+  @type t :: %__MODULE__{
+          series_id: Csilgen.Generated.EventID.t(),
+          idempotency_key: String.t(),
+          map_recurrence_ids: [Csilgen.Generated.Timestamp.t()] | nil
+        }
+
+  @wire_keys [
+    series_id: "series_id",
+    idempotency_key: "idempotency_key",
+    map_recurrence_ids: "map_recurrence_ids"
+  ]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "series_id"}, {:text, v.series_id}},
+         {{:text, "idempotency_key"}, {:text, v.idempotency_key}},
+         if(is_nil(v.map_recurrence_ids),
+           do: nil,
+           else:
+             {{:text, "map_recurrence_ids"},
+              {:array, Enum.map(v.map_recurrence_ids, fn csil_e -> {:text, csil_e} end)}}
+         )
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      series_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_id"})),
+      idempotency_key:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "idempotency_key"})),
+      map_recurrence_ids:
+        case Map.get(csil_fields, {:text, "map_recurrence_ids"}) do
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:array, csil_xs} ->
+                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+            end
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.SplitMapResult do
+  @moduledoc "Type alias for SplitMapResult."
+  @type t :: String.t()
+end
+
+defmodule Csilgen.Generated.SplitOccurrenceMapping do
+  @moduledoc "Generated struct for the SplitOccurrenceMapping type."
+
+  @enforce_keys [:recurrence_id, :result]
+  defstruct [:recurrence_id, :result, :event_id, :mapped_recurrence_id]
+
+  @type t :: %__MODULE__{
+          recurrence_id: Csilgen.Generated.Timestamp.t(),
+          result: Csilgen.Generated.SplitMapResult.t(),
+          event_id: Csilgen.Generated.EventID.t() | nil,
+          mapped_recurrence_id: Csilgen.Generated.Timestamp.t() | nil
+        }
+
+  @wire_keys [
+    recurrence_id: "recurrence_id",
+    result: "result",
+    event_id: "event_id",
+    mapped_recurrence_id: "mapped_recurrence_id"
+  ]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         {{:text, "result"}, {:text, v.result}},
+         if(is_nil(v.event_id), do: nil, else: {{:text, "event_id"}, {:text, v.event_id}}),
+         {{:text, "recurrence_id"}, {:text, v.recurrence_id}},
+         if(is_nil(v.mapped_recurrence_id),
+           do: nil,
+           else: {{:text, "mapped_recurrence_id"}, {:text, v.mapped_recurrence_id}}
+         )
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      result:
+        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "result"})) do
+          "original" -> "original"
+          "successor" -> "successor"
+          "none" -> "none"
+          csil_other -> raise("csilgen: unknown SplitMapResult literal #{inspect(csil_other)}")
+        end,
+      event_id:
+        case Map.get(csil_fields, {:text, "event_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end,
+      recurrence_id:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "recurrence_id"})),
+      mapped_recurrence_id:
+        case Map.get(csil_fields, {:text, "mapped_recurrence_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
+defmodule Csilgen.Generated.SplitSeriesReceipt do
+  @moduledoc "Generated struct for the SplitSeriesReceipt type."
+
+  @enforce_keys [
+    :series_id,
+    :idempotency_key,
+    :successor_id,
+    :split_at,
+    :in_place,
+    :created,
+    :created_at,
+    :calendar_id,
+    :series_state,
+    :successor_state,
+    :mappings
+  ]
+  defstruct [
+    :series_id,
+    :idempotency_key,
+    :successor_id,
+    :split_at,
+    :in_place,
+    :created,
+    :created_at,
+    :calendar_id,
+    :series_state,
+    :series,
+    :series_trash_id,
+    :successor_state,
+    :successor,
+    :successor_trash_id,
+    :mappings
+  ]
+
+  @type t :: %__MODULE__{
+          series_id: Csilgen.Generated.EventID.t(),
+          idempotency_key: String.t(),
+          successor_id: Csilgen.Generated.EventID.t(),
+          split_at: Csilgen.Generated.Timestamp.t(),
+          in_place: boolean(),
+          created: boolean(),
+          created_at: Csilgen.Generated.Timestamp.t(),
+          calendar_id: Csilgen.Generated.CalendarID.t(),
+          series_state: Csilgen.Generated.CreateReceiptState.t(),
+          series: Csilgen.Generated.Event.t() | nil,
+          series_trash_id: Csilgen.Generated.TrashID.t() | nil,
+          successor_state: Csilgen.Generated.CreateReceiptState.t(),
+          successor: Csilgen.Generated.Event.t() | nil,
+          successor_trash_id: Csilgen.Generated.TrashID.t() | nil,
+          mappings: [Csilgen.Generated.SplitOccurrenceMapping.t()]
+        }
+
+  @wire_keys [
+    series_id: "series_id",
+    idempotency_key: "idempotency_key",
+    successor_id: "successor_id",
+    split_at: "split_at",
+    in_place: "in_place",
+    created: "created",
+    created_at: "created_at",
+    calendar_id: "calendar_id",
+    series_state: "series_state",
+    series: "series",
+    series_trash_id: "series_trash_id",
+    successor_state: "successor_state",
+    successor: "successor",
+    successor_trash_id: "successor_trash_id",
+    mappings: "mappings"
+  ]
+  @doc "Maps struct field atoms to their verbatim CBOR wire keys."
+  @spec wire_keys() :: keyword()
+  def wire_keys, do: @wire_keys
+
+  @doc "Builds the canonical CBOR value tree for this struct."
+  @spec to_cbor_value(t()) :: Csilgen.Generated.Cbor.value()
+  def to_cbor_value(%__MODULE__{} = v) do
+    {:map,
+     Enum.reject(
+       [
+         if(is_nil(v.series),
+           do: nil,
+           else: {{:text, "series"}, Csilgen.Generated.Event.to_cbor_value(v.series)}
+         ),
+         {{:text, "created"}, {:bool, v.created}},
+         {{:text, "in_place"}, {:bool, v.in_place}},
+         {{:text, "mappings"},
+          {:array,
+           Enum.map(v.mappings, fn csil_e ->
+             Csilgen.Generated.SplitOccurrenceMapping.to_cbor_value(csil_e)
+           end)}},
+         {{:text, "split_at"}, {:text, v.split_at}},
+         {{:text, "series_id"}, {:text, v.series_id}},
+         if(is_nil(v.successor),
+           do: nil,
+           else: {{:text, "successor"}, Csilgen.Generated.Event.to_cbor_value(v.successor)}
+         ),
+         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "calendar_id"}, {:text, v.calendar_id}},
+         {{:text, "series_state"}, {:text, v.series_state}},
+         {{:text, "successor_id"}, {:text, v.successor_id}},
+         {{:text, "idempotency_key"}, {:text, v.idempotency_key}},
+         if(is_nil(v.series_trash_id),
+           do: nil,
+           else: {{:text, "series_trash_id"}, {:text, v.series_trash_id}}
+         ),
+         {{:text, "successor_state"}, {:text, v.successor_state}},
+         if(is_nil(v.successor_trash_id),
+           do: nil,
+           else: {{:text, "successor_trash_id"}, {:text, v.successor_trash_id}}
+         )
+       ],
+       &is_nil/1
+     )}
+  end
+
+  @doc "Reconstructs this struct from a decoded CBOR value tree."
+  @spec from_cbor_value(term()) :: t()
+  def from_cbor_value({:map, csil_kvs}) do
+    csil_fields = Map.new(csil_kvs)
+
+    %__MODULE__{
+      series:
+        case Map.get(csil_fields, {:text, "series"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
+        end,
+      created: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "created"})),
+      in_place: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "in_place"})),
+      mappings:
+        case Map.fetch!(csil_fields, {:text, "mappings"}) do
+          {:array, csil_xs} ->
+            Enum.map(csil_xs, fn csil_e ->
+              Csilgen.Generated.SplitOccurrenceMapping.from_cbor_value(csil_e)
+            end)
+        end,
+      split_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "split_at"})),
+      series_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_id"})),
+      successor:
+        case Map.get(csil_fields, {:text, "successor"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
+        end,
+      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      calendar_id:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
+      series_state:
+        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_state"})) do
+          "live" ->
+            "live"
+
+          "trashed" ->
+            "trashed"
+
+          "deleted" ->
+            "deleted"
+
+          "hidden" ->
+            "hidden"
+
+          csil_other ->
+            raise("csilgen: unknown CreateReceiptState literal #{inspect(csil_other)}")
+        end,
+      successor_id:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "successor_id"})),
+      idempotency_key:
+        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "idempotency_key"})),
+      series_trash_id:
+        case Map.get(csil_fields, {:text, "series_trash_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end,
+      successor_state:
+        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "successor_state"})) do
+          "live" ->
+            "live"
+
+          "trashed" ->
+            "trashed"
+
+          "deleted" ->
+            "deleted"
+
+          "hidden" ->
+            "hidden"
+
+          csil_other ->
+            raise("csilgen: unknown CreateReceiptState literal #{inspect(csil_other)}")
+        end,
+      successor_trash_id:
+        case Map.get(csil_fields, {:text, "successor_trash_id"}) do
+          nil -> nil
+          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+        end
+    }
+  end
+
+  @doc "Encodes this struct to canonical CBOR bytes."
+  @spec to_cbor(t()) :: binary()
+  def to_cbor(v), do: Csilgen.Generated.Cbor.encode(to_cbor_value(v))
+
+  @doc "Decodes canonical CBOR bytes into this struct."
+  @spec from_cbor(binary()) :: t()
+  def from_cbor(bytes), do: from_cbor_value(Csilgen.Generated.Cbor.decode(bytes))
+end
+
 defmodule Csilgen.Generated.GetOccurrenceRequest do
   @moduledoc "Generated struct for the GetOccurrenceRequest type."
 

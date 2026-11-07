@@ -4068,6 +4068,500 @@ func DecodeCreateEventReceipt(csilData []byte) (CreateEventReceipt, error) {
 	return csilDecCreateEventReceipt(csilRoot)
 }
 
+// csilEncSplitSeriesOnceRequest builds the canonical CBOR value tree for a SplitSeriesOnceRequest.
+func csilEncSplitSeriesOnceRequest(csilV SplitSeriesOnceRequest) cborValue {
+	csilEntries := make(cborMap, 0, 4)
+	csilEntries = append(csilEntries, cborEntry{cborText("event"), csilEncEvent(csilV.Event)})
+	csilEntries = append(csilEntries, cborEntry{cborText("recurrence_id"), cborText(csilV.RecurrenceId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	if csilV.MapRecurrenceIds != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("map_recurrence_ids"), cborEncArray(csilV.MapRecurrenceIds, func(csilElem Timestamp) cborValue { return cborText(csilElem) })})
+	}
+	return csilEntries
+}
+
+// csilDecSplitSeriesOnceRequest reconstructs a SplitSeriesOnceRequest from a decoded CBOR value tree.
+func csilDecSplitSeriesOnceRequest(csilRoot cborValue) (SplitSeriesOnceRequest, error) {
+	var csilOut SplitSeriesOnceRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "event")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Event = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "recurrence_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.RecurrenceId = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "map_recurrence_ids"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) ([]Timestamp, error) {
+			return cborDecArray(csilV, func(csilV cborValue) (Timestamp, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				return Timestamp(csilInner), csilErr
+			})
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.MapRecurrenceIds = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeSplitSeriesOnceRequest encodes a SplitSeriesOnceRequest to canonical CSIL CBOR bytes.
+func EncodeSplitSeriesOnceRequest(csilV SplitSeriesOnceRequest) []byte {
+	return cborEncode(csilEncSplitSeriesOnceRequest(csilV))
+}
+
+// DecodeSplitSeriesOnceRequest decodes canonical CSIL CBOR bytes into a SplitSeriesOnceRequest.
+func DecodeSplitSeriesOnceRequest(csilData []byte) (SplitSeriesOnceRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero SplitSeriesOnceRequest
+		return csilZero, csilErr
+	}
+	return csilDecSplitSeriesOnceRequest(csilRoot)
+}
+
+// csilEncSplitReceiptRequest builds the canonical CBOR value tree for a SplitReceiptRequest.
+func csilEncSplitReceiptRequest(csilV SplitReceiptRequest) cborValue {
+	csilEntries := make(cborMap, 0, 3)
+	csilEntries = append(csilEntries, cborEntry{cborText("series_id"), cborText(csilV.SeriesId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	if csilV.MapRecurrenceIds != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("map_recurrence_ids"), cborEncArray(csilV.MapRecurrenceIds, func(csilElem Timestamp) cborValue { return cborText(csilElem) })})
+	}
+	return csilEntries
+}
+
+// csilDecSplitReceiptRequest reconstructs a SplitReceiptRequest from a decoded CBOR value tree.
+func csilDecSplitReceiptRequest(csilRoot cborValue) (SplitReceiptRequest, error) {
+	var csilOut SplitReceiptRequest
+	{
+		csilField, csilErr := cborRequire(csilRoot, "series_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SeriesId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "map_recurrence_ids"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) ([]Timestamp, error) {
+			return cborDecArray(csilV, func(csilV cborValue) (Timestamp, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				return Timestamp(csilInner), csilErr
+			})
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.MapRecurrenceIds = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeSplitReceiptRequest encodes a SplitReceiptRequest to canonical CSIL CBOR bytes.
+func EncodeSplitReceiptRequest(csilV SplitReceiptRequest) []byte {
+	return cborEncode(csilEncSplitReceiptRequest(csilV))
+}
+
+// DecodeSplitReceiptRequest decodes canonical CSIL CBOR bytes into a SplitReceiptRequest.
+func DecodeSplitReceiptRequest(csilData []byte) (SplitReceiptRequest, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero SplitReceiptRequest
+		return csilZero, csilErr
+	}
+	return csilDecSplitReceiptRequest(csilRoot)
+}
+
+// csilEncSplitOccurrenceMapping builds the canonical CBOR value tree for a SplitOccurrenceMapping.
+func csilEncSplitOccurrenceMapping(csilV SplitOccurrenceMapping) cborValue {
+	csilEntries := make(cborMap, 0, 4)
+	csilEntries = append(csilEntries, cborEntry{cborText("result"), cborText(csilV.Result)})
+	if csilV.EventId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("event_id"), cborText((*csilV.EventId))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("recurrence_id"), cborText(csilV.RecurrenceId)})
+	if csilV.MappedRecurrenceId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("mapped_recurrence_id"), cborText((*csilV.MappedRecurrenceId))})
+	}
+	return csilEntries
+}
+
+// csilDecSplitOccurrenceMapping reconstructs a SplitOccurrenceMapping from a decoded CBOR value tree.
+func csilDecSplitOccurrenceMapping(csilRoot cborValue) (SplitOccurrenceMapping, error) {
+	var csilOut SplitOccurrenceMapping
+	{
+		csilField, csilErr := cborRequire(csilRoot, "recurrence_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.RecurrenceId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "result")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (SplitMapResult, error) {
+			csilInner, csilErr := (func(csilV cborValue) (string, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				if csilErr != nil {
+					var csilZero string
+					return csilZero, csilErr
+				}
+				if !(csilInner == "original" || csilInner == "successor" || csilInner == "none") {
+					var csilZero string
+					return csilZero, fmt.Errorf("csil cbor: value %v is not a member of the declared enum", csilInner)
+				}
+				return csilInner, nil
+			})(csilV)
+			return SplitMapResult(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Result = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "event_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.EventId = &csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "mapped_recurrence_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.MappedRecurrenceId = &csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeSplitOccurrenceMapping encodes a SplitOccurrenceMapping to canonical CSIL CBOR bytes.
+func EncodeSplitOccurrenceMapping(csilV SplitOccurrenceMapping) []byte {
+	return cborEncode(csilEncSplitOccurrenceMapping(csilV))
+}
+
+// DecodeSplitOccurrenceMapping decodes canonical CSIL CBOR bytes into a SplitOccurrenceMapping.
+func DecodeSplitOccurrenceMapping(csilData []byte) (SplitOccurrenceMapping, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero SplitOccurrenceMapping
+		return csilZero, csilErr
+	}
+	return csilDecSplitOccurrenceMapping(csilRoot)
+}
+
+// csilEncSplitSeriesReceipt builds the canonical CBOR value tree for a SplitSeriesReceipt.
+func csilEncSplitSeriesReceipt(csilV SplitSeriesReceipt) cborValue {
+	csilEntries := make(cborMap, 0, 15)
+	if csilV.Series != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("series"), csilEncEvent((*csilV.Series))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("created"), cborBool(csilV.Created)})
+	csilEntries = append(csilEntries, cborEntry{cborText("in_place"), cborBool(csilV.InPlace)})
+	csilEntries = append(csilEntries, cborEntry{cborText("mappings"), cborEncArray(csilV.Mappings, func(csilElem SplitOccurrenceMapping) cborValue { return csilEncSplitOccurrenceMapping(csilElem) })})
+	csilEntries = append(csilEntries, cborEntry{cborText("split_at"), cborText(csilV.SplitAt)})
+	csilEntries = append(csilEntries, cborEntry{cborText("series_id"), cborText(csilV.SeriesId)})
+	if csilV.Successor != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("successor"), csilEncEvent((*csilV.Successor))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("created_at"), cborText(csilV.CreatedAt)})
+	csilEntries = append(csilEntries, cborEntry{cborText("calendar_id"), cborText(csilV.CalendarId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("series_state"), cborText(csilV.SeriesState)})
+	csilEntries = append(csilEntries, cborEntry{cborText("successor_id"), cborText(csilV.SuccessorId)})
+	csilEntries = append(csilEntries, cborEntry{cborText("idempotency_key"), cborText(csilV.IdempotencyKey)})
+	if csilV.SeriesTrashId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("series_trash_id"), cborText((*csilV.SeriesTrashId))})
+	}
+	csilEntries = append(csilEntries, cborEntry{cborText("successor_state"), cborText(csilV.SuccessorState)})
+	if csilV.SuccessorTrashId != nil {
+		csilEntries = append(csilEntries, cborEntry{cborText("successor_trash_id"), cborText((*csilV.SuccessorTrashId))})
+	}
+	return csilEntries
+}
+
+// csilDecSplitSeriesReceipt reconstructs a SplitSeriesReceipt from a decoded CBOR value tree.
+func csilDecSplitSeriesReceipt(csilRoot cborValue) (SplitSeriesReceipt, error) {
+	var csilOut SplitSeriesReceipt
+	{
+		csilField, csilErr := cborRequire(csilRoot, "series_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SeriesId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "idempotency_key")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsText)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.IdempotencyKey = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "successor_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (EventID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return EventID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SuccessorId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "split_at")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SplitAt = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "in_place")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsBool)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.InPlace = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "created")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (cborAsBool)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Created = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "created_at")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (Timestamp, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return Timestamp(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CreatedAt = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "calendar_id")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CalendarID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return CalendarID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.CalendarId = csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "series_state")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CreateReceiptState, error) {
+			csilInner, csilErr := (func(csilV cborValue) (string, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				if csilErr != nil {
+					var csilZero string
+					return csilZero, csilErr
+				}
+				if !(csilInner == "live" || csilInner == "trashed" || csilInner == "deleted" || csilInner == "hidden") {
+					var csilZero string
+					return csilZero, fmt.Errorf("csil cbor: value %v is not a member of the declared enum", csilInner)
+				}
+				return csilInner, nil
+			})(csilV)
+			return CreateReceiptState(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SeriesState = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "series"); csilOk {
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Series = &csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "series_trash_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SeriesTrashId = &csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "successor_state")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) (CreateReceiptState, error) {
+			csilInner, csilErr := (func(csilV cborValue) (string, error) {
+				csilInner, csilErr := (cborAsText)(csilV)
+				if csilErr != nil {
+					var csilZero string
+					return csilZero, csilErr
+				}
+				if !(csilInner == "live" || csilInner == "trashed" || csilInner == "deleted" || csilInner == "hidden") {
+					var csilZero string
+					return csilZero, fmt.Errorf("csil cbor: value %v is not a member of the declared enum", csilInner)
+				}
+				return csilInner, nil
+			})(csilV)
+			return CreateReceiptState(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SuccessorState = csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "successor"); csilOk {
+		csilVal, csilErr := (csilDecEvent)(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Successor = &csilVal
+	}
+	if csilField, csilOk := cborMapGet(csilRoot, "successor_trash_id"); csilOk {
+		csilVal, csilErr := (func(csilV cborValue) (TrashID, error) {
+			csilInner, csilErr := (cborAsText)(csilV)
+			return TrashID(csilInner), csilErr
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.SuccessorTrashId = &csilVal
+	}
+	{
+		csilField, csilErr := cborRequire(csilRoot, "mappings")
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilVal, csilErr := (func(csilV cborValue) ([]SplitOccurrenceMapping, error) {
+			return cborDecArray(csilV, csilDecSplitOccurrenceMapping)
+		})(csilField)
+		if csilErr != nil {
+			return csilOut, csilErr
+		}
+		csilOut.Mappings = csilVal
+	}
+	return csilOut, nil
+}
+
+// EncodeSplitSeriesReceipt encodes a SplitSeriesReceipt to canonical CSIL CBOR bytes.
+func EncodeSplitSeriesReceipt(csilV SplitSeriesReceipt) []byte {
+	return cborEncode(csilEncSplitSeriesReceipt(csilV))
+}
+
+// DecodeSplitSeriesReceipt decodes canonical CSIL CBOR bytes into a SplitSeriesReceipt.
+func DecodeSplitSeriesReceipt(csilData []byte) (SplitSeriesReceipt, error) {
+	csilRoot, csilErr := cborDecode(csilData)
+	if csilErr != nil {
+		var csilZero SplitSeriesReceipt
+		return csilZero, csilErr
+	}
+	return csilDecSplitSeriesReceipt(csilRoot)
+}
+
 // csilEncGetOccurrenceRequest builds the canonical CBOR value tree for a GetOccurrenceRequest.
 func csilEncGetOccurrenceRequest(csilV GetOccurrenceRequest) cborValue {
 	csilEntries := make(cborMap, 0, 2)

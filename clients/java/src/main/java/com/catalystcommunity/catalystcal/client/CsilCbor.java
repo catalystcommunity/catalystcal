@@ -2068,6 +2068,174 @@ public final class CsilCbor {
         return decCreateEventReceipt(decode(data));
     }
 
+    static CborValue encSplitSeriesOnceRequest(SplitSeriesOnceRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(4);
+        csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
+        csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        if (v.mapRecurrenceIds() != null) {
+            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> new CborText((csilElem0).value()))));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static SplitSeriesOnceRequest decSplitSeriesOnceRequest(CborValue csilRoot) {
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        Event event = decEvent(require(csilRoot, "event"));
+        Timestamp recurrenceId = new Timestamp(asText(require(csilRoot, "recurrence_id")));
+        List<Timestamp> mapRecurrenceIds;
+        {
+            CborValue csilField = mapGet(csilRoot, "map_recurrence_ids");
+            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+        }
+        return new SplitSeriesOnceRequest(idempotencyKey, event, recurrenceId, mapRecurrenceIds);
+    }
+
+    public static byte[] encodeSplitSeriesOnceRequest(SplitSeriesOnceRequest v) {
+        return encode(encSplitSeriesOnceRequest(v));
+    }
+
+    public static SplitSeriesOnceRequest decodeSplitSeriesOnceRequest(byte[] data) {
+        return decSplitSeriesOnceRequest(decode(data));
+    }
+
+    static CborValue encSplitReceiptRequest(SplitReceiptRequest v) {
+        List<CborEntry> csilEntries = new ArrayList<>(3);
+        csilEntries.add(new CborEntry(new CborText("series_id"), new CborText((v.seriesId()).value())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        if (v.mapRecurrenceIds() != null) {
+            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> new CborText((csilElem0).value()))));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static SplitReceiptRequest decSplitReceiptRequest(CborValue csilRoot) {
+        EventId seriesId = new EventId(asText(require(csilRoot, "series_id")));
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        List<Timestamp> mapRecurrenceIds;
+        {
+            CborValue csilField = mapGet(csilRoot, "map_recurrence_ids");
+            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+        }
+        return new SplitReceiptRequest(seriesId, idempotencyKey, mapRecurrenceIds);
+    }
+
+    public static byte[] encodeSplitReceiptRequest(SplitReceiptRequest v) {
+        return encode(encSplitReceiptRequest(v));
+    }
+
+    public static SplitReceiptRequest decodeSplitReceiptRequest(byte[] data) {
+        return decSplitReceiptRequest(decode(data));
+    }
+
+    static CborValue encSplitOccurrenceMapping(SplitOccurrenceMapping v) {
+        List<CborEntry> csilEntries = new ArrayList<>(4);
+        csilEntries.add(new CborEntry(new CborText("result"), encSplitMapResult(v.result())));
+        if (v.eventId() != null) {
+            csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
+        }
+        csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        if (v.mappedRecurrenceId() != null) {
+            csilEntries.add(new CborEntry(new CborText("mapped_recurrence_id"), new CborText((v.mappedRecurrenceId()).value())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static SplitOccurrenceMapping decSplitOccurrenceMapping(CborValue csilRoot) {
+        Timestamp recurrenceId = new Timestamp(asText(require(csilRoot, "recurrence_id")));
+        SplitMapResult result = decSplitMapResult(require(csilRoot, "result"));
+        EventId eventId;
+        {
+            CborValue csilField = mapGet(csilRoot, "event_id");
+            eventId = csilField != null ? new EventId(asText(csilField)) : null;
+        }
+        Timestamp mappedRecurrenceId;
+        {
+            CborValue csilField = mapGet(csilRoot, "mapped_recurrence_id");
+            mappedRecurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+        }
+        return new SplitOccurrenceMapping(recurrenceId, result, eventId, mappedRecurrenceId);
+    }
+
+    public static byte[] encodeSplitOccurrenceMapping(SplitOccurrenceMapping v) {
+        return encode(encSplitOccurrenceMapping(v));
+    }
+
+    public static SplitOccurrenceMapping decodeSplitOccurrenceMapping(byte[] data) {
+        return decSplitOccurrenceMapping(decode(data));
+    }
+
+    static CborValue encSplitSeriesReceipt(SplitSeriesReceipt v) {
+        List<CborEntry> csilEntries = new ArrayList<>(15);
+        if (v.series() != null) {
+            csilEntries.add(new CborEntry(new CborText("series"), encEvent(v.series())));
+        }
+        csilEntries.add(new CborEntry(new CborText("created"), new CborBool(v.created())));
+        csilEntries.add(new CborEntry(new CborText("in_place"), new CborBool(v.inPlace())));
+        csilEntries.add(new CborEntry(new CborText("mappings"), encArray(v.mappings(), csilElem0 -> encSplitOccurrenceMapping(csilElem0))));
+        csilEntries.add(new CborEntry(new CborText("split_at"), new CborText((v.splitAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("series_id"), new CborText((v.seriesId()).value())));
+        if (v.successor() != null) {
+            csilEntries.add(new CborEntry(new CborText("successor"), encEvent(v.successor())));
+        }
+        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
+        csilEntries.add(new CborEntry(new CborText("series_state"), encCreateReceiptState(v.seriesState())));
+        csilEntries.add(new CborEntry(new CborText("successor_id"), new CborText((v.successorId()).value())));
+        csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
+        if (v.seriesTrashId() != null) {
+            csilEntries.add(new CborEntry(new CborText("series_trash_id"), new CborText((v.seriesTrashId()).value())));
+        }
+        csilEntries.add(new CborEntry(new CborText("successor_state"), encCreateReceiptState(v.successorState())));
+        if (v.successorTrashId() != null) {
+            csilEntries.add(new CborEntry(new CborText("successor_trash_id"), new CborText((v.successorTrashId()).value())));
+        }
+        return new CborMap(csilEntries);
+    }
+
+    static SplitSeriesReceipt decSplitSeriesReceipt(CborValue csilRoot) {
+        EventId seriesId = new EventId(asText(require(csilRoot, "series_id")));
+        String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
+        EventId successorId = new EventId(asText(require(csilRoot, "successor_id")));
+        Timestamp splitAt = new Timestamp(asText(require(csilRoot, "split_at")));
+        boolean inPlace = asBool(require(csilRoot, "in_place"));
+        boolean created = asBool(require(csilRoot, "created"));
+        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
+        CreateReceiptState seriesState = decCreateReceiptState(require(csilRoot, "series_state"));
+        Event series;
+        {
+            CborValue csilField = mapGet(csilRoot, "series");
+            series = csilField != null ? decEvent(csilField) : null;
+        }
+        TrashId seriesTrashId;
+        {
+            CborValue csilField = mapGet(csilRoot, "series_trash_id");
+            seriesTrashId = csilField != null ? new TrashId(asText(csilField)) : null;
+        }
+        CreateReceiptState successorState = decCreateReceiptState(require(csilRoot, "successor_state"));
+        Event successor;
+        {
+            CborValue csilField = mapGet(csilRoot, "successor");
+            successor = csilField != null ? decEvent(csilField) : null;
+        }
+        TrashId successorTrashId;
+        {
+            CborValue csilField = mapGet(csilRoot, "successor_trash_id");
+            successorTrashId = csilField != null ? new TrashId(asText(csilField)) : null;
+        }
+        List<SplitOccurrenceMapping> mappings = decArray(require(csilRoot, "mappings"), csilE0 -> decSplitOccurrenceMapping(csilE0));
+        return new SplitSeriesReceipt(seriesId, idempotencyKey, successorId, splitAt, inPlace, created, createdAt, calendarId, seriesState, series, seriesTrashId, successorState, successor, successorTrashId, mappings);
+    }
+
+    public static byte[] encodeSplitSeriesReceipt(SplitSeriesReceipt v) {
+        return encode(encSplitSeriesReceipt(v));
+    }
+
+    public static SplitSeriesReceipt decodeSplitSeriesReceipt(byte[] data) {
+        return decSplitSeriesReceipt(decode(data));
+    }
+
     static CborValue encGetOccurrenceRequest(GetOccurrenceRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(2);
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
@@ -3165,6 +3333,18 @@ public final class CsilCbor {
             throw new CsilCborException("csil cbor: CreateReceiptState value " + csilVal + " is not a member of the declared enum");
         }
         return new CreateReceiptState(csilVal);
+    }
+
+    static CborValue encSplitMapResult(SplitMapResult v) {
+        return new CborText((String) v.value());
+    }
+
+    static SplitMapResult decSplitMapResult(CborValue csilRoot) {
+        var csilVal = asText(csilRoot);
+        if (!(Objects.equals(csilVal, "original") || Objects.equals(csilVal, "successor") || Objects.equals(csilVal, "none"))) {
+            throw new CsilCborException("csil cbor: SplitMapResult value " + csilVal + " is not a member of the declared enum");
+        }
+        return new SplitMapResult(csilVal);
     }
 
     public static byte[] encodeCalendarGetCalendarRequest(CalendarId csilV) {

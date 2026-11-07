@@ -175,6 +175,10 @@ public sealed class EventClient(ICsilTransport transport)
         Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
     public CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest) =>
         Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
+    public SplitSeriesReceipt SplitSeriesOnce(SplitSeriesOnceRequest splitSeriesOnceRequest) =>
+        Codec.Decode<SplitSeriesReceipt>(transport.Call("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest)));
+    public SplitSeriesReceipt GetSplitReceipt(SplitReceiptRequest splitReceiptRequest) =>
+        Codec.Decode<SplitSeriesReceipt>(transport.Call("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest)));
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns

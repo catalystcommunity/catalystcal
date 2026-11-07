@@ -323,6 +323,16 @@ class EventClient
   def get_create_receipt(req)
     CreateEventReceipt.from_cbor(@transport.call("EventService", "get-create-receipt", req.to_cbor))
   end
+
+  # split-series-once: -> SplitSeriesReceipt
+  def split_series_once(req)
+    SplitSeriesReceipt.from_cbor(@transport.call("EventService", "split-series-once", req.to_cbor))
+  end
+
+  # get-split-receipt: -> SplitSeriesReceipt
+  def get_split_receipt(req)
+    SplitSeriesReceipt.from_cbor(@transport.call("EventService", "get-split-receipt", req.to_cbor))
+  end
 end
 
 # Typed client for the FreeBusyService service.

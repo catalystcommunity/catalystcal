@@ -1662,6 +1662,153 @@ public extension CreateEventReceipt {
     static func fromCbor(_ bytes: [UInt8]) throws -> CreateEventReceipt { try CreateEventReceipt(cborValue: CsilCbor.decode(bytes)) }
 }
 
+public extension SplitSeriesOnceRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("event"), self.event.toCborValue()))
+        csilEntries.append((.text("recurrence_id"), .text(self.recurrenceId)))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
+        let recurrenceId = try CsilCbor.asText((try CsilCbor.require(cborValue, "recurrence_id")))
+        let mapRecurrenceIds: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        self.init(idempotencyKey: idempotencyKey, event: event, recurrenceId: recurrenceId, mapRecurrenceIds: mapRecurrenceIds)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> SplitSeriesOnceRequest { try SplitSeriesOnceRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension SplitReceiptRequest {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("series_id"), .text(self.seriesId)))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let seriesId = try CsilCbor.asText((try CsilCbor.require(cborValue, "series_id")))
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        let mapRecurrenceIds: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        self.init(seriesId: seriesId, idempotencyKey: idempotencyKey, mapRecurrenceIds: mapRecurrenceIds)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> SplitReceiptRequest { try SplitReceiptRequest(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension SplitMapResult {
+    /// The CBOR value tree for this enum: its wire string verbatim.
+    func toCborValue() -> CsilCborValue { .text(self.rawValue) }
+
+    /// Reconstruct this enum from a decoded CBOR value tree, rejecting a wire
+    /// string outside the declared closed set.
+    init(cborValue: CsilCborValue) throws {
+        let csilS = try CsilCbor.asText(cborValue)
+        guard let csilV = SplitMapResult(rawValue: csilS) else { throw CsilCborError.typeMismatch }
+        self = csilV
+    }
+
+    /// Encode this enum to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this enum.
+    static func fromCbor(_ bytes: [UInt8]) throws -> SplitMapResult { try SplitMapResult(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension SplitOccurrenceMapping {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        csilEntries.append((.text("result"), self.result.toCborValue()))
+        if let csilV = self.eventId { csilEntries.append((.text("event_id"), .text(csilV))) }
+        csilEntries.append((.text("recurrence_id"), .text(self.recurrenceId)))
+        if let csilV = self.mappedRecurrenceId { csilEntries.append((.text("mapped_recurrence_id"), .text(csilV))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let recurrenceId = try CsilCbor.asText((try CsilCbor.require(cborValue, "recurrence_id")))
+        let result = try SplitMapResult(cborValue: (try CsilCbor.require(cborValue, "result")))
+        let eventId: EventId? = if let csilV = CsilCbor.mapGet(cborValue, "event_id") { try CsilCbor.asText(csilV) } else { nil }
+        let mappedRecurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "mapped_recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        self.init(recurrenceId: recurrenceId, result: result, eventId: eventId, mappedRecurrenceId: mappedRecurrenceId)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> SplitOccurrenceMapping { try SplitOccurrenceMapping(cborValue: CsilCbor.decode(bytes)) }
+}
+
+public extension SplitSeriesReceipt {
+    /// The CBOR value tree for this record (deep, canonical key order).
+    func toCborValue() -> CsilCborValue {
+        var csilEntries: [(CsilCborValue, CsilCborValue)] = []
+        if let csilV = self.series { csilEntries.append((.text("series"), csilV.toCborValue())) }
+        csilEntries.append((.text("created"), .bool(self.created)))
+        csilEntries.append((.text("in_place"), .bool(self.inPlace)))
+        csilEntries.append((.text("mappings"), CsilCborValue.array(self.mappings.map { $0.toCborValue() })))
+        csilEntries.append((.text("split_at"), .text(self.splitAt)))
+        csilEntries.append((.text("series_id"), .text(self.seriesId)))
+        if let csilV = self.successor { csilEntries.append((.text("successor"), csilV.toCborValue())) }
+        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
+        csilEntries.append((.text("series_state"), self.seriesState.toCborValue()))
+        csilEntries.append((.text("successor_id"), .text(self.successorId)))
+        csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
+        if let csilV = self.seriesTrashId { csilEntries.append((.text("series_trash_id"), .text(csilV))) }
+        csilEntries.append((.text("successor_state"), self.successorState.toCborValue()))
+        if let csilV = self.successorTrashId { csilEntries.append((.text("successor_trash_id"), .text(csilV))) }
+        return .map(csilEntries)
+    }
+
+    /// Reconstruct this record from a decoded CBOR value tree.
+    init(cborValue: CsilCborValue) throws {
+        let seriesId = try CsilCbor.asText((try CsilCbor.require(cborValue, "series_id")))
+        let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
+        let successorId = try CsilCbor.asText((try CsilCbor.require(cborValue, "successor_id")))
+        let splitAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "split_at")))
+        let inPlace = try CsilCbor.asBool((try CsilCbor.require(cborValue, "in_place")))
+        let created = try CsilCbor.asBool((try CsilCbor.require(cborValue, "created")))
+        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
+        let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
+        let seriesState = try CreateReceiptState(cborValue: (try CsilCbor.require(cborValue, "series_state")))
+        let series: Event? = if let csilV = CsilCbor.mapGet(cborValue, "series") { try Event(cborValue: csilV) } else { nil }
+        let seriesTrashId: TrashId? = if let csilV = CsilCbor.mapGet(cborValue, "series_trash_id") { try CsilCbor.asText(csilV) } else { nil }
+        let successorState = try CreateReceiptState(cborValue: (try CsilCbor.require(cborValue, "successor_state")))
+        let successor: Event? = if let csilV = CsilCbor.mapGet(cborValue, "successor") { try Event(cborValue: csilV) } else { nil }
+        let successorTrashId: TrashId? = if let csilV = CsilCbor.mapGet(cborValue, "successor_trash_id") { try CsilCbor.asText(csilV) } else { nil }
+        let mappings = try CsilCbor.asArray((try CsilCbor.require(cborValue, "mappings"))).map { try SplitOccurrenceMapping(cborValue: $0) }
+        self.init(seriesId: seriesId, idempotencyKey: idempotencyKey, successorId: successorId, splitAt: splitAt, inPlace: inPlace, created: created, createdAt: createdAt, calendarId: calendarId, seriesState: seriesState, series: series, seriesTrashId: seriesTrashId, successorState: successorState, successor: successor, successorTrashId: successorTrashId, mappings: mappings)
+    }
+
+    /// Encode this record to canonical CSIL CBOR bytes.
+    func toCbor() -> [UInt8] { CsilCbor.encode(toCborValue()) }
+
+    /// Decode a CSIL CBOR byte payload into this record.
+    static func fromCbor(_ bytes: [UInt8]) throws -> SplitSeriesReceipt { try SplitSeriesReceipt(cborValue: CsilCbor.decode(bytes)) }
+}
+
 public extension GetOccurrenceRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {

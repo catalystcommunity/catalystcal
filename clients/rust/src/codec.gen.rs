@@ -3153,6 +3153,353 @@ pub fn decode_create_event_receipt(csil_data: &[u8]) -> Result<CreateEventReceip
     csil_dec_create_event_receipt(&csil_root)
 }
 
+/// Build the canonical CBOR value tree for a SplitSeriesOnceRequest.
+fn csil_enc_split_series_once_request(csil_v: &SplitSeriesOnceRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("recurrence_id"), cbor_text(&csil_v.recurrence_id)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    if let Some(csil_inner) = &csil_v.map_recurrence_ids {
+        csil_entries.push((
+            cbor_text("map_recurrence_ids"),
+            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+        ));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SplitSeriesOnceRequest from a decoded CBOR value tree.
+fn csil_dec_split_series_once_request(
+    csil_root: &CsilCborValue,
+) -> Result<SplitSeriesOnceRequest, CsilCborError> {
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let event = {
+        let csil_field = cbor_require(csil_root, "event")?;
+        let csil_decode = csil_dec_event;
+        csil_decode(csil_field)?
+    };
+    let recurrence_id = {
+        let csil_field = cbor_require(csil_root, "recurrence_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let map_recurrence_ids = match cbor_map_get(csil_root, "map_recurrence_ids") {
+        Some(csil_field) => {
+            let csil_decode = |csil_v| cbor_dec_array(csil_v, cbor_as_text);
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(SplitSeriesOnceRequest {
+        idempotency_key,
+        event,
+        recurrence_id,
+        map_recurrence_ids,
+    })
+}
+
+/// Encode a SplitSeriesOnceRequest to canonical CSIL CBOR bytes.
+pub fn encode_split_series_once_request(csil_v: &SplitSeriesOnceRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_split_series_once_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SplitSeriesOnceRequest.
+pub fn decode_split_series_once_request(
+    csil_data: &[u8],
+) -> Result<SplitSeriesOnceRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_split_series_once_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a SplitReceiptRequest.
+fn csil_enc_split_receipt_request(csil_v: &SplitReceiptRequest) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
+    csil_entries.push((cbor_text("series_id"), cbor_text(&csil_v.series_id)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    if let Some(csil_inner) = &csil_v.map_recurrence_ids {
+        csil_entries.push((
+            cbor_text("map_recurrence_ids"),
+            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+        ));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SplitReceiptRequest from a decoded CBOR value tree.
+fn csil_dec_split_receipt_request(
+    csil_root: &CsilCborValue,
+) -> Result<SplitReceiptRequest, CsilCborError> {
+    let series_id = {
+        let csil_field = cbor_require(csil_root, "series_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let map_recurrence_ids = match cbor_map_get(csil_root, "map_recurrence_ids") {
+        Some(csil_field) => {
+            let csil_decode = |csil_v| cbor_dec_array(csil_v, cbor_as_text);
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(SplitReceiptRequest {
+        series_id,
+        idempotency_key,
+        map_recurrence_ids,
+    })
+}
+
+/// Encode a SplitReceiptRequest to canonical CSIL CBOR bytes.
+pub fn encode_split_receipt_request(csil_v: &SplitReceiptRequest) -> Vec<u8> {
+    cbor_encode(&csil_enc_split_receipt_request(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SplitReceiptRequest.
+pub fn decode_split_receipt_request(
+    csil_data: &[u8],
+) -> Result<SplitReceiptRequest, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_split_receipt_request(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a SplitOccurrenceMapping.
+fn csil_enc_split_occurrence_mapping(csil_v: &SplitOccurrenceMapping) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
+    csil_entries.push((
+        cbor_text("result"),
+        csil_enc_split_map_result(&csil_v.result),
+    ));
+    if let Some(csil_inner) = &csil_v.event_id {
+        csil_entries.push((cbor_text("event_id"), cbor_text(csil_inner)));
+    }
+    csil_entries.push((cbor_text("recurrence_id"), cbor_text(&csil_v.recurrence_id)));
+    if let Some(csil_inner) = &csil_v.mapped_recurrence_id {
+        csil_entries.push((cbor_text("mapped_recurrence_id"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree.
+fn csil_dec_split_occurrence_mapping(
+    csil_root: &CsilCborValue,
+) -> Result<SplitOccurrenceMapping, CsilCborError> {
+    let recurrence_id = {
+        let csil_field = cbor_require(csil_root, "recurrence_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let result = {
+        let csil_field = cbor_require(csil_root, "result")?;
+        let csil_decode = csil_dec_split_map_result;
+        csil_decode(csil_field)?
+    };
+    let event_id = match cbor_map_get(csil_root, "event_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let mapped_recurrence_id = match cbor_map_get(csil_root, "mapped_recurrence_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    Ok(SplitOccurrenceMapping {
+        recurrence_id,
+        result,
+        event_id,
+        mapped_recurrence_id,
+    })
+}
+
+/// Encode a SplitOccurrenceMapping to canonical CSIL CBOR bytes.
+pub fn encode_split_occurrence_mapping(csil_v: &SplitOccurrenceMapping) -> Vec<u8> {
+    cbor_encode(&csil_enc_split_occurrence_mapping(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SplitOccurrenceMapping.
+pub fn decode_split_occurrence_mapping(
+    csil_data: &[u8],
+) -> Result<SplitOccurrenceMapping, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_split_occurrence_mapping(&csil_root)
+}
+
+/// Build the canonical CBOR value tree for a SplitSeriesReceipt.
+fn csil_enc_split_series_receipt(csil_v: &SplitSeriesReceipt) -> CsilCborValue {
+    let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(15);
+    if let Some(csil_inner) = &csil_v.series {
+        csil_entries.push((cbor_text("series"), csil_enc_event(csil_inner)));
+    }
+    csil_entries.push((cbor_text("created"), cbor_bool(csil_v.created)));
+    csil_entries.push((cbor_text("in_place"), cbor_bool(csil_v.in_place)));
+    csil_entries.push((
+        cbor_text("mappings"),
+        cbor_enc_array(&csil_v.mappings, csil_enc_split_occurrence_mapping),
+    ));
+    csil_entries.push((cbor_text("split_at"), cbor_text(&csil_v.split_at)));
+    csil_entries.push((cbor_text("series_id"), cbor_text(&csil_v.series_id)));
+    if let Some(csil_inner) = &csil_v.successor {
+        csil_entries.push((cbor_text("successor"), csil_enc_event(csil_inner)));
+    }
+    csil_entries.push((cbor_text("created_at"), cbor_text(&csil_v.created_at)));
+    csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
+    csil_entries.push((
+        cbor_text("series_state"),
+        csil_enc_create_receipt_state(&csil_v.series_state),
+    ));
+    csil_entries.push((cbor_text("successor_id"), cbor_text(&csil_v.successor_id)));
+    csil_entries.push((
+        cbor_text("idempotency_key"),
+        cbor_text(&csil_v.idempotency_key),
+    ));
+    if let Some(csil_inner) = &csil_v.series_trash_id {
+        csil_entries.push((cbor_text("series_trash_id"), cbor_text(csil_inner)));
+    }
+    csil_entries.push((
+        cbor_text("successor_state"),
+        csil_enc_create_receipt_state(&csil_v.successor_state),
+    ));
+    if let Some(csil_inner) = &csil_v.successor_trash_id {
+        csil_entries.push((cbor_text("successor_trash_id"), cbor_text(csil_inner)));
+    }
+    CsilCborValue::Map(csil_entries)
+}
+
+/// Reconstruct a SplitSeriesReceipt from a decoded CBOR value tree.
+fn csil_dec_split_series_receipt(
+    csil_root: &CsilCborValue,
+) -> Result<SplitSeriesReceipt, CsilCborError> {
+    let series_id = {
+        let csil_field = cbor_require(csil_root, "series_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let idempotency_key = {
+        let csil_field = cbor_require(csil_root, "idempotency_key")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let successor_id = {
+        let csil_field = cbor_require(csil_root, "successor_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let split_at = {
+        let csil_field = cbor_require(csil_root, "split_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let in_place = {
+        let csil_field = cbor_require(csil_root, "in_place")?;
+        let csil_decode = cbor_as_bool;
+        csil_decode(csil_field)?
+    };
+    let created = {
+        let csil_field = cbor_require(csil_root, "created")?;
+        let csil_decode = cbor_as_bool;
+        csil_decode(csil_field)?
+    };
+    let created_at = {
+        let csil_field = cbor_require(csil_root, "created_at")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let calendar_id = {
+        let csil_field = cbor_require(csil_root, "calendar_id")?;
+        let csil_decode = cbor_as_text;
+        csil_decode(csil_field)?
+    };
+    let series_state = {
+        let csil_field = cbor_require(csil_root, "series_state")?;
+        let csil_decode = csil_dec_create_receipt_state;
+        csil_decode(csil_field)?
+    };
+    let series = match cbor_map_get(csil_root, "series") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_event;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let series_trash_id = match cbor_map_get(csil_root, "series_trash_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let successor_state = {
+        let csil_field = cbor_require(csil_root, "successor_state")?;
+        let csil_decode = csil_dec_create_receipt_state;
+        csil_decode(csil_field)?
+    };
+    let successor = match cbor_map_get(csil_root, "successor") {
+        Some(csil_field) => {
+            let csil_decode = csil_dec_event;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let successor_trash_id = match cbor_map_get(csil_root, "successor_trash_id") {
+        Some(csil_field) => {
+            let csil_decode = cbor_as_text;
+            Some(csil_decode(csil_field)?)
+        }
+        None => None,
+    };
+    let mappings = {
+        let csil_field = cbor_require(csil_root, "mappings")?;
+        let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_split_occurrence_mapping);
+        csil_decode(csil_field)?
+    };
+    Ok(SplitSeriesReceipt {
+        series_id,
+        idempotency_key,
+        successor_id,
+        split_at,
+        in_place,
+        created,
+        created_at,
+        calendar_id,
+        series_state,
+        series,
+        series_trash_id,
+        successor_state,
+        successor,
+        successor_trash_id,
+        mappings,
+    })
+}
+
+/// Encode a SplitSeriesReceipt to canonical CSIL CBOR bytes.
+pub fn encode_split_series_receipt(csil_v: &SplitSeriesReceipt) -> Vec<u8> {
+    cbor_encode(&csil_enc_split_series_receipt(csil_v))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SplitSeriesReceipt.
+pub fn decode_split_series_receipt(csil_data: &[u8]) -> Result<SplitSeriesReceipt, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_split_series_receipt(&csil_root)
+}
+
 /// Build the canonical CBOR value tree for a GetOccurrenceRequest.
 fn csil_enc_get_occurrence_request(csil_v: &GetOccurrenceRequest) -> CsilCborValue {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
@@ -5136,6 +5483,28 @@ fn csil_dec_create_receipt_state(
         "hidden" => Ok(CreateReceiptState::Hidden),
         csil_other => Err(CsilCborError(format!(
             "csil cbor: unknown CreateReceiptState value {csil_other:?}"
+        ))),
+    }
+}
+
+/// Encode a SplitMapResult enum as its bare literal value.
+fn csil_enc_split_map_result(csil_v: &SplitMapResult) -> CsilCborValue {
+    match csil_v {
+        SplitMapResult::Original => cbor_text("original"),
+        SplitMapResult::Successor => cbor_text("successor"),
+        SplitMapResult::None => cbor_text("none"),
+    }
+}
+
+/// Decode a bare literal value into a SplitMapResult enum.
+fn csil_dec_split_map_result(csil_v: &CsilCborValue) -> Result<SplitMapResult, CsilCborError> {
+    let csil_val = cbor_as_text(csil_v)?;
+    match csil_val.as_str() {
+        "original" => Ok(SplitMapResult::Original),
+        "successor" => Ok(SplitMapResult::Successor),
+        "none" => Ok(SplitMapResult::None),
+        csil_other => Err(CsilCborError(format!(
+            "csil cbor: unknown SplitMapResult value {csil_other:?}"
         ))),
     }
 }

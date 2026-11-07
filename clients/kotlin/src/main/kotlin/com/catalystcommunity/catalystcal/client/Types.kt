@@ -512,6 +512,71 @@ data class CreateEventReceipt(
     val trashId: TrashID? = null
 )
 
+/** SplitSeriesOnceRequest record. */
+data class SplitSeriesOnceRequest(
+    // wire key: idempotency_key
+    val idempotencyKey: String,
+    val event: Event,
+    // wire key: recurrence_id
+    val recurrenceId: Timestamp,
+    // wire key: map_recurrence_ids
+    val mapRecurrenceIds: List<Timestamp>? = null
+)
+
+/** SplitReceiptRequest record. */
+data class SplitReceiptRequest(
+    // wire key: series_id
+    val seriesId: EventID,
+    // wire key: idempotency_key
+    val idempotencyKey: String,
+    // wire key: map_recurrence_ids
+    val mapRecurrenceIds: List<Timestamp>? = null
+)
+
+/** SplitMapResult enum (bare-literal wire). */
+enum class SplitMapResult { Original, Successor, None }
+
+/** SplitOccurrenceMapping record. */
+data class SplitOccurrenceMapping(
+    // wire key: recurrence_id
+    val recurrenceId: Timestamp,
+    val result: SplitMapResult,
+    // wire key: event_id
+    val eventId: EventID? = null,
+    // wire key: mapped_recurrence_id
+    val mappedRecurrenceId: Timestamp? = null
+)
+
+/** SplitSeriesReceipt record. */
+data class SplitSeriesReceipt(
+    // wire key: series_id
+    val seriesId: EventID,
+    // wire key: idempotency_key
+    val idempotencyKey: String,
+    // wire key: successor_id
+    val successorId: EventID,
+    // wire key: split_at
+    val splitAt: Timestamp,
+    // wire key: in_place
+    val inPlace: Boolean,
+    val created: Boolean,
+    // wire key: created_at
+    val createdAt: Timestamp,
+    // wire key: calendar_id
+    val calendarId: CalendarID,
+    // wire key: series_state
+    val seriesState: CreateReceiptState,
+    val series: Event? = null,
+    // wire key: series_trash_id
+    val seriesTrashId: TrashID? = null,
+    // wire key: successor_state
+    val successorState: CreateReceiptState,
+    val successor: Event? = null,
+    // wire key: successor_trash_id
+    val successorTrashId: TrashID? = null,
+    val mappings: List<SplitOccurrenceMapping>
+)
+
 /** GetOccurrenceRequest record. */
 data class GetOccurrenceRequest(
     // wire key: event_id

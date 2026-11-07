@@ -125,6 +125,28 @@ func (v *CreateReceiptRequest) Validate() error {
 	return nil
 }
 
+// ValidateSplitSeriesOnceRequest validates the SplitSeriesOnceRequest struct
+func (v *SplitSeriesOnceRequest) Validate() error {
+	if len(v.IdempotencyKey) < 1 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
+	}
+	if len(v.IdempotencyKey) > 200 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at most 200 elements")
+	}
+	return nil
+}
+
+// ValidateSplitReceiptRequest validates the SplitReceiptRequest struct
+func (v *SplitReceiptRequest) Validate() error {
+	if len(v.IdempotencyKey) < 1 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
+	}
+	if len(v.IdempotencyKey) > 200 {
+		return fmt.Errorf("field 'IdempotencyKey' must have at most 200 elements")
+	}
+	return nil
+}
+
 // ValidateSearchEventsRequest validates the SearchEventsRequest struct
 func (v *SearchEventsRequest) Validate() error {
 	if len(v.Query) < 1 {
