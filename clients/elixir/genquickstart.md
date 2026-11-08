@@ -12,7 +12,7 @@ raw UDP unchanged.
 # TODO: publish catalystcal_client to Hex, then add it (and the transport lib) to deps:
 def deps do
   [
-    {:catalystcal_client, "~> 0.2.0"},
+    {:catalystcal_client, "~> 0.3.0"},
     # not yet published — vendor or git for now:
     {:csilgen_transport, github: "catalystcommunity/csilgen", sparse: "transports/elixir"}
   ]

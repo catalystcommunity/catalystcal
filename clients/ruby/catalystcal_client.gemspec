@@ -4,7 +4,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = "catalystcal_client"
-  spec.version = "0.2.0"
+  spec.version = "0.3.0"
   spec.summary = "CSIL-generated Ruby package catalystcal_client."
   spec.authors = ["csilgen"]
   spec.license = "Apache-2.0"
