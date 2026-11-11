@@ -1,0 +1,85 @@
+/* editor: the event editor and event detail dialogs (Zest dialog-window). */
+
+dialog-window.editor-dialog {
+  --zest-dialog-window-max-width: 62em;
+}
+dialog-window.detail-dialog {
+  --zest-dialog-window-max-width: 34em;
+}
+
+/* The free/busy column is always in the DOM; it counts only when shown. */
+.editor:has(.editor-side) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.editor:has(.editor-side:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) 290px;
+}
+@media (max-width: 820px) {
+  .editor:has(.editor-side:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.editor .input-title {
+  display: block;
+  font-size: var(--fs-xl);
+}
+.cal-select > .swatch {
+  flex: none;
+  align-self: flex-end;
+  margin-bottom: 0.9em;
+}
+.when-grid > date-time-picker.input-date {
+  min-width: 10em;
+}
+.when-grid > date-time-picker.input-time {
+  min-width: 7.5em;
+}
+
+/* Weekday toggles are push-buttons; the old native-button look is not used. */
+push-button.recur-day {
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+push-button.recur-day .zest-push-button {
+  min-width: 2.5em;
+  padding-inline: 0.5em;
+}
+
+.recur-interval,
+.recur-ends .hrow {
+  align-items: flex-end;
+}
+.recur-unit {
+  padding-bottom: 0.75em;
+}
+spin-box.input-num {
+  width: 7.5em;
+}
+.reminder-row {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.reminder-row > .small,
+.reminder-row > .icon-btn {
+  margin-bottom: 0.6em;
+}
+.attendee-add {
+  align-items: flex-end;
+}
+.attendee-list combo-box {
+  min-width: 10em;
+}
+
+/* Detail actions sit in the dialog button row. */
+dialog-window.detail-dialog push-button svg {
+  flex: none;
+}
+.rsvp-buttons {
+  display: flex;
+  gap: 0.5em;
+  flex-wrap: wrap;
+}

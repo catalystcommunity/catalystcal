@@ -28,10 +28,38 @@ code, files, and docs. Do not use other spellings or abbreviations.
 - **coredb/** is a separate Go module with embedded goose migrations for
   SQLite. `api/go.mod` has `replace github.com/catalystcommunity/catalystcal/coredb
   => ../coredb`, so a build needs both directories.
-- **webapp/** is the SolidJS + Vite SPA. It imports `@catalystcal/client`, an alias
-  to `../clients/typescript`. It reads `../version/VERSION.txt` at build
+- **webapp/** is the SPA: Zest web components (`@catalystcommunity/*` from
+  npm), TypeScript, and Vite. It has no application framework. Do not add
+  one. It imports `@catalystcal/client`, an alias to
+  `../clients/typescript`. It reads `../version/VERSION.txt` at build
   time. The SPA handles `/auth/callback`. Vite dev runs on 5180 and proxies
   `/api` and `/ics` to 7080.
+  - Each part of the UI is a custom element that extends `CalElement`
+    (`src/ui/element.ts`, a Zest `BaseComponent` in the light DOM).
+    `build()` makes the elements one time. `render()` changes only the
+    parts that changed. `connected()` adds listeners with `own` and
+    `listen`. Make elements with `h()` from `src/ui/dom.ts`. Use
+    `syncKeyed` for a list with controls in its rows, so that the focus
+    stays.
+  - App state is in one `BasicDataService` (`src/state/store.ts`). Each
+    `src/stores/` module owns one collection and gives typed functions.
+    An element lists the collections that it shows in `static watches`.
+  - Routes use the Zest `SimpleRouter` (`src/app/router.ts`). The route is
+    in the store. `navigate()` changes it.
+  - Use the Zest controls, containers, menus, `calendar-view`, and
+    `date-time-picker`. `src/ui/zest.ts` defines their tags at boot.
+    Use the TypeScript types that each Zest package gives. Do not
+    declare them again in this repo.
+  - Zest classes on the inner elements start with `zest-`. Do not give
+    an app class the `zest-` prefix.
+  - A `push-button` in the `buttons` slot of `dialog-window` closes the
+    dialog. `openModal` adds `data-keep-open`, so that a Save handler
+    can close the dialog after the save. An event state on the calendar
+    is an item tag (`itemTags`).
+  - Make a component specific to catalystcal in this repo, as a
+    `CalElement`. Change a general component in `../zest`.
+  - After an `await`, call `this.isActive()` before you change the
+    element. Ignore a response that is older than the newest request.
 - **Dockerfile.api**: distroless static image, nonroot (65532), database on
   the `/data` volume.
 - **Dockerfile.web**: Caddy serves the SPA and proxies `/api/*` and `/ics/*`

@@ -6,7 +6,7 @@ replace github.com/catalystcommunity/catalystcal/coredb => ../coredb
 
 require (
 	github.com/catalystcommunity/catalystcal/coredb v0.0.0-00010101000000-000000000000
-	github.com/catalystcommunity/linkkeys/sdks/regular-rp/go v0.0.0-20261012235123-03fcbd8e7007
+	github.com/catalystcommunity/linkkeys/sdks/regular-rp/go v0.0.0-20261111162043-3227a58c78a7
 	github.com/emersion/go-ical v0.0.0-20250609112844-439c63cef608
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/oklog/ulid/v2 v2.1.2

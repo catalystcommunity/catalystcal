@@ -70,6 +70,10 @@ config:
     # This instance's relying-party (RP) domain: the audience of each
     # sign-in assertion. Usually the host name of publicUrl.
     rpDomain: ""
+    # The application ID that each sign-in request names (LinkKeys 0.16.7
+    # and later). LinkKeys keeps standing consent per application. Empty:
+    # the application ID of the act-as keys, else the RP account username.
+    applicationId: ""
   # More CATALYSTCAL_* variables, as a map. Values must be strings.
   extraEnv: {}
 
@@ -144,7 +148,8 @@ linkkeysRp:
   image:
     repository: containers.catalystsquad.com/public/catalystcommunity/linkkeys
     pullPolicy: IfNotPresent
-    tag: "latest"
+    # 0.16.7 or later keeps consent per application (application_id).
+    tag: "0.16.7"
   # HTTPS port of the in-cluster RP (B).
   port: 8443
   # CSIL-RPC/TCP port of the in-cluster RP (B).

@@ -1,20 +1,24 @@
-import { createSignal, onCleanup } from "solid-js";
+/** True when the CSS media query matches now. */
+export function matchesMedia(query: string): boolean {
+  try {
+    return typeof matchMedia === "function" ? matchMedia(query).matches : false;
+  } catch {
+    return false;
+  }
+}
 
-/** A signal that follows a CSS media query. Call inside a component. */
-export function createMediaQuery(query: string): () => boolean {
+/** Call `onChange` when the query starts or stops matching. Returns the removal function. */
+export function watchMedia(query: string, onChange: (matches: boolean) => void): () => void {
   let mql: MediaQueryList | null = null;
   try {
     mql = typeof matchMedia === "function" ? matchMedia(query) : null;
   } catch {
     mql = null;
   }
-  const [matches, setMatches] = createSignal(mql?.matches ?? false);
-  if (mql) {
-    const on = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mql.addEventListener?.("change", on);
-    onCleanup(() => mql?.removeEventListener?.("change", on));
-  }
-  return matches;
+  if (!mql?.addEventListener) return () => {};
+  const on = (e: MediaQueryListEvent) => onChange(e.matches);
+  mql.addEventListener("change", on);
+  return () => mql?.removeEventListener("change", on);
 }
 
 /** True when a key press should not be a shortcut (typing, dialogs open). */

@@ -1,4 +1,4 @@
-# catalystcal web image: the SolidJS SPA, served by Caddy.
+# catalystcal web image: the Zest SPA, served by Caddy.
 #
 # Two stages: a Node stage builds the Vite output, then Caddy serves it.
 # Caddy also proxies /api/* and /ics/* to the API (CATALYSTCAL_API_UPSTREAM,

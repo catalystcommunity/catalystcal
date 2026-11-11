@@ -8,6 +8,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,9 @@ const (
 	EnvNonprod = "nonprod"
 	EnvProd    = "prod"
 )
+
+// validApplicationID is the LinkKeys rule for an application ID.
+var validApplicationID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,128}$`)
 
 // MinJWTSecretBytes is the shortest bearer secret accepted in prod.
 const MinJWTSecretBytes = 32
@@ -49,6 +53,10 @@ type Config struct {
 	LinkkeysTCPAddr          string
 	LinkkeysTCPFingerprints  []string
 	LinkkeysTCPAllowInsecure bool
+	// LinkkeysApplicationID names catalystcal in each sign-in request. The
+	// IDP keeps standing consent per application. Default: the application
+	// ID of the act-as key file, else the RP account username.
+	LinkkeysApplicationID string
 
 	SubscriptionRefresh      time.Duration
 	SubscriptionAllowPrivate bool
@@ -101,6 +109,7 @@ func LoadFrom(getenv func(string) string) (*Config, error) {
 		LinkkeysTCPAddr:          r.str("CATALYSTCAL_LINKKEYS_TCP_ADDR", ""),
 		LinkkeysTCPFingerprints:  r.list("CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS"),
 		LinkkeysTCPAllowInsecure: r.bool("CATALYSTCAL_LINKKEYS_TCP_ALLOW_INSECURE"),
+		LinkkeysApplicationID:    r.str("CATALYSTCAL_LINKKEYS_APPLICATION_ID", ""),
 
 		SubscriptionRefresh:      time.Duration(r.int("CATALYSTCAL_SUBSCRIPTION_REFRESH_MINUTES", 30)) * time.Minute,
 		SubscriptionAllowPrivate: r.bool("CATALYSTCAL_SUBSCRIPTION_ALLOW_PRIVATE"),
@@ -164,6 +173,9 @@ func (c *Config) Validate() error {
 	}
 	if c.TrashRetention < 24*time.Hour || c.TrashRetention > 365*24*time.Hour {
 		return fmt.Errorf("CATALYSTCAL_TRASH_RETENTION_DAYS must be 1 to 365")
+	}
+	if c.LinkkeysApplicationID != "" && !validApplicationID.MatchString(c.LinkkeysApplicationID) {
+		return fmt.Errorf("CATALYSTCAL_LINKKEYS_APPLICATION_ID must be 1 to 128 of A-Z a-z 0-9 - _ .")
 	}
 	if len(c.AllowedApplications) > 0 && c.ActAsAppKeysFile == "" {
 		return fmt.Errorf("CATALYSTCAL_ALLOWED_APPLICATIONS needs CATALYSTCAL_ACT_AS_APP_KEYS_FILE: the key file names this server's own application identity")

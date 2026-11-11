@@ -46,13 +46,17 @@ const (
 // empty they are discovered from DNS off Domain (the IDP identity domain) via
 // the _linkkeys_apis / _linkkeys TXT records linkkeys publishes.
 type TCPConfig struct {
-	Domain       string   // default identity domain (DNS discovery root for the RP endpoint)
-	APIKey       string   // RP API key, presented in the envelope auth field
-	Addr         string   // optional host:port override (else DNS-discovered)
-	Fingerprints []string // optional pinned SPKI sha256 hex (else DNS-discovered)
-	Insecure     bool     // dev only: skip server-cert fingerprint pinning
-	DialTimeout  time.Duration
-	IOTimeout    time.Duration
+	Domain string // default identity domain (DNS discovery root for the RP endpoint)
+	APIKey string // RP API key, presented in the envelope auth field
+	// ApplicationID names catalystcal under the API-key account in each
+	// sign-in request. The IDP keeps standing consent per application.
+	// Empty: the RP uses the account username.
+	ApplicationID string
+	Addr          string   // optional host:port override (else DNS-discovered)
+	Fingerprints  []string // optional pinned SPKI sha256 hex (else DNS-discovered)
+	Insecure      bool     // dev only: skip server-cert fingerprint pinning
+	DialTimeout   time.Duration
+	IOTimeout     time.Duration
 }
 
 // TCPClient speaks CSIL-RPC to linkkeys' Rp service over TCP+TLS. It is safe
@@ -64,6 +68,7 @@ type TCPClient struct {
 	serverName   string
 	fingerprints []string
 	apiKey       string
+	appID        string
 	insecure     bool
 	domain       string
 	dialTimeout  time.Duration
@@ -172,6 +177,7 @@ func NewTCPClient(cfg TCPConfig) (*TCPClient, error) {
 		serverName:   host,
 		fingerprints: fingerprints,
 		apiKey:       cfg.APIKey,
+		appID:        cfg.ApplicationID,
 		insecure:     cfg.Insecure,
 		domain:       cfg.Domain,
 		dialTimeout:  dialTimeout,
@@ -214,7 +220,8 @@ var CatalystCalClaims = ClaimRequest{
 }
 
 // SignRequest asks the RP to sign an AuthRequest bound to callbackURL + nonce.
-// It asks for CatalystCalClaims.
+// It asks for CatalystCalClaims, and names the application when one is set.
+// An RP before LinkKeys 0.16.7 ignores `application_id`.
 func (c *TCPClient) SignRequest(callbackURL, nonce string) (string, error) {
 	var out struct {
 		SignedRequest string `cbor:"signed_request"`
@@ -222,8 +229,9 @@ func (c *TCPClient) SignRequest(callbackURL, nonce string) (string, error) {
 	in := struct {
 		CallbackURL     string       `cbor:"callback_url"`
 		Nonce           string       `cbor:"nonce"`
+		ApplicationID   string       `cbor:"application_id,omitempty"`
 		RequestedClaims ClaimRequest `cbor:"requested_claims"`
-	}{callbackURL, nonce, CatalystCalClaims}
+	}{callbackURL, nonce, c.appID, CatalystCalClaims}
 	if err := c.call(opSignRequest, in, &out); err != nil {
 		return "", err
 	}

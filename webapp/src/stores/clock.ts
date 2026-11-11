@@ -1,8 +1,7 @@
-import { createRoot, createSignal } from "solid-js";
+/** Wall clock, updated each 30 s ("today" in pages that show it). */
+import { cell } from "~/state/store";
 
-/** Wall clock, updated each 30 s (drives the now line and "today"). */
-const [now, setNow] = createSignal(Date.now());
-createRoot(() => {
-  if (typeof window !== "undefined") setInterval(() => setNow(Date.now()), 30_000);
-});
-export const useNow = () => now;
+export const CLOCK = "clock";
+const nowCell = cell(CLOCK, "now", Date.now());
+if (typeof window !== "undefined") setInterval(() => nowCell.set(Date.now()), 30_000);
+export const now = (): number => nowCell.get();

@@ -1,0 +1,53 @@
+/*
+ * The Zest look in the catalystcal palette. The global Zest tokens read the
+ * catalystcal tokens, so they follow the light and dark theme of
+ * tokens.css. A rule here has no layer, so it wins over the zest layer.
+ * Widget tokens are set on the element that uses them, not on :root.
+ */
+:root {
+  --zest-font-family: var(--font-ui);
+  --zest-color-window: var(--surface);
+  --zest-color-window-text: var(--ink);
+  --zest-color-face: var(--surface-2);
+  --zest-color-face-text: var(--ink);
+  --zest-color-field: var(--surface);
+  --zest-color-field-text: var(--ink);
+  --zest-color-highlight: var(--accent);
+  --zest-color-highlight-text: var(--accent-ink);
+  --zest-color-border: var(--line-strong);
+  --zest-color-secondary-text: var(--ink-2);
+  --zest-color-disabled-text: var(--ink-3);
+  --zest-color-focus: var(--focus);
+  --zest-color-invalid: var(--danger);
+}
+
+/* A button in the buttons slot of a dialog: the page styles it. */
+dialog-window > button[slot="buttons"] {
+  min-height: 2.5em;
+  padding: 0 1em;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+dialog-window > button[slot="buttons"][data-default] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+/* data-danger: an action that cannot be undone, such as a delete. */
+dialog-window > button[slot="buttons"][data-danger] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+dialog-window > button[slot="buttons"][data-danger][data-default] {
+  background: var(--danger);
+  color: var(--surface);
+}
+dialog-window > button[slot="buttons"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

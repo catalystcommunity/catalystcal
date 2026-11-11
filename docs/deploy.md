@@ -58,6 +58,7 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_LINKKEYS_IDP_DOMAIN` | no | The default LinkKeys identity domain, for a sign-in with no login name |
 | `CATALYSTCAL_LINKKEYS_IDP_URL` | no | The base URL of the default IDP. Other domains use DNS. |
 | `CATALYSTCAL_LINKKEYS_RP_DOMAIN` | no | This instance's relying-party domain |
+| `CATALYSTCAL_LINKKEYS_APPLICATION_ID` | no | The application ID in each sign-in request (1 to 128 of `A-Z a-z 0-9 - _ .`). Default: the act-as key file application ID, else the RP account username. |
 | `CATALYSTCAL_LINKKEYS_PKI_API_KEY` | **yes** | RP API key |
 | `CATALYSTCAL_LINKKEYS_TCP_ADDR` | no | RP CSIL-RPC/TCP `host:port`. Empty: DNS discovery. |
 | `CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS` | no | Pinned SHA-256 certificate fingerprints. Empty: DNS discovery. |
@@ -186,7 +187,27 @@ Set these values (Helm `config.linkkeys.*`):
   existing LinkKeys instance (the usual setup), this is the domain of that
   instance. Leave it empty to use the IDP domain.
 - The callback URL: `<public URL>/auth/callback`. It must use `https`.
-  LinkKeys refuses an `http` callback (`callback_not_https`).
+  LinkKeys refuses an `http` callback (`callback_not_https`). The callback
+  host does not have to be in the RP domain. The user's IDP must run
+  LinkKeys 0.16.7 or later for a callback host outside the RP domain.
+- Application ID (`config.linkkeys.applicationId`): the application that
+  each sign-in request names. An RP before LinkKeys 0.16.7 ignores it.
+
+### Consent for each application
+
+LinkKeys 0.16.7 and later keep standing consent for each application: the RP
+API-key account and an application ID. A grant for one application does not
+apply to another application of the same RP domain.
+
+- The consent screen shows the display name of the RP API-key account. Give
+  that account a name that people know, for example "CatalystCal".
+- catalystcal sends the application ID of its act-as keys, so that sign-in
+  and act-as grants use one application identity. Set
+  `CATALYSTCAL_LINKKEYS_APPLICATION_ID` to use a different ID. Without act-as
+  keys and without the setting, the RP uses the account username. A username
+  that is not a valid ID makes each sign-in fail: then set the ID.
+- After the upgrade, each person sees the consent screen one more time,
+  because the earlier grants name no application.
 
 ### Claims
 
@@ -225,7 +246,7 @@ The API talks to the RP with CSIL-RPC over TCP and TLS. Leave
 `linkkeysRp.tcpAddr` and `linkkeysRp.tcpFingerprints` empty to discover
 them from DNS (`_linkkeys_apis.<domain>` and `_linkkeys.<domain>` TXT
 records), or set them. In the same cluster, use the Service address of the
-instance. `deploy/values-squizzlezig.yaml` is an example.
+instance. `deploy/values-example.yaml` shows the settings.
 
 ### Run an RP in the cluster
 

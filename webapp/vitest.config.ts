@@ -1,11 +1,9 @@
-// Standalone on purpose: mergeConfig with vite.config.ts applies solid()
-// twice and loads two copies of solid-js.
+// Standalone: vite.config.ts reads version/VERSION.txt and sets the dev
+// proxy, which tests do not need.
 import { defineConfig } from "vitest/config";
-import solid from "vite-plugin-solid";
 import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
-  plugins: [solid()],
   define: { __APP_VERSION__: JSON.stringify("test") },
   resolve: {
     alias: {
@@ -17,6 +15,6 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: ["src/**/*.{test,spec}.ts"],
   },
 });
