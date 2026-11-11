@@ -7,7 +7,7 @@
  * "delegation") acts AS another person; the UI shows a banner while it is in
  * use.
  */
-import { createRoot, createSignal, createEffect } from "solid-js";
+import { cell } from "~/state/store";
 import type { ActingVia, LoginResponse, MeResponse, PersonSummary, Scope } from "@catalystcal/client";
 import { readStore, writeStore } from "~/lib/storage";
 
@@ -41,28 +41,29 @@ const readSession = (): Session | null => {
   }
 };
 
-const [session, setSession] = createSignal<Session | null>(readSession());
-const [me, setMeSig] = createSignal<MeResponse | null>(null);
-const [restoring, setRestoringSig] = createSignal(false);
+/** The store collection of this module. */
+export const AUTH = "auth";
 
-createRoot(() => {
-  createEffect(() => {
-    const s = session();
-    writeStore(SESSION_KEY, s ? JSON.stringify(s) : null);
-  });
-});
+const sessionCell = cell<Session | null>(AUTH, "session", readSession());
+const meCell = cell<MeResponse | null>(AUTH, "me", null);
+const restoringCell = cell(AUTH, "restoring", false);
+
+function setSession(s: Session | null): void {
+  sessionCell.set(s);
+  writeStore(SESSION_KEY, s ? JSON.stringify(s) : null);
+}
 
 // Follow another tab that resumes, acts as someone, or signs out.
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === SESSION_KEY) setSession(readSession());
+    if (e.key === SESSION_KEY) sessionCell.set(readSession());
   });
 }
 
-export const useSession = () => session;
-export const useMe = () => me;
-export const useRestoring = () => restoring;
-export const setRestoring = (v: boolean) => setRestoringSig(v);
+export const session = (): Session | null => sessionCell.get();
+export const me = (): MeResponse | null => meCell.get();
+export const restoring = (): boolean => restoringCell.get();
+export const setRestoring = (v: boolean) => restoringCell.set(v);
 export const storedSession = (): Session | null => readSession();
 export const isAuthenticated = () => session() !== null;
 
@@ -70,11 +71,11 @@ export const isAuthenticated = () => session() !== null;
 export const currentToken = (): string | null => session()?.token ?? null;
 
 export const signIn = (s: Session) => setSession(s);
-export const setMe = (m: MeResponse | null) => setMeSig(m);
+export const setMe = (m: MeResponse | null) => meCell.set(m);
 
 export const signOut = () => {
   setSession(null);
-  setMeSig(null);
+  meCell.set(null);
 };
 
 /** True while the bearer acts as another person. */

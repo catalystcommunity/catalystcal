@@ -1,18 +1,6 @@
-import { createSignal } from "solid-js";
+/** Short notices at the edge of the page (Zest notices). */
+import { showNotice } from "@catalystcommunity/menus";
 
-export interface Toast {
-  id: number;
-  text: string;
-  kind: "info" | "error";
-}
-
-const [toasts, setToasts] = createSignal<Toast[]>([]);
-let next = 1;
-
-export const useToasts = () => toasts;
-
-export function toast(text: string, kind: Toast["kind"] = "info", ms = 4000): void {
-  const id = next++;
-  setToasts((t) => [...t, { id, text, kind }]);
-  setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
+export function toast(text: string, kind: "info" | "error" = "info"): void {
+  showNotice({ text, kind: kind === "error" ? "error" : "success" });
 }

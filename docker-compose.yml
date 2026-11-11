@@ -59,6 +59,7 @@ services:
       CATALYSTCAL_LINKKEYS_IDP_DOMAIN: ${CATALYSTCAL_LINKKEYS_IDP_DOMAIN:-}
       CATALYSTCAL_LINKKEYS_IDP_URL: ${CATALYSTCAL_LINKKEYS_IDP_URL:-}
       CATALYSTCAL_LINKKEYS_RP_DOMAIN: ${CATALYSTCAL_LINKKEYS_RP_DOMAIN:-}
+      CATALYSTCAL_LINKKEYS_APPLICATION_ID: ${CATALYSTCAL_LINKKEYS_APPLICATION_ID:-}
       CATALYSTCAL_LINKKEYS_PKI_API_KEY: ${CATALYSTCAL_LINKKEYS_PKI_API_KEY:-}
       CATALYSTCAL_LINKKEYS_TCP_ADDR: ${CATALYSTCAL_LINKKEYS_TCP_ADDR:-}
       CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS: ${CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS:-}
@@ -105,7 +106,7 @@ services:
   # values in .env to point at that RP.
   linkkeys-rp:
     profiles: ["linkkeys"]
-    image: containers.catalystsquad.com/public/catalystcommunity/linkkeys:latest
+    image: containers.catalystsquad.com/public/catalystcommunity/linkkeys:0.16.7
     environment:
       ENABLE_RP_ENDPOINTS: "true"
       DISABLE_PASSWORD_AUTH: "true"

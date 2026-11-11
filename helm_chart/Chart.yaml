@@ -1,6 +1,6 @@
 apiVersion: v2
 name: catalystcal
-description: catalystcal calendar service (API with SQLite, SolidJS web UI, iCalendar feeds)
+description: catalystcal calendar service (API with SQLite, Zest web UI, iCalendar feeds)
 type: application
 
 # Chart version. The release job sets it to the release version.

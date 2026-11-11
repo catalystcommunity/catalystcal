@@ -1,20 +1,23 @@
-/** Open state of the event editor and the event detail sheet. */
-import { createSignal } from "solid-js";
+/** Open state of the event editor and the event detail dialog. */
 import type { Occurrence } from "@catalystcal/client";
 import type { EventForm } from "~/lib/eventForm";
+import { cell } from "~/state/store";
+
+/** The store collection of this module. */
+export const EDITOR = "editor";
 
 export type EditorState = { mode: "create"; form: EventForm } | { mode: "edit"; form: EventForm; occ: Occurrence };
 
-const [editor, setEditor] = createSignal<EditorState | null>(null);
-const [detail, setDetail] = createSignal<Occurrence | null>(null);
+const editorCell = cell<EditorState | null>(EDITOR, "editor", null);
+const detailCell = cell<Occurrence | null>(EDITOR, "detail", null);
 
-export const useEditor = () => editor;
-export const useDetail = () => detail;
+export const editorState = (): EditorState | null => editorCell.get();
+export const detailOccurrence = (): Occurrence | null => detailCell.get();
 
 export function openEditor(s: EditorState): void {
-  setDetail(null);
-  setEditor(s);
+  detailCell.set(null);
+  editorCell.set(s);
 }
-export const closeEditor = () => setEditor(null);
-export const openDetail = (o: Occurrence) => setDetail(o);
-export const closeDetail = () => setDetail(null);
+export const closeEditor = () => editorCell.set(null);
+export const openDetail = (o: Occurrence) => detailCell.set(o);
+export const closeDetail = () => detailCell.set(null);

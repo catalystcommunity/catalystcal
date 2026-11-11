@@ -95,7 +95,7 @@
   align-items: center;
   gap: 8px;
 }
-.account-btn {
+menu-button.account-btn button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -103,13 +103,11 @@
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--surface);
+  background-image: none;
   color: var(--ink-2);
 }
-.account-btn:hover {
+menu-button.account-btn button:hover {
   background: var(--surface-2);
-}
-.menu-account {
-  padding: 6px 10px;
 }
 
 /* ---------- Search ---------- */
@@ -223,67 +221,9 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
-
-.mini-month {
-  padding: 0 2px;
-}
-.mini-head {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-bottom: 4px;
-}
-.mini-title {
-  flex: 1;
-  font-weight: 600;
-  padding-left: 6px;
-}
 .icon-btn-sm {
   width: 26px;
   height: 26px;
-}
-.mini-grid {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-.mini-grid th {
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  color: var(--ink-3);
-  padding: 2px 0 4px;
-}
-.mini-grid td {
-  padding: 1px;
-  text-align: center;
-}
-.mini-day {
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  font-size: var(--fs-sm);
-  color: var(--ink);
-}
-.mini-day:hover {
-  background: var(--surface-3);
-}
-.mini-day.is-other {
-  color: var(--ink-3);
-}
-.mini-day.in-range {
-  background: var(--surface-3);
-  border-radius: 6px;
-}
-.mini-day.is-selected {
-  background: var(--ink);
-  color: var(--surface);
-}
-.mini-day.is-today {
-  color: #1b1405;
-  background: var(--now);
-  font-weight: 700;
 }
 
 .cal-group {

@@ -73,6 +73,7 @@ func TestSPKIFingerprint(t *testing.T) {
 func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 	t.Parallel()
 	recvd := make(chan *transport.RpcRequest, 1)
+	appIDs := make(chan map[string]any, 2)
 	_, tlsCert, cert := newTestCert(t)
 	handler := func(req *transport.RpcRequest) transport.HandlerOutcome {
 		recvd <- req
@@ -90,6 +91,11 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 		if err := cbor.Unmarshal(req.Payload, &in); err != nil {
 			return transport.Transport(transport.StatusInternal, err.Error())
 		}
+		var raw map[string]any
+		if err := cbor.Unmarshal(req.Payload, &raw); err != nil {
+			return transport.Transport(transport.StatusInternal, err.Error())
+		}
+		appIDs <- raw
 		var handle bool
 		for _, c := range in.RequestedClaims.Required {
 			handle = handle || c.ClaimType == "handle"
@@ -122,6 +128,22 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 	req := <-recvd
 	if req.Service != "Rp" || req.Op != "sign-request" {
 		t.Fatalf("envelope routed to %s/%s, want Rp/sign-request", req.Service, req.Op)
+	}
+	// No application ID: the field is absent, and the RP uses the username.
+	if raw := <-appIDs; raw["application_id"] != nil {
+		t.Fatalf("application_id = %v, want absent", raw["application_id"])
+	}
+
+	c, err = NewTCPClient(TCPConfig{Addr: addr, Fingerprints: []string{fp}, APIKey: "secret-key", ApplicationID: "catalystcal"})
+	if err != nil {
+		t.Fatalf("NewTCPClient: %v", err)
+	}
+	if _, err := c.SignRequest("https://app/callback", "nonce-456"); err != nil {
+		t.Fatalf("SignRequest: %v", err)
+	}
+	<-recvd
+	if raw := <-appIDs; raw["application_id"] != "catalystcal" {
+		t.Fatalf("application_id = %v, want catalystcal", raw["application_id"])
 	}
 }
 

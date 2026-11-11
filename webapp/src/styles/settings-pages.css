@@ -1,0 +1,28 @@
+/* settings-pages: owned by one part of the Zest migration. */
+
+/* Calendar settings: the role box in a share row stays compact. */
+.list combo-box.share-role {
+  min-width: 14em;
+  max-width: 100%;
+}
+.share-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.feed-row text-field {
+  flex: 1 1 16em;
+  min-width: 0;
+}
+
+/* Delegation form: scope and calendar check-boxes, one on each line. */
+.scope-set check-box,
+.cal-checks check-box {
+  display: flex;
+}
+.cal-checks {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}

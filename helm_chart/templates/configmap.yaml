@@ -52,6 +52,9 @@ data:
   {{- with $c.linkkeys.rpDomain }}
   CATALYSTCAL_LINKKEYS_RP_DOMAIN: {{ . | quote }}
   {{- end }}
+  {{- with $c.linkkeys.applicationId }}
+  CATALYSTCAL_LINKKEYS_APPLICATION_ID: {{ . | quote }}
+  {{- end }}
   {{- if $rp.tcpAddr }}
   CATALYSTCAL_LINKKEYS_TCP_ADDR: {{ $rp.tcpAddr | quote }}
   {{- else if $rp.enabled }}

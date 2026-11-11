@@ -55,11 +55,25 @@ func TestDevAuthGate(t *testing.T) {
 }
 
 func TestBadValues(t *testing.T) {
-	for k, v := range map[string]string{"CATALYSTCAL_API_PORT": "x", "CATALYSTCAL_ENV": "staging", "CATALYSTCAL_DEV_AUTH_ENABLED": "maybe", "CATALYSTCAL_BEARER_TTL_SECONDS": "0"} {
+	for k, v := range map[string]string{"CATALYSTCAL_API_PORT": "x", "CATALYSTCAL_ENV": "staging", "CATALYSTCAL_DEV_AUTH_ENABLED": "maybe", "CATALYSTCAL_BEARER_TTL_SECONDS": "0", "CATALYSTCAL_LINKKEYS_APPLICATION_ID": "cal app"} {
 		m := map[string]string{"CATALYSTCAL_JWT_SECRET": strings.Repeat("x", 32), k: v}
 		if _, err := LoadFrom(env(m)); err == nil {
 			t.Errorf("%s=%s accepted", k, v)
 		}
+	}
+}
+
+func TestApplicationID(t *testing.T) {
+	c, err := LoadFrom(env(map[string]string{"CATALYSTCAL_JWT_SECRET": strings.Repeat("x", 32), "CATALYSTCAL_LINKKEYS_APPLICATION_ID": "catalystcal-web.v1"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.LinkkeysApplicationID != "catalystcal-web.v1" {
+		t.Fatalf("application id %q", c.LinkkeysApplicationID)
+	}
+	m := map[string]string{"CATALYSTCAL_JWT_SECRET": strings.Repeat("x", 32), "CATALYSTCAL_LINKKEYS_APPLICATION_ID": strings.Repeat("a", 129)}
+	if _, err := LoadFrom(env(m)); err == nil {
+		t.Fatal("129-character application id accepted")
 	}
 }
 

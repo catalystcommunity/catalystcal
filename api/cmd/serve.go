@@ -249,17 +249,34 @@ func buildPKI(cfg *config.Config) services.PKIClient {
 		return nil
 	}
 	c, err := linkkeys.NewTCPClient(linkkeys.TCPConfig{
-		Domain:       cfg.LinkkeysIDPDomain,
-		APIKey:       cfg.LinkkeysPKIAPIKey,
-		Addr:         cfg.LinkkeysTCPAddr,
-		Fingerprints: cfg.LinkkeysTCPFingerprints,
-		Insecure:     cfg.LinkkeysTCPAllowInsecure,
+		Domain:        cfg.LinkkeysIDPDomain,
+		APIKey:        cfg.LinkkeysPKIAPIKey,
+		ApplicationID: signInApplicationID(cfg),
+		Addr:          cfg.LinkkeysTCPAddr,
+		Fingerprints:  cfg.LinkkeysTCPFingerprints,
+		Insecure:      cfg.LinkkeysTCPAllowInsecure,
 	})
 	if err != nil {
 		log.WithError(err).Error("LinkKeys RP client init failed; Complete answers 503")
 		return nil
 	}
 	return c
+}
+
+// signInApplicationID is the application that sign-in requests name:
+// CATALYSTCAL_LINKKEYS_APPLICATION_ID, else the application ID that the
+// act-as keys enrolled with, else empty (the RP uses the account username).
+// LinkKeys asks that an application with act-as grants use one ID for both.
+func signInApplicationID(cfg *config.Config) string {
+	if cfg.LinkkeysApplicationID != "" || cfg.ActAsAppKeysFile == "" {
+		return cfg.LinkkeysApplicationID
+	}
+	keys, err := actas.LoadAppKeys(cfg.ActAsAppKeysFile)
+	if err != nil {
+		// buildActAs reports the bad key file and stops the boot.
+		return ""
+	}
+	return keys.ApplicationID
 }
 
 // attestationRenewer renews the attestations of catalystcal's application

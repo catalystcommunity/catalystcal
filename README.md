@@ -59,7 +59,7 @@ turns on the dev sign-in page. Do not expose it to a network.
 | `api/internal/csil/` | Generated Go server code. Do not edit. |
 | `coredb/` | SQLite migrations (goose), a separate Go module |
 | `clients/<lang>/` | Generated clients. Do not edit. |
-| `webapp/` | SolidJS + Vite web UI. It uses `clients/typescript`. |
+| `webapp/` | Web UI: Zest web components, TypeScript, and Vite, with no application framework. It uses `clients/typescript`. |
 | `helm_chart/` | Helm chart |
 | `deploy/` | Example Helm values |
 | `.reactorcide/` | CI workflows, jobs, and scripts |

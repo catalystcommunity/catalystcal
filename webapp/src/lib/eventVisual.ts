@@ -36,19 +36,6 @@ export const STATUS_LABEL: Record<ParticipationStatus, string> = {
   delegated: "Delegated",
 };
 
-export function occClasses(o: Occurrence): Record<string, boolean> {
-  const st = o.invited ? myStatus(o) : undefined;
-  return {
-    "ev-busy": o.busyOnly,
-    "ev-invited": o.invited,
-    "ev-declined": st === "declined",
-    "ev-tentative": st === "tentative" || o.event.status === "tentative",
-    "ev-pending": o.invited && (!st || st === "needs_action"),
-    "ev-cancelled": o.event.status === "cancelled",
-    "ev-free": o.event.transparency === "transparent",
-  };
-}
-
 export function occTitle(o: Occurrence): string {
   return o.busyOnly ? "Busy" : o.event.title || "(No title)";
 }

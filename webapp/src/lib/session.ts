@@ -5,7 +5,7 @@
  */
 import type { LoginResponse, PersonSummary } from "@catalystcal/client";
 import { authClient } from "~/data/clients";
-import { sessionFromLogin, setMe, signIn, signOut, storedSession, useSession } from "~/stores/auth";
+import { session, sessionFromLogin, setMe, signIn, signOut, storedSession } from "~/stores/auth";
 import { clearCalendars, loadCalendars } from "~/stores/calendars";
 import { bumpEvents } from "~/stores/calendars";
 import { setUnauthenticatedHandler } from "~/transport/csilrpc";
@@ -67,7 +67,7 @@ export function resumeSession(): Promise<boolean> {
 async function resumeLocked(): Promise<boolean> {
   resuming = true;
   try {
-    const current = useSession()();
+    const current = session();
     const stored = storedSession();
     if (stored && fresh(stored.expiresAt) && stored.token !== current?.token) {
       signIn(stored);
@@ -79,7 +79,7 @@ async function resumeLocked(): Promise<boolean> {
       void loadMe();
       return true;
     } catch {
-      const s = useSession()();
+      const s = session();
       if (s && Date.parse(s.expiresAt) > Date.now() + 5000) return false;
       if (s) {
         signOut();

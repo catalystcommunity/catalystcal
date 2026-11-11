@@ -1,5 +1,6 @@
-import { createSignal } from "solid-js";
 import { readStore, writeStore } from "~/lib/storage";
+import { cell } from "~/state/store";
+import { PREFS } from "~/stores/prefs";
 
 export type ThemeChoice = "light" | "dark" | "system";
 const KEY = "catalystcal.theme";
@@ -9,8 +10,8 @@ const initial = ((): ThemeChoice => {
   return v === "light" || v === "dark" ? v : "system";
 })();
 
-const [theme, setThemeSig] = createSignal<ThemeChoice>(initial);
-export const useTheme = () => theme;
+const themeCell = cell<ThemeChoice>(PREFS, "theme", initial);
+export const theme = (): ThemeChoice => themeCell.get();
 
 function systemDark(): boolean {
   try {
@@ -26,7 +27,7 @@ export function applyTheme(choice: ThemeChoice = theme()): void {
 }
 
 export function setTheme(choice: ThemeChoice): void {
-  setThemeSig(choice);
+  themeCell.set(choice);
   writeStore(KEY, choice);
   applyTheme(choice);
 }

@@ -1,0 +1,47 @@
+/* misc-pages: sign-in, sign-in callback, activity, invitations, settings. */
+
+/* The link styled as a primary button, without the old .btn rules. */
+.auth-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--zest-control-height, 2.5em);
+  padding: 0 var(--zest-control-padding-inline, 1em);
+  border-radius: var(--zest-control-radius, 0.375em);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.auth-retry:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Sign-in: the field, the check box, and the button in one column. */
+.login-form {
+  display: grid;
+  gap: var(--zest-gap-related, 0.5em);
+}
+.login-form push-button,
+.login-form .login-btn {
+  width: 100%;
+}
+.dev-handle {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.dev-handle text-field {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+.dev-user {
+  width: 100%;
+}
+
+/* Invitations: answer buttons stay on one line when there is room. */
+.invite .segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

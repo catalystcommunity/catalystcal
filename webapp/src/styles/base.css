@@ -25,60 +25,69 @@ body {
   min-height: 100%;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  margin: 0;
-  font-weight: 600;
-  line-height: 1.2;
+/* General element rules are in the zest layer, so that the defaults of a
+   Zest component, in the same layer but later, win over them. */
+@layer zest {
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 0;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: var(--fs-2xl);
+    letter-spacing: -0.02em;
+    font-weight: 650;
+  }
+
+  h2 {
+    font-size: var(--fs-lg);
+    letter-spacing: -0.005em;
+  }
+
+  h3 {
+    font-size: var(--fs-md);
+  }
+
+  p {
+    margin: 0;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
-h1 {
-  font-family: var(--font-display);
-  font-size: var(--fs-2xl);
-  letter-spacing: -0.02em;
-  font-weight: 650;
-}
-
-h2 {
-  font-size: var(--fs-lg);
-  letter-spacing: -0.005em;
-}
-
-h3 {
-  font-size: var(--fs-md);
-}
-
-p {
-  margin: 0;
-}
-
-a {
-  color: var(--accent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-}
-
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+/* The hidden attribute wins over each display rule of a class. */
+[hidden] {
+  display: none !important;
 }
 
 .tnum {
