@@ -2,11 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record FreeBusyRequest(
     List<IdentityRef> people /* wire: "people" */,
-    Timestamp rangeStart /* wire: "range_start" */,
-    Timestamp rangeEnd /* wire: "range_end" */
+    Instant rangeStart /* wire: "range_start" */,
+    Instant rangeEnd /* wire: "range_end" */
 ) {
 }

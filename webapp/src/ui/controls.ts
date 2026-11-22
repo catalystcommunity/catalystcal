@@ -10,7 +10,7 @@ export type { DialogWindow, PushButton };
 
 /**
  * What the app uses of text-field, text-area, combo-box, spin-box,
- * radio-group, and date-time-picker. The picker has no `label` property.
+ * and radio-group.
  */
 export interface ValueControl extends HTMLElement {
   value: string;

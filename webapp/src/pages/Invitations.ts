@@ -8,7 +8,7 @@ import { openDetail } from "~/stores/editor";
 import { toast } from "~/stores/toast";
 import { STATUS_LABEL, myAttendee } from "~/lib/eventVisual";
 import { eventDate, occurrenceOf } from "~/lib/eventRef";
-import { formatDate, formatTimeRange, parseTimestamp } from "~/lib/tz";
+import { formatDate, formatTimeRange } from "~/lib/tz";
 import { personName } from "~/lib/people";
 import { navigate } from "~/app/router";
 import { errorMessage } from "~/transport/csilrpc";
@@ -107,7 +107,7 @@ export class InvitationsPage extends CalElement {
     if (!d) return "";
     const day = formatDate(d, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
     if (e.allDay || !e.start || !e.end) return `${day}, all day`;
-    return `${day}, ${formatTimeRange(parseTimestamp(e.start), parseTimestamp(e.end), displayZone())}`;
+    return `${day}, ${formatTimeRange(e.start.getTime(), e.end.getTime(), displayZone())}`;
   }
 
   #row(e: Event): HTMLLIElement {

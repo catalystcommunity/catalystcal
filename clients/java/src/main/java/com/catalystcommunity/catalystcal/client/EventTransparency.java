@@ -2,4 +2,20 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record EventTransparency(Object value) {}
+public enum EventTransparency {
+    OPAQUE("opaque"),
+    TRANSPARENT("transparent");
+
+    private final String value;
+
+    EventTransparency(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static EventTransparency fromWire(String value) {
+        for (EventTransparency member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown EventTransparency value: " + value);
+    }
+}

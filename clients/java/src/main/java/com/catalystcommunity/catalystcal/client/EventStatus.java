@@ -2,4 +2,21 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record EventStatus(Object value) {}
+public enum EventStatus {
+    CONFIRMED("confirmed"),
+    TENTATIVE("tentative"),
+    CANCELLED("cancelled");
+
+    private final String value;
+
+    EventStatus(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static EventStatus fromWire(String value) {
+        for (EventStatus member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown EventStatus value: " + value);
+    }
+}

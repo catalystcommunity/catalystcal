@@ -100,14 +100,8 @@ let csil_rpc_call base_url ~service ~op ~(payload : bytes) : (bytes, string) res
     | Ok resp -> (
       (* A non-zero transport status is a transport failure: no typed payload. *)
       match Rpc.as_transport_error resp with
-      | Some _ -> Error "csil-rpc: non-zero transport status"
-      | None -> (
-        (* A typed ServiceError arm rides as a status-0 [variant] — an application
-           error distinct from a transport failure. Surface it so the client decodes
-           success only. *)
-        match resp.Rpc.variant with
-        | Some "ServiceError" -> Error "csil-rpc: ServiceError"
-        | _ -> Ok resp.Rpc.payload)))
+      | Some err -> Error (Conventions.error_message err)
+      | None -> Ok (Codec.resolve_rpc_reply ~service ~op ~variant:resp.Rpc.variant resp.Rpc.payload)))
 
 (* Build the typed client over the carrier; change the base URL to your server. *)
 let make_rpc_client base_url =
@@ -119,7 +113,8 @@ let () =
   let req : Types.complete_request = { encrypted_token = "example" } in
   match Client.Auth_service.complete client req with
   | Ok _resp -> print_endline "ok: received typed response"
-  | Error e -> prerr_endline e
+  | Error (`Transport e | `Decode e) -> prerr_endline e
+  | Error _ -> prerr_endline "application refusal"
 ```
 
 ## CSIL-Events (TLS)

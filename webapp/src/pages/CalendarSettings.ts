@@ -453,7 +453,7 @@ export class CalendarSettingsPage extends CalElement {
     this.#shareSubmit.disabled = true;
     showError(this.#shareError, null);
     try {
-      await shareClient.putShare({ shareId: "", calendarId: c.calendarId, grantee: ref, role: this.#role.value as ShareRole, createdAt: "" });
+      await shareClient.putShare({ shareId: "", calendarId: c.calendarId, grantee: ref, role: this.#role.value as ShareRole, createdAt: new Date(0) });
       if (!this.isActive()) return;
       this.#who.value = "";
       await this.#loadShares();

@@ -2,4 +2,23 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record ParticipationStatus(Object value) {}
+public enum ParticipationStatus {
+    NEEDS_ACTION("needs_action"),
+    ACCEPTED("accepted"),
+    DECLINED("declined"),
+    TENTATIVE("tentative"),
+    DELEGATED("delegated");
+
+    private final String value;
+
+    ParticipationStatus(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static ParticipationStatus fromWire(String value) {
+        for (ParticipationStatus member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown ParticipationStatus value: " + value);
+    }
+}

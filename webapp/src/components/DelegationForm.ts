@@ -1,10 +1,11 @@
+import type { DateTimePicker } from "@catalystcommunity/date-time-picker";
 import type { Calendar, Delegation, Scope } from "@catalystcal/client";
 import { delegationClient } from "~/data/clients";
 import { SCOPES, normalizeScopes } from "~/lib/scopes";
 import { formatIdentity, parseIdentity } from "~/lib/identity";
 import { identityLabel } from "~/lib/people";
 import { addDays, isDateText } from "~/lib/dates";
-import { civilDate, parseTimestamp, toTimestamp, todayIn, zonedToUtc } from "~/lib/tz";
+import { civilDate, toTimestamp, todayIn, zonedToUtc } from "~/lib/tz";
 import { session } from "~/stores/auth";
 import { displayZone } from "~/stores/prefs";
 import { errorMessage } from "~/transport/csilrpc";
@@ -13,11 +14,11 @@ import { h, setText, syncKeyed } from "~/ui/dom";
 import type { CheckControl, PushButton, ValueControl } from "~/ui/controls";
 
 /** End of `date` in `tz`, as the delegation expiry instant. */
-export function expiryFromDate(date: string, tz: string): string {
+export function expiryFromDate(date: string, tz: string): Date {
   return toTimestamp(zonedToUtc(addDays(date, 1), 0, tz));
 }
-export function dateFromExpiry(ts: string, tz: string): string {
-  return civilDate(parseTimestamp(ts) - 1000, tz);
+export function dateFromExpiry(ts: Date, tz: string): string {
+  return civilDate(ts.getTime() - 1000, tz);
 }
 
 /**
@@ -39,7 +40,7 @@ export class DelegationForm extends CalElement {
   #restrict!: ValueControl;
   #calChecks!: HTMLElement;
   #calSection!: HTMLElement;
-  #expires!: ValueControl;
+  #expires!: DateTimePicker;
   #note!: ValueControl;
   #error!: HTMLElement;
   #submit!: PushButton;
@@ -77,7 +78,7 @@ export class DelegationForm extends CalElement {
     ) as ValueControl;
     this.#calChecks = h("div", { class: "cal-checks" });
     this.#calSection = h("div", null, this.#calChecks, h("span", { class: "hint" }, "Invitations to you are not on a calendar. “Answer invitations as me” still applies to them."));
-    this.#expires = h("date-time-picker", { mode: "date", label: "Ends on (optional)", min: todayIn(this.#tz), value: init?.expiresAt ? dateFromExpiry(init.expiresAt, this.#tz) : "" }) as ValueControl;
+    this.#expires = h("date-time-picker", { mode: "date", label: "Ends on (optional)", "time-zone": this.#tz, min: todayIn(this.#tz), value: init?.expiresAt ? dateFromExpiry(init.expiresAt, this.#tz) : "" });
     this.#note = h("text-field", { label: "Note (optional)", placeholder: "Covering while I am on leave", value: init?.note ?? "" }) as ValueControl;
     this.#error = h("p", { class: "alert", role: "alert", hidden: true });
     this.#submit = h("push-button", { type: "submit", variant: "primary" }, init ? "Save changes" : "Add delegate") as PushButton;
@@ -173,7 +174,7 @@ export class DelegationForm extends CalElement {
       calendarIds: restrict ? this.#calIds : [],
       note: this.#note.value.trim() || undefined,
       expiresAt: expires ? expiryFromDate(expires, tz) : undefined,
-      createdAt: init?.createdAt ?? "",
+      createdAt: init?.createdAt ?? new Date(0),
     };
     this.#submit.disabled = true;
     try {

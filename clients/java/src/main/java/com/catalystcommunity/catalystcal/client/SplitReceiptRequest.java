@@ -2,12 +2,13 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record SplitReceiptRequest(
     EventId seriesId /* wire: "series_id" */,
     String idempotencyKey /* wire: "idempotency_key" */,
-    List<Timestamp> mapRecurrenceIds /* wire: "map_recurrence_ids" */
+    List<Instant> mapRecurrenceIds /* wire: "map_recurrence_ids" */
 ) {
     public SplitReceiptRequest {
         if (idempotencyKey.length() < 1) {

@@ -1,3 +1,5 @@
 /** The calendar views. The Zest calendar-view draws each one. */
-export type ViewKind = "month" | "week" | "day" | "agenda";
+import type { CalendarViewName } from "@catalystcommunity/calendar-view";
+
+export type ViewKind = CalendarViewName;
 export const VIEWS: ViewKind[] = ["month", "week", "day", "agenda"];

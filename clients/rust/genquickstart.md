@@ -64,15 +64,7 @@ impl Transport for HttpRpcCarrier {
             .map_err(|e| ClientError::Transport(e.to_string()))?
             .into_transport_error()
             .map_err(|e| ClientError::Transport(e.to_string()))?;
-        // A typed application error rides as a status-0 "ServiceError" variant — distinct
-        // from a transport failure. Surface it so the typed client decodes success only.
-        if decoded.variant.as_deref() == Some("ServiceError") {
-            return Err(ClientError::Service {
-                code: 0,
-                message: format!("csil-rpc {service}/{op}: ServiceError"),
-            });
-        }
-        Ok(decoded.payload)
+        resolve_rpc_reply(service, op, decoded.variant.as_deref(), decoded.payload)
     }
 }
 

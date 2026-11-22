@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
@@ -17,7 +18,7 @@ func scopeP(s string) *csil.RecurrenceScope { x := csil.RecurrenceScope(s); retu
 func titles(occ csil.OccurrenceList) []string {
 	var out []string
 	for _, o := range occ.Occurrences {
-		out = append(out, string(o.Start)[:10]+" "+o.Event.Title)
+		out = append(out, o.Start.Format(time.DateOnly)+" "+o.Event.Title)
 	}
 	return out
 }
@@ -48,7 +49,7 @@ func TestRecurrenceScopes(t *testing.T) {
 	if len(occ.Occurrences) != 5 {
 		t.Fatalf("occurrences: %v", titles(occ))
 	}
-	if occ.Occurrences[1].RecurrenceId == nil || string(occ.Occurrences[1].Start) != "2026-11-09T16:00:00Z" {
+	if occ.Occurrences[1].RecurrenceId == nil || occ.Occurrences[1].Start.Format(time.RFC3339) != "2026-11-09T16:00:00Z" {
 		t.Fatalf("second instance: %+v", occ.Occurrences[1])
 	}
 
@@ -74,7 +75,7 @@ func TestRecurrenceScopes(t *testing.T) {
 	}
 
 	// this_and_future at the fourth instance: the master ends, a new series starts.
-	fourth := csil.Timestamp("2026-11-23T16:00:00Z")
+	fourth := instant("2026-11-23T16:00:00Z")
 	split := master
 	split.Title = "Renamed"
 	split.Start, split.End = tsp("2026-11-23T16:00:00Z"), tsp("2026-11-23T17:00:00Z")
@@ -91,7 +92,7 @@ func TestRecurrenceScopes(t *testing.T) {
 	}
 
 	// this_and_future delete on the new series from its second instance.
-	last := csil.Timestamp("2026-11-30T16:00:00Z")
+	last := instant("2026-11-30T16:00:00Z")
 	must(t, call(alice, "EventService", "delete-event", csil.DeleteEventRequest{EventId: next.EventId, Scope: scopeP("this_and_future"), RecurrenceId: &last},
 		csil.EncodeDeleteEventRequest, csil.DecodeEmptyResponse))
 	occ = must(t, listEvents(alice, "2026-11-01T00:00:00Z", "2026-12-31T00:00:00Z"))
@@ -159,7 +160,7 @@ func TestImportExportAndSubscription(t *testing.T) {
 	if sub.Kind != "subscription" || sub.LastSyncedAt == nil || sub.SyncError != nil {
 		t.Fatalf("subscription: %+v", sub)
 	}
-	subOcc := must(t, call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: "2026-11-01T00:00:00Z", RangeEnd: "2026-12-01T00:00:00Z", CalendarIds: []csil.CalendarID{sub.CalendarId}},
+	subOcc := must(t, call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: instant("2026-11-01T00:00:00Z"), RangeEnd: instant("2026-12-01T00:00:00Z"), CalendarIds: []csil.CalendarID{sub.CalendarId}},
 		csil.EncodeListEventsRequest, csil.DecodeOccurrenceList))
 	if len(subOcc.Occurrences) != 4 {
 		t.Fatalf("subscription occurrences: %v", titles(subOcc))
@@ -170,7 +171,7 @@ func TestImportExportAndSubscription(t *testing.T) {
 
 	body = strings.Replace(sampleICS, "COUNT=3", "COUNT=1", 1)
 	must(t, call(alice, "CalendarService", "refresh-subscription", sub.CalendarId, csil.EncodeCalendarRefreshSubscriptionRequest, csil.DecodeCalendar))
-	subOcc = must(t, call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: "2026-11-01T00:00:00Z", RangeEnd: "2026-12-01T00:00:00Z", CalendarIds: []csil.CalendarID{sub.CalendarId}},
+	subOcc = must(t, call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: instant("2026-11-01T00:00:00Z"), RangeEnd: instant("2026-12-01T00:00:00Z"), CalendarIds: []csil.CalendarID{sub.CalendarId}},
 		csil.EncodeListEventsRequest, csil.DecodeOccurrenceList))
 	if len(subOcc.Occurrences) != 2 {
 		t.Fatalf("after refresh: %v", titles(subOcc))

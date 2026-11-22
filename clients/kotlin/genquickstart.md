@@ -60,12 +60,7 @@ class HttpRpcTransport(baseUrl: String) : Transport {
         val resp = RpcResponse.decode(httpResp.body())
         // A non-zero transport status is a StatusException, distinct from an application error.
         resp.asTransportError()?.let { throw ClientError(message = "csil-rpc $service/$op: ${it.message}") }
-        // A typed ServiceError arm rides as a status-0 variant; surface it so the typed
-        // client decodes a success payload only.
-        if (resp.variant == "ServiceError") {
-            throw ClientError(message = "csil-rpc $service/$op: ServiceError")
-        }
-        return resp.payload
+        return resolveRpcReply(service, op, resp.variant, resp.payload)
     }
 }
 

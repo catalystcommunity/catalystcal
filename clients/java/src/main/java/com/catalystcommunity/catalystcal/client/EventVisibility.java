@@ -2,4 +2,22 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record EventVisibility(Object value) {}
+public enum EventVisibility {
+    DEFAULT("default"),
+    PUBLIC("public"),
+    PRIVATE("private"),
+    CONFIDENTIAL("confidential");
+
+    private final String value;
+
+    EventVisibility(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static EventVisibility fromWire(String value) {
+        for (EventVisibility member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown EventVisibility value: " + value);
+    }
+}

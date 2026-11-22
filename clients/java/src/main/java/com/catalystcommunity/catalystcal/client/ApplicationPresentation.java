@@ -2,6 +2,7 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -10,7 +11,7 @@ public record ApplicationPresentation(
     String signerInstanceId /* wire: "signer_instance_id" */,
     ApplicationRef audience /* wire: "audience" */,
     byte[] requestDigest /* wire: "request_digest" */,
-    Timestamp presentedAt /* wire: "presented_at" */,
+    Instant presentedAt /* wire: "presented_at" */,
     byte[] nonce /* wire: "nonce" */
 ) {
     @Override

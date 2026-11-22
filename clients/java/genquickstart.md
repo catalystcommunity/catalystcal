@@ -82,12 +82,7 @@ final class HttpRpcCarrier implements Transport {
         if (te != null) {
             throw new ClientException("csil-rpc " + service + "/" + op + ": " + te.getMessage(), te);
         }
-        // A typed application error rides as a status-0 "ServiceError" variant; surface it
-        // so the typed client decodes success only.
-        if ("ServiceError".equals(decoded.variant())) {
-            throw new ClientException("csil-rpc " + service + "/" + op + ": ServiceError");
-        }
-        return decoded.payload();
+        return CsilCbor.resolveRpcReply(service, op, decoded.variant(), decoded.payload());
     }
 }
 

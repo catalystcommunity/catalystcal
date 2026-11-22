@@ -23,37 +23,268 @@ typedef TrashId = String;
 
 typedef SessionId = String;
 
-typedef Timestamp = String;
+enum ShareRole {
+  freeBusy('free_busy'),
+  read('read'),
+  contribute('contribute'),
+  write('write'),
+  manage('manage');
 
-typedef DateText = String;
+  const ShareRole(this.wireValue);
+  final String wireValue;
 
-typedef ShareRole = String;
+  String toJson() => wireValue;
 
-typedef AccessRole = String;
+  static ShareRole fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown ShareRole value', value);
+  }
+}
 
-typedef AccessPath = String;
+enum AccessRole {
+  none('none'),
+  freeBusy('free_busy'),
+  read('read'),
+  contribute('contribute'),
+  write('write'),
+  manage('manage'),
+  owner('owner');
 
-typedef Scope = String;
+  const AccessRole(this.wireValue);
+  final String wireValue;
 
-typedef CalendarKind = String;
+  String toJson() => wireValue;
 
-typedef EventStatus = String;
+  static AccessRole fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown AccessRole value', value);
+  }
+}
 
-typedef EventTransparency = String;
+enum AccessPath {
+  owner('owner'),
+  share('share'),
+  delegation('delegation'),
+  attendee('attendee');
 
-typedef EventVisibility = String;
+  const AccessPath(this.wireValue);
+  final String wireValue;
 
-typedef ParticipationStatus = String;
+  String toJson() => wireValue;
 
-typedef AttendeeRole = String;
+  static AccessPath fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown AccessPath value', value);
+  }
+}
 
-typedef ReminderMethod = String;
+enum Scope {
+  calendarsRead('calendars.read'),
+  freebusyRead('freebusy.read'),
+  eventsWrite('events.write'),
+  eventsRespond('events.respond'),
+  calendarsManage('calendars.manage');
 
-typedef RecurrenceScope = String;
+  const Scope(this.wireValue);
+  final String wireValue;
 
-typedef ActingVia = String;
+  String toJson() => wireValue;
 
-typedef CreateReceiptState = String;
+  static Scope fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown Scope value', value);
+  }
+}
+
+enum CalendarKind {
+  local('local'),
+  subscription('subscription');
+
+  const CalendarKind(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static CalendarKind fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown CalendarKind value', value);
+  }
+}
+
+enum EventStatus {
+  confirmed('confirmed'),
+  tentative('tentative'),
+  cancelled('cancelled');
+
+  const EventStatus(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static EventStatus fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown EventStatus value', value);
+  }
+}
+
+enum EventTransparency {
+  opaque('opaque'),
+  transparent('transparent');
+
+  const EventTransparency(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static EventTransparency fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown EventTransparency value', value);
+  }
+}
+
+enum EventVisibility {
+  default_('default'),
+  public('public'),
+  private('private'),
+  confidential('confidential');
+
+  const EventVisibility(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static EventVisibility fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown EventVisibility value', value);
+  }
+}
+
+enum ParticipationStatus {
+  needsAction('needs_action'),
+  accepted('accepted'),
+  declined('declined'),
+  tentative('tentative'),
+  delegated('delegated');
+
+  const ParticipationStatus(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static ParticipationStatus fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown ParticipationStatus value', value);
+  }
+}
+
+enum AttendeeRole {
+  chair('chair'),
+  required_('required'),
+  optional('optional'),
+  nonParticipant('non_participant');
+
+  const AttendeeRole(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static AttendeeRole fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown AttendeeRole value', value);
+  }
+}
+
+enum ReminderMethod {
+  display('display'),
+  email('email');
+
+  const ReminderMethod(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static ReminderMethod fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown ReminderMethod value', value);
+  }
+}
+
+enum RecurrenceScope {
+  all('all'),
+  this_('this'),
+  thisAndFuture('this_and_future');
+
+  const RecurrenceScope(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static RecurrenceScope fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown RecurrenceScope value', value);
+  }
+}
+
+enum ActingVia {
+  self('self'),
+  delegation('delegation'),
+  actAsGrant('act_as_grant');
+
+  const ActingVia(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static ActingVia fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown ActingVia value', value);
+  }
+}
+
+enum CreateReceiptState {
+  live('live'),
+  trashed('trashed'),
+  deleted('deleted'),
+  hidden('hidden');
+
+  const CreateReceiptState(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static CreateReceiptState fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown CreateReceiptState value', value);
+  }
+}
 
 final class IdentityRef {
   final String domain;
@@ -138,8 +369,8 @@ final class User {
   final String? displayName;
   final String? email;
   final String? timezone;
-  final Timestamp createdAt;
-  final Timestamp updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const User({
     required this.userId,
@@ -171,8 +402,8 @@ final class User {
       displayName: map['display_name'] as String?,
       email: map['email'] as String?,
       timezone: map['timezone'] as String?,
-      createdAt: map['created_at'] as Timestamp,
-      updatedAt: map['updated_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -229,8 +460,8 @@ final class User {
           : map['display_name'] as String,
       email: map['email'] == null ? null : map['email'] as String,
       timezone: map['timezone'] == null ? null : map['timezone'] as String,
-      createdAt: map['created_at'] as String,
-      updatedAt: map['updated_at'] as String,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -348,14 +579,14 @@ final class Calendar {
   final String? timezone;
   final CalendarKind kind;
   final String? sourceUrl;
-  final Timestamp? lastSyncedAt;
+  final DateTime? lastSyncedAt;
   final String? syncError;
   final bool isDefault;
   final AccessRole access;
   final AccessPath accessPath;
   final String? feedPath;
-  final Timestamp createdAt;
-  final Timestamp updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const Calendar({
     required this.calendarId,
@@ -394,16 +625,16 @@ final class Calendar {
       description: map['description'] as String?,
       color: map['color'] as String?,
       timezone: map['timezone'] as String?,
-      kind: map['kind'] as CalendarKind,
+      kind: CalendarKind.fromWire(map['kind']),
       sourceUrl: map['source_url'] as String?,
-      lastSyncedAt: map['last_synced_at'] as Timestamp?,
+      lastSyncedAt: map['last_synced_at'] as DateTime?,
       syncError: map['sync_error'] as String?,
       isDefault: map['is_default'] as bool,
-      access: map['access'] as AccessRole,
-      accessPath: map['access_path'] as AccessPath,
+      access: AccessRole.fromWire(map['access']),
+      accessPath: AccessPath.fromWire(map['access_path']),
       feedPath: map['feed_path'] as String?,
-      createdAt: map['created_at'] as Timestamp,
-      updatedAt: map['updated_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -481,34 +712,18 @@ final class Calendar {
           : map['description'] as String,
       color: map['color'] == null ? null : map['color'] as String,
       timezone: map['timezone'] == null ? null : map['timezone'] as String,
-      kind: CsilCbor.expectOneOf<String>(map['kind'], const [
-        'local',
-        'subscription',
-      ]),
+      kind: CalendarKind.fromWire(map['kind']),
       sourceUrl: map['source_url'] == null ? null : map['source_url'] as String,
       lastSyncedAt: map['last_synced_at'] == null
           ? null
-          : map['last_synced_at'] as String,
+          : map['last_synced_at'] as DateTime,
       syncError: map['sync_error'] == null ? null : map['sync_error'] as String,
       isDefault: map['is_default'] as bool,
-      access: CsilCbor.expectOneOf<String>(map['access'], const [
-        'none',
-        'free_busy',
-        'read',
-        'contribute',
-        'write',
-        'manage',
-        'owner',
-      ]),
-      accessPath: CsilCbor.expectOneOf<String>(map['access_path'], const [
-        'owner',
-        'share',
-        'delegation',
-        'attendee',
-      ]),
+      access: AccessRole.fromWire(map['access']),
+      accessPath: AccessPath.fromWire(map['access_path']),
       feedPath: map['feed_path'] == null ? null : map['feed_path'] as String,
-      createdAt: map['created_at'] as String,
-      updatedAt: map['updated_at'] as String,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -883,7 +1098,7 @@ final class Share {
   final ShareRole role;
   final PersonSummary? granteePerson;
   final String? granteeGroupName;
-  final Timestamp createdAt;
+  final DateTime createdAt;
 
   const Share({
     required this.shareId,
@@ -901,7 +1116,7 @@ final class Share {
     map['calendar_id'] = calendarId;
     if (grantee != null) map['grantee'] = grantee;
     if (granteeGroupId != null) map['grantee_group_id'] = granteeGroupId;
-    map['role'] = role;
+    map['role'] = role.wireValue;
     return map;
   }
 
@@ -911,10 +1126,10 @@ final class Share {
       calendarId: map['calendar_id'] as CalendarId,
       grantee: map['grantee'] as IdentityRef?,
       granteeGroupId: map['grantee_group_id'] as GroupId?,
-      role: map['role'] as ShareRole,
+      role: ShareRole.fromWire(map['role']),
       granteePerson: map['grantee_person'] as PersonSummary?,
       granteeGroupName: map['grantee_group_name'] as String?,
-      createdAt: map['created_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
     );
   }
 
@@ -949,7 +1164,7 @@ final class Share {
     map['calendar_id'] = calendarId;
     if (grantee != null) map['grantee'] = grantee!.toCborValue();
     if (granteeGroupId != null) map['grantee_group_id'] = granteeGroupId!;
-    map['role'] = role;
+    map['role'] = role.wireValue;
     return map;
   }
 
@@ -965,20 +1180,14 @@ final class Share {
       granteeGroupId: map['grantee_group_id'] == null
           ? null
           : map['grantee_group_id'] as String,
-      role: CsilCbor.expectOneOf<String>(map['role'], const [
-        'free_busy',
-        'read',
-        'contribute',
-        'write',
-        'manage',
-      ]),
+      role: ShareRole.fromWire(map['role']),
       granteePerson: map['grantee_person'] == null
           ? null
           : PersonSummary.fromCborValue(map['grantee_person']),
       granteeGroupName: map['grantee_group_name'] == null
           ? null
           : map['grantee_group_name'] as String,
-      createdAt: map['created_at'] as String,
+      createdAt: map['created_at'] as DateTime,
     );
   }
 
@@ -1114,8 +1323,8 @@ final class Group {
   final String? description;
   final int revision;
   final List<GroupMember> members;
-  final Timestamp createdAt;
-  final Timestamp updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const Group({
     required this.groupId,
@@ -1143,8 +1352,8 @@ final class Group {
       description: map['description'] as String?,
       revision: map['revision'] as int,
       members: map['members'] as List<GroupMember>,
-      createdAt: map['created_at'] as Timestamp,
-      updatedAt: map['updated_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -1206,8 +1415,8 @@ final class Group {
           .map((csilE) => GroupMember.fromCborValue(csilE))
           .cast<GroupMember>()
           .toList(),
-      createdAt: map['created_at'] as String,
-      updatedAt: map['updated_at'] as String,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -1507,9 +1716,9 @@ final class Delegation {
   final List<Scope> scopes;
   final List<CalendarId>? calendarIds;
   final String? note;
-  final Timestamp? expiresAt;
-  final Timestamp createdAt;
-  final Timestamp? revokedAt;
+  final DateTime? expiresAt;
+  final DateTime createdAt;
+  final DateTime? revokedAt;
 
   const Delegation({
     required this.delegationId,
@@ -1543,9 +1752,9 @@ final class Delegation {
       scopes: map['scopes'] as List<Scope>,
       calendarIds: map['calendar_ids'] as List<CalendarId>?,
       note: map['note'] as String?,
-      expiresAt: map['expires_at'] as Timestamp?,
-      createdAt: map['created_at'] as Timestamp,
-      revokedAt: map['revoked_at'] as Timestamp?,
+      expiresAt: map['expires_at'] as DateTime?,
+      createdAt: map['created_at'] as DateTime,
+      revokedAt: map['revoked_at'] as DateTime?,
     );
   }
 
@@ -1582,7 +1791,7 @@ final class Delegation {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['delegate'] = delegate.toCborValue();
-    map['scopes'] = scopes;
+    map['scopes'] = scopes.map((csilE) => csilE.wireValue).toList();
     if (calendarIds != null) map['calendar_ids'] = calendarIds!;
     if (note != null) map['note'] = note!;
     if (expiresAt != null) map['expires_at'] = expiresAt!;
@@ -1600,15 +1809,7 @@ final class Delegation {
           ? null
           : PersonSummary.fromCborValue(map['delegate_person']),
       scopes: (map['scopes'] as List)
-          .map(
-            (csilE) => CsilCbor.expectOneOf<String>(csilE, const [
-              'calendars.read',
-              'freebusy.read',
-              'events.write',
-              'events.respond',
-              'calendars.manage',
-            ]),
-          )
+          .map((csilE) => Scope.fromWire(csilE))
           .cast<Scope>()
           .toList(),
       calendarIds: map['calendar_ids'] == null
@@ -1618,9 +1819,13 @@ final class Delegation {
                 .cast<CalendarId>()
                 .toList(),
       note: map['note'] == null ? null : map['note'] as String,
-      expiresAt: map['expires_at'] == null ? null : map['expires_at'] as String,
-      createdAt: map['created_at'] as String,
-      revokedAt: map['revoked_at'] == null ? null : map['revoked_at'] as String,
+      expiresAt: map['expires_at'] == null
+          ? null
+          : map['expires_at'] as DateTime,
+      createdAt: map['created_at'] as DateTime,
+      revokedAt: map['revoked_at'] == null
+          ? null
+          : map['revoked_at'] as DateTime,
     );
   }
 
@@ -1735,8 +1940,8 @@ final class AssumePrincipalRequest {
 
 final class Recurrence {
   final String rrule;
-  final List<Timestamp>? exdates;
-  final List<Timestamp>? rdates;
+  final List<DateTime>? exdates;
+  final List<DateTime>? rdates;
 
   const Recurrence({required this.rrule, this.exdates, this.rdates});
 
@@ -1751,8 +1956,8 @@ final class Recurrence {
   factory Recurrence.fromMap(Map<String, Object?> map) {
     return Recurrence(
       rrule: map['rrule'] as String,
-      exdates: map['exdates'] as List<Timestamp>?,
-      rdates: map['rdates'] as List<Timestamp>?,
+      exdates: map['exdates'] as List<DateTime>?,
+      rdates: map['rdates'] as List<DateTime>?,
     );
   }
 
@@ -1784,14 +1989,14 @@ final class Recurrence {
       exdates: map['exdates'] == null
           ? null
           : (map['exdates'] as List)
-                .map((csilE) => csilE as String)
-                .cast<Timestamp>()
+                .map((csilE) => csilE as DateTime)
+                .cast<DateTime>()
                 .toList(),
       rdates: map['rdates'] == null
           ? null
           : (map['rdates'] as List)
-                .map((csilE) => csilE as String)
-                .cast<Timestamp>()
+                .map((csilE) => csilE as DateTime)
+                .cast<DateTime>()
                 .toList(),
     );
   }
@@ -1830,8 +2035,8 @@ final class Attendee {
     if (identity != null) map['identity'] = identity;
     if (email != null) map['email'] = email;
     if (name != null) map['name'] = name;
-    if (role != null) map['role'] = role;
-    if (status != null) map['status'] = status;
+    if (role != null) map['role'] = role!.wireValue;
+    if (status != null) map['status'] = status!.wireValue;
     if (rsvp != null) map['rsvp'] = rsvp;
     return map;
   }
@@ -1841,8 +2046,8 @@ final class Attendee {
       identity: map['identity'] as IdentityRef?,
       email: map['email'] as String?,
       name: map['name'] as String?,
-      role: map['role'] as AttendeeRole?,
-      status: map['status'] as ParticipationStatus?,
+      role: map['role'] == null ? null : AttendeeRole.fromWire(map['role']),
+      status: map['status'] == null ? null : ParticipationStatus.fromWire(map['status']),
       rsvp: map['rsvp'] as bool?,
       person: map['person'] as PersonSummary?,
       respondedBy: map['responded_by'] as PersonSummary?,
@@ -1880,8 +2085,8 @@ final class Attendee {
     if (identity != null) map['identity'] = identity!.toCborValue();
     if (email != null) map['email'] = email!;
     if (name != null) map['name'] = name!;
-    if (role != null) map['role'] = role!;
-    if (status != null) map['status'] = status!;
+    if (role != null) map['role'] = role!.wireValue;
+    if (status != null) map['status'] = status!.wireValue;
     if (rsvp != null) map['rsvp'] = rsvp!;
     return map;
   }
@@ -1895,23 +2100,10 @@ final class Attendee {
           : IdentityRef.fromCborValue(map['identity']),
       email: map['email'] == null ? null : map['email'] as String,
       name: map['name'] == null ? null : map['name'] as String,
-      role: map['role'] == null
-          ? null
-          : CsilCbor.expectOneOf<String>(map['role'], const [
-              'chair',
-              'required',
-              'optional',
-              'non_participant',
-            ]),
+      role: map['role'] == null ? null : AttendeeRole.fromWire(map['role']),
       status: map['status'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['status'], const [
-              'needs_action',
-              'accepted',
-              'declined',
-              'tentative',
-              'delegated',
-            ]),
+          : ParticipationStatus.fromWire(map['status']),
       rsvp: map['rsvp'] == null ? null : map['rsvp'] as bool,
       person: map['person'] == null
           ? null
@@ -1939,14 +2131,14 @@ final class Reminder {
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['minutes_before'] = minutesBefore;
-    if (method != null) map['method'] = method;
+    if (method != null) map['method'] = method!.wireValue;
     return map;
   }
 
   factory Reminder.fromMap(Map<String, Object?> map) {
     return Reminder(
       minutesBefore: map['minutes_before'] as int,
-      method: map['method'] as ReminderMethod?,
+      method: map['method'] == null ? null : ReminderMethod.fromWire(map['method']),
     );
   }
 
@@ -1963,7 +2155,7 @@ final class Reminder {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['minutes_before'] = minutesBefore;
-    if (method != null) map['method'] = method!;
+    if (method != null) map['method'] = method!.wireValue;
     return map;
   }
 
@@ -1974,10 +2166,7 @@ final class Reminder {
       minutesBefore: map['minutes_before'] as int,
       method: map['method'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['method'], const [
-              'display',
-              'email',
-            ]),
+          : ReminderMethod.fromWire(map['method']),
     );
   }
 
@@ -1998,18 +2187,18 @@ final class Event {
   final String? location;
   final String? url;
   final String? conferenceUrl;
-  final Timestamp? start;
-  final Timestamp? end;
+  final DateTime? start;
+  final DateTime? end;
   final bool? allDay;
-  final DateText? startDate;
-  final DateText? endDate;
+  final String? startDate;
+  final String? endDate;
   final String? timezone;
   final EventStatus? status;
   final EventTransparency? transparency;
   final EventVisibility? visibility;
   final Recurrence? recurrence;
   final EventId? masterEventId;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
   final List<Attendee>? attendees;
   final List<Reminder>? reminders;
   final List<String>? categories;
@@ -2019,8 +2208,8 @@ final class Event {
   final PersonSummary? updatedBy;
   final ActingVia? updatedVia;
   final int sequence;
-  final Timestamp createdAt;
-  final Timestamp updatedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   const Event({
     required this.eventId,
@@ -2071,9 +2260,9 @@ final class Event {
     if (startDate != null) map['start_date'] = startDate;
     if (endDate != null) map['end_date'] = endDate;
     if (timezone != null) map['timezone'] = timezone;
-    if (status != null) map['status'] = status;
-    if (transparency != null) map['transparency'] = transparency;
-    if (visibility != null) map['visibility'] = visibility;
+    if (status != null) map['status'] = status!.wireValue;
+    if (transparency != null) map['transparency'] = transparency!.wireValue;
+    if (visibility != null) map['visibility'] = visibility!.wireValue;
     if (recurrence != null) map['recurrence'] = recurrence;
     if (attendees != null) map['attendees'] = attendees;
     if (reminders != null) map['reminders'] = reminders;
@@ -2092,18 +2281,18 @@ final class Event {
       location: map['location'] as String?,
       url: map['url'] as String?,
       conferenceUrl: map['conference_url'] as String?,
-      start: map['start'] as Timestamp?,
-      end: map['end'] as Timestamp?,
+      start: map['start'] as DateTime?,
+      end: map['end'] as DateTime?,
       allDay: map['all_day'] as bool?,
-      startDate: map['start_date'] as DateText?,
-      endDate: map['end_date'] as DateText?,
+      startDate: map['start_date'] as String?,
+      endDate: map['end_date'] as String?,
       timezone: map['timezone'] as String?,
-      status: map['status'] as EventStatus?,
-      transparency: map['transparency'] as EventTransparency?,
-      visibility: map['visibility'] as EventVisibility?,
+      status: map['status'] == null ? null : EventStatus.fromWire(map['status']),
+      transparency: map['transparency'] == null ? null : EventTransparency.fromWire(map['transparency']),
+      visibility: map['visibility'] == null ? null : EventVisibility.fromWire(map['visibility']),
       recurrence: map['recurrence'] as Recurrence?,
       masterEventId: map['master_event_id'] as EventId?,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      recurrenceId: map['recurrence_id'] as DateTime?,
       attendees: map['attendees'] as List<Attendee>?,
       reminders: map['reminders'] as List<Reminder>?,
       categories: map['categories'] as List<String>?,
@@ -2111,10 +2300,10 @@ final class Event {
       organizer: map['organizer'] as PersonSummary?,
       createdBy: map['created_by'] as PersonSummary?,
       updatedBy: map['updated_by'] as PersonSummary?,
-      updatedVia: map['updated_via'] as ActingVia?,
+      updatedVia: map['updated_via'] == null ? null : ActingVia.fromWire(map['updated_via']),
       sequence: map['sequence'] as int,
-      createdAt: map['created_at'] as Timestamp,
-      updatedAt: map['updated_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -2212,12 +2401,12 @@ final class Event {
     if (start != null) map['start'] = start!;
     if (end != null) map['end'] = end!;
     if (allDay != null) map['all_day'] = allDay!;
-    if (startDate != null) map['start_date'] = startDate!;
-    if (endDate != null) map['end_date'] = endDate!;
+    if (startDate != null) map['start_date'] = CsilCbor.dateValue(startDate!);
+    if (endDate != null) map['end_date'] = CsilCbor.dateValue(endDate!);
     if (timezone != null) map['timezone'] = timezone!;
-    if (status != null) map['status'] = status!;
-    if (transparency != null) map['transparency'] = transparency!;
-    if (visibility != null) map['visibility'] = visibility!;
+    if (status != null) map['status'] = status!.wireValue;
+    if (transparency != null) map['transparency'] = transparency!.wireValue;
+    if (visibility != null) map['visibility'] = visibility!.wireValue;
     if (recurrence != null) map['recurrence'] = recurrence!.toCborValue();
     if (attendees != null)
       map['attendees'] = attendees!
@@ -2248,33 +2437,25 @@ final class Event {
       conferenceUrl: map['conference_url'] == null
           ? null
           : map['conference_url'] as String,
-      start: map['start'] == null ? null : map['start'] as String,
-      end: map['end'] == null ? null : map['end'] as String,
+      start: map['start'] == null ? null : map['start'] as DateTime,
+      end: map['end'] == null ? null : map['end'] as DateTime,
       allDay: map['all_day'] == null ? null : map['all_day'] as bool,
-      startDate: map['start_date'] == null ? null : map['start_date'] as String,
-      endDate: map['end_date'] == null ? null : map['end_date'] as String,
+      startDate: map['start_date'] == null
+          ? null
+          : CsilCbor.asDate(map['start_date']),
+      endDate: map['end_date'] == null
+          ? null
+          : CsilCbor.asDate(map['end_date']),
       timezone: map['timezone'] == null ? null : map['timezone'] as String,
       status: map['status'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['status'], const [
-              'confirmed',
-              'tentative',
-              'cancelled',
-            ]),
+          : EventStatus.fromWire(map['status']),
       transparency: map['transparency'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['transparency'], const [
-              'opaque',
-              'transparent',
-            ]),
+          : EventTransparency.fromWire(map['transparency']),
       visibility: map['visibility'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['visibility'], const [
-              'default',
-              'public',
-              'private',
-              'confidential',
-            ]),
+          : EventVisibility.fromWire(map['visibility']),
       recurrence: map['recurrence'] == null
           ? null
           : Recurrence.fromCborValue(map['recurrence']),
@@ -2283,7 +2464,7 @@ final class Event {
           : map['master_event_id'] as String,
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
       attendees: map['attendees'] == null
           ? null
           : (map['attendees'] as List)
@@ -2314,14 +2495,10 @@ final class Event {
           : PersonSummary.fromCborValue(map['updated_by']),
       updatedVia: map['updated_via'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['updated_via'], const [
-              'self',
-              'delegation',
-              'act_as_grant',
-            ]),
+          : ActingVia.fromWire(map['updated_via']),
       sequence: map['sequence'] as int,
-      createdAt: map['created_at'] as String,
-      updatedAt: map['updated_at'] as String,
+      createdAt: map['created_at'] as DateTime,
+      updatedAt: map['updated_at'] as DateTime,
     );
   }
 
@@ -2335,9 +2512,9 @@ final class Event {
 
 final class Occurrence {
   final Event event;
-  final Timestamp start;
-  final Timestamp end;
-  final Timestamp? recurrenceId;
+  final DateTime start;
+  final DateTime end;
+  final DateTime? recurrenceId;
   final AccessRole access;
   final bool busyOnly;
   final bool invited;
@@ -2358,7 +2535,7 @@ final class Occurrence {
     map['start'] = start;
     map['end'] = end;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
-    map['access'] = access;
+    map['access'] = access.wireValue;
     map['busy_only'] = busyOnly;
     map['invited'] = invited;
     return map;
@@ -2367,10 +2544,10 @@ final class Occurrence {
   factory Occurrence.fromMap(Map<String, Object?> map) {
     return Occurrence(
       event: map['event'] as Event,
-      start: map['start'] as Timestamp,
-      end: map['end'] as Timestamp,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
-      access: map['access'] as AccessRole,
+      start: map['start'] as DateTime,
+      end: map['end'] as DateTime,
+      recurrenceId: map['recurrence_id'] as DateTime?,
+      access: AccessRole.fromWire(map['access']),
       busyOnly: map['busy_only'] as bool,
       invited: map['invited'] as bool,
     );
@@ -2406,7 +2583,7 @@ final class Occurrence {
     map['start'] = start;
     map['end'] = end;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
-    map['access'] = access;
+    map['access'] = access.wireValue;
     map['busy_only'] = busyOnly;
     map['invited'] = invited;
     return map;
@@ -2417,20 +2594,12 @@ final class Occurrence {
     final map = cbor as Map;
     return Occurrence(
       event: Event.fromCborValue(map['event']),
-      start: map['start'] as String,
-      end: map['end'] as String,
+      start: map['start'] as DateTime,
+      end: map['end'] as DateTime,
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
-      access: CsilCbor.expectOneOf<String>(map['access'], const [
-        'none',
-        'free_busy',
-        'read',
-        'contribute',
-        'write',
-        'manage',
-        'owner',
-      ]),
+          : map['recurrence_id'] as DateTime,
+      access: AccessRole.fromWire(map['access']),
       busyOnly: map['busy_only'] as bool,
       invited: map['invited'] as bool,
     );
@@ -2445,8 +2614,8 @@ final class Occurrence {
 }
 
 final class ListEventsRequest {
-  final Timestamp rangeStart;
-  final Timestamp rangeEnd;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
   final List<CalendarId>? calendarIds;
   final bool? includeInvitations;
 
@@ -2469,8 +2638,8 @@ final class ListEventsRequest {
 
   factory ListEventsRequest.fromMap(Map<String, Object?> map) {
     return ListEventsRequest(
-      rangeStart: map['range_start'] as Timestamp,
-      rangeEnd: map['range_end'] as Timestamp,
+      rangeStart: map['range_start'] as DateTime,
+      rangeEnd: map['range_end'] as DateTime,
       calendarIds: map['calendar_ids'] as List<CalendarId>?,
       includeInvitations: map['include_invitations'] as bool?,
     );
@@ -2504,8 +2673,8 @@ final class ListEventsRequest {
   factory ListEventsRequest.fromCborValue(Object? cbor) {
     final map = cbor as Map;
     return ListEventsRequest(
-      rangeStart: map['range_start'] as String,
-      rangeEnd: map['range_end'] as String,
+      rangeStart: map['range_start'] as DateTime,
+      rangeEnd: map['range_end'] as DateTime,
       calendarIds: map['calendar_ids'] == null
           ? null
           : (map['calendar_ids'] as List)
@@ -2588,7 +2757,7 @@ final class OccurrenceList {
 final class UpdateEventRequest {
   final Event event;
   final RecurrenceScope? scope;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
 
   const UpdateEventRequest({
     required this.event,
@@ -2599,7 +2768,7 @@ final class UpdateEventRequest {
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['event'] = event;
-    if (scope != null) map['scope'] = scope;
+    if (scope != null) map['scope'] = scope!.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
     return map;
   }
@@ -2607,8 +2776,8 @@ final class UpdateEventRequest {
   factory UpdateEventRequest.fromMap(Map<String, Object?> map) {
     return UpdateEventRequest(
       event: map['event'] as Event,
-      scope: map['scope'] as RecurrenceScope?,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      scope: map['scope'] == null ? null : RecurrenceScope.fromWire(map['scope']),
+      recurrenceId: map['recurrence_id'] as DateTime?,
     );
   }
 
@@ -2627,7 +2796,7 @@ final class UpdateEventRequest {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['event'] = event.toCborValue();
-    if (scope != null) map['scope'] = scope!;
+    if (scope != null) map['scope'] = scope!.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
     return map;
   }
@@ -2639,14 +2808,10 @@ final class UpdateEventRequest {
       event: Event.fromCborValue(map['event']),
       scope: map['scope'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['scope'], const [
-              'all',
-              'this',
-              'this_and_future',
-            ]),
+          : RecurrenceScope.fromWire(map['scope']),
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
     );
   }
 
@@ -2661,7 +2826,7 @@ final class UpdateEventRequest {
 final class DeleteEventRequest {
   final EventId eventId;
   final RecurrenceScope? scope;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
 
   const DeleteEventRequest({
     required this.eventId,
@@ -2672,7 +2837,7 @@ final class DeleteEventRequest {
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['event_id'] = eventId;
-    if (scope != null) map['scope'] = scope;
+    if (scope != null) map['scope'] = scope!.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
     return map;
   }
@@ -2680,8 +2845,8 @@ final class DeleteEventRequest {
   factory DeleteEventRequest.fromMap(Map<String, Object?> map) {
     return DeleteEventRequest(
       eventId: map['event_id'] as EventId,
-      scope: map['scope'] as RecurrenceScope?,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      scope: map['scope'] == null ? null : RecurrenceScope.fromWire(map['scope']),
+      recurrenceId: map['recurrence_id'] as DateTime?,
     );
   }
 
@@ -2700,7 +2865,7 @@ final class DeleteEventRequest {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['event_id'] = eventId;
-    if (scope != null) map['scope'] = scope!;
+    if (scope != null) map['scope'] = scope!.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
     return map;
   }
@@ -2712,14 +2877,10 @@ final class DeleteEventRequest {
       eventId: map['event_id'] as String,
       scope: map['scope'] == null
           ? null
-          : CsilCbor.expectOneOf<String>(map['scope'], const [
-              'all',
-              'this',
-              'this_and_future',
-            ]),
+          : RecurrenceScope.fromWire(map['scope']),
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
     );
   }
 
@@ -2837,12 +2998,12 @@ final class TrashEntry {
   final CalendarId calendarId;
   final EventId eventId;
   final RecurrenceScope scope;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
   final Event event;
   final Event? instance;
   final PersonSummary? deletedBy;
-  final Timestamp deletedAt;
-  final Timestamp expiresAt;
+  final DateTime deletedAt;
+  final DateTime expiresAt;
 
   const TrashEntry({
     required this.trashId,
@@ -2862,7 +3023,7 @@ final class TrashEntry {
     map['trash_id'] = trashId;
     map['calendar_id'] = calendarId;
     map['event_id'] = eventId;
-    map['scope'] = scope;
+    map['scope'] = scope.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
     map['event'] = event;
     if (instance != null) map['instance'] = instance;
@@ -2877,13 +3038,13 @@ final class TrashEntry {
       trashId: map['trash_id'] as TrashId,
       calendarId: map['calendar_id'] as CalendarId,
       eventId: map['event_id'] as EventId,
-      scope: map['scope'] as RecurrenceScope,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      scope: RecurrenceScope.fromWire(map['scope']),
+      recurrenceId: map['recurrence_id'] as DateTime?,
       event: map['event'] as Event,
       instance: map['instance'] as Event?,
       deletedBy: map['deleted_by'] as PersonSummary?,
-      deletedAt: map['deleted_at'] as Timestamp,
-      expiresAt: map['expires_at'] as Timestamp,
+      deletedAt: map['deleted_at'] as DateTime,
+      expiresAt: map['expires_at'] as DateTime,
     );
   }
 
@@ -2922,7 +3083,7 @@ final class TrashEntry {
     map['trash_id'] = trashId;
     map['calendar_id'] = calendarId;
     map['event_id'] = eventId;
-    map['scope'] = scope;
+    map['scope'] = scope.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
     map['event'] = event.toCborValue();
     if (instance != null) map['instance'] = instance!.toCborValue();
@@ -2939,14 +3100,10 @@ final class TrashEntry {
       trashId: map['trash_id'] as String,
       calendarId: map['calendar_id'] as String,
       eventId: map['event_id'] as String,
-      scope: CsilCbor.expectOneOf<String>(map['scope'], const [
-        'all',
-        'this',
-        'this_and_future',
-      ]),
+      scope: RecurrenceScope.fromWire(map['scope']),
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
       event: Event.fromCborValue(map['event']),
       instance: map['instance'] == null
           ? null
@@ -2954,8 +3111,8 @@ final class TrashEntry {
       deletedBy: map['deleted_by'] == null
           ? null
           : PersonSummary.fromCborValue(map['deleted_by']),
-      deletedAt: map['deleted_at'] as String,
-      expiresAt: map['expires_at'] as String,
+      deletedAt: map['deleted_at'] as DateTime,
+      expiresAt: map['expires_at'] as DateTime,
     );
   }
 
@@ -3119,7 +3276,7 @@ final class RestoreEventRequest {
 final class ImportEventRequest {
   final Event event;
   final IdentityRef createdBy;
-  final Timestamp? createdAt;
+  final DateTime? createdAt;
 
   const ImportEventRequest({
     required this.event,
@@ -3139,7 +3296,7 @@ final class ImportEventRequest {
     return ImportEventRequest(
       event: map['event'] as Event,
       createdBy: map['created_by'] as IdentityRef,
-      createdAt: map['created_at'] as Timestamp?,
+      createdAt: map['created_at'] as DateTime?,
     );
   }
 
@@ -3169,7 +3326,9 @@ final class ImportEventRequest {
     return ImportEventRequest(
       event: Event.fromCborValue(map['event']),
       createdBy: IdentityRef.fromCborValue(map['created_by']),
-      createdAt: map['created_at'] == null ? null : map['created_at'] as String,
+      createdAt: map['created_at'] == null
+          ? null
+          : map['created_at'] as DateTime,
     );
   }
 
@@ -3322,7 +3481,7 @@ final class CreateEventReceipt {
   final EventId eventId;
   final CreateReceiptState state;
   final bool created;
-  final Timestamp createdAt;
+  final DateTime createdAt;
   final Event? event;
   final TrashId? trashId;
 
@@ -3342,7 +3501,7 @@ final class CreateEventReceipt {
     map['calendar_id'] = calendarId;
     map['idempotency_key'] = idempotencyKey;
     map['event_id'] = eventId;
-    map['state'] = state;
+    map['state'] = state.wireValue;
     map['created'] = created;
     map['created_at'] = createdAt;
     if (event != null) map['event'] = event;
@@ -3355,9 +3514,9 @@ final class CreateEventReceipt {
       calendarId: map['calendar_id'] as CalendarId,
       idempotencyKey: map['idempotency_key'] as String,
       eventId: map['event_id'] as EventId,
-      state: map['state'] as CreateReceiptState,
+      state: CreateReceiptState.fromWire(map['state']),
       created: map['created'] as bool,
-      createdAt: map['created_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
       event: map['event'] as Event?,
       trashId: map['trash_id'] as TrashId?,
     );
@@ -3394,7 +3553,7 @@ final class CreateEventReceipt {
     map['calendar_id'] = calendarId;
     map['idempotency_key'] = idempotencyKey;
     map['event_id'] = eventId;
-    map['state'] = state;
+    map['state'] = state.wireValue;
     map['created'] = created;
     map['created_at'] = createdAt;
     if (event != null) map['event'] = event!.toCborValue();
@@ -3409,14 +3568,9 @@ final class CreateEventReceipt {
       calendarId: map['calendar_id'] as String,
       idempotencyKey: map['idempotency_key'] as String,
       eventId: map['event_id'] as String,
-      state: CsilCbor.expectOneOf<String>(map['state'], const [
-        'live',
-        'trashed',
-        'deleted',
-        'hidden',
-      ]),
+      state: CreateReceiptState.fromWire(map['state']),
       created: map['created'] as bool,
-      createdAt: map['created_at'] as String,
+      createdAt: map['created_at'] as DateTime,
       event: map['event'] == null ? null : Event.fromCborValue(map['event']),
       trashId: map['trash_id'] == null ? null : map['trash_id'] as String,
     );
@@ -3433,8 +3587,8 @@ final class CreateEventReceipt {
 final class SplitSeriesOnceRequest {
   final String idempotencyKey;
   final Event event;
-  final Timestamp recurrenceId;
-  final List<Timestamp>? mapRecurrenceIds;
+  final DateTime recurrenceId;
+  final List<DateTime>? mapRecurrenceIds;
 
   const SplitSeriesOnceRequest({
     required this.idempotencyKey,
@@ -3456,8 +3610,8 @@ final class SplitSeriesOnceRequest {
     return SplitSeriesOnceRequest(
       idempotencyKey: map['idempotency_key'] as String,
       event: map['event'] as Event,
-      recurrenceId: map['recurrence_id'] as Timestamp,
-      mapRecurrenceIds: map['map_recurrence_ids'] as List<Timestamp>?,
+      recurrenceId: map['recurrence_id'] as DateTime,
+      mapRecurrenceIds: map['map_recurrence_ids'] as List<DateTime>?,
     );
   }
 
@@ -3500,12 +3654,12 @@ final class SplitSeriesOnceRequest {
     return SplitSeriesOnceRequest(
       idempotencyKey: map['idempotency_key'] as String,
       event: Event.fromCborValue(map['event']),
-      recurrenceId: map['recurrence_id'] as String,
+      recurrenceId: map['recurrence_id'] as DateTime,
       mapRecurrenceIds: map['map_recurrence_ids'] == null
           ? null
           : (map['map_recurrence_ids'] as List)
-                .map((csilE) => csilE as String)
-                .cast<Timestamp>()
+                .map((csilE) => csilE as DateTime)
+                .cast<DateTime>()
                 .toList(),
     );
   }
@@ -3521,7 +3675,7 @@ final class SplitSeriesOnceRequest {
 final class SplitReceiptRequest {
   final EventId seriesId;
   final String idempotencyKey;
-  final List<Timestamp>? mapRecurrenceIds;
+  final List<DateTime>? mapRecurrenceIds;
 
   const SplitReceiptRequest({
     required this.seriesId,
@@ -3541,7 +3695,7 @@ final class SplitReceiptRequest {
     return SplitReceiptRequest(
       seriesId: map['series_id'] as EventId,
       idempotencyKey: map['idempotency_key'] as String,
-      mapRecurrenceIds: map['map_recurrence_ids'] as List<Timestamp>?,
+      mapRecurrenceIds: map['map_recurrence_ids'] as List<DateTime>?,
     );
   }
 
@@ -3585,8 +3739,8 @@ final class SplitReceiptRequest {
       mapRecurrenceIds: map['map_recurrence_ids'] == null
           ? null
           : (map['map_recurrence_ids'] as List)
-                .map((csilE) => csilE as String)
-                .cast<Timestamp>()
+                .map((csilE) => csilE as DateTime)
+                .cast<DateTime>()
                 .toList(),
     );
   }
@@ -3599,13 +3753,29 @@ final class SplitReceiptRequest {
       SplitReceiptRequest.fromCborValue(CsilCbor.decode(bytes));
 }
 
-typedef SplitMapResult = String;
+enum SplitMapResult {
+  original('original'),
+  successor('successor'),
+  none('none');
+
+  const SplitMapResult(this.wireValue);
+  final String wireValue;
+
+  String toJson() => wireValue;
+
+  static SplitMapResult fromWire(Object? value) {
+    for (final member in values) {
+      if (member.wireValue == value) return member;
+    }
+    throw FormatException('unknown SplitMapResult value', value);
+  }
+}
 
 final class SplitOccurrenceMapping {
-  final Timestamp recurrenceId;
+  final DateTime recurrenceId;
   final SplitMapResult result;
   final EventId? eventId;
-  final Timestamp? mappedRecurrenceId;
+  final DateTime? mappedRecurrenceId;
 
   const SplitOccurrenceMapping({
     required this.recurrenceId,
@@ -3617,7 +3787,7 @@ final class SplitOccurrenceMapping {
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['recurrence_id'] = recurrenceId;
-    map['result'] = result;
+    map['result'] = result.wireValue;
     if (eventId != null) map['event_id'] = eventId;
     if (mappedRecurrenceId != null)
       map['mapped_recurrence_id'] = mappedRecurrenceId;
@@ -3626,10 +3796,10 @@ final class SplitOccurrenceMapping {
 
   factory SplitOccurrenceMapping.fromMap(Map<String, Object?> map) {
     return SplitOccurrenceMapping(
-      recurrenceId: map['recurrence_id'] as Timestamp,
-      result: map['result'] as SplitMapResult,
+      recurrenceId: map['recurrence_id'] as DateTime,
+      result: SplitMapResult.fromWire(map['result']),
       eventId: map['event_id'] as EventId?,
-      mappedRecurrenceId: map['mapped_recurrence_id'] as Timestamp?,
+      mappedRecurrenceId: map['mapped_recurrence_id'] as DateTime?,
     );
   }
 
@@ -3650,7 +3820,7 @@ final class SplitOccurrenceMapping {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['recurrence_id'] = recurrenceId;
-    map['result'] = result;
+    map['result'] = result.wireValue;
     if (eventId != null) map['event_id'] = eventId!;
     if (mappedRecurrenceId != null)
       map['mapped_recurrence_id'] = mappedRecurrenceId!;
@@ -3661,16 +3831,12 @@ final class SplitOccurrenceMapping {
   factory SplitOccurrenceMapping.fromCborValue(Object? cbor) {
     final map = cbor as Map;
     return SplitOccurrenceMapping(
-      recurrenceId: map['recurrence_id'] as String,
-      result: CsilCbor.expectOneOf<String>(map['result'], const [
-        'original',
-        'successor',
-        'none',
-      ]),
+      recurrenceId: map['recurrence_id'] as DateTime,
+      result: SplitMapResult.fromWire(map['result']),
       eventId: map['event_id'] == null ? null : map['event_id'] as String,
       mappedRecurrenceId: map['mapped_recurrence_id'] == null
           ? null
-          : map['mapped_recurrence_id'] as String,
+          : map['mapped_recurrence_id'] as DateTime,
     );
   }
 
@@ -3686,10 +3852,10 @@ final class SplitSeriesReceipt {
   final EventId seriesId;
   final String idempotencyKey;
   final EventId successorId;
-  final Timestamp splitAt;
+  final DateTime splitAt;
   final bool inPlace;
   final bool created;
-  final Timestamp createdAt;
+  final DateTime createdAt;
   final CalendarId calendarId;
   final CreateReceiptState seriesState;
   final Event? series;
@@ -3727,10 +3893,10 @@ final class SplitSeriesReceipt {
     map['created'] = created;
     map['created_at'] = createdAt;
     map['calendar_id'] = calendarId;
-    map['series_state'] = seriesState;
+    map['series_state'] = seriesState.wireValue;
     if (series != null) map['series'] = series;
     if (seriesTrashId != null) map['series_trash_id'] = seriesTrashId;
-    map['successor_state'] = successorState;
+    map['successor_state'] = successorState.wireValue;
     if (successor != null) map['successor'] = successor;
     if (successorTrashId != null) map['successor_trash_id'] = successorTrashId;
     map['mappings'] = mappings;
@@ -3742,15 +3908,15 @@ final class SplitSeriesReceipt {
       seriesId: map['series_id'] as EventId,
       idempotencyKey: map['idempotency_key'] as String,
       successorId: map['successor_id'] as EventId,
-      splitAt: map['split_at'] as Timestamp,
+      splitAt: map['split_at'] as DateTime,
       inPlace: map['in_place'] as bool,
       created: map['created'] as bool,
-      createdAt: map['created_at'] as Timestamp,
+      createdAt: map['created_at'] as DateTime,
       calendarId: map['calendar_id'] as CalendarId,
-      seriesState: map['series_state'] as CreateReceiptState,
+      seriesState: CreateReceiptState.fromWire(map['series_state']),
       series: map['series'] as Event?,
       seriesTrashId: map['series_trash_id'] as TrashId?,
-      successorState: map['successor_state'] as CreateReceiptState,
+      successorState: CreateReceiptState.fromWire(map['successor_state']),
       successor: map['successor'] as Event?,
       successorTrashId: map['successor_trash_id'] as TrashId?,
       mappings: map['mappings'] as List<SplitOccurrenceMapping>,
@@ -3807,10 +3973,10 @@ final class SplitSeriesReceipt {
     map['created'] = created;
     map['created_at'] = createdAt;
     map['calendar_id'] = calendarId;
-    map['series_state'] = seriesState;
+    map['series_state'] = seriesState.wireValue;
     if (series != null) map['series'] = series!.toCborValue();
     if (seriesTrashId != null) map['series_trash_id'] = seriesTrashId!;
-    map['successor_state'] = successorState;
+    map['successor_state'] = successorState.wireValue;
     if (successor != null) map['successor'] = successor!.toCborValue();
     if (successorTrashId != null) map['successor_trash_id'] = successorTrashId!;
     map['mappings'] = mappings.map((csilE) => csilE.toCborValue()).toList();
@@ -3824,25 +3990,17 @@ final class SplitSeriesReceipt {
       seriesId: map['series_id'] as String,
       idempotencyKey: map['idempotency_key'] as String,
       successorId: map['successor_id'] as String,
-      splitAt: map['split_at'] as String,
+      splitAt: map['split_at'] as DateTime,
       inPlace: map['in_place'] as bool,
       created: map['created'] as bool,
-      createdAt: map['created_at'] as String,
+      createdAt: map['created_at'] as DateTime,
       calendarId: map['calendar_id'] as String,
-      seriesState: CsilCbor.expectOneOf<String>(map['series_state'], const [
-        'live',
-        'trashed',
-        'deleted',
-        'hidden',
-      ]),
+      seriesState: CreateReceiptState.fromWire(map['series_state']),
       series: map['series'] == null ? null : Event.fromCborValue(map['series']),
       seriesTrashId: map['series_trash_id'] == null
           ? null
           : map['series_trash_id'] as String,
-      successorState: CsilCbor.expectOneOf<String>(
-        map['successor_state'],
-        const ['live', 'trashed', 'deleted', 'hidden'],
-      ),
+      successorState: CreateReceiptState.fromWire(map['successor_state']),
       successor: map['successor'] == null
           ? null
           : Event.fromCborValue(map['successor']),
@@ -3866,7 +4024,7 @@ final class SplitSeriesReceipt {
 
 final class GetOccurrenceRequest {
   final EventId eventId;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
 
   const GetOccurrenceRequest({required this.eventId, this.recurrenceId});
 
@@ -3880,7 +4038,7 @@ final class GetOccurrenceRequest {
   factory GetOccurrenceRequest.fromMap(Map<String, Object?> map) {
     return GetOccurrenceRequest(
       eventId: map['event_id'] as EventId,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      recurrenceId: map['recurrence_id'] as DateTime?,
     );
   }
 
@@ -3908,7 +4066,7 @@ final class GetOccurrenceRequest {
       eventId: map['event_id'] as String,
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
     );
   }
 
@@ -3923,7 +4081,7 @@ final class GetOccurrenceRequest {
 final class RespondRequest {
   final EventId eventId;
   final ParticipationStatus status;
-  final Timestamp? recurrenceId;
+  final DateTime? recurrenceId;
   final String? comment;
 
   const RespondRequest({
@@ -3936,7 +4094,7 @@ final class RespondRequest {
   Map<String, Object?> toMap() {
     final map = <String, Object?>{};
     map['event_id'] = eventId;
-    map['status'] = status;
+    map['status'] = status.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId;
     if (comment != null) map['comment'] = comment;
     return map;
@@ -3945,8 +4103,8 @@ final class RespondRequest {
   factory RespondRequest.fromMap(Map<String, Object?> map) {
     return RespondRequest(
       eventId: map['event_id'] as EventId,
-      status: map['status'] as ParticipationStatus,
-      recurrenceId: map['recurrence_id'] as Timestamp?,
+      status: ParticipationStatus.fromWire(map['status']),
+      recurrenceId: map['recurrence_id'] as DateTime?,
       comment: map['comment'] as String?,
     );
   }
@@ -3967,7 +4125,7 @@ final class RespondRequest {
   Map<String, Object?> toCborValue() {
     final map = <String, Object?>{};
     map['event_id'] = eventId;
-    map['status'] = status;
+    map['status'] = status.wireValue;
     if (recurrenceId != null) map['recurrence_id'] = recurrenceId!;
     if (comment != null) map['comment'] = comment!;
     return map;
@@ -3978,16 +4136,10 @@ final class RespondRequest {
     final map = cbor as Map;
     return RespondRequest(
       eventId: map['event_id'] as String,
-      status: CsilCbor.expectOneOf<String>(map['status'], const [
-        'needs_action',
-        'accepted',
-        'declined',
-        'tentative',
-        'delegated',
-      ]),
+      status: ParticipationStatus.fromWire(map['status']),
       recurrenceId: map['recurrence_id'] == null
           ? null
-          : map['recurrence_id'] as String,
+          : map['recurrence_id'] as DateTime,
       comment: map['comment'] == null ? null : map['comment'] as String,
     );
   }
@@ -4115,8 +4267,8 @@ final class EventList {
 }
 
 final class BusyInterval {
-  final Timestamp start;
-  final Timestamp end;
+  final DateTime start;
+  final DateTime end;
   final bool? tentative;
 
   const BusyInterval({required this.start, required this.end, this.tentative});
@@ -4131,8 +4283,8 @@ final class BusyInterval {
 
   factory BusyInterval.fromMap(Map<String, Object?> map) {
     return BusyInterval(
-      start: map['start'] as Timestamp,
-      end: map['end'] as Timestamp,
+      start: map['start'] as DateTime,
+      end: map['end'] as DateTime,
       tentative: map['tentative'] as bool?,
     );
   }
@@ -4161,8 +4313,8 @@ final class BusyInterval {
   factory BusyInterval.fromCborValue(Object? cbor) {
     final map = cbor as Map;
     return BusyInterval(
-      start: map['start'] as String,
-      end: map['end'] as String,
+      start: map['start'] as DateTime,
+      end: map['end'] as DateTime,
       tentative: map['tentative'] == null ? null : map['tentative'] as bool,
     );
   }
@@ -4177,8 +4329,8 @@ final class BusyInterval {
 
 final class FreeBusyRequest {
   final List<IdentityRef> people;
-  final Timestamp rangeStart;
-  final Timestamp rangeEnd;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
 
   const FreeBusyRequest({
     required this.people,
@@ -4197,8 +4349,8 @@ final class FreeBusyRequest {
   factory FreeBusyRequest.fromMap(Map<String, Object?> map) {
     return FreeBusyRequest(
       people: map['people'] as List<IdentityRef>,
-      rangeStart: map['range_start'] as Timestamp,
-      rangeEnd: map['range_end'] as Timestamp,
+      rangeStart: map['range_start'] as DateTime,
+      rangeEnd: map['range_end'] as DateTime,
     );
   }
 
@@ -4230,8 +4382,8 @@ final class FreeBusyRequest {
           .map((csilE) => IdentityRef.fromCborValue(csilE))
           .cast<IdentityRef>()
           .toList(),
-      rangeStart: map['range_start'] as String,
-      rangeEnd: map['range_end'] as String,
+      rangeStart: map['range_start'] as DateTime,
+      rangeEnd: map['range_end'] as DateTime,
     );
   }
 
@@ -4656,7 +4808,7 @@ final class IcsDocument {
 
 final class AuditEntry {
   final AuditId auditId;
-  final Timestamp at;
+  final DateTime at;
   final PersonSummary actor;
   final PersonSummary principal;
   final ActingVia via;
@@ -4683,7 +4835,7 @@ final class AuditEntry {
     map['at'] = at;
     map['actor'] = actor;
     map['principal'] = principal;
-    map['via'] = via;
+    map['via'] = via.wireValue;
     if (application != null) map['application'] = application;
     map['operation'] = operation;
     if (target != null) map['target'] = target;
@@ -4694,10 +4846,10 @@ final class AuditEntry {
   factory AuditEntry.fromMap(Map<String, Object?> map) {
     return AuditEntry(
       auditId: map['audit_id'] as AuditId,
-      at: map['at'] as Timestamp,
+      at: map['at'] as DateTime,
       actor: map['actor'] as PersonSummary,
       principal: map['principal'] as PersonSummary,
-      via: map['via'] as ActingVia,
+      via: ActingVia.fromWire(map['via']),
       application: map['application'] as String?,
       operation: map['operation'] as String,
       target: map['target'] as String?,
@@ -4739,7 +4891,7 @@ final class AuditEntry {
     map['at'] = at;
     map['actor'] = actor.toCborValue();
     map['principal'] = principal.toCborValue();
-    map['via'] = via;
+    map['via'] = via.wireValue;
     if (application != null) map['application'] = application!;
     map['operation'] = operation;
     if (target != null) map['target'] = target!;
@@ -4752,14 +4904,10 @@ final class AuditEntry {
     final map = cbor as Map;
     return AuditEntry(
       auditId: map['audit_id'] as String,
-      at: map['at'] as String,
+      at: map['at'] as DateTime,
       actor: PersonSummary.fromCborValue(map['actor']),
       principal: PersonSummary.fromCborValue(map['principal']),
-      via: CsilCbor.expectOneOf<String>(map['via'], const [
-        'self',
-        'delegation',
-        'act_as_grant',
-      ]),
+      via: ActingVia.fromWire(map['via']),
       application: map['application'] == null
           ? null
           : map['application'] as String,
@@ -4939,7 +5087,7 @@ final class CompleteRequest {
 
 final class LoginResponse {
   final String token;
-  final Timestamp expiresAt;
+  final DateTime expiresAt;
   final PersonSummary user;
   final PersonSummary? actingAs;
   final ActingVia via;
@@ -4960,7 +5108,7 @@ final class LoginResponse {
     map['expires_at'] = expiresAt;
     map['user'] = user;
     if (actingAs != null) map['acting_as'] = actingAs;
-    map['via'] = via;
+    map['via'] = via.wireValue;
     if (scopes != null) map['scopes'] = scopes;
     return map;
   }
@@ -4968,10 +5116,10 @@ final class LoginResponse {
   factory LoginResponse.fromMap(Map<String, Object?> map) {
     return LoginResponse(
       token: map['token'] as String,
-      expiresAt: map['expires_at'] as Timestamp,
+      expiresAt: map['expires_at'] as DateTime,
       user: map['user'] as PersonSummary,
       actingAs: map['acting_as'] as PersonSummary?,
-      via: map['via'] as ActingVia,
+      via: ActingVia.fromWire(map['via']),
       scopes: map['scopes'] as List<Scope>?,
     );
   }
@@ -4998,8 +5146,9 @@ final class LoginResponse {
     map['expires_at'] = expiresAt;
     map['user'] = user.toCborValue();
     if (actingAs != null) map['acting_as'] = actingAs!.toCborValue();
-    map['via'] = via;
-    if (scopes != null) map['scopes'] = scopes!;
+    map['via'] = via.wireValue;
+    if (scopes != null)
+      map['scopes'] = scopes!.map((csilE) => csilE.wireValue).toList();
     return map;
   }
 
@@ -5008,28 +5157,16 @@ final class LoginResponse {
     final map = cbor as Map;
     return LoginResponse(
       token: map['token'] as String,
-      expiresAt: map['expires_at'] as String,
+      expiresAt: map['expires_at'] as DateTime,
       user: PersonSummary.fromCborValue(map['user']),
       actingAs: map['acting_as'] == null
           ? null
           : PersonSummary.fromCborValue(map['acting_as']),
-      via: CsilCbor.expectOneOf<String>(map['via'], const [
-        'self',
-        'delegation',
-        'act_as_grant',
-      ]),
+      via: ActingVia.fromWire(map['via']),
       scopes: map['scopes'] == null
           ? null
           : (map['scopes'] as List)
-                .map(
-                  (csilE) => CsilCbor.expectOneOf<String>(csilE, const [
-                    'calendars.read',
-                    'freebusy.read',
-                    'events.write',
-                    'events.respond',
-                    'calendars.manage',
-                  ]),
-                )
+                .map((csilE) => Scope.fromWire(csilE))
                 .cast<Scope>()
                 .toList(),
     );
@@ -5062,7 +5199,7 @@ final class MeResponse {
     final map = <String, Object?>{};
     map['user'] = user;
     if (actingAs != null) map['acting_as'] = actingAs;
-    map['via'] = via;
+    map['via'] = via.wireValue;
     if (scopes != null) map['scopes'] = scopes;
     map['principals'] = principals;
     return map;
@@ -5072,7 +5209,7 @@ final class MeResponse {
     return MeResponse(
       user: map['user'] as User,
       actingAs: map['acting_as'] as PersonSummary?,
-      via: map['via'] as ActingVia,
+      via: ActingVia.fromWire(map['via']),
       scopes: map['scopes'] as List<Scope>?,
       principals: map['principals'] as List<PersonSummary>,
     );
@@ -5096,8 +5233,9 @@ final class MeResponse {
     final map = <String, Object?>{};
     map['user'] = user.toCborValue();
     if (actingAs != null) map['acting_as'] = actingAs!.toCborValue();
-    map['via'] = via;
-    if (scopes != null) map['scopes'] = scopes!;
+    map['via'] = via.wireValue;
+    if (scopes != null)
+      map['scopes'] = scopes!.map((csilE) => csilE.wireValue).toList();
     map['principals'] = principals.map((csilE) => csilE.toCborValue()).toList();
     return map;
   }
@@ -5110,23 +5248,11 @@ final class MeResponse {
       actingAs: map['acting_as'] == null
           ? null
           : PersonSummary.fromCborValue(map['acting_as']),
-      via: CsilCbor.expectOneOf<String>(map['via'], const [
-        'self',
-        'delegation',
-        'act_as_grant',
-      ]),
+      via: ActingVia.fromWire(map['via']),
       scopes: map['scopes'] == null
           ? null
           : (map['scopes'] as List)
-                .map(
-                  (csilE) => CsilCbor.expectOneOf<String>(csilE, const [
-                    'calendars.read',
-                    'freebusy.read',
-                    'events.write',
-                    'events.respond',
-                    'calendars.manage',
-                  ]),
-                )
+                .map((csilE) => Scope.fromWire(csilE))
                 .cast<Scope>()
                 .toList(),
       principals: (map['principals'] as List)
@@ -5426,7 +5552,7 @@ final class ApplicationPresentation {
   final String signerInstanceId;
   final ApplicationRef audience;
   final Uint8List requestDigest;
-  final Timestamp presentedAt;
+  final DateTime presentedAt;
   final Uint8List nonce;
 
   const ApplicationPresentation({
@@ -5455,7 +5581,7 @@ final class ApplicationPresentation {
       signerInstanceId: map['signer_instance_id'] as String,
       audience: map['audience'] as ApplicationRef,
       requestDigest: map['request_digest'] as Uint8List,
-      presentedAt: map['presented_at'] as Timestamp,
+      presentedAt: map['presented_at'] as DateTime,
       nonce: map['nonce'] as Uint8List,
     );
   }
@@ -5510,7 +5636,7 @@ final class ApplicationPresentation {
       signerInstanceId: map['signer_instance_id'] as String,
       audience: ApplicationRef.fromCborValue(map['audience']),
       requestDigest: map['request_digest'] as Uint8List,
-      presentedAt: map['presented_at'] as String,
+      presentedAt: map['presented_at'] as DateTime,
       nonce: map['nonce'] as Uint8List,
     );
   }
@@ -6131,4 +6257,1139 @@ final class ServiceError {
   /// Decode a CSIL CBOR byte payload into this record.
   factory ServiceError.fromCbor(List<int> bytes) =>
       ServiceError.fromCborValue(CsilCbor.decode(bytes));
+}
+
+final class ServiceErrorRefusal implements Exception {
+  final ServiceError value;
+  const ServiceErrorRefusal(this.value);
+}
+
+(String, Uint8List) encodeAuthServiceCompleteReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceResumeSessionReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceEndSessionReply(EmptyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('EmptyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceMeReply(MeResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('MeResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceAssumePrincipalReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceReleasePrincipalReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceExchangeActAsCredentialReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceGetActAsScopeSetReply(ScopeSetResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('ScopeSetResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceGetApplicationIdentityReply(ApplicationIdentityResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('ApplicationIdentityResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuthServiceExchangeApplicationPresentationReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDevAuthServiceListDevUsersReply(DevUsersResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('DevUsersResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDevAuthServiceDevLoginReply(LoginResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('LoginResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeUserServiceGetProfileReply(User Function() handler) {
+  try {
+    final value = handler();
+    return ('User', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeUserServiceUpdateProfileReply(User Function() handler) {
+  try {
+    final value = handler();
+    return ('User', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeUserServiceLookupPersonReply(PersonSummary Function() handler) {
+  try {
+    final value = handler();
+    return ('PersonSummary', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceListCalendarsReply(CalendarList Function() handler) {
+  try {
+    final value = handler();
+    return ('CalendarList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceGetCalendarReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceCreateCalendarReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceUpdateCalendarReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceDeleteCalendarReply(EmptyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('EmptyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceSubscribeCalendarReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceRefreshSubscriptionReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeCalendarServiceSetFeedReply(Calendar Function() handler) {
+  try {
+    final value = handler();
+    return ('Calendar', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeShareServiceListSharesReply(ShareList Function() handler) {
+  try {
+    final value = handler();
+    return ('ShareList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeShareServicePutShareReply(Share Function() handler) {
+  try {
+    final value = handler();
+    return ('Share', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeShareServiceDeleteShareReply(EmptyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('EmptyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceListGroupsReply(GroupList Function() handler) {
+  try {
+    final value = handler();
+    return ('GroupList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceGetGroupReply(Group Function() handler) {
+  try {
+    final value = handler();
+    return ('Group', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceCreateGroupReply(Group Function() handler) {
+  try {
+    final value = handler();
+    return ('Group', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceUpdateGroupReply(Group Function() handler) {
+  try {
+    final value = handler();
+    return ('Group', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceSetMembersReply(Group Function() handler) {
+  try {
+    final value = handler();
+    return ('Group', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeGroupServiceDeleteGroupReply(EmptyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('EmptyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDelegationServiceListGrantedReply(DelegationList Function() handler) {
+  try {
+    final value = handler();
+    return ('DelegationList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDelegationServiceListReceivedReply(DelegationList Function() handler) {
+  try {
+    final value = handler();
+    return ('DelegationList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDelegationServiceCreateDelegationReply(Delegation Function() handler) {
+  try {
+    final value = handler();
+    return ('Delegation', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDelegationServiceUpdateDelegationReply(Delegation Function() handler) {
+  try {
+    final value = handler();
+    return ('Delegation', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeDelegationServiceRevokeDelegationReply(EmptyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('EmptyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceListEventsReply(OccurrenceList Function() handler) {
+  try {
+    final value = handler();
+    return ('OccurrenceList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceGetEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceGetOccurrenceReply(Occurrence Function() handler) {
+  try {
+    final value = handler();
+    return ('Occurrence', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceCreateEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceUpdateEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceDeleteEventReply(DeleteEventResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('DeleteEventResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceMoveEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceRespondReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceListInvitationsReply(EventList Function() handler) {
+  try {
+    final value = handler();
+    return ('EventList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceSearchEventsReply(EventList Function() handler) {
+  try {
+    final value = handler();
+    return ('EventList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceListTrashReply(TrashList Function() handler) {
+  try {
+    final value = handler();
+    return ('TrashList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceRestoreEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceImportEventReply(Event Function() handler) {
+  try {
+    final value = handler();
+    return ('Event', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceCreateEventOnceReply(CreateEventReceipt Function() handler) {
+  try {
+    final value = handler();
+    return ('CreateEventReceipt', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceGetCreateReceiptReply(CreateEventReceipt Function() handler) {
+  try {
+    final value = handler();
+    return ('CreateEventReceipt', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceSplitSeriesOnceReply(SplitSeriesReceipt Function() handler) {
+  try {
+    final value = handler();
+    return ('SplitSeriesReceipt', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeEventServiceGetSplitReceiptReply(SplitSeriesReceipt Function() handler) {
+  try {
+    final value = handler();
+    return ('SplitSeriesReceipt', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeFreeBusyServiceQueryReply(FreeBusyResponse Function() handler) {
+  try {
+    final value = handler();
+    return ('FreeBusyResponse', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeIcsServiceImportIcsReply(ImportResult Function() handler) {
+  try {
+    final value = handler();
+    return ('ImportResult', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeIcsServiceExportCalendarReply(IcsDocument Function() handler) {
+  try {
+    final value = handler();
+    return ('IcsDocument', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeIcsServiceExportEventReply(IcsDocument Function() handler) {
+  try {
+    final value = handler();
+    return ('IcsDocument', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+(String, Uint8List) encodeAuditServiceListAuditReply(AuditList Function() handler) {
+  try {
+    final value = handler();
+    return ('AuditList', CsilCbor.encodeValue(value.toCborValue()));
+  } on ServiceErrorRefusal catch (refusal) {
+    return ('ServiceError', CsilCbor.encodeValue(refusal.value.toCborValue()));
+  }
+}
+
+Uint8List resolveRpcReply(
+  String service,
+  String op,
+  String? variant,
+  Uint8List payload,
+) {
+  if (service == 'AuthService' && op == 'complete') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'resume-session') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'end-session') {
+    switch (variant) {
+      case 'EmptyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'me') {
+    switch (variant) {
+      case 'MeResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'assume-principal') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'release-principal') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'exchange-act-as-credential') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'get-act-as-scope-set') {
+    switch (variant) {
+      case 'ScopeSetResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'get-application-identity') {
+    switch (variant) {
+      case 'ApplicationIdentityResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuthService' && op == 'exchange-application-presentation') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DevAuthService' && op == 'list-dev-users') {
+    switch (variant) {
+      case 'DevUsersResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DevAuthService' && op == 'dev-login') {
+    switch (variant) {
+      case 'LoginResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'UserService' && op == 'get-profile') {
+    switch (variant) {
+      case 'User':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'UserService' && op == 'update-profile') {
+    switch (variant) {
+      case 'User':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'UserService' && op == 'lookup-person') {
+    switch (variant) {
+      case 'PersonSummary':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'list-calendars') {
+    switch (variant) {
+      case 'CalendarList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'get-calendar') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'create-calendar') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'update-calendar') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'delete-calendar') {
+    switch (variant) {
+      case 'EmptyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'subscribe-calendar') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'refresh-subscription') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'CalendarService' && op == 'set-feed') {
+    switch (variant) {
+      case 'Calendar':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'ShareService' && op == 'list-shares') {
+    switch (variant) {
+      case 'ShareList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'ShareService' && op == 'put-share') {
+    switch (variant) {
+      case 'Share':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'ShareService' && op == 'delete-share') {
+    switch (variant) {
+      case 'EmptyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'list-groups') {
+    switch (variant) {
+      case 'GroupList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'get-group') {
+    switch (variant) {
+      case 'Group':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'create-group') {
+    switch (variant) {
+      case 'Group':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'update-group') {
+    switch (variant) {
+      case 'Group':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'set-members') {
+    switch (variant) {
+      case 'Group':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'GroupService' && op == 'delete-group') {
+    switch (variant) {
+      case 'EmptyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DelegationService' && op == 'list-granted') {
+    switch (variant) {
+      case 'DelegationList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DelegationService' && op == 'list-received') {
+    switch (variant) {
+      case 'DelegationList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DelegationService' && op == 'create-delegation') {
+    switch (variant) {
+      case 'Delegation':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DelegationService' && op == 'update-delegation') {
+    switch (variant) {
+      case 'Delegation':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'DelegationService' && op == 'revoke-delegation') {
+    switch (variant) {
+      case 'EmptyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'list-events') {
+    switch (variant) {
+      case 'OccurrenceList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'get-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'get-occurrence') {
+    switch (variant) {
+      case 'Occurrence':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'create-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'update-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'delete-event') {
+    switch (variant) {
+      case 'DeleteEventResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'move-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'respond') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'list-invitations') {
+    switch (variant) {
+      case 'EventList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'search-events') {
+    switch (variant) {
+      case 'EventList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'list-trash') {
+    switch (variant) {
+      case 'TrashList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'restore-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'import-event') {
+    switch (variant) {
+      case 'Event':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'create-event-once') {
+    switch (variant) {
+      case 'CreateEventReceipt':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'get-create-receipt') {
+    switch (variant) {
+      case 'CreateEventReceipt':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'split-series-once') {
+    switch (variant) {
+      case 'SplitSeriesReceipt':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'EventService' && op == 'get-split-receipt') {
+    switch (variant) {
+      case 'SplitSeriesReceipt':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'FreeBusyService' && op == 'query') {
+    switch (variant) {
+      case 'FreeBusyResponse':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'IcsService' && op == 'import-ics') {
+    switch (variant) {
+      case 'ImportResult':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'IcsService' && op == 'export-calendar') {
+    switch (variant) {
+      case 'IcsDocument':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'IcsService' && op == 'export-event') {
+    switch (variant) {
+      case 'IcsDocument':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  if (service == 'AuditService' && op == 'list-audit') {
+    switch (variant) {
+      case 'AuditList':
+        return payload;
+      case 'ServiceError':
+        throw ServiceErrorRefusal(ServiceError.fromCborValue(CsilCbor.decode(payload)));
+      default:
+        throw FormatException('invalid RPC reply variant: $variant');
+    }
+  }
+  return payload;
 }

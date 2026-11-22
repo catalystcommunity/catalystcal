@@ -49,11 +49,11 @@ func Bounds(ev csil.Event) (time.Time, time.Time, error) {
 		if ev.StartDate == nil || ev.EndDate == nil {
 			return time.Time{}, time.Time{}, errors.New("all-day event needs start_date and end_date")
 		}
-		s, err := time.Parse(DateLayout, string(*ev.StartDate))
+		s, err := time.Parse(DateLayout, *ev.StartDate)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}
-		e, err := time.Parse(DateLayout, string(*ev.EndDate))
+		e, err := time.Parse(DateLayout, *ev.EndDate)
 		if err != nil {
 			return time.Time{}, time.Time{}, err
 		}
@@ -62,15 +62,7 @@ func Bounds(ev csil.Event) (time.Time, time.Time, error) {
 	if ev.Start == nil || ev.End == nil {
 		return time.Time{}, time.Time{}, errors.New("timed event needs start and end")
 	}
-	s, err := ParseTime(string(*ev.Start))
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-	e, err := ParseTime(string(*ev.End))
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-	return s, e, nil
+	return ev.Start.UTC().Truncate(time.Second), ev.End.UTC().Truncate(time.Second), nil
 }
 
 // SearchText folds the searchable fields in Go (Unicode-correct), so the
@@ -113,16 +105,16 @@ func scanEvent(row interface{ Scan(...any) error }) (Event, error) {
 		ev.MasterEventId = &m
 	}
 	if recID.Valid {
-		r := csil.Timestamp(recID.String)
+		r := mustTime(recID.String)
 		ev.RecurrenceId = &r
 	}
 	ev.Description, ev.Location, ev.Url, ev.ConferenceUrl = optStr(desc), optStr(loc), optStr(url), optStr(conf)
 	ev.AllDay = &allDay
 	if allDay {
-		sd, ed := csil.DateText(strOf(startDate)), csil.DateText(strOf(endDate))
+		sd, ed := strOf(startDate), strOf(endDate)
 		ev.StartDate, ev.EndDate = &sd, &ed
 	}
-	st, en := csil.Timestamp(startsAt), csil.Timestamp(endsAt)
+	st, en := mustTime(startsAt), mustTime(endsAt)
 	ev.Start, ev.End = &st, &en
 	ev.Timezone = optStr(tz)
 	es, et, evis := csil.EventStatus(status), csil.EventTransparency(transp), csil.EventVisibility(vis)
@@ -142,7 +134,7 @@ func scanEvent(row interface{ Scan(...any) error }) (Event, error) {
 	ev.Color = optStr(color)
 	uv := csil.ActingVia(via)
 	ev.UpdatedVia = &uv
-	ev.CreatedAt, ev.UpdatedAt = csil.Timestamp(created), csil.Timestamp(updated)
+	ev.CreatedAt, ev.UpdatedAt = mustTime(created), mustTime(updated)
 	e.OrganizerID, e.CreatedByID, e.UpdatedByID = strOf(org), strOf(cby), strOf(uby)
 	e.SeriesUntil = timeOf(until)
 	return e, nil
@@ -163,11 +155,11 @@ func strPtrVal(p *string) string {
 	return *p
 }
 
-func jsonTimestamps(ns sql.NullString) []csil.Timestamp {
+func jsonTimestamps(ns sql.NullString) []time.Time {
 	if !ns.Valid || ns.String == "" {
 		return nil
 	}
-	var out []csil.Timestamp
+	var out []time.Time
 	_ = json.Unmarshal([]byte(ns.String), &out)
 	return out
 }
@@ -190,14 +182,14 @@ func eventArgs(e *Event) ([]any, error) {
 	allDay := ev.AllDay != nil && *ev.AllDay
 	var startDate, endDate any
 	if allDay {
-		startDate, endDate = string(*ev.StartDate), string(*ev.EndDate)
+		startDate, endDate = *ev.StartDate, *ev.EndDate
 	}
 	var master, recID any
 	if ev.MasterEventId != nil {
 		master = string(*ev.MasterEventId)
 	}
 	if ev.RecurrenceId != nil {
-		recID = string(*ev.RecurrenceId)
+		recID = FormatTime(*ev.RecurrenceId)
 	}
 	status, transp, vis := "confirmed", "opaque", "default"
 	if ev.Status != nil && *ev.Status != "" {
@@ -235,8 +227,8 @@ func (s *Store) insertEvent(ctx context.Context, q queryer, e *Event) error {
 	if e.Ev.EventId == "" {
 		e.Ev.EventId = csil.EventID(NewID())
 	}
-	now := csil.Timestamp(FormatTime(s.now()))
-	if !e.KeepCreatedAt || e.Ev.CreatedAt == "" {
+	now := s.now()
+	if !e.KeepCreatedAt {
 		e.Ev.CreatedAt = now
 	}
 	e.Ev.UpdatedAt = now
@@ -245,7 +237,7 @@ func (s *Store) insertEvent(ctx context.Context, q queryer, e *Event) error {
 		return err
 	}
 	all := append([]any{string(e.Ev.EventId)}, args...)
-	all = append(all, string(e.Ev.CreatedAt), string(now))
+	all = append(all, FormatTime(e.Ev.CreatedAt), FormatTime(now))
 	_, err = q.ExecContext(ctx, `INSERT INTO events (id, calendar_id, uid, master_id, recurrence_id, title, description,
 		location, url, conference_url, starts_at, ends_at, all_day, start_date, end_date, timezone, status,
 		transparency, visibility, rrule, exdates, rdates, series_until, categories, color, organizer_id,
@@ -262,12 +254,12 @@ func (s *Store) insertEvent(ctx context.Context, q queryer, e *Event) error {
 
 // updateEvent rewrites every column of an existing row and its children.
 func (s *Store) updateEvent(ctx context.Context, q queryer, e *Event) error {
-	e.Ev.UpdatedAt = csil.Timestamp(FormatTime(s.now()))
+	e.Ev.UpdatedAt = s.now()
 	args, err := eventArgs(e)
 	if err != nil {
 		return err
 	}
-	args = append(args, string(e.Ev.UpdatedAt), string(e.Ev.EventId))
+	args = append(args, FormatTime(e.Ev.UpdatedAt), string(e.Ev.EventId))
 	res, err := q.ExecContext(ctx, `UPDATE events SET calendar_id = ?, uid = ?, master_id = ?, recurrence_id = ?,
 		title = ?, description = ?, location = ?, url = ?, conference_url = ?, starts_at = ?, ends_at = ?,
 		all_day = ?, start_date = ?, end_date = ?, timezone = ?, status = ?, transparency = ?, visibility = ?,

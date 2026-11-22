@@ -7,7 +7,7 @@ import type { Attendee, IdentityRef, PersonFreeBusy } from "@catalystcal/client"
 import { freeBusyClient } from "~/data/clients";
 import { effectivePerson } from "~/stores/auth";
 import { DateText, addDays } from "~/lib/dates";
-import { formatDate, formatHourLabel, minutesIntoDay, parseTimestamp, startOfDayUtc, toTimestamp } from "~/lib/tz";
+import { formatDate, formatHourLabel, minutesIntoDay, startOfDayUtc, toTimestamp } from "~/lib/tz";
 import { personName } from "~/lib/people";
 import { errorMessage } from "~/transport/csilrpc";
 import { attendeeLabel } from "~/components/AttendeesEditor";
@@ -137,7 +137,7 @@ export class FreeBusyPanel extends CalElement {
     const ds = startOfDayUtc(day, this.tz);
     const de = startOfDayUtc(addDays(day, 1), this.tz);
     return pf.busy
-      .map((b) => ({ s: Math.max(ds, parseTimestamp(b.start)), e: Math.min(de, parseTimestamp(b.end)), tentative: !!b.tentative }))
+      .map((b) => ({ s: Math.max(ds, b.start.getTime()), e: Math.min(de, b.end.getTime()), tentative: !!b.tentative }))
       .filter((b) => b.e > b.s)
       .map((b) => ({ top: b.s <= ds ? 0 : minutesIntoDay(b.s, this.tz), bottom: b.e >= de ? 1440 : minutesIntoDay(b.e, this.tz), tentative: b.tentative }));
   }

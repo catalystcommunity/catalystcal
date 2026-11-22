@@ -2,13 +2,15 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record CreateEventReceipt(
     CalendarId calendarId /* wire: "calendar_id" */,
     String idempotencyKey /* wire: "idempotency_key" */,
     EventId eventId /* wire: "event_id" */,
     CreateReceiptState state /* wire: "state" */,
     boolean created /* wire: "created" */,
-    Timestamp createdAt /* wire: "created_at" */,
+    Instant createdAt /* wire: "created_at" */,
     Event event /* wire: "event" */,
     TrashId trashId /* wire: "trash_id" */
 ) {

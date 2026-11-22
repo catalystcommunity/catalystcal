@@ -22,7 +22,7 @@ function form(calendars: Calendar[], initial?: Delegation, onSaved: (d: Delegati
 
 const me = { userId: "u-me", domain: "example.com", subject: "me", handle: "me", displayName: "Me" };
 const cal = (id: string, name: string): Calendar =>
-  ({ calendarId: id, name, owner: me, kind: "local", isDefault: false, access: "owner", accessPath: "owner", createdAt: "", updatedAt: "" }) as Calendar;
+  ({ calendarId: id, name, owner: me, kind: "local", isDefault: false, access: "owner", accessPath: "owner", createdAt: new Date(0), updatedAt: new Date(0) }) as Calendar;
 
 describe("DelegationForm", () => {
   beforeEach(() => {
@@ -84,7 +84,7 @@ describe("DelegationForm", () => {
       principal: me,
       delegate: { domain: "example.org", handle: "sam" },
       scopes: ["freebusy.read"],
-      createdAt: "2026-01-01T00:00:00Z",
+      createdAt: new Date("2026-01-01T00:00:00Z"),
     };
     updateDelegation.mockImplementation(async (d: Delegation) => d);
     await form([], existing);
@@ -98,7 +98,7 @@ describe("DelegationForm", () => {
   });
 
   it("turns an end date into the end of that day and back", () => {
-    expect(expiryFromDate("2026-11-30", "America/Denver")).toBe("2026-12-01T07:00:00Z");
-    expect(dateFromExpiry("2026-12-01T07:00:00Z", "America/Denver")).toBe("2026-11-30");
+    expect(expiryFromDate("2026-11-30", "America/Denver")).toEqual(new Date("2026-12-01T07:00:00Z"));
+    expect(dateFromExpiry(new Date("2026-12-01T07:00:00Z"), "America/Denver")).toBe("2026-11-30");
   });
 });

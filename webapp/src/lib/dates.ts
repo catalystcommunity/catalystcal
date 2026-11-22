@@ -4,6 +4,8 @@
  * local zone. Time-zone work is in tz.ts.
  */
 
+import { isCalendarDate } from "@catalystcal/client";
+
 export type DateText = string;
 /** 0 = Sunday ... 6 = Saturday. */
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -25,9 +27,7 @@ export function parseDate(s: DateText): { y: number; m: number; d: number } {
   return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
 }
 
-export function isDateText(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
+export const isDateText = isCalendarDate;
 
 const dayNumber = (s: DateText): number => {
   const { y, m, d } = parseDate(s);

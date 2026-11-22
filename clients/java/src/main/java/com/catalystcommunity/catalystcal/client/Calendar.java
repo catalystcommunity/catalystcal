@@ -2,6 +2,8 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record Calendar(
     CalendarId calendarId /* wire: "calendar_id" */,
     PersonSummary owner /* wire: "owner" */,
@@ -11,14 +13,14 @@ public record Calendar(
     String timezone /* wire: "timezone" */,
     CalendarKind kind /* wire: "kind" */,
     String sourceUrl /* wire: "source_url" */,
-    Timestamp lastSyncedAt /* wire: "last_synced_at" */,
+    Instant lastSyncedAt /* wire: "last_synced_at" */,
     String syncError /* wire: "sync_error" */,
     boolean isDefault /* wire: "is_default" */,
     AccessRole access /* wire: "access" */,
     AccessPath accessPath /* wire: "access_path" */,
     String feedPath /* wire: "feed_path" */,
-    Timestamp createdAt /* wire: "created_at" */,
-    Timestamp updatedAt /* wire: "updated_at" */
+    Instant createdAt /* wire: "created_at" */,
+    Instant updatedAt /* wire: "updated_at" */
 ) {
     public Calendar {
         if (name.length() < 1) {

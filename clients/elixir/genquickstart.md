@@ -61,12 +61,7 @@ defmodule CsilRpcHttpCarrier do
       {:error, reason} -> raise "csil-rpc #{service}/#{op}: #{inspect(reason)}"
     end
 
-    # A typed `ServiceError` arm rides as a status-0 `variant` — an application error
-    # distinct from a transport failure. Surface it so the client decodes success only.
-    if resp.variant == "ServiceError",
-      do: raise("csil-rpc #{service}/#{op}: ServiceError")
-
-    resp.payload
+    Csilgen.Generated.Cbor.resolve_rpc_reply(service, op, resp.variant, resp.payload)
   end
 
   # --- Plain-HTTP POST over :gen_tcp ---

@@ -2,6 +2,8 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record Share(
     ShareId shareId /* wire: "share_id" */,
     CalendarId calendarId /* wire: "calendar_id" */,
@@ -10,6 +12,6 @@ public record Share(
     ShareRole role /* wire: "role" */,
     PersonSummary granteePerson /* wire: "grantee_person" */,
     String granteeGroupName /* wire: "grantee_group_name" */,
-    Timestamp createdAt /* wire: "created_at" */
+    Instant createdAt /* wire: "created_at" */
 ) {
 }

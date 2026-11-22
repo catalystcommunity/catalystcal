@@ -31,7 +31,7 @@ func clearReceiveOnly(ev *csil.Event) {
 	ev.RecurrenceId = nil
 	ev.Organizer, ev.CreatedBy, ev.UpdatedBy, ev.UpdatedVia = nil, nil, nil, nil
 	ev.Sequence = 0
-	ev.CreatedAt, ev.UpdatedAt = "", ""
+	ev.CreatedAt, ev.UpdatedAt = time.Time{}, time.Time{}
 	for i := range ev.Attendees {
 		ev.Attendees[i].Person = nil
 		ev.Attendees[i].RespondedBy = nil
@@ -60,11 +60,11 @@ func validateContent(ev *csil.Event) error {
 		if ev.StartDate == nil || ev.EndDate == nil {
 			return badReq("an all-day event needs start_date and end_date")
 		}
-		sd, err := time.Parse(store.DateLayout, string(*ev.StartDate))
+		sd, err := time.Parse(store.DateLayout, *ev.StartDate)
 		if err != nil {
 			return badReq("start_date must be YYYY-MM-DD")
 		}
-		ed, err := time.Parse(store.DateLayout, string(*ev.EndDate))
+		ed, err := time.Parse(store.DateLayout, *ev.EndDate)
 		if err != nil {
 			return badReq("end_date must be YYYY-MM-DD")
 		}
@@ -78,18 +78,12 @@ func validateContent(ev *csil.Event) error {
 		if ev.Start == nil || ev.End == nil {
 			return badReq("a timed event needs start and end")
 		}
-		st, err := parseTS("start", *ev.Start)
-		if err != nil {
-			return err
-		}
-		en, err := parseTS("end", *ev.End)
-		if err != nil {
-			return err
-		}
+		st := ts(*ev.Start)
+		en := ts(*ev.End)
 		if !en.After(st) {
 			return badReq("end must be after start")
 		}
-		ev.Start, ev.End = ptr(ts(st)), ptr(ts(en))
+		ev.Start, ev.End = &st, &en
 	}
 	if ev.Status == nil || *ev.Status == "" {
 		ev.Status = ptr(csil.EventStatus("confirmed"))
@@ -117,13 +111,8 @@ func validateContent(ev *csil.Event) error {
 					return badReq("bad rrule: " + err.Error())
 				}
 			}
-			var err error
-			if rec.Exdates, err = normalizeTimes("exdates", rec.Exdates); err != nil {
-				return err
-			}
-			if rec.Rdates, err = normalizeTimes("rdates", rec.Rdates); err != nil {
-				return err
-			}
+			rec.Exdates = normalizeTimes(rec.Exdates)
+			rec.Rdates = normalizeTimes(rec.Rdates)
 		}
 	}
 	for i := range ev.Attendees {
@@ -176,22 +165,18 @@ func validateContent(ev *csil.Event) error {
 	return nil
 }
 
-func normalizeTimes(field string, in []csil.Timestamp) ([]csil.Timestamp, error) {
-	out := make([]csil.Timestamp, 0, len(in))
-	seen := map[csil.Timestamp]bool{}
+func normalizeTimes(in []time.Time) []time.Time {
+	out := make([]time.Time, 0, len(in))
+	seen := map[time.Time]bool{}
 	for _, v := range in {
-		t, err := parseTS(field, v)
-		if err != nil {
-			return nil, err
-		}
-		n := ts(t)
+		n := ts(v)
 		if !seen[n] {
 			seen[n] = true
 			out = append(out, n)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out, nil
+	sort.Slice(out, func(i, j int) bool { return out[i].Before(out[j]) })
+	return out
 }
 
 // seriesUntil is the stored end of a series, or nil for a single event or
@@ -395,8 +380,8 @@ func instanceContent(master csil.Event, rid time.Time) (csil.Event, error) {
 		days := int(e.Sub(s).Hours() / 24)
 		sd := rid.UTC().Truncate(24 * time.Hour)
 		ed := sd.AddDate(0, 0, days)
-		ev.StartDate = ptr(csil.DateText(sd.Format(store.DateLayout)))
-		ev.EndDate = ptr(csil.DateText(ed.Format(store.DateLayout)))
+		ev.StartDate = ptr(sd.Format(store.DateLayout))
+		ev.EndDate = ptr(ed.Format(store.DateLayout))
 		ev.Start, ev.End = ptr(ts(sd)), ptr(ts(ed))
 	} else {
 		ev.Start, ev.End = ptr(ts(rid)), ptr(ts(rid.Add(e.Sub(s))))

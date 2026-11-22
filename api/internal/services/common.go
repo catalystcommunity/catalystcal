@@ -107,22 +107,14 @@ func deref(p *string) string {
 	return *p
 }
 
-func ts(t time.Time) csil.Timestamp { return csil.Timestamp(store.FormatTime(t)) }
+func ts(t time.Time) time.Time { return t.UTC().Truncate(time.Second) }
 
-func tsPtr(t *time.Time) *csil.Timestamp {
+func tsPtr(t *time.Time) *time.Time {
 	if t == nil {
 		return nil
 	}
 	v := ts(*t)
 	return &v
-}
-
-func parseTS(field string, v csil.Timestamp) (time.Time, error) {
-	t, err := store.ParseTime(string(v))
-	if err != nil {
-		return time.Time{}, csilrpc.BadRequest(field + " must be an RFC3339 UTC time like 2026-10-15T17:00:00Z")
-	}
-	return t, nil
 }
 
 func person(u store.User) csil.PersonSummary {

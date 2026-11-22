@@ -2,11 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record LoginResponse(
     String token /* wire: "token" */,
-    Timestamp expiresAt /* wire: "expires_at" */,
+    Instant expiresAt /* wire: "expires_at" */,
     PersonSummary user /* wire: "user" */,
     PersonSummary actingAs /* wire: "acting_as" */,
     ActingVia via /* wire: "via" */,

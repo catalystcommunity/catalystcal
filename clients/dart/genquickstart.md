@@ -60,12 +60,7 @@ class HttpRpcCarrier implements AsyncCsilTransport {
     // RpcResponse.decode + intoTransportError throws a StatusException for any non-zero
     // transport status, distinct from an application error.
     final resp = RpcResponse.decode(bytes).intoTransportError();
-    // A typed application error rides as a status-0 `ServiceError` variant; surface it
-    // so the typed client decodes success only.
-    if (resp.variant == 'ServiceError') {
-      throw StateError('csil-rpc $service/$op: ServiceError');
-    }
-    return resp.payload;
+    return resolveRpcReply(service, op, resp.variant, resp.payload);
   }
 
   static Future<Uint8List> _httpSend(Uri uri, Uint8List body) async {

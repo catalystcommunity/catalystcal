@@ -2,11 +2,13 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record Occurrence(
     Event event /* wire: "event" */,
-    Timestamp start /* wire: "start" */,
-    Timestamp end /* wire: "end" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
+    Instant start /* wire: "start" */,
+    Instant end /* wire: "end" */,
+    Instant recurrenceId /* wire: "recurrence_id" */,
     AccessRole access /* wire: "access" */,
     boolean busyOnly /* wire: "busy_only" */,
     boolean invited /* wire: "invited" */

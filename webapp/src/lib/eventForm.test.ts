@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Event, Occurrence } from "@catalystcal/client";
+import { fromEventCbor, toEventCbor, type Event, type Occurrence } from "@catalystcal/client";
 import { buildDelete, buildUpdate, formFromOccurrence, formToEvent, newEventForm, validateForm } from "./eventForm";
 
 const TZ = "America/Denver";
@@ -9,27 +9,27 @@ function ev(over: Partial<Event> = {}): Event {
     eventId: "e1",
     calendarId: "c1",
     title: "Standup",
-    start: "2026-10-01T15:00:00Z",
-    end: "2026-10-01T15:30:00Z",
+    start: new Date("2026-10-01T15:00:00Z"),
+    end: new Date("2026-10-01T15:30:00Z"),
     timezone: TZ,
     sequence: 3,
-    createdAt: "2026-09-01T00:00:00Z",
-    updatedAt: "2026-09-02T00:00:00Z",
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+    updatedAt: new Date("2026-09-02T00:00:00Z"),
     organizer: { userId: "u1", domain: "example.com", subject: "s1" },
     ...over,
   };
 }
 
 function occ(e: Event, start: string, end: string, recurrenceId?: string): Occurrence {
-  return { event: e, start, end, recurrenceId, access: "owner", busyOnly: false, invited: false };
+  return { event: e, start: new Date(start), end: new Date(end), recurrenceId: recurrenceId ? new Date(recurrenceId) : undefined, access: "owner", busyOnly: false, invited: false };
 }
 
 describe("event form", () => {
   it("makes a timed event in the form's zone", () => {
     const f = newEventForm({ date: "2026-10-15", startMin: 9 * 60, calendarId: "c1", timezone: TZ, title: "Lunch" });
     const e = formToEvent(f);
-    expect(e.start).toBe("2026-10-15T15:00:00Z");
-    expect(e.end).toBe("2026-10-15T16:00:00Z");
+    expect(e.start).toEqual(new Date("2026-10-15T15:00:00Z"));
+    expect(e.end).toEqual(new Date("2026-10-15T16:00:00Z"));
     expect(e.eventId).toBe("");
     expect(e.sequence).toBe(0);
     expect(e.recurrence).toBeUndefined();
@@ -42,6 +42,17 @@ describe("event form", () => {
     expect(e.startDate).toBe("2026-10-15");
     expect(e.endDate).toBe("2026-10-17");
     expect(e.start).toBeUndefined();
+  });
+
+  it("round-trips all-day boundaries and recurrence instants through the client codec", () => {
+    const form = newEventForm({ date: "2028-02-29", allDay: true, calendarId: "c1", timezone: TZ, title: "Leap day" });
+    const event = formToEvent(form);
+    event.recurrence = { rrule: "FREQ=YEARLY", exdates: [new Date("2032-02-29T00:00:00Z")] };
+    const decoded = fromEventCbor(toEventCbor(event));
+    expect(decoded.startDate).toBe("2028-02-29");
+    expect(decoded.endDate).toBe("2028-03-01");
+    expect(decoded.recurrence).toEqual(event.recurrence);
+    expect(() => toEventCbor({ ...event, startDate: "2027-02-29" })).toThrow();
   });
 
   it("rolls a late start past midnight", () => {
@@ -87,9 +98,9 @@ describe("series edits", () => {
     f.endMin = 10 * 60 + 30;
     const req = buildUpdate(f, o, "this");
     expect(req.scope).toBe("this");
-    expect(req.recurrenceId).toBe("2026-10-15T15:00:00Z");
+    expect(req.recurrenceId).toEqual(new Date("2026-10-15T15:00:00Z"));
     expect(req.event.recurrence).toBeUndefined();
-    expect(req.event.start).toBe("2026-10-15T16:00:00Z");
+    expect(req.event.start).toEqual(new Date("2026-10-15T16:00:00Z"));
   });
 
   it("all: a time change on one instance moves the series start", () => {
@@ -99,8 +110,8 @@ describe("series edits", () => {
     const req = buildUpdate(f, o, "all");
     expect(req.scope).toBe("all");
     expect(req.recurrenceId).toBeUndefined();
-    expect(req.event.start).toBe("2026-10-01T16:00:00Z");
-    expect(req.event.end).toBe("2026-10-01T17:00:00Z");
+    expect(req.event.start).toEqual(new Date("2026-10-01T16:00:00Z"));
+    expect(req.event.end).toEqual(new Date("2026-10-01T17:00:00Z"));
     expect(req.event.recurrence?.rrule).toBe("FREQ=WEEKLY;BYDAY=TH");
   });
 
@@ -109,13 +120,13 @@ describe("series edits", () => {
     f.recurrence = { ...f.recurrence, interval: 2 };
     const req = buildUpdate(f, o, "this_and_future");
     expect(req.scope).toBe("this_and_future");
-    expect(req.recurrenceId).toBe("2026-10-15T15:00:00Z");
+    expect(req.recurrenceId).toEqual(new Date("2026-10-15T15:00:00Z"));
     expect(req.event.recurrence?.rrule).toBe("FREQ=WEEKLY;INTERVAL=2;BYDAY=TH");
-    expect(req.event.start).toBe("2026-10-15T15:00:00Z");
+    expect(req.event.start).toEqual(new Date("2026-10-15T15:00:00Z"));
   });
 
   it("deletes with a scope", () => {
-    expect(buildDelete(o, "this")).toEqual({ eventId: "e1", scope: "this", recurrenceId: "2026-10-15T15:00:00Z" });
+    expect(buildDelete(o, "this")).toEqual({ eventId: "e1", scope: "this", recurrenceId: new Date("2026-10-15T15:00:00Z") });
     expect(buildDelete(o, "all")).toEqual({ eventId: "e1", scope: "all" });
     const single = occ(ev(), "2026-10-01T15:00:00Z", "2026-10-01T15:30:00Z");
     expect(buildDelete(single, "this")).toEqual({ eventId: "e1", scope: "all" });

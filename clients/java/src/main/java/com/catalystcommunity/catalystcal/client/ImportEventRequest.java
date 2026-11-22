@@ -2,9 +2,11 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record ImportEventRequest(
     Event event /* wire: "event" */,
     IdentityRef createdBy /* wire: "created_by" */,
-    Timestamp createdAt /* wire: "created_at" */
+    Instant createdAt /* wire: "created_at" */
 ) {
 }

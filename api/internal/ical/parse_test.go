@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
@@ -60,11 +61,11 @@ func TestParseGoogle(t *testing.T) {
 
 	m := findEvent(t, p, "standup123@google.com", false)
 	check(t, "Title", m.Title, "Standup")
-	check(t, "Start", str(m.Start), "2026-10-05T15:00:00Z")
-	check(t, "End", str(m.End), "2026-10-05T15:30:00Z")
+	check(t, "Start", m.Start.Format(time.RFC3339), "2026-10-05T15:00:00Z")
+	check(t, "End", m.End.Format(time.RFC3339), "2026-10-05T15:30:00Z")
 	check(t, "Timezone", str(m.Timezone), "America/Denver")
 	check(t, "Rrule", m.Recurrence.Rrule, "FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T235959Z")
-	if !reflect.DeepEqual(m.Recurrence.Exdates, []csil.Timestamp{"2026-10-12T15:00:00Z"}) {
+	if !reflect.DeepEqual(m.Recurrence.Exdates, []time.Time{instant("2026-10-12T15:00:00Z")}) {
 		t.Errorf("Exdates = %v", m.Recurrence.Exdates)
 	}
 	if m.Description == nil || !strings.HasPrefix(*m.Description, "Daily standup, keep it short.\nJoin with Google Meet: https://meet.google.com/abc-defg-hij\n\n-::~") {
@@ -102,15 +103,15 @@ func TestParseGoogle(t *testing.T) {
 	}
 
 	o := findEvent(t, p, "standup123@google.com", true)
-	check(t, "override RecurrenceId", str(o.RecurrenceId), "2026-10-07T15:00:00Z")
-	check(t, "override Start", str(o.Start), "2026-10-07T16:00:00Z")
+	check(t, "override RecurrenceId", o.RecurrenceId.Format(time.RFC3339), "2026-10-07T15:00:00Z")
+	check(t, "override Start", o.Start.Format(time.RFC3339), "2026-10-07T16:00:00Z")
 	check(t, "override Title", o.Title, "Standup (moved)")
 	if o.Recurrence != nil {
 		t.Errorf("override has recurrence")
 	}
 
 	l := findEvent(t, p, "lunch@google.com", false)
-	check(t, "lunch Start", str(l.Start), "2026-10-20T17:00:00Z")
+	check(t, "lunch Start", l.Start.Format(time.RFC3339), "2026-10-20T17:00:00Z")
 	if l.Timezone != nil {
 		t.Errorf("UTC event Timezone = %q", *l.Timezone)
 	}
@@ -124,7 +125,7 @@ func TestParseGoogle(t *testing.T) {
 	}
 	check(t, "xmas StartDate", str(x.StartDate), "2026-12-25")
 	check(t, "xmas EndDate", str(x.EndDate), "2026-12-26")
-	check(t, "xmas Start", str(x.Start), "2026-12-25T00:00:00Z")
+	check(t, "xmas Start", x.Start.Format(time.RFC3339), "2026-12-25T00:00:00Z")
 	check(t, "xmas Visibility", str(x.Visibility), "public")
 
 	// The parsed master and override expand as Google shows them.
@@ -156,8 +157,8 @@ func TestParseApple(t *testing.T) {
 	check(t, "vacation Transparency", str(v.Transparency), "transparent")
 
 	d := findEvent(t, p, "4B7D2C10-5E3F-4F6A-8B9C-2D1E0F3A4B5C", false)
-	check(t, "dentist Start", str(d.Start), "2026-11-10T09:30:00Z")
-	check(t, "dentist End", str(d.End), "2026-11-10T10:30:00Z")
+	check(t, "dentist Start", d.Start.Format(time.RFC3339), "2026-11-10T09:30:00Z")
+	check(t, "dentist End", d.End.Format(time.RFC3339), "2026-11-10T10:30:00Z")
 	check(t, "dentist Timezone", str(d.Timezone), "Europe/Berlin")
 	check(t, "dentist Location", str(d.Location), "Dr. Zahn\nHauptstr. 1, Berlin")
 	check(t, "dentist Url", str(d.Url), "https://example.com/booking?id=42&lang=de")
@@ -196,7 +197,7 @@ func TestParseOutlook(t *testing.T) {
 	check(t, "Title", m.Title, "Monthly review")
 	check(t, "Uid", str(m.Uid), "040000008200E00074C5B7101A82E00800000000A0B1C2D3E4F5A601000000000000000010000000F00E1D2C3B4A59687")
 	check(t, "Timezone", str(m.Timezone), "America/Denver")
-	check(t, "Start", str(m.Start), "2026-10-30T15:00:00Z")
+	check(t, "Start", m.Start.Format(time.RFC3339), "2026-10-30T15:00:00Z")
 	check(t, "Rrule", m.Recurrence.Rrule, "FREQ=MONTHLY;UNTIL=20270331T150000Z;INTERVAL=1;BYDAY=-1FR")
 	check(t, "Description", str(m.Description), "Agenda:\n1. Numbers\n2. Risks; blockers\n3. Next steps, owners and dates. This line is long on purpose so that Outlook folds it over more than one physical line in the file.\n")
 	check(t, "Location", str(m.Location), "Conf Room 4")
@@ -226,19 +227,19 @@ func TestParseOutlook(t *testing.T) {
 
 	pst := findEvent(t, p, "pst-single-1", false)
 	check(t, "pst Timezone", str(pst.Timezone), "America/Los_Angeles")
-	check(t, "pst Start", str(pst.Start), "2026-11-02T21:00:00Z")
-	check(t, "pst End (DURATION)", str(pst.End), "2026-11-02T21:45:00Z")
+	check(t, "pst Start", pst.Start.Format(time.RFC3339), "2026-11-02T21:00:00Z")
+	check(t, "pst End (DURATION)", pst.End.Format(time.RFC3339), "2026-11-02T21:45:00Z")
 	check(t, "pst Status", str(pst.Status), "tentative")
 
 	cz := findEvent(t, p, "custom-zone-1", false)
 	if cz.Timezone != nil {
 		t.Errorf("unknown zone Timezone = %q", *cz.Timezone)
 	}
-	check(t, "custom zone Start (fixed +0530)", str(cz.Start), "2026-11-02T07:30:00Z")
+	check(t, "custom zone Start (fixed +0530)", cz.Start.Format(time.RFC3339), "2026-11-02T07:30:00Z")
 
 	dz := findEvent(t, p, "display-name-zone-1", false)
 	check(t, "display zone", str(dz.Timezone), "America/Denver")
-	check(t, "display zone Start", str(dz.Start), "2026-11-02T15:00:00Z")
+	check(t, "display zone Start", dz.Start.Format(time.RFC3339), "2026-11-02T15:00:00Z")
 }
 
 func TestParseMisc(t *testing.T) {
@@ -258,8 +259,8 @@ func TestParseMisc(t *testing.T) {
 
 	f := findEvent(t, p, "floating-1", false)
 	check(t, "floating Timezone (X-WR-TIMEZONE)", str(f.Timezone), "America/New_York")
-	check(t, "floating Start", str(f.Start), "2026-11-16T19:00:00Z")
-	check(t, "floating End (DURATION)", str(f.End), "2026-11-16T20:30:00Z")
+	check(t, "floating Start", f.Start.Format(time.RFC3339), "2026-11-16T19:00:00Z")
+	check(t, "floating End (DURATION)", f.End.Format(time.RFC3339), "2026-11-16T20:30:00Z")
 	check(t, "Description", str(f.Description), "Line one\nLine two, with comma; and semicolon\\backslash. This text is folded across lines and has UTF-8: café crème brûlée — ok.")
 	check(t, "Location", str(f.Location), "Room 1, Floor 2")
 	if !reflect.DeepEqual(f.Categories, []string{"Work", "Planning, long-term", "Extra"}) {
@@ -308,7 +309,7 @@ func TestParseMisc(t *testing.T) {
 	ns := findEvent(t, p, "no-summary-1", false)
 	check(t, "no summary Title", ns.Title, UntitledTitle)
 	if ns.End == nil || *ns.End != *ns.Start {
-		t.Errorf("no DTEND: End = %v", str(ns.End))
+		t.Errorf("no DTEND: End = %v", ns.End.Format(time.RFC3339))
 	}
 }
 
@@ -318,8 +319,8 @@ func TestParseFloatingWithoutCalendarZone(t *testing.T) {
 	if ev.Timezone != nil {
 		t.Errorf("Timezone = %q", *ev.Timezone)
 	}
-	check(t, "Start", str(ev.Start), "2026-11-16T14:00:00Z")
-	if !reflect.DeepEqual(ev.Recurrence.Exdates, []csil.Timestamp{"2026-11-17T14:00:00Z"}) {
+	check(t, "Start", ev.Start.Format(time.RFC3339), "2026-11-16T14:00:00Z")
+	if !reflect.DeepEqual(ev.Recurrence.Exdates, []time.Time{instant("2026-11-17T14:00:00Z")}) {
 		t.Errorf("Exdates = %v", ev.Recurrence.Exdates)
 	}
 }
@@ -352,11 +353,11 @@ func TestParseRDatePeriodAndDateExdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	ev := p.Events[0]
-	if !reflect.DeepEqual(ev.Recurrence.Rdates, []csil.Timestamp{"2026-01-10T17:00:00Z", "2026-01-11T17:00:00Z"}) {
+	if !reflect.DeepEqual(ev.Recurrence.Rdates, []time.Time{instant("2026-01-10T17:00:00Z"), instant("2026-01-11T17:00:00Z")}) {
 		t.Errorf("Rdates = %v", ev.Recurrence.Rdates)
 	}
 	// A DATE EXDATE on a timed series takes the DTSTART clock time.
-	if !reflect.DeepEqual(ev.Recurrence.Exdates, []csil.Timestamp{"2026-01-06T16:00:00Z"}) {
+	if !reflect.DeepEqual(ev.Recurrence.Exdates, []time.Time{instant("2026-01-06T16:00:00Z")}) {
 		t.Errorf("Exdates = %v", ev.Recurrence.Exdates)
 	}
 }

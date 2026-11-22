@@ -56,11 +56,7 @@ func (d *Deps) importedRow(ev csil.Event, calendarID, actorID string) (store.Eve
 		return store.Event{}, err
 	}
 	if rid != nil {
-		t, err := store.ParseTime(string(*rid))
-		if err != nil {
-			return store.Event{}, err
-		}
-		ev.RecurrenceId = ptr(ts(t))
+		ev.RecurrenceId = ptr(ts(*rid))
 		ev.Recurrence = nil
 	}
 	if ev.Uid == nil || strings.TrimSpace(*ev.Uid) == "" {
@@ -157,7 +153,7 @@ func (s *IcsService) ImportIcs(ctx context.Context, req csil.ImportIcsRequest) (
 			}
 		}
 		row.Ev.MasterEventId = ptr(csil.EventID(mid))
-		rid, _ := store.ParseTime(string(*row.Ev.RecurrenceId))
+		rid := *row.Ev.RecurrenceId
 		if prev, err := s.Store.FindOverride(ctx, mid, rid); err == nil {
 			next := nextContent(id, r, prev, row.Ev)
 			writes = append(writes, store.EventWrite{Update: &next})

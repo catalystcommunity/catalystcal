@@ -31,7 +31,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             .transport
             .call("AuthService", "complete", &encode_complete_request(&req))
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// resume-session (request/response).
@@ -40,7 +40,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             .transport
             .call("AuthService", "resume-session", &encode_empty_request(&req))
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// end-session (request/response).
@@ -49,7 +49,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             .transport
             .call("AuthService", "end-session", &encode_empty_request(&req))
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// me (request/response).
@@ -58,7 +58,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             .transport
             .call("AuthService", "me", &encode_empty_request(&req))
             .await?;
-        decode_me_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_me_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// assume-principal (request/response).
@@ -74,7 +74,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
                 &encode_assume_principal_request(&req),
             )
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// release-principal (request/response).
@@ -87,7 +87,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// exchange-act-as-credential (request/response).
@@ -103,7 +103,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
                 &encode_exchange_act_as_credential_request(&req),
             )
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-act-as-scope-set (request/response).
@@ -119,7 +119,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
                 &encode_scope_set_request(&req),
             )
             .await?;
-        decode_scope_set_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_scope_set_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-application-identity (request/response).
@@ -136,7 +136,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
             )
             .await?;
         decode_application_identity_response(&csil_resp)
-            .map_err(|e| ClientError::Transport(e.to_string()))
+            .map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// exchange-application-presentation (request/response).
@@ -152,7 +152,7 @@ impl<T: AsyncTransport> AuthAsyncClient<T> {
                 &encode_exchange_application_presentation_request(&req),
             )
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -177,7 +177,7 @@ impl<T: AsyncTransport> DevAuthAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_dev_users_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_dev_users_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// dev-login (request/response).
@@ -190,7 +190,7 @@ impl<T: AsyncTransport> DevAuthAsyncClient<T> {
                 &encode_dev_login_request(&req),
             )
             .await?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -211,7 +211,7 @@ impl<T: AsyncTransport> UserAsyncClient<T> {
             .transport
             .call("UserService", "get-profile", &encode_empty_request(&req))
             .await?;
-        decode_user(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_user(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-profile (request/response).
@@ -224,7 +224,7 @@ impl<T: AsyncTransport> UserAsyncClient<T> {
                 &encode_update_profile_request(&req),
             )
             .await?;
-        decode_user(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_user(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// lookup-person (request/response).
@@ -240,7 +240,7 @@ impl<T: AsyncTransport> UserAsyncClient<T> {
                 &encode_lookup_person_request(&req),
             )
             .await?;
-        decode_person_summary(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_person_summary(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -265,7 +265,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_calendar_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-calendar (request/response).
@@ -278,7 +278,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_calendar_get_calendar_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-calendar (request/response).
@@ -294,7 +294,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_create_calendar_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-calendar (request/response).
@@ -310,7 +310,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_update_calendar_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-calendar (request/response).
@@ -323,7 +323,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_calendar_delete_calendar_request(&req),
             )
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// subscribe-calendar (request/response).
@@ -339,7 +339,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_subscribe_calendar_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// refresh-subscription (request/response).
@@ -352,7 +352,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_calendar_refresh_subscription_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// set-feed (request/response).
@@ -365,7 +365,7 @@ impl<T: AsyncTransport> CalendarAsyncClient<T> {
                 &encode_set_feed_request(&req),
             )
             .await?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -390,7 +390,7 @@ impl<T: AsyncTransport> ShareAsyncClient<T> {
                 &encode_share_list_shares_request(&req),
             )
             .await?;
-        decode_share_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_share_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// put-share (request/response).
@@ -399,7 +399,7 @@ impl<T: AsyncTransport> ShareAsyncClient<T> {
             .transport
             .call("ShareService", "put-share", &encode_share(&req))
             .await?;
-        decode_share(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_share(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-share (request/response).
@@ -412,7 +412,7 @@ impl<T: AsyncTransport> ShareAsyncClient<T> {
                 &encode_share_delete_share_request(&req),
             )
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -433,7 +433,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
             .transport
             .call("GroupService", "list-groups", &encode_empty_request(&req))
             .await?;
-        decode_group_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-group (request/response).
@@ -446,7 +446,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
                 &encode_group_get_group_request(&req),
             )
             .await?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-group (request/response).
@@ -459,7 +459,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
                 &encode_create_group_request(&req),
             )
             .await?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-group (request/response).
@@ -472,7 +472,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
                 &encode_update_group_request(&req),
             )
             .await?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// set-members (request/response).
@@ -485,7 +485,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
                 &encode_set_group_members_request(&req),
             )
             .await?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-group (request/response).
@@ -498,7 +498,7 @@ impl<T: AsyncTransport> GroupAsyncClient<T> {
                 &encode_group_delete_group_request(&req),
             )
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -523,7 +523,7 @@ impl<T: AsyncTransport> DelegationAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-received (request/response).
@@ -536,7 +536,7 @@ impl<T: AsyncTransport> DelegationAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-delegation (request/response).
@@ -549,7 +549,7 @@ impl<T: AsyncTransport> DelegationAsyncClient<T> {
                 &encode_delegation(&req),
             )
             .await?;
-        decode_delegation(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-delegation (request/response).
@@ -562,7 +562,7 @@ impl<T: AsyncTransport> DelegationAsyncClient<T> {
                 &encode_delegation(&req),
             )
             .await?;
-        decode_delegation(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// revoke-delegation (request/response).
@@ -575,7 +575,7 @@ impl<T: AsyncTransport> DelegationAsyncClient<T> {
                 &encode_delegation_revoke_delegation_request(&req),
             )
             .await?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -600,7 +600,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_list_events_request(&req),
             )
             .await?;
-        decode_occurrence_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_occurrence_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-event (request/response).
@@ -613,7 +613,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_event_get_event_request(&req),
             )
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-occurrence (request/response).
@@ -629,7 +629,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_get_occurrence_request(&req),
             )
             .await?;
-        decode_occurrence(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_occurrence(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-event (request/response).
@@ -638,7 +638,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
             .transport
             .call("EventService", "create-event", &encode_event(&req))
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-event (request/response).
@@ -651,7 +651,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_update_event_request(&req),
             )
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-event (request/response).
@@ -667,7 +667,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_delete_event_request(&req),
             )
             .await?;
-        decode_delete_event_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delete_event_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// move-event (request/response).
@@ -680,7 +680,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_move_event_request(&req),
             )
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// respond (request/response).
@@ -689,7 +689,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
             .transport
             .call("EventService", "respond", &encode_respond_request(&req))
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-invitations (request/response).
@@ -702,7 +702,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_empty_request(&req),
             )
             .await?;
-        decode_event_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// search-events (request/response).
@@ -715,7 +715,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_search_events_request(&req),
             )
             .await?;
-        decode_event_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-trash (request/response).
@@ -728,7 +728,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_list_trash_request(&req),
             )
             .await?;
-        decode_trash_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_trash_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// restore-event (request/response).
@@ -741,7 +741,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_restore_event_request(&req),
             )
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// import-event (request/response).
@@ -754,7 +754,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_import_event_request(&req),
             )
             .await?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-event-once (request/response).
@@ -770,7 +770,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_create_event_once_request(&req),
             )
             .await?;
-        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-create-receipt (request/response).
@@ -786,7 +786,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_create_receipt_request(&req),
             )
             .await?;
-        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// split-series-once (request/response).
@@ -802,7 +802,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_split_series_once_request(&req),
             )
             .await?;
-        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-split-receipt (request/response).
@@ -818,7 +818,7 @@ impl<T: AsyncTransport> EventAsyncClient<T> {
                 &encode_split_receipt_request(&req),
             )
             .await?;
-        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -839,7 +839,7 @@ impl<T: AsyncTransport> FreeBusyAsyncClient<T> {
             .transport
             .call("FreeBusyService", "query", &encode_free_busy_request(&req))
             .await?;
-        decode_free_busy_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_free_busy_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -860,7 +860,7 @@ impl<T: AsyncTransport> IcsAsyncClient<T> {
             .transport
             .call("IcsService", "import-ics", &encode_import_ics_request(&req))
             .await?;
-        decode_import_result(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_import_result(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// export-calendar (request/response).
@@ -876,7 +876,7 @@ impl<T: AsyncTransport> IcsAsyncClient<T> {
                 &encode_export_calendar_request(&req),
             )
             .await?;
-        decode_ics_document(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_ics_document(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// export-event (request/response).
@@ -889,7 +889,7 @@ impl<T: AsyncTransport> IcsAsyncClient<T> {
                 &encode_export_event_request(&req),
             )
             .await?;
-        decode_ics_document(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_ics_document(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -910,6 +910,6 @@ impl<T: AsyncTransport> AuditAsyncClient<T> {
             .transport
             .call("AuditService", "list-audit", &encode_audit_query(&req))
             .await?;
-        decode_audit_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_audit_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }

@@ -18,7 +18,7 @@ import { allDayLength, allDayStart, occurrenceKey } from "~/lib/occurrence";
 import { buildUpdate, formFromOccurrence, isSeriesOccurrence, newEventForm, type NewEventSeed } from "~/lib/eventForm";
 import { myStatus, occColor, occTitle } from "~/lib/eventVisual";
 import { addDays } from "~/lib/dates";
-import { civilDate, minutesIntoDay, parseTimestamp, roundUpToSlot, todayIn } from "~/lib/tz";
+import { civilDate, minutesIntoDay, roundUpToSlot, todayIn } from "~/lib/tz";
 import { matchesMedia, shortcutBlocked, watchMedia } from "~/lib/media";
 import { errorMessage } from "~/transport/csilrpc";
 import { CalElement, define } from "~/ui/element";
@@ -82,8 +82,8 @@ export function seedFromSlot(d: Pick<CalendarSlotSelectDetail, "start" | "end" |
     const end = d.end && d.end > d.start ? addDays(d.end.slice(0, 10), -1) : d.start.slice(0, 10);
     return { date: d.start.slice(0, 10), endDate: end, allDay: true };
   }
-  const s = parseTimestamp(d.start);
-  const e = parseTimestamp(d.end);
+  const s = Date.parse(d.start);
+  const e = Date.parse(d.end);
   return { date: civilDate(s, tz), startMin: minutesIntoDay(s, tz), endDate: civilDate(e, tz), endMin: minutesIntoDay(e, tz) };
 }
 
@@ -104,7 +104,7 @@ export class CalendarPage extends CalElement {
   #seq = 0;
 
   protected build(): void {
-    this.#cal = h("calendar-view", { views: VIEWS.join(","), class: "cal-view" }) as CalendarView;
+    this.#cal = h("calendar-view", { views: VIEWS.join(","), class: "cal-view" });
     this.#cal.updateConfig({ labels: { tags: TAG_LABELS } });
     this.#spinner = h("span", { class: "spinner spinner-sm", role: "status", "aria-label": "Loading events", hidden: true });
     this.#error = h("p", { class: "alert cal-alert", role: "alert", hidden: true });
@@ -179,7 +179,7 @@ export class CalendarPage extends CalElement {
     // The user can change the view and the date in the calendar's own toolbar.
     if (r.date && r.date !== cursor()) setCursor(r.date);
     const eff = this.#effectiveView();
-    if (r.view !== eff.view && VIEWS.includes(r.view as ViewKind)) setView(r.view as ViewKind);
+    if (r.view !== eff.view && VIEWS.includes(r.view)) setView(r.view);
     this.#maybeLoad();
   }
 
@@ -199,7 +199,7 @@ export class CalendarPage extends CalElement {
     let res: OccurrenceList | null = null;
     let problem: string | null = null;
     try {
-      res = await eventClient.listEvents({ rangeStart: r.start, rangeEnd: r.end, includeInvitations: true });
+      res = await eventClient.listEvents({ rangeStart: new Date(r.start), rangeEnd: new Date(r.end), includeInvitations: true });
     } catch (e) {
       problem = errorMessage(e);
     }

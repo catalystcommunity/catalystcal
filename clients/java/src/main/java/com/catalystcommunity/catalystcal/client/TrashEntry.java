@@ -2,16 +2,18 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record TrashEntry(
     TrashId trashId /* wire: "trash_id" */,
     CalendarId calendarId /* wire: "calendar_id" */,
     EventId eventId /* wire: "event_id" */,
     RecurrenceScope scope /* wire: "scope" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
+    Instant recurrenceId /* wire: "recurrence_id" */,
     Event event /* wire: "event" */,
     Event instance /* wire: "instance" */,
     PersonSummary deletedBy /* wire: "deleted_by" */,
-    Timestamp deletedAt /* wire: "deleted_at" */,
-    Timestamp expiresAt /* wire: "expires_at" */
+    Instant deletedAt /* wire: "deleted_at" */,
+    Instant expiresAt /* wire: "expires_at" */
 ) {
 }

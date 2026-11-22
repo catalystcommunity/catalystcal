@@ -138,7 +138,7 @@ func TestTruncateRRuleSplitsSeries(t *testing.T) {
 			if tc.ev.Timezone != nil {
 				tz = *tc.ev.Timezone
 			}
-			start, _ := parseInstant(string(*tc.ev.Start))
+			start := *tc.ev.Start
 			rule, err := TruncateRRule(tc.ev.Recurrence.Rrule, start, tz, cut)
 			if err != nil {
 				t.Fatal(err)

@@ -2,10 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record SplitOccurrenceMapping(
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
+    Instant recurrenceId /* wire: "recurrence_id" */,
     SplitMapResult result /* wire: "result" */,
     EventId eventId /* wire: "event_id" */,
-    Timestamp mappedRecurrenceId /* wire: "mapped_recurrence_id" */
+    Instant mappedRecurrenceId /* wire: "mapped_recurrence_id" */
 ) {
 }

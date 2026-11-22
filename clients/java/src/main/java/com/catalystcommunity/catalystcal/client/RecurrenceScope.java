@@ -2,4 +2,21 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record RecurrenceScope(Object value) {}
+public enum RecurrenceScope {
+    ALL("all"),
+    THIS("this"),
+    THIS_AND_FUTURE("this_and_future");
+
+    private final String value;
+
+    RecurrenceScope(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static RecurrenceScope fromWire(String value) {
+        for (RecurrenceScope member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown RecurrenceScope value: " + value);
+    }
+}

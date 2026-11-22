@@ -20,7 +20,7 @@ import "~/components/DelegationForm";
 
 function state(d: Delegation): "active" | "revoked" | "expired" {
   if (d.revokedAt) return "revoked";
-  if (d.expiresAt && Date.parse(d.expiresAt) <= Date.now()) return "expired";
+  if (d.expiresAt && d.expiresAt.getTime() <= Date.now()) return "expired";
   return "active";
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
+	"github.com/fxamacker/cbor/v2"
 )
 
 func TestCreateEventWithReceiptOnce(t *testing.T) {
@@ -22,7 +23,7 @@ func TestCreateEventWithReceiptOnce(t *testing.T) {
 	}
 	cal := cals[0].ID
 	newRow := func(uid string) *Event {
-		start, end := csil.Timestamp("2026-11-10T15:00:00Z"), csil.Timestamp("2026-11-10T16:00:00Z")
+		start, end := mustTime("2026-11-10T15:00:00Z"), mustTime("2026-11-10T16:00:00Z")
 		return &Event{Ev: csil.Event{CalendarId: csil.CalendarID(cal), Uid: &uid, Title: "x", Start: &start, End: &end},
 			OrganizerID: u.ID, CreatedByID: u.ID, UpdatedByID: u.ID}
 	}
@@ -74,7 +75,7 @@ func TestSplitWithReceiptOnce(t *testing.T) {
 	}
 	cal := cals[0].ID
 	newRow := func(uid string) *Event {
-		start, end := csil.Timestamp("2026-11-10T15:00:00Z"), csil.Timestamp("2026-11-10T16:00:00Z")
+		start, end := mustTime("2026-11-10T15:00:00Z"), mustTime("2026-11-10T16:00:00Z")
 		return &Event{Ev: csil.Event{EventId: csil.EventID(NewID()), CalendarId: csil.CalendarID(cal), Uid: &uid, Title: "x",
 			Start: &start, End: &end, Recurrence: &csil.Recurrence{Rrule: "FREQ=WEEKLY"}},
 			OrganizerID: u.ID, CreatedByID: u.ID, UpdatedByID: u.ID}
@@ -98,5 +99,28 @@ func TestSplitWithReceiptOnce(t *testing.T) {
 	if err != nil || got.SuccessorID != first.ID() || !got.SplitAt.Equal(rc.SplitAt) || got.After.Title != "x" ||
 		got.After.Recurrence == nil || string(got.Before.EventId) != string(rc.Before.EventId) {
 		t.Fatalf("receipt %+v %v", got, err)
+	}
+}
+
+// A snapshot from the old schema has untagged text, including nested dates.
+func TestReadLegacySplitSnapshot(t *testing.T) {
+	const at = "2000-02-29T00:00:00Z"
+	data, err := cbor.Marshal(map[string]any{
+		"event_id": "master", "calendar_id": "cal", "title": "Leap day", "sequence": 0,
+		"all_day": true, "start_date": "2000-02-29", "end_date": "2000-03-01",
+		"start": at, "created_at": at, "updated_at": at,
+		"recurrence": map[string]any{"rrule": "FREQ=YEARLY", "exdates": []string{at}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ev, err := decodeSnapshot(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ev.EventId != "master" || ev.StartDate == nil || *ev.StartDate != "2000-02-29" ||
+		ev.Start == nil || ev.Start.Format(TimeLayout) != at || ev.Recurrence == nil ||
+		len(ev.Recurrence.Exdates) != 1 || !ev.Recurrence.Exdates[0].Equal(*ev.Start) {
+		t.Fatalf("decoded snapshot: %+v", ev)
 	}
 }

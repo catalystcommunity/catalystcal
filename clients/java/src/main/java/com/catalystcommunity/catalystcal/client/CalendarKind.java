@@ -2,4 +2,20 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record CalendarKind(Object value) {}
+public enum CalendarKind {
+    LOCAL("local"),
+    SUBSCRIPTION("subscription");
+
+    private final String value;
+
+    CalendarKind(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static CalendarKind fromWire(String value) {
+        for (CalendarKind member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown CalendarKind value: " + value);
+    }
+}

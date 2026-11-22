@@ -21,14 +21,7 @@ func (s *EventService) GetOccurrence(ctx context.Context, req csil.GetOccurrence
 		return csil.Occurrence{}, err
 	}
 	notFound := errNotFound("occurrence")
-	var rid *time.Time
-	if req.RecurrenceId != nil {
-		t, err := parseTS("recurrence_id", *req.RecurrenceId)
-		if err != nil {
-			return csil.Occurrence{}, err
-		}
-		rid = &t
-	}
+	rid := tsPtr(req.RecurrenceId)
 	row, _, acc, _, err := r.loadEvent(ctx, string(req.EventId))
 	if err != nil {
 		return csil.Occurrence{}, err
@@ -39,10 +32,7 @@ func (s *EventService) GetOccurrence(ctx context.Context, req csil.GetOccurrence
 		if row.Ev.RecurrenceId == nil {
 			return csil.Occurrence{}, notFound
 		}
-		orid, err := parseTS("recurrence_id", *row.Ev.RecurrenceId)
-		if err != nil {
-			return csil.Occurrence{}, internal(err, "override recurrence id")
-		}
+		orid := ts(*row.Ev.RecurrenceId)
 		if rid != nil && !rid.Equal(orid) {
 			return csil.Occurrence{}, notFound
 		}

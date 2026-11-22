@@ -78,9 +78,9 @@ static int csil_read_all(int fd, uint8_t **out, size_t *out_len) {
 
 // The CsilgenTransport seam: build the CSIL-RPC envelope with the library, POST it, and
 // decode the library's response — never hand-rolling the envelope.
-static int csil_rpc_call(void *self, const char *service, const char *op,
+static int csil_rpc_call_reply(void *self, const char *service, const char *op,
                          const uint8_t *req, size_t req_len,
-                         uint8_t **resp, size_t *resp_len) {
+                         uint8_t **resp, size_t *resp_len, char **variant) {
     CsilRpcCarrier *c = (CsilRpcCarrier *)self;
 
     // 1. Encode the request envelope with the library (tag-24 payload, canonical CBOR).
@@ -143,17 +143,16 @@ static int csil_rpc_call(void *self, const char *service, const char *op,
 
     // A non-zero transport status is a transport failure (no typed payload).
     if (csil_rpc_response_is_transport_error(&rsp)) {
+        int status = (int)csil_status_code(rsp.status);
         csil_rpc_response_free(&rsp);
         free(raw);
-        return -1;
+        return status;
     }
-    // A typed application error rides as a status-0 "ServiceError" variant — surface it
-    // so the typed client decodes success only.
-    if (rsp.variant && strcmp(rsp.variant, "ServiceError") == 0) {
-        fprintf(stderr, "csil-rpc %s/%s: service error\n", service, op);
-        csil_rpc_response_free(&rsp);
-        free(raw);
-        return 1;
+    if (variant && rsp.variant) {
+        size_t len = strlen(rsp.variant) + 1;
+        *variant = malloc(len);
+        if (!*variant) { csil_rpc_response_free(&rsp); free(raw); return -1; }
+        memcpy(*variant, rsp.variant, len);
     }
 
     // 5. Hand a malloc'd copy of the success payload to the generated client.
@@ -167,18 +166,23 @@ static int csil_rpc_call(void *self, const char *service, const char *op,
     return 0;
 }
 
+static int csil_rpc_call(void *self, const char *service, const char *op,
+                         const uint8_t *req, size_t req_len, uint8_t **resp, size_t *resp_len) {
+    return csil_rpc_call_reply(self, service, op, req, req_len, resp, resp_len, NULL);
+}
+
 int main(void) {
     CsilRpcCarrier carrier = { .host = "127.0.0.1", .port = "5080" };
-    CsilgenTransport transport = { .call = csil_rpc_call, .self = &carrier };
+    CsilgenTransport transport = { .call = csil_rpc_call, .self = &carrier, .call_reply = csil_rpc_call_reply };
 
     CsilCodecArena *owner = NULL;
-    LoginResponse resp;
+    AuthServiceCompleteReply resp;
     CompleteRequest req = { .encrypted_token = "example" };
     if (csil_auth_complete(&transport, &req, &resp, &owner) != 0) {
         fprintf(stderr, "csil-rpc AuthService/complete failed\n");
         return 1;
     }
-    printf("AuthService/complete -> %s\n", resp.token);
+    printf("reply kind %d\n", (int)resp.kind);
     csil_codec_arena_free(owner); // frees everything `resp` borrows
     return 0;
 }

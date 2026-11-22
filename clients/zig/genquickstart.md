@@ -39,10 +39,16 @@ const HttpRpcCarrier = struct {
     base_url: []const u8, // e.g. "http://127.0.0.1:5080"
 
     fn transport(self: *HttpRpcCarrier) client.CsilgenTransport {
-        return .{ .ptr = self, .call = call };
+        return .{ .ptr = self, .call = call, .call_reply = callReply };
     }
 
     fn call(ptr: *anyopaque, alloc: std.mem.Allocator, service: []const u8, op: []const u8, req: []const u8) anyerror![]u8 {
+        const reply = try callReply(ptr, alloc, service, op, req);
+        if (reply.variant) |variant| alloc.free(variant);
+        return reply.payload;
+    }
+
+    fn callReply(ptr: *anyopaque, alloc: std.mem.Allocator, service: []const u8, op: []const u8, req: []const u8) anyerror!client.WireReply {
         const self: *HttpRpcCarrier = @ptrCast(@alignCast(ptr));
 
         // Build the request envelope with the library (NOT hand-rolled).
@@ -71,11 +77,9 @@ const HttpRpcCarrier = struct {
         defer arena.deinit();
         const resp = try rpc.decode_rpc_response(arena.allocator(), resp_body.items);
         resp.as_transport_error() catch return error.CsilRpcTransportStatus;
-        if (resp.variant) |variant| {
-            if (std.mem.eql(u8, variant, "ServiceError")) return error.CsilRpcServiceError;
-        }
-        // Hand the typed payload bytes back to the generated client (it frees them).
-        return alloc.dupe(u8, resp.payload);
+        const payload = try alloc.dupe(u8, resp.payload);
+        errdefer alloc.free(payload);
+        return .{ .variant = if (resp.variant) |v| try alloc.dupe(u8, v) else null, .payload = payload };
     }
 };
 
@@ -91,10 +95,10 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
 
-    var resp: types.LoginResponse = undefined;
+    var resp: types.AuthServiceCompleteReply = undefined;
     const req = types.CompleteRequest{ .encrypted_token = "example" };
     try svc.complete(arena.allocator(), &req, &resp);
-    std.debug.print("AuthService/complete -> {s}\n", .{resp.token});
+    std.debug.print("AuthService/complete ok\n", .{});
 }
 ```
 

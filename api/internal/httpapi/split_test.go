@@ -10,7 +10,7 @@ import (
 )
 
 func splitOnce(c *client, key string, ev csil.Event, rid string, maps ...string) reply[csil.SplitSeriesReceipt] {
-	return call(c, "EventService", "split-series-once", csil.SplitSeriesOnceRequest{IdempotencyKey: key, Event: ev, RecurrenceId: csil.Timestamp(rid), MapRecurrenceIds: tsList(maps)},
+	return call(c, "EventService", "split-series-once", csil.SplitSeriesOnceRequest{IdempotencyKey: key, Event: ev, RecurrenceId: instant(rid), MapRecurrenceIds: tsList(maps)},
 		csil.EncodeSplitSeriesOnceRequest, csil.DecodeSplitSeriesReceipt)
 }
 
@@ -19,10 +19,10 @@ func getSplit(c *client, series csil.EventID, key string, maps ...string) reply[
 		csil.EncodeSplitReceiptRequest, csil.DecodeSplitSeriesReceipt)
 }
 
-func tsList(in []string) []csil.Timestamp {
-	out := make([]csil.Timestamp, len(in))
+func tsList(in []string) []time.Time {
+	out := make([]time.Time, len(in))
 	for i, v := range in {
-		out[i] = csil.Timestamp(v)
+		out[i] = instant(v)
 	}
 	return out
 }
@@ -44,7 +44,7 @@ func wantMaps(t *testing.T, r csil.SplitSeriesReceipt, want ...string) {
 			case r.SuccessorId:
 				who = "N"
 			}
-			got += " " + who + " " + string(*m.MappedRecurrenceId)
+			got += " " + who + " " + m.MappedRecurrenceId.Format(time.RFC3339)
 		}
 		if got != want[i] {
 			t.Fatalf("mapping %d (%s): %q, want %q", i, m.RecurrenceId, got, want[i])
@@ -73,7 +73,7 @@ func TestSplitSeriesOnce(t *testing.T) {
 	wantAll := []string{"original S 2026-11-09T15:00:00Z", "none", "successor N 2026-11-17T16:00:00Z", "none",
 		"successor N 2026-12-01T16:00:00Z", "none", "none"}
 	first := must(t, splitOnce(alice, "s1", next, "2026-11-16T15:00:00Z", maps...))
-	if !first.Created || first.InPlace || first.SuccessorId == series.EventId || first.SplitAt != "2026-11-16T15:00:00Z" ||
+	if !first.Created || first.InPlace || first.SuccessorId == series.EventId || first.SplitAt != instant("2026-11-16T15:00:00Z") ||
 		first.SeriesState != "live" || first.SuccessorState != "live" || first.Successor.Title != "Standup v2" {
 		t.Fatalf("first: %+v", first)
 	}
@@ -154,7 +154,11 @@ func TestSplitSeriesOnce(t *testing.T) {
 		csil.EncodeUpdateEventRequest, csil.DecodeEvent))
 	wantCode(t, splitOnce(alice, "x", moved, "2026-11-09T15:00:00Z"), 400)
 	wantCode(t, splitOnce(alice, "", ser2, "2026-11-09T15:00:00Z"), 400)
-	wantCode(t, splitOnce(alice, "x", ser2, "2026-11-09T15:00:00Z", make([]string, 501)...), 400)
+	tooMany := make([]string, 501)
+	for i := range tooMany {
+		tooMany[i] = "2026-11-09T15:00:00Z"
+	}
+	wantCode(t, splitOnce(alice, "x", ser2, "2026-11-09T15:00:00Z", tooMany...), 400)
 }
 
 func TestSplitSeriesOnceMapping(t *testing.T) {
@@ -176,7 +180,7 @@ func TestSplitSeriesOnceMapping(t *testing.T) {
 	ser = must(t, createEvent(alice, den))
 	next = at(ser, "2027-03-01T16:00:00Z", "2027-03-01T17:00:00Z")
 	r = must(t, splitOnce(alice, "first", next, "2027-03-01T15:00:00Z", "2027-03-01T15:00:00Z", "2027-03-22T14:00:00Z"))
-	if !r.InPlace || r.SuccessorId != ser.EventId || r.SplitAt != "2027-03-01T15:00:00Z" {
+	if !r.InPlace || r.SuccessorId != ser.EventId || r.SplitAt != instant("2027-03-01T15:00:00Z") {
 		t.Fatalf("in place: %+v", r)
 	}
 	wantMaps(t, r, "successor S 2027-03-01T16:00:00Z", "successor S 2027-03-22T15:00:00Z") // in place: S is N
@@ -189,11 +193,11 @@ func TestSplitSeriesOnceMapping(t *testing.T) {
 
 	// An all-day series: dates move by days.
 	day := csil.Event{CalendarId: a1.CalendarId, Title: "Trash day", AllDay: ptrBool(true),
-		StartDate: ptr(csil.DateText("2026-11-06")), EndDate: ptr(csil.DateText("2026-11-07")),
+		StartDate: ptr("2026-11-06"), EndDate: ptr("2026-11-07"),
 		Recurrence: &csil.Recurrence{Rrule: "FREQ=WEEKLY;COUNT=4"}}
 	days := must(t, createEvent(alice, day))
 	nd := days
-	nd.StartDate, nd.EndDate = ptr(csil.DateText("2026-11-14")), ptr(csil.DateText("2026-11-15"))
+	nd.StartDate, nd.EndDate = ptr("2026-11-14"), ptr("2026-11-15")
 	r = must(t, splitOnce(alice, "day", nd, "2026-11-13T00:00:00Z", "2026-11-06T00:00:00Z", "2026-11-20T00:00:00Z", "2026-11-21T00:00:00Z"))
 	wantMaps(t, r, "original S 2026-11-06T00:00:00Z", "successor N 2026-11-21T00:00:00Z", "none")
 }
@@ -229,7 +233,7 @@ func TestSplitSeriesOnceConcurrent(t *testing.T) {
 		t.Fatalf("%d calls report created", made)
 	}
 	occ := must(t, call(alice, "EventService", "list-events", csil.ListEventsRequest{CalendarIds: []csil.CalendarID{a1.CalendarId},
-		RangeStart: "2026-11-01T00:00:00Z", RangeEnd: "2027-01-01T00:00:00Z"}, csil.EncodeListEventsRequest, csil.DecodeOccurrenceList))
+		RangeStart: instant("2026-11-01T00:00:00Z"), RangeEnd: instant("2027-01-01T00:00:00Z")}, csil.EncodeListEventsRequest, csil.DecodeOccurrenceList))
 	// Two before the split, six in the successor (COUNT=6). A second split
 	// would add six more.
 	if len(occ.Occurrences) != 8 {

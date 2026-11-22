@@ -18,1068 +18,1131 @@ typedef struct CsilgenTransport {
                 const uint8_t *req, size_t req_len,
                 uint8_t **resp, size_t *resp_len);
     void *self;
+    /* A status-zero reply transfers ownership of its variant and payload to the client. */
+    int (*call_reply)(void *self, const char *service, const char *op,
+                      const uint8_t *req, size_t req_len,
+                      uint8_t **resp, size_t *resp_len, char **variant);
 } CsilgenTransport;
 
 /* Invoke AuthService/complete with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_complete(const CsilgenTransport *t, const CompleteRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceCompleteReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CompleteRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "complete", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "complete", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceCompleteReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/resume-session with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_resume_session(const CsilgenTransport *t, const EmptyRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceResumeSessionReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "resume-session", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "resume-session", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceResumeSessionReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/end-session with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_end_session(const CsilgenTransport *t, const EmptyRequest *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceEndSessionReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "end-session", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "end-session", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceEndSessionReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/me with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_me(const CsilgenTransport *t, const EmptyRequest *req,
-                        MeResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceMeReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "me", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "me", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_MeResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceMeReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/assume-principal with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_assume_principal(const CsilgenTransport *t, const AssumePrincipalRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceAssumePrincipalReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_AssumePrincipalRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "assume-principal", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "assume-principal", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceAssumePrincipalReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/release-principal with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_release_principal(const CsilgenTransport *t, const EmptyRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceReleasePrincipalReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "release-principal", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "release-principal", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceReleasePrincipalReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/exchange-act-as-credential with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_exchange_act_as_credential(const CsilgenTransport *t, const ExchangeActAsCredentialRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceExchangeActAsCredentialReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ExchangeActAsCredentialRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "exchange-act-as-credential", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "exchange-act-as-credential", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceExchangeActAsCredentialReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/get-act-as-scope-set with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_get_act_as_scope_set(const CsilgenTransport *t, const ScopeSetRequest *req,
-                        ScopeSetResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceGetActAsScopeSetReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ScopeSetRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "get-act-as-scope-set", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "get-act-as-scope-set", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_ScopeSetResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceGetActAsScopeSetReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/get-application-identity with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_get_application_identity(const CsilgenTransport *t, const EmptyRequest *req,
-                        ApplicationIdentityResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceGetApplicationIdentityReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "get-application-identity", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "get-application-identity", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_ApplicationIdentityResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceGetApplicationIdentityReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuthService/exchange-application-presentation with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_auth_exchange_application_presentation(const CsilgenTransport *t, const ExchangeApplicationPresentationRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        AuthServiceExchangeApplicationPresentationReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ExchangeApplicationPresentationRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuthService", "exchange-application-presentation", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuthService", "exchange-application-presentation", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuthServiceExchangeApplicationPresentationReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DevAuthService/list-dev-users with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_dev_auth_list_dev_users(const CsilgenTransport *t, const EmptyRequest *req,
-                        DevUsersResponse *resp, CsilCodecArena **resp_owner) {
+                        DevAuthServiceListDevUsersReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DevAuthService", "list-dev-users", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DevAuthService", "list-dev-users", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_DevUsersResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DevAuthServiceListDevUsersReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DevAuthService/dev-login with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_dev_auth_dev_login(const CsilgenTransport *t, const DevLoginRequest *req,
-                        LoginResponse *resp, CsilCodecArena **resp_owner) {
+                        DevAuthServiceDevLoginReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_DevLoginRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DevAuthService", "dev-login", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DevAuthService", "dev-login", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_LoginResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DevAuthServiceDevLoginReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke UserService/get-profile with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_user_get_profile(const CsilgenTransport *t, const EmptyRequest *req,
-                        User *resp, CsilCodecArena **resp_owner) {
+                        UserServiceGetProfileReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "UserService", "get-profile", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "UserService", "get-profile", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_User(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_UserServiceGetProfileReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke UserService/update-profile with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_user_update_profile(const CsilgenTransport *t, const UpdateProfileRequest *req,
-                        User *resp, CsilCodecArena **resp_owner) {
+                        UserServiceUpdateProfileReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_UpdateProfileRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "UserService", "update-profile", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "UserService", "update-profile", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_User(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_UserServiceUpdateProfileReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke UserService/lookup-person with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_user_lookup_person(const CsilgenTransport *t, const LookupPersonRequest *req,
-                        PersonSummary *resp, CsilCodecArena **resp_owner) {
+                        UserServiceLookupPersonReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_LookupPersonRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "UserService", "lookup-person", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "UserService", "lookup-person", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_PersonSummary(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_UserServiceLookupPersonReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/list-calendars with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_list_calendars(const CsilgenTransport *t, const EmptyRequest *req,
-                        CalendarList *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceListCalendarsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "list-calendars", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "list-calendars", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_CalendarList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceListCalendarsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/get-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_get_calendar(const CsilgenTransport *t, const CalendarID *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceGetCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CalendarID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "get-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "get-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceGetCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/create-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_create_calendar(const CsilgenTransport *t, const CreateCalendarRequest *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceCreateCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CreateCalendarRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "create-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "create-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceCreateCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/update-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_update_calendar(const CsilgenTransport *t, const UpdateCalendarRequest *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceUpdateCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_UpdateCalendarRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "update-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "update-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceUpdateCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/delete-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_delete_calendar(const CsilgenTransport *t, const CalendarID *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceDeleteCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CalendarID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "delete-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "delete-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceDeleteCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/subscribe-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_subscribe_calendar(const CsilgenTransport *t, const SubscribeCalendarRequest *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceSubscribeCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SubscribeCalendarRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "subscribe-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "subscribe-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceSubscribeCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/refresh-subscription with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_refresh_subscription(const CsilgenTransport *t, const CalendarID *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceRefreshSubscriptionReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CalendarID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "refresh-subscription", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "refresh-subscription", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceRefreshSubscriptionReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke CalendarService/set-feed with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_calendar_set_feed(const CsilgenTransport *t, const SetFeedRequest *req,
-                        Calendar *resp, CsilCodecArena **resp_owner) {
+                        CalendarServiceSetFeedReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SetFeedRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "CalendarService", "set-feed", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "CalendarService", "set-feed", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Calendar(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_CalendarServiceSetFeedReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke ShareService/list-shares with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_share_list_shares(const CsilgenTransport *t, const CalendarID *req,
-                        ShareList *resp, CsilCodecArena **resp_owner) {
+                        ShareServiceListSharesReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CalendarID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "ShareService", "list-shares", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "ShareService", "list-shares", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_ShareList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_ShareServiceListSharesReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke ShareService/put-share with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_share_put_share(const CsilgenTransport *t, const Share *req,
-                        Share *resp, CsilCodecArena **resp_owner) {
+                        ShareServicePutShareReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_Share(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "ShareService", "put-share", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "ShareService", "put-share", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Share(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_ShareServicePutShareReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke ShareService/delete-share with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_share_delete_share(const CsilgenTransport *t, const ShareID *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        ShareServiceDeleteShareReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ShareID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "ShareService", "delete-share", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "ShareService", "delete-share", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_ShareServiceDeleteShareReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/list-groups with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_list_groups(const CsilgenTransport *t, const EmptyRequest *req,
-                        GroupList *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceListGroupsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "list-groups", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "list-groups", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_GroupList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceListGroupsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/get-group with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_get_group(const CsilgenTransport *t, const GroupID *req,
-                        Group *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceGetGroupReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_GroupID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "get-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "get-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Group(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceGetGroupReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/create-group with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_create_group(const CsilgenTransport *t, const CreateGroupRequest *req,
-                        Group *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceCreateGroupReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CreateGroupRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "create-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "create-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Group(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceCreateGroupReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/update-group with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_update_group(const CsilgenTransport *t, const UpdateGroupRequest *req,
-                        Group *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceUpdateGroupReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_UpdateGroupRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "update-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "update-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Group(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceUpdateGroupReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/set-members with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_set_members(const CsilgenTransport *t, const SetGroupMembersRequest *req,
-                        Group *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceSetMembersReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SetGroupMembersRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "set-members", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "set-members", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Group(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceSetMembersReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke GroupService/delete-group with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_group_delete_group(const CsilgenTransport *t, const GroupID *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        GroupServiceDeleteGroupReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_GroupID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "GroupService", "delete-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "GroupService", "delete-group", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_GroupServiceDeleteGroupReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DelegationService/list-granted with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_delegation_list_granted(const CsilgenTransport *t, const EmptyRequest *req,
-                        DelegationList *resp, CsilCodecArena **resp_owner) {
+                        DelegationServiceListGrantedReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DelegationService", "list-granted", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DelegationService", "list-granted", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_DelegationList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DelegationServiceListGrantedReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DelegationService/list-received with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_delegation_list_received(const CsilgenTransport *t, const EmptyRequest *req,
-                        DelegationList *resp, CsilCodecArena **resp_owner) {
+                        DelegationServiceListReceivedReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DelegationService", "list-received", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DelegationService", "list-received", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_DelegationList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DelegationServiceListReceivedReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DelegationService/create-delegation with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_delegation_create_delegation(const CsilgenTransport *t, const Delegation *req,
-                        Delegation *resp, CsilCodecArena **resp_owner) {
+                        DelegationServiceCreateDelegationReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_Delegation(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DelegationService", "create-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DelegationService", "create-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Delegation(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DelegationServiceCreateDelegationReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DelegationService/update-delegation with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_delegation_update_delegation(const CsilgenTransport *t, const Delegation *req,
-                        Delegation *resp, CsilCodecArena **resp_owner) {
+                        DelegationServiceUpdateDelegationReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_Delegation(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DelegationService", "update-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DelegationService", "update-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Delegation(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DelegationServiceUpdateDelegationReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke DelegationService/revoke-delegation with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_delegation_revoke_delegation(const CsilgenTransport *t, const DelegationID *req,
-                        EmptyResponse *resp, CsilCodecArena **resp_owner) {
+                        DelegationServiceRevokeDelegationReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_DelegationID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "DelegationService", "revoke-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "DelegationService", "revoke-delegation", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EmptyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_DelegationServiceRevokeDelegationReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/list-events with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_list_events(const CsilgenTransport *t, const ListEventsRequest *req,
-                        OccurrenceList *resp, CsilCodecArena **resp_owner) {
+                        EventServiceListEventsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ListEventsRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "list-events", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "list-events", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_OccurrenceList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceListEventsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/get-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_get_event(const CsilgenTransport *t, const EventID *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceGetEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EventID(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "get-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "get-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceGetEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/get-occurrence with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_get_occurrence(const CsilgenTransport *t, const GetOccurrenceRequest *req,
-                        Occurrence *resp, CsilCodecArena **resp_owner) {
+                        EventServiceGetOccurrenceReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_GetOccurrenceRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "get-occurrence", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "get-occurrence", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Occurrence(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceGetOccurrenceReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/create-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_create_event(const CsilgenTransport *t, const Event *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceCreateEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_Event(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "create-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "create-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceCreateEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/update-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_update_event(const CsilgenTransport *t, const UpdateEventRequest *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceUpdateEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_UpdateEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "update-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "update-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceUpdateEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/delete-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_delete_event(const CsilgenTransport *t, const DeleteEventRequest *req,
-                        DeleteEventResponse *resp, CsilCodecArena **resp_owner) {
+                        EventServiceDeleteEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_DeleteEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "delete-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "delete-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_DeleteEventResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceDeleteEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/move-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_move_event(const CsilgenTransport *t, const MoveEventRequest *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceMoveEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_MoveEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "move-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "move-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceMoveEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/respond with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_respond(const CsilgenTransport *t, const RespondRequest *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceRespondReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_RespondRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "respond", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "respond", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceRespondReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/list-invitations with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_list_invitations(const CsilgenTransport *t, const EmptyRequest *req,
-                        EventList *resp, CsilCodecArena **resp_owner) {
+                        EventServiceListInvitationsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_EmptyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "list-invitations", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "list-invitations", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EventList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceListInvitationsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/search-events with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_search_events(const CsilgenTransport *t, const SearchEventsRequest *req,
-                        EventList *resp, CsilCodecArena **resp_owner) {
+                        EventServiceSearchEventsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SearchEventsRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "search-events", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "search-events", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_EventList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceSearchEventsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/list-trash with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_list_trash(const CsilgenTransport *t, const ListTrashRequest *req,
-                        TrashList *resp, CsilCodecArena **resp_owner) {
+                        EventServiceListTrashReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ListTrashRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "list-trash", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "list-trash", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_TrashList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceListTrashReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/restore-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_restore_event(const CsilgenTransport *t, const RestoreEventRequest *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceRestoreEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_RestoreEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "restore-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "restore-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceRestoreEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/import-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_import_event(const CsilgenTransport *t, const ImportEventRequest *req,
-                        Event *resp, CsilCodecArena **resp_owner) {
+                        EventServiceImportEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ImportEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "import-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "import-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_Event(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceImportEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/create-event-once with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_create_event_once(const CsilgenTransport *t, const CreateEventOnceRequest *req,
-                        CreateEventReceipt *resp, CsilCodecArena **resp_owner) {
+                        EventServiceCreateEventOnceReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CreateEventOnceRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "create-event-once", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "create-event-once", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_CreateEventReceipt(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceCreateEventOnceReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/get-create-receipt with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_get_create_receipt(const CsilgenTransport *t, const CreateReceiptRequest *req,
-                        CreateEventReceipt *resp, CsilCodecArena **resp_owner) {
+                        EventServiceGetCreateReceiptReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_CreateReceiptRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "get-create-receipt", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "get-create-receipt", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_CreateEventReceipt(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceGetCreateReceiptReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/split-series-once with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_split_series_once(const CsilgenTransport *t, const SplitSeriesOnceRequest *req,
-                        SplitSeriesReceipt *resp, CsilCodecArena **resp_owner) {
+                        EventServiceSplitSeriesOnceReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SplitSeriesOnceRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "split-series-once", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "split-series-once", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_SplitSeriesReceipt(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceSplitSeriesOnceReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke EventService/get-split-receipt with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_event_get_split_receipt(const CsilgenTransport *t, const SplitReceiptRequest *req,
-                        SplitSeriesReceipt *resp, CsilCodecArena **resp_owner) {
+                        EventServiceGetSplitReceiptReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_SplitReceiptRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "EventService", "get-split-receipt", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "EventService", "get-split-receipt", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_SplitSeriesReceipt(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_EventServiceGetSplitReceiptReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke FreeBusyService/query with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_free_busy_query(const CsilgenTransport *t, const FreeBusyRequest *req,
-                        FreeBusyResponse *resp, CsilCodecArena **resp_owner) {
+                        FreeBusyServiceQueryReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_FreeBusyRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "FreeBusyService", "query", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "FreeBusyService", "query", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_FreeBusyResponse(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_FreeBusyServiceQueryReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke IcsService/import-ics with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_ics_import_ics(const CsilgenTransport *t, const ImportIcsRequest *req,
-                        ImportResult *resp, CsilCodecArena **resp_owner) {
+                        IcsServiceImportIcsReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ImportIcsRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "IcsService", "import-ics", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "IcsService", "import-ics", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_ImportResult(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_IcsServiceImportIcsReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke IcsService/export-calendar with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_ics_export_calendar(const CsilgenTransport *t, const ExportCalendarRequest *req,
-                        IcsDocument *resp, CsilCodecArena **resp_owner) {
+                        IcsServiceExportCalendarReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ExportCalendarRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "IcsService", "export-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "IcsService", "export-calendar", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_IcsDocument(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_IcsServiceExportCalendarReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke IcsService/export-event with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_ics_export_event(const CsilgenTransport *t, const ExportEventRequest *req,
-                        IcsDocument *resp, CsilCodecArena **resp_owner) {
+                        IcsServiceExportEventReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_ExportEventRequest(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "IcsService", "export-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "IcsService", "export-event", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_IcsDocument(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_IcsServiceExportEventReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 /* Invoke AuditService/list-audit with a typed request and decode the typed
  * response. *resp_owner holds the response's backing storage; free it once
  * with csil_codec_arena_free when done with *resp. Returns non-zero on failure. */
 static inline int csil_audit_list_audit(const CsilgenTransport *t, const AuditQuery *req,
-                        AuditList *resp, CsilCodecArena **resp_owner) {
+                        AuditServiceListAuditReply *resp, CsilCodecArena **resp_owner) {
     uint8_t *csil_reqb = NULL;
     size_t csil_reqn = 0;
     if (csil_encode_AuditQuery(req, &csil_reqb, &csil_reqn)) return -1;
     uint8_t *csil_respb = NULL;
     size_t csil_respn = 0;
-    int csil_rc = t->call(t->self, "AuditService", "list-audit", csil_reqb, csil_reqn, &csil_respb, &csil_respn);
+    char *variant = NULL;
+    int rc = t->call_reply ? t->call_reply(t->self, "AuditService", "list-audit", csil_reqb, csil_reqn, &csil_respb, &csil_respn, &variant) : -1;
     free(csil_reqb);
-    if (csil_rc != 0) { free(csil_respb); return csil_rc; }
-    int csil_drc = csil_decode_AuditList(csil_respb, csil_respn, resp, resp_owner);
+    if (!rc) rc = csil_decode_AuditServiceListAuditReply(variant, csil_respb, csil_respn, resp, resp_owner);
+    free(variant);
     free(csil_respb);
-    return csil_drc;
+    return rc;
 }
 
 #endif /* CSILGEN_CLIENT_GEN_H */

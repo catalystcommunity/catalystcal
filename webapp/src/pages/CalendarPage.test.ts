@@ -7,13 +7,13 @@ const me = { userId: "u-me", domain: "example.com", subject: "me" };
 
 function occ(over: Partial<Occurrence> = {}, ev: Partial<Occurrence["event"]> = {}): Occurrence {
   return {
-    start: "2026-11-10T15:00:00Z",
-    end: "2026-11-10T16:00:00Z",
+    start: new Date("2026-11-10T15:00:00Z"),
+    end: new Date("2026-11-10T16:00:00Z"),
     access: "owner",
     busyOnly: false,
     invited: false,
     ...over,
-    event: { eventId: "e1", calendarId: "c1", title: "Standup", sequence: 0, createdAt: "", updatedAt: "", createdBy: me, ...ev } as Occurrence["event"],
+    event: { eventId: "e1", calendarId: "c1", title: "Standup", sequence: 0, createdAt: new Date(0), updatedAt: new Date(0), createdBy: me, ...ev } as Occurrence["event"],
   };
 }
 
@@ -37,7 +37,7 @@ describe("calendar items", () => {
   });
 
   it("gives all-day items an end date after the last day", () => {
-    const item = toItem(occ({ start: "2026-11-10T00:00:00Z", end: "2026-11-12T00:00:00Z" }, { allDay: true, startDate: "2026-11-10", endDate: "2026-11-12" }), "UTC");
+    const item = toItem(occ({ start: new Date("2026-11-10T00:00:00Z"), end: new Date("2026-11-12T00:00:00Z") }, { allDay: true, startDate: "2026-11-10", endDate: "2026-11-12" }), "UTC");
     expect(item).toMatchObject({ allDay: true, start: "2026-11-10", end: "2026-11-12" });
   });
 

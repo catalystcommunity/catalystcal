@@ -12,8 +12,6 @@ global using AuditID = string;
 global using GroupID = string;
 global using TrashID = string;
 global using SessionID = string;
-global using Timestamp = string;
-global using DateText = string;
 
 namespace CatalystCal.Client;
 
@@ -210,9 +208,9 @@ public sealed record User
     // CBOR key: timezone
     public string? Timezone { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: updated_at
-    public required Timestamp UpdatedAt { get; init; }
+    public required System.DateTimeOffset UpdatedAt { get; init; }
 }
 
 public sealed record PersonSummary
@@ -250,7 +248,7 @@ public sealed record Calendar
     // CBOR key: source_url
     public string? SourceUrl { get; init; }
     // CBOR key: last_synced_at
-    public Timestamp? LastSyncedAt { get; init; }
+    public System.DateTimeOffset? LastSyncedAt { get; init; }
     // CBOR key: sync_error
     public string? SyncError { get; init; }
     // CBOR key: is_default
@@ -262,9 +260,9 @@ public sealed record Calendar
     // CBOR key: feed_path
     public string? FeedPath { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: updated_at
-    public required Timestamp UpdatedAt { get; init; }
+    public required System.DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
     public void Validate()
@@ -389,7 +387,7 @@ public sealed record Share
     // CBOR key: grantee_group_name
     public string? GranteeGroupName { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
 }
 
 public sealed record ShareList
@@ -425,9 +423,9 @@ public sealed record Group
     // CBOR key: members
     public required System.Collections.Generic.List<GroupMember> Members { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: updated_at
-    public required Timestamp UpdatedAt { get; init; }
+    public required System.DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
     public void Validate()
@@ -525,11 +523,11 @@ public sealed record Delegation
     // CBOR key: note
     public string? Note { get; init; }
     // CBOR key: expires_at
-    public Timestamp? ExpiresAt { get; init; }
+    public System.DateTimeOffset? ExpiresAt { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: revoked_at
-    public Timestamp? RevokedAt { get; init; }
+    public System.DateTimeOffset? RevokedAt { get; init; }
 }
 
 public sealed record DelegationList
@@ -549,9 +547,9 @@ public sealed record Recurrence
     // CBOR key: rrule
     public required string Rrule { get; init; }
     // CBOR key: exdates
-    public System.Collections.Generic.List<Timestamp>? Exdates { get; init; }
+    public System.Collections.Generic.List<System.DateTimeOffset>? Exdates { get; init; }
     // CBOR key: rdates
-    public System.Collections.Generic.List<Timestamp>? Rdates { get; init; }
+    public System.Collections.Generic.List<System.DateTimeOffset>? Rdates { get; init; }
 }
 
 public sealed record Attendee
@@ -601,15 +599,15 @@ public sealed record Event
     // CBOR key: conference_url
     public string? ConferenceUrl { get; init; }
     // CBOR key: start
-    public Timestamp? Start { get; init; }
+    public System.DateTimeOffset? Start { get; init; }
     // CBOR key: end
-    public Timestamp? End { get; init; }
+    public System.DateTimeOffset? End { get; init; }
     // CBOR key: all_day
     public bool? AllDay { get; init; }
     // CBOR key: start_date
-    public DateText? StartDate { get; init; }
+    public System.DateOnly? StartDate { get; init; }
     // CBOR key: end_date
-    public DateText? EndDate { get; init; }
+    public System.DateOnly? EndDate { get; init; }
     // CBOR key: timezone
     public string? Timezone { get; init; }
     // CBOR key: status
@@ -623,7 +621,7 @@ public sealed record Event
     // CBOR key: master_event_id
     public EventID? MasterEventId { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
     // CBOR key: attendees
     public System.Collections.Generic.List<Attendee>? Attendees { get; init; }
     // CBOR key: reminders
@@ -643,9 +641,9 @@ public sealed record Event
     // CBOR key: sequence
     public required long Sequence { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: updated_at
-    public required Timestamp UpdatedAt { get; init; }
+    public required System.DateTimeOffset UpdatedAt { get; init; }
 
     /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
     public void Validate()
@@ -666,11 +664,11 @@ public sealed record Occurrence
     // CBOR key: event
     public required Event Event { get; init; }
     // CBOR key: start
-    public required Timestamp Start { get; init; }
+    public required System.DateTimeOffset Start { get; init; }
     // CBOR key: end
-    public required Timestamp End { get; init; }
+    public required System.DateTimeOffset End { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
     // CBOR key: access
     public required AccessRole Access { get; init; }
     // CBOR key: busy_only
@@ -682,9 +680,9 @@ public sealed record Occurrence
 public sealed record ListEventsRequest
 {
     // CBOR key: range_start
-    public required Timestamp RangeStart { get; init; }
+    public required System.DateTimeOffset RangeStart { get; init; }
     // CBOR key: range_end
-    public required Timestamp RangeEnd { get; init; }
+    public required System.DateTimeOffset RangeEnd { get; init; }
     // CBOR key: calendar_ids
     public System.Collections.Generic.List<CalendarID>? CalendarIds { get; init; }
     // CBOR key: include_invitations
@@ -706,7 +704,7 @@ public sealed record UpdateEventRequest
     // CBOR key: scope
     public RecurrenceScope? Scope { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
 }
 
 public sealed record DeleteEventRequest
@@ -716,7 +714,7 @@ public sealed record DeleteEventRequest
     // CBOR key: scope
     public RecurrenceScope? Scope { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
 }
 
 public sealed record DeleteEventResponse
@@ -744,7 +742,7 @@ public sealed record TrashEntry
     // CBOR key: scope
     public required RecurrenceScope Scope { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
     // CBOR key: event
     public required Event Event { get; init; }
     // CBOR key: instance
@@ -752,9 +750,9 @@ public sealed record TrashEntry
     // CBOR key: deleted_by
     public PersonSummary? DeletedBy { get; init; }
     // CBOR key: deleted_at
-    public required Timestamp DeletedAt { get; init; }
+    public required System.DateTimeOffset DeletedAt { get; init; }
     // CBOR key: expires_at
-    public required Timestamp ExpiresAt { get; init; }
+    public required System.DateTimeOffset ExpiresAt { get; init; }
 }
 
 public sealed record ListTrashRequest
@@ -784,7 +782,7 @@ public sealed record ImportEventRequest
     // CBOR key: created_by
     public required IdentityRef CreatedBy { get; init; }
     // CBOR key: created_at
-    public Timestamp? CreatedAt { get; init; }
+    public System.DateTimeOffset? CreatedAt { get; init; }
 }
 
 public sealed record CreateEventOnceRequest
@@ -842,7 +840,7 @@ public sealed record CreateEventReceipt
     // CBOR key: created
     public required bool Created { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: event
     public Event? Event { get; init; }
     // CBOR key: trash_id
@@ -856,9 +854,9 @@ public sealed record SplitSeriesOnceRequest
     // CBOR key: event
     public required Event Event { get; init; }
     // CBOR key: recurrence_id
-    public required Timestamp RecurrenceId { get; init; }
+    public required System.DateTimeOffset RecurrenceId { get; init; }
     // CBOR key: map_recurrence_ids
-    public System.Collections.Generic.List<Timestamp>? MapRecurrenceIds { get; init; }
+    public System.Collections.Generic.List<System.DateTimeOffset>? MapRecurrenceIds { get; init; }
 
     /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
     public void Validate()
@@ -881,7 +879,7 @@ public sealed record SplitReceiptRequest
     // CBOR key: idempotency_key
     public required string IdempotencyKey { get; init; }
     // CBOR key: map_recurrence_ids
-    public System.Collections.Generic.List<Timestamp>? MapRecurrenceIds { get; init; }
+    public System.Collections.Generic.List<System.DateTimeOffset>? MapRecurrenceIds { get; init; }
 
     /// <summary>Throws System.ArgumentException when a field violates a CSIL constraint.</summary>
     public void Validate()
@@ -910,13 +908,13 @@ public enum SplitMapResult
 public sealed record SplitOccurrenceMapping
 {
     // CBOR key: recurrence_id
-    public required Timestamp RecurrenceId { get; init; }
+    public required System.DateTimeOffset RecurrenceId { get; init; }
     // CBOR key: result
     public required SplitMapResult Result { get; init; }
     // CBOR key: event_id
     public EventID? EventId { get; init; }
     // CBOR key: mapped_recurrence_id
-    public Timestamp? MappedRecurrenceId { get; init; }
+    public System.DateTimeOffset? MappedRecurrenceId { get; init; }
 }
 
 public sealed record SplitSeriesReceipt
@@ -928,13 +926,13 @@ public sealed record SplitSeriesReceipt
     // CBOR key: successor_id
     public required EventID SuccessorId { get; init; }
     // CBOR key: split_at
-    public required Timestamp SplitAt { get; init; }
+    public required System.DateTimeOffset SplitAt { get; init; }
     // CBOR key: in_place
     public required bool InPlace { get; init; }
     // CBOR key: created
     public required bool Created { get; init; }
     // CBOR key: created_at
-    public required Timestamp CreatedAt { get; init; }
+    public required System.DateTimeOffset CreatedAt { get; init; }
     // CBOR key: calendar_id
     public required CalendarID CalendarId { get; init; }
     // CBOR key: series_state
@@ -958,7 +956,7 @@ public sealed record GetOccurrenceRequest
     // CBOR key: event_id
     public required EventID EventId { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
 }
 
 public sealed record RespondRequest
@@ -968,7 +966,7 @@ public sealed record RespondRequest
     // CBOR key: status
     public required ParticipationStatus Status { get; init; }
     // CBOR key: recurrence_id
-    public Timestamp? RecurrenceId { get; init; }
+    public System.DateTimeOffset? RecurrenceId { get; init; }
     // CBOR key: comment
     public string? Comment { get; init; }
 }
@@ -1003,9 +1001,9 @@ public sealed record EventList
 public sealed record BusyInterval
 {
     // CBOR key: start
-    public required Timestamp Start { get; init; }
+    public required System.DateTimeOffset Start { get; init; }
     // CBOR key: end
-    public required Timestamp End { get; init; }
+    public required System.DateTimeOffset End { get; init; }
     // CBOR key: tentative
     public bool? Tentative { get; init; }
 }
@@ -1015,9 +1013,9 @@ public sealed record FreeBusyRequest
     // CBOR key: people
     public required System.Collections.Generic.List<IdentityRef> People { get; init; }
     // CBOR key: range_start
-    public required Timestamp RangeStart { get; init; }
+    public required System.DateTimeOffset RangeStart { get; init; }
     // CBOR key: range_end
-    public required Timestamp RangeEnd { get; init; }
+    public required System.DateTimeOffset RangeEnd { get; init; }
 }
 
 public sealed record PersonFreeBusy
@@ -1085,7 +1083,7 @@ public sealed record AuditEntry
     // CBOR key: audit_id
     public required AuditID AuditId { get; init; }
     // CBOR key: at
-    public required Timestamp At { get; init; }
+    public required System.DateTimeOffset At { get; init; }
     // CBOR key: actor
     public required PersonSummary Actor { get; init; }
     // CBOR key: principal
@@ -1129,7 +1127,7 @@ public sealed record LoginResponse
     // CBOR key: token
     public required string Token { get; init; }
     // CBOR key: expires_at
-    public required Timestamp ExpiresAt { get; init; }
+    public required System.DateTimeOffset ExpiresAt { get; init; }
     // CBOR key: user
     public required PersonSummary User { get; init; }
     // CBOR key: acting_as
@@ -1201,7 +1199,7 @@ public sealed record ApplicationPresentation
     // CBOR key: request_digest
     public required byte[] RequestDigest { get; init; }
     // CBOR key: presented_at
-    public required Timestamp PresentedAt { get; init; }
+    public required System.DateTimeOffset PresentedAt { get; init; }
     // CBOR key: nonce
     public required byte[] Nonce { get; init; }
 }

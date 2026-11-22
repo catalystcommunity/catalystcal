@@ -178,8 +178,8 @@ func (v *Verifier) Verify(ctx context.Context, signed csil.SignedApplicationPres
 	if !equalBytes(p.RequestDigest, RequestDigest()) {
 		return Verified{}, refused("request_digest does not match exchange-application-presentation")
 	}
-	at, err := time.Parse("2006-01-02T15:04:05Z", string(p.PresentedAt))
-	if err != nil {
+	at := p.PresentedAt
+	if at.Nanosecond() != 0 {
 		return Verified{}, refused("presented_at must be a UTC time like 2026-10-15T17:00:00Z")
 	}
 	now, skew := v.now(), v.SkewOrDefault()

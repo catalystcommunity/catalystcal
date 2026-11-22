@@ -17,7 +17,7 @@ import { newEventForm } from "~/lib/eventForm";
 import { mount, settle } from "~/test/render";
 
 const me = { userId: "u-me", domain: "example.com", subject: "me", displayName: "Me" };
-const cal = { calendarId: "c1", name: "Work", owner: me, kind: "local", isDefault: true, access: "owner", accessPath: "owner", createdAt: "", updatedAt: "" } as Calendar;
+const cal = { calendarId: "c1", name: "Work", owner: me, kind: "local", isDefault: true, access: "owner", accessPath: "owner", createdAt: new Date(0), updatedAt: new Date(0) } as Calendar;
 
 describe("EventEditor", () => {
   beforeEach(() => {

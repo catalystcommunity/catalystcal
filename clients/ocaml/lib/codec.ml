@@ -71,8 +71,8 @@ and encode_user (v : user) : Cbor.t =
          Some (Cbor.Text "subject", (Cbor.Text v.subject));
          Some (Cbor.Text "user_id", (Cbor.Text v.user_id));
          (match v.timezone with Some csil_x -> Some (Cbor.Text "timezone", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
-         Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
          (match v.display_name with Some csil_x -> Some (Cbor.Text "display_name", (Cbor.Text csil_x)) | None -> None);
          (match v.application_id with Some csil_x -> Some (Cbor.Text "application_id", (Cbor.Text csil_x)) | None -> None);
        ])
@@ -102,15 +102,15 @@ and encode_calendar (v : calendar) : Cbor.t =
          Some (Cbor.Text "access", (encode_access_role v.access));
          (match v.timezone with Some csil_x -> Some (Cbor.Text "timezone", (Cbor.Text csil_x)) | None -> None);
          (match v.feed_path with Some csil_x -> Some (Cbor.Text "feed_path", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
          Some (Cbor.Text "is_default", (Cbor.Bool v.is_default));
          (match v.source_url with Some csil_x -> Some (Cbor.Text "source_url", (Cbor.Text csil_x)) | None -> None);
          (match v.sync_error with Some csil_x -> Some (Cbor.Text "sync_error", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
          Some (Cbor.Text "access_path", (encode_access_path v.access_path));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
-         (match v.last_synced_at with Some csil_x -> Some (Cbor.Text "last_synced_at", (Cbor.Text csil_x)) | None -> None);
+         (match v.last_synced_at with Some csil_x -> Some (Cbor.Text "last_synced_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_create_calendar_request (v : create_calendar_request) : Cbor.t =
@@ -171,7 +171,7 @@ and encode_share (v : share) : Cbor.t =
          Some (Cbor.Text "role", (encode_share_role v.role));
          (match v.grantee with Some csil_x -> Some (Cbor.Text "grantee", (encode_identity_ref csil_x)) | None -> None);
          Some (Cbor.Text "share_id", (Cbor.Text v.share_id));
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.grantee_person with Some csil_x -> Some (Cbor.Text "grantee_person", (encode_person_summary csil_x)) | None -> None);
          (match v.grantee_group_id with Some csil_x -> Some (Cbor.Text "grantee_group_id", (Cbor.Text csil_x)) | None -> None);
@@ -207,8 +207,8 @@ and encode_group (v : group) : Cbor.t =
          Some (Cbor.Text "members", (Cbor.Array (List.map (fun csil_e -> (encode_group_member csil_e)) v.members)));
          Some (Cbor.Text "group_id", (Cbor.Text v.group_id));
          Some (Cbor.Text "revision", (Cbor.int64 v.revision));
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
-         Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
        ])
 
@@ -259,9 +259,9 @@ and encode_delegation (v : delegation) : Cbor.t =
          Some (Cbor.Text "scopes", (Cbor.Array (List.map (fun csil_e -> (encode_scope csil_e)) v.scopes)));
          Some (Cbor.Text "delegate", (encode_identity_ref v.delegate));
          Some (Cbor.Text "principal", (encode_person_summary v.principal));
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
-         (match v.expires_at with Some csil_x -> Some (Cbor.Text "expires_at", (Cbor.Text csil_x)) | None -> None);
-         (match v.revoked_at with Some csil_x -> Some (Cbor.Text "revoked_at", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         (match v.expires_at with Some csil_x -> Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.revoked_at with Some csil_x -> Some (Cbor.Text "revoked_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
          (match v.calendar_ids with Some csil_x -> Some (Cbor.Text "calendar_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          Some (Cbor.Text "delegation_id", (Cbor.Text v.delegation_id));
          (match v.delegate_person with Some csil_x -> Some (Cbor.Text "delegate_person", (encode_person_summary csil_x)) | None -> None);
@@ -289,8 +289,8 @@ and encode_recurrence (v : recurrence) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "rrule", (Cbor.Text v.rrule));
-         (match v.rdates with Some csil_x -> Some (Cbor.Text "rdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
-         (match v.exdates with Some csil_x -> Some (Cbor.Text "exdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
+         (match v.rdates with Some csil_x -> Some (Cbor.Text "rdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
+         (match v.exdates with Some csil_x -> Some (Cbor.Text "exdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
        ])
 
 and encode_attendee (v : attendee) : Cbor.t =
@@ -322,15 +322,15 @@ and encode_event (v : event) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         (match v.end_ with Some csil_x -> Some (Cbor.Text "end", (Cbor.Text csil_x)) | None -> None);
+         (match v.end_ with Some csil_x -> Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
          (match v.uid with Some csil_x -> Some (Cbor.Text "uid", (Cbor.Text csil_x)) | None -> None);
          (match v.url with Some csil_x -> Some (Cbor.Text "url", (Cbor.Text csil_x)) | None -> None);
          (match v.color with Some csil_x -> Some (Cbor.Text "color", (Cbor.Text csil_x)) | None -> None);
-         (match v.start with Some csil_x -> Some (Cbor.Text "start", (Cbor.Text csil_x)) | None -> None);
+         (match v.start with Some csil_x -> Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
          Some (Cbor.Text "title", (Cbor.Text v.title));
          (match v.status with Some csil_x -> Some (Cbor.Text "status", (encode_event_status csil_x)) | None -> None);
          (match v.all_day with Some csil_x -> Some (Cbor.Text "all_day", (Cbor.Bool csil_x)) | None -> None);
-         (match v.end_date with Some csil_x -> Some (Cbor.Text "end_date", (Cbor.Text csil_x)) | None -> None);
+         (match v.end_date with Some csil_x -> Some (Cbor.Text "end_date", (Cbor.Tag (1004, Cbor.Text (Cbor.calendar_date csil_x)))) | None -> None);
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          (match v.location with Some csil_x -> Some (Cbor.Text "location", (Cbor.Text csil_x)) | None -> None);
          Some (Cbor.Text "sequence", (Cbor.int64 v.sequence));
@@ -339,18 +339,18 @@ and encode_event (v : event) : Cbor.t =
          (match v.organizer with Some csil_x -> Some (Cbor.Text "organizer", (encode_person_summary csil_x)) | None -> None);
          (match v.reminders with Some csil_x -> Some (Cbor.Text "reminders", (Cbor.Array (List.map (fun csil_e -> (encode_reminder csil_e)) csil_x))) | None -> None);
          (match v.categories with Some csil_x -> Some (Cbor.Text "categories", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
          (match v.created_by with Some csil_x -> Some (Cbor.Text "created_by", (encode_person_summary csil_x)) | None -> None);
          (match v.recurrence with Some csil_x -> Some (Cbor.Text "recurrence", (encode_recurrence csil_x)) | None -> None);
-         (match v.start_date with Some csil_x -> Some (Cbor.Text "start_date", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "updated_at", (Cbor.Text v.updated_at));
+         (match v.start_date with Some csil_x -> Some (Cbor.Text "start_date", (Cbor.Tag (1004, Cbor.Text (Cbor.calendar_date csil_x)))) | None -> None);
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
          (match v.updated_by with Some csil_x -> Some (Cbor.Text "updated_by", (encode_person_summary csil_x)) | None -> None);
          (match v.visibility with Some csil_x -> Some (Cbor.Text "visibility", (encode_event_visibility csil_x)) | None -> None);
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
          (match v.updated_via with Some csil_x -> Some (Cbor.Text "updated_via", (encode_acting_via csil_x)) | None -> None);
          (match v.transparency with Some csil_x -> Some (Cbor.Text "transparency", (encode_event_transparency csil_x)) | None -> None);
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
          (match v.conference_url with Some csil_x -> Some (Cbor.Text "conference_url", (Cbor.Text csil_x)) | None -> None);
          (match v.master_event_id with Some csil_x -> Some (Cbor.Text "master_event_id", (Cbor.Text csil_x)) | None -> None);
        ])
@@ -360,13 +360,13 @@ and encode_occurrence (v : occurrence) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "end", (Cbor.Text v.end_));
+         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text v.end_)));
          Some (Cbor.Text "event", (encode_event v.event));
-         Some (Cbor.Text "start", (Cbor.Text v.start));
+         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text v.start)));
          Some (Cbor.Text "access", (encode_access_role v.access));
          Some (Cbor.Text "invited", (Cbor.Bool v.invited));
          Some (Cbor.Text "busy_only", (Cbor.Bool v.busy_only));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_list_events_request (v : list_events_request) : Cbor.t =
@@ -374,8 +374,8 @@ and encode_list_events_request (v : list_events_request) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "range_end", (Cbor.Text v.range_end));
-         Some (Cbor.Text "range_start", (Cbor.Text v.range_start));
+         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text v.range_end)));
+         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text v.range_start)));
          (match v.calendar_ids with Some csil_x -> Some (Cbor.Text "calendar_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          (match v.include_invitations with Some csil_x -> Some (Cbor.Text "include_invitations", (Cbor.Bool csil_x)) | None -> None);
        ])
@@ -396,7 +396,7 @@ and encode_update_event_request (v : update_event_request) : Cbor.t =
        [
          Some (Cbor.Text "event", (encode_event v.event));
          (match v.scope with Some csil_x -> Some (Cbor.Text "scope", (encode_recurrence_scope csil_x)) | None -> None);
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_delete_event_request (v : delete_event_request) : Cbor.t =
@@ -406,7 +406,7 @@ and encode_delete_event_request (v : delete_event_request) : Cbor.t =
        [
          (match v.scope with Some csil_x -> Some (Cbor.Text "scope", (encode_recurrence_scope csil_x)) | None -> None);
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_delete_event_response (v : delete_event_response) : Cbor.t =
@@ -436,11 +436,11 @@ and encode_trash_entry (v : trash_entry) : Cbor.t =
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          (match v.instance with Some csil_x -> Some (Cbor.Text "instance", (encode_event csil_x)) | None -> None);
          Some (Cbor.Text "trash_id", (Cbor.Text v.trash_id));
-         Some (Cbor.Text "deleted_at", (Cbor.Text v.deleted_at));
+         Some (Cbor.Text "deleted_at", (Cbor.Tag (0, Cbor.Text v.deleted_at)));
          (match v.deleted_by with Some csil_x -> Some (Cbor.Text "deleted_by", (encode_person_summary csil_x)) | None -> None);
-         Some (Cbor.Text "expires_at", (Cbor.Text v.expires_at));
+         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text v.expires_at)));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_list_trash_request (v : list_trash_request) : Cbor.t =
@@ -474,7 +474,7 @@ and encode_import_event_request (v : import_event_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event", (encode_event v.event));
-         (match v.created_at with Some csil_x -> Some (Cbor.Text "created_at", (Cbor.Text csil_x)) | None -> None);
+         (match v.created_at with Some csil_x -> Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
          Some (Cbor.Text "created_by", (encode_identity_ref v.created_by));
        ])
 
@@ -506,7 +506,7 @@ and encode_create_event_receipt (v : create_event_receipt) : Cbor.t =
          Some (Cbor.Text "created", (Cbor.Bool v.created));
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          (match v.trash_id with Some csil_x -> Some (Cbor.Text "trash_id", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
        ])
@@ -517,9 +517,9 @@ and encode_split_series_once_request (v : split_series_once_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event", (encode_event v.event));
-         Some (Cbor.Text "recurrence_id", (Cbor.Text v.recurrence_id));
+         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text v.recurrence_id)));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
-         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
        ])
 
 and encode_split_receipt_request (v : split_receipt_request) : Cbor.t =
@@ -529,7 +529,7 @@ and encode_split_receipt_request (v : split_receipt_request) : Cbor.t =
        [
          Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
-         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
        ])
 
 and encode_split_map_result (v : split_map_result) : Cbor.t =
@@ -542,8 +542,8 @@ and encode_split_occurrence_mapping (v : split_occurrence_mapping) : Cbor.t =
        [
          Some (Cbor.Text "result", (encode_split_map_result v.result));
          (match v.event_id with Some csil_x -> Some (Cbor.Text "event_id", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "recurrence_id", (Cbor.Text v.recurrence_id));
-         (match v.mapped_recurrence_id with Some csil_x -> Some (Cbor.Text "mapped_recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text v.recurrence_id)));
+         (match v.mapped_recurrence_id with Some csil_x -> Some (Cbor.Text "mapped_recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_split_series_receipt (v : split_series_receipt) : Cbor.t =
@@ -555,10 +555,10 @@ and encode_split_series_receipt (v : split_series_receipt) : Cbor.t =
          Some (Cbor.Text "created", (Cbor.Bool v.created));
          Some (Cbor.Text "in_place", (Cbor.Bool v.in_place));
          Some (Cbor.Text "mappings", (Cbor.Array (List.map (fun csil_e -> (encode_split_occurrence_mapping csil_e)) v.mappings)));
-         Some (Cbor.Text "split_at", (Cbor.Text v.split_at));
+         Some (Cbor.Text "split_at", (Cbor.Tag (0, Cbor.Text v.split_at)));
          Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
          (match v.successor with Some csil_x -> Some (Cbor.Text "successor", (encode_event csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Text v.created_at));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          Some (Cbor.Text "series_state", (encode_create_receipt_state v.series_state));
          Some (Cbor.Text "successor_id", (Cbor.Text v.successor_id));
@@ -574,7 +574,7 @@ and encode_get_occurrence_request (v : get_occurrence_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_respond_request (v : respond_request) : Cbor.t =
@@ -585,7 +585,7 @@ and encode_respond_request (v : respond_request) : Cbor.t =
          Some (Cbor.Text "status", (encode_participation_status v.status));
          (match v.comment with Some csil_x -> Some (Cbor.Text "comment", (Cbor.Text csil_x)) | None -> None);
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Text csil_x)) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
        ])
 
 and encode_search_events_request (v : search_events_request) : Cbor.t =
@@ -610,8 +610,8 @@ and encode_busy_interval (v : busy_interval) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "end", (Cbor.Text v.end_));
-         Some (Cbor.Text "start", (Cbor.Text v.start));
+         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text v.end_)));
+         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text v.start)));
          (match v.tentative with Some csil_x -> Some (Cbor.Text "tentative", (Cbor.Bool csil_x)) | None -> None);
        ])
 
@@ -621,8 +621,8 @@ and encode_free_busy_request (v : free_busy_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "people", (Cbor.Array (List.map (fun csil_e -> (encode_identity_ref csil_e)) v.people)));
-         Some (Cbor.Text "range_end", (Cbor.Text v.range_end));
-         Some (Cbor.Text "range_start", (Cbor.Text v.range_start));
+         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text v.range_end)));
+         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text v.range_start)));
        ])
 
 and encode_person_free_busy (v : person_free_busy) : Cbor.t =
@@ -695,7 +695,7 @@ and encode_audit_entry (v : audit_entry) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "at", (Cbor.Text v.at));
+         Some (Cbor.Text "at", (Cbor.Tag (0, Cbor.Text v.at)));
          Some (Cbor.Text "via", (encode_acting_via v.via));
          Some (Cbor.Text "actor", (encode_person_summary v.actor));
          (match v.target with Some csil_x -> Some (Cbor.Text "target", (Cbor.Text csil_x)) | None -> None);
@@ -742,7 +742,7 @@ and encode_login_response (v : login_response) : Cbor.t =
          Some (Cbor.Text "token", (Cbor.Text v.token));
          (match v.scopes with Some csil_x -> Some (Cbor.Text "scopes", (Cbor.Array (List.map (fun csil_e -> (encode_scope csil_e)) csil_x))) | None -> None);
          (match v.acting_as with Some csil_x -> Some (Cbor.Text "acting_as", (encode_person_summary csil_x)) | None -> None);
-         Some (Cbor.Text "expires_at", (Cbor.Text v.expires_at));
+         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text v.expires_at)));
        ])
 
 and encode_me_response (v : me_response) : Cbor.t =
@@ -803,7 +803,7 @@ and encode_application_presentation (v : application_presentation) : Cbor.t =
          Some (Cbor.Text "nonce", (Cbor.Bytes v.nonce));
          Some (Cbor.Text "signer", (encode_application_ref v.signer));
          Some (Cbor.Text "audience", (encode_application_ref v.audience));
-         Some (Cbor.Text "presented_at", (Cbor.Text v.presented_at));
+         Some (Cbor.Text "presented_at", (Cbor.Tag (0, Cbor.Text v.presented_at)));
          Some (Cbor.Text "request_digest", (Cbor.Bytes v.request_digest));
          Some (Cbor.Text "signer_instance_id", (Cbor.Text v.signer_instance_id));
        ])
@@ -966,8 +966,8 @@ and decode_user (csil_c : Cbor.t) : user =
         subject = (Cbor.to_text (csil_req "subject"));
         user_id = (Cbor.to_text (csil_req "user_id"));
         timezone = (match csil_field "timezone" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (Cbor.to_text (csil_req "created_at"));
-        updated_at = (Cbor.to_text (csil_req "updated_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         display_name = (match csil_field "display_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         application_id = (match csil_field "application_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
@@ -1007,15 +1007,15 @@ and decode_calendar (csil_c : Cbor.t) : calendar =
         access = (decode_access_role (csil_req "access"));
         timezone = (match csil_field "timezone" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         feed_path = (match csil_field "feed_path" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (Cbor.to_text (csil_req "created_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         is_default = (Cbor.to_bool (csil_req "is_default"));
         source_url = (match csil_field "source_url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         sync_error = (match csil_field "sync_error" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        updated_at = (Cbor.to_text (csil_req "updated_at"));
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         access_path = (decode_access_path (csil_req "access_path"));
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        last_synced_at = (match csil_field "last_synced_at" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        last_synced_at = (match csil_field "last_synced_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for calendar"
 
@@ -1106,7 +1106,7 @@ and decode_share (csil_c : Cbor.t) : share =
         role = (decode_share_role (csil_req "role"));
         grantee = (match csil_field "grantee" with Some csil_v -> Some (decode_identity_ref csil_v) | None -> None);
         share_id = (Cbor.to_text (csil_req "share_id"));
-        created_at = (Cbor.to_text (csil_req "created_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         grantee_person = (match csil_field "grantee_person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         grantee_group_id = (match csil_field "grantee_group_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
@@ -1157,8 +1157,8 @@ and decode_group (csil_c : Cbor.t) : group =
         members = (match (csil_req "members") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group_member csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
         group_id = (Cbor.to_text (csil_req "group_id"));
         revision = (Cbor.to_i64 (csil_req "revision"));
-        created_at = (Cbor.to_text (csil_req "created_at"));
-        updated_at = (Cbor.to_text (csil_req "updated_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for group"
@@ -1234,9 +1234,9 @@ and decode_delegation (csil_c : Cbor.t) : delegation =
         scopes = (match (csil_req "scopes") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_scope csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
         delegate = (decode_identity_ref (csil_req "delegate"));
         principal = (decode_person_summary (csil_req "principal"));
-        created_at = (Cbor.to_text (csil_req "created_at"));
-        expires_at = (match csil_field "expires_at" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        revoked_at = (match csil_field "revoked_at" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        expires_at = (match csil_field "expires_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        revoked_at = (match csil_field "revoked_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         calendar_ids = (match csil_field "calendar_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         delegation_id = (Cbor.to_text (csil_req "delegation_id"));
         delegate_person = (match csil_field "delegate_person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
@@ -1279,8 +1279,8 @@ and decode_recurrence (csil_c : Cbor.t) : recurrence =
       ignore csil_req;
       {
         rrule = (Cbor.to_text (csil_req "rrule"));
-        rdates = (match csil_field "rdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
-        exdates = (match csil_field "exdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        rdates = (match csil_field "rdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        exdates = (match csil_field "exdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for recurrence"
 
@@ -1327,15 +1327,15 @@ and decode_event (csil_c : Cbor.t) : event =
       in
       ignore csil_req;
       {
-        end_ = (match csil_field "end" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        end_ = (match csil_field "end" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         uid = (match csil_field "uid" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         url = (match csil_field "url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         color = (match csil_field "color" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        start = (match csil_field "start" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        start = (match csil_field "start" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         title = (Cbor.to_text (csil_req "title"));
         status = (match csil_field "status" with Some csil_v -> Some (decode_event_status csil_v) | None -> None);
         all_day = (match csil_field "all_day" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
-        end_date = (match csil_field "end_date" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        end_date = (match csil_field "end_date" with Some csil_v -> Some (match csil_v with Cbor.Tag (1004, Cbor.Text s) -> Cbor.calendar_date s | _ -> failwith "expected calendar date tag 1004") | None -> None);
         event_id = (Cbor.to_text (csil_req "event_id"));
         location = (match csil_field "location" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         sequence = (Cbor.to_i64 (csil_req "sequence"));
@@ -1344,18 +1344,18 @@ and decode_event (csil_c : Cbor.t) : event =
         organizer = (match csil_field "organizer" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         reminders = (match csil_field "reminders" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_reminder csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         categories = (match csil_field "categories" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
-        created_at = (Cbor.to_text (csil_req "created_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         created_by = (match csil_field "created_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         recurrence = (match csil_field "recurrence" with Some csil_v -> Some (decode_recurrence csil_v) | None -> None);
-        start_date = (match csil_field "start_date" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        updated_at = (Cbor.to_text (csil_req "updated_at"));
+        start_date = (match csil_field "start_date" with Some csil_v -> Some (match csil_v with Cbor.Tag (1004, Cbor.Text s) -> Cbor.calendar_date s | _ -> failwith "expected calendar date tag 1004") | None -> None);
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         updated_by = (match csil_field "updated_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         visibility = (match csil_field "visibility" with Some csil_v -> Some (decode_event_visibility csil_v) | None -> None);
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         updated_via = (match csil_field "updated_via" with Some csil_v -> Some (decode_acting_via csil_v) | None -> None);
         transparency = (match csil_field "transparency" with Some csil_v -> Some (decode_event_transparency csil_v) | None -> None);
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         conference_url = (match csil_field "conference_url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         master_event_id = (match csil_field "master_event_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
@@ -1370,13 +1370,13 @@ and decode_occurrence (csil_c : Cbor.t) : occurrence =
       in
       ignore csil_req;
       {
-        end_ = (Cbor.to_text (csil_req "end"));
+        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         event = (decode_event (csil_req "event"));
-        start = (Cbor.to_text (csil_req "start"));
+        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         access = (decode_access_role (csil_req "access"));
         invited = (Cbor.to_bool (csil_req "invited"));
         busy_only = (Cbor.to_bool (csil_req "busy_only"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for occurrence"
 
@@ -1389,8 +1389,8 @@ and decode_list_events_request (csil_c : Cbor.t) : list_events_request =
       in
       ignore csil_req;
       {
-        range_end = (Cbor.to_text (csil_req "range_end"));
-        range_start = (Cbor.to_text (csil_req "range_start"));
+        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_ids = (match csil_field "calendar_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         include_invitations = (match csil_field "include_invitations" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
       }
@@ -1421,7 +1421,7 @@ and decode_update_event_request (csil_c : Cbor.t) : update_event_request =
       {
         event = (decode_event (csil_req "event"));
         scope = (match csil_field "scope" with Some csil_v -> Some (decode_recurrence_scope csil_v) | None -> None);
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for update_event_request"
 
@@ -1436,7 +1436,7 @@ and decode_delete_event_request (csil_c : Cbor.t) : delete_event_request =
       {
         scope = (match csil_field "scope" with Some csil_v -> Some (decode_recurrence_scope csil_v) | None -> None);
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for delete_event_request"
 
@@ -1481,11 +1481,11 @@ and decode_trash_entry (csil_c : Cbor.t) : trash_entry =
         event_id = (Cbor.to_text (csil_req "event_id"));
         instance = (match csil_field "instance" with Some csil_v -> Some (decode_event csil_v) | None -> None);
         trash_id = (Cbor.to_text (csil_req "trash_id"));
-        deleted_at = (Cbor.to_text (csil_req "deleted_at"));
+        deleted_at = (match (csil_req "deleted_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         deleted_by = (match csil_field "deleted_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
-        expires_at = (Cbor.to_text (csil_req "expires_at"));
+        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for trash_entry"
 
@@ -1539,7 +1539,7 @@ and decode_import_event_request (csil_c : Cbor.t) : import_event_request =
       ignore csil_req;
       {
         event = (decode_event (csil_req "event"));
-        created_at = (match csil_field "created_at" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        created_at = (match csil_field "created_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         created_by = (decode_identity_ref (csil_req "created_by"));
       }
   | _ -> failwith "csilgen: expected map for import_event_request"
@@ -1586,7 +1586,7 @@ and decode_create_event_receipt (csil_c : Cbor.t) : create_event_receipt =
         created = (Cbor.to_bool (csil_req "created"));
         event_id = (Cbor.to_text (csil_req "event_id"));
         trash_id = (match csil_field "trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (Cbor.to_text (csil_req "created_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
       }
@@ -1602,9 +1602,9 @@ and decode_split_series_once_request (csil_c : Cbor.t) : split_series_once_reque
       ignore csil_req;
       {
         event = (decode_event (csil_req "event"));
-        recurrence_id = (Cbor.to_text (csil_req "recurrence_id"));
+        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
-        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_series_once_request"
 
@@ -1619,7 +1619,7 @@ and decode_split_receipt_request (csil_c : Cbor.t) : split_receipt_request =
       {
         series_id = (Cbor.to_text (csil_req "series_id"));
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
-        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_receipt_request"
 
@@ -1637,8 +1637,8 @@ and decode_split_occurrence_mapping (csil_c : Cbor.t) : split_occurrence_mapping
       {
         result = (decode_split_map_result (csil_req "result"));
         event_id = (match csil_field "event_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        recurrence_id = (Cbor.to_text (csil_req "recurrence_id"));
-        mapped_recurrence_id = (match csil_field "mapped_recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        mapped_recurrence_id = (match csil_field "mapped_recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_occurrence_mapping"
 
@@ -1655,10 +1655,10 @@ and decode_split_series_receipt (csil_c : Cbor.t) : split_series_receipt =
         created = (Cbor.to_bool (csil_req "created"));
         in_place = (Cbor.to_bool (csil_req "in_place"));
         mappings = (match (csil_req "mappings") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_split_occurrence_mapping csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
-        split_at = (Cbor.to_text (csil_req "split_at"));
+        split_at = (match (csil_req "split_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         series_id = (Cbor.to_text (csil_req "series_id"));
         successor = (match csil_field "successor" with Some csil_v -> Some (decode_event csil_v) | None -> None);
-        created_at = (Cbor.to_text (csil_req "created_at"));
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         series_state = (decode_create_receipt_state (csil_req "series_state"));
         successor_id = (Cbor.to_text (csil_req "successor_id"));
@@ -1679,7 +1679,7 @@ and decode_get_occurrence_request (csil_c : Cbor.t) : get_occurrence_request =
       ignore csil_req;
       {
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for get_occurrence_request"
 
@@ -1695,7 +1695,7 @@ and decode_respond_request (csil_c : Cbor.t) : respond_request =
         status = (decode_participation_status (csil_req "status"));
         comment = (match csil_field "comment" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for respond_request"
 
@@ -1735,8 +1735,8 @@ and decode_busy_interval (csil_c : Cbor.t) : busy_interval =
       in
       ignore csil_req;
       {
-        end_ = (Cbor.to_text (csil_req "end"));
-        start = (Cbor.to_text (csil_req "start"));
+        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         tentative = (match csil_field "tentative" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for busy_interval"
@@ -1751,8 +1751,8 @@ and decode_free_busy_request (csil_c : Cbor.t) : free_busy_request =
       ignore csil_req;
       {
         people = (match (csil_req "people") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_identity_ref csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
-        range_end = (Cbor.to_text (csil_req "range_end"));
-        range_start = (Cbor.to_text (csil_req "range_start"));
+        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
       }
   | _ -> failwith "csilgen: expected map for free_busy_request"
 
@@ -1865,7 +1865,7 @@ and decode_audit_entry (csil_c : Cbor.t) : audit_entry =
       in
       ignore csil_req;
       {
-        at = (Cbor.to_text (csil_req "at"));
+        at = (match (csil_req "at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         via = (decode_acting_via (csil_req "via"));
         actor = (decode_person_summary (csil_req "actor"));
         target = (match csil_field "target" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
@@ -1932,7 +1932,7 @@ and decode_login_response (csil_c : Cbor.t) : login_response =
         token = (Cbor.to_text (csil_req "token"));
         scopes = (match csil_field "scopes" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_scope csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         acting_as = (match csil_field "acting_as" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
-        expires_at = (Cbor.to_text (csil_req "expires_at"));
+        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
       }
   | _ -> failwith "csilgen: expected map for login_response"
 
@@ -2023,7 +2023,7 @@ and decode_application_presentation (csil_c : Cbor.t) : application_presentation
         nonce = (Cbor.to_bytes (csil_req "nonce"));
         signer = (decode_application_ref (csil_req "signer"));
         audience = (decode_application_ref (csil_req "audience"));
-        presented_at = (Cbor.to_text (csil_req "presented_at"));
+        presented_at = (match (csil_req "presented_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
         request_digest = (Cbor.to_bytes (csil_req "request_digest"));
         signer_instance_id = (Cbor.to_text (csil_req "signer_instance_id"));
       }
@@ -2532,3 +2532,894 @@ let decode_empty_response_bytes (b : bytes) : empty_response =
 let encode_service_error_bytes (v : service_error) : bytes = Cbor.encode (encode_service_error v)
 let decode_service_error_bytes (b : bytes) : service_error =
   match Cbor.decode b with Ok c -> decode_service_error c | Error e -> failwith e
+
+let encode_auth_service_complete_request value = Cbor.encode (encode_complete_request value)
+let decode_auth_service_complete_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_complete_request root) | Error e -> failwith e
+
+let decode_auth_service_complete_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+exception Service_error_refusal of service_error
+
+let encode_auth_service_complete_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_resume_session_request value = Cbor.encode (encode_empty_request value)
+let decode_auth_service_resume_session_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_auth_service_resume_session_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_auth_service_resume_session_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_end_session_request value = Cbor.encode (encode_empty_request value)
+let decode_auth_service_end_session_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_auth_service_end_session_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_response root) | Error e -> failwith e
+
+let encode_auth_service_end_session_reply = function
+  | Ok value -> ("EmptyResponse", Cbor.encode (encode_empty_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_me_request value = Cbor.encode (encode_empty_request value)
+let decode_auth_service_me_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_auth_service_me_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_me_response root) | Error e -> failwith e
+
+let encode_auth_service_me_reply = function
+  | Ok value -> ("MeResponse", Cbor.encode (encode_me_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_assume_principal_request value = Cbor.encode (encode_assume_principal_request value)
+let decode_auth_service_assume_principal_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_assume_principal_request root) | Error e -> failwith e
+
+let decode_auth_service_assume_principal_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_auth_service_assume_principal_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_release_principal_request value = Cbor.encode (encode_empty_request value)
+let decode_auth_service_release_principal_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_auth_service_release_principal_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_auth_service_release_principal_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_exchange_act_as_credential_request value = Cbor.encode (encode_exchange_act_as_credential_request value)
+let decode_auth_service_exchange_act_as_credential_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_exchange_act_as_credential_request root) | Error e -> failwith e
+
+let decode_auth_service_exchange_act_as_credential_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_auth_service_exchange_act_as_credential_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_get_act_as_scope_set_request value = Cbor.encode (encode_scope_set_request value)
+let decode_auth_service_get_act_as_scope_set_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_scope_set_request root) | Error e -> failwith e
+
+let decode_auth_service_get_act_as_scope_set_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_scope_set_response root) | Error e -> failwith e
+
+let encode_auth_service_get_act_as_scope_set_reply = function
+  | Ok value -> ("ScopeSetResponse", Cbor.encode (encode_scope_set_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_get_application_identity_request value = Cbor.encode (encode_empty_request value)
+let decode_auth_service_get_application_identity_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_auth_service_get_application_identity_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_application_identity_response root) | Error e -> failwith e
+
+let encode_auth_service_get_application_identity_reply = function
+  | Ok value -> ("ApplicationIdentityResponse", Cbor.encode (encode_application_identity_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_auth_service_exchange_application_presentation_request value = Cbor.encode (encode_exchange_application_presentation_request value)
+let decode_auth_service_exchange_application_presentation_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_exchange_application_presentation_request root) | Error e -> failwith e
+
+let decode_auth_service_exchange_application_presentation_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_auth_service_exchange_application_presentation_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_dev_auth_service_list_dev_users_request value = Cbor.encode (encode_empty_request value)
+let decode_dev_auth_service_list_dev_users_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_dev_auth_service_list_dev_users_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_dev_users_response root) | Error e -> failwith e
+
+let encode_dev_auth_service_list_dev_users_reply = function
+  | Ok value -> ("DevUsersResponse", Cbor.encode (encode_dev_users_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_dev_auth_service_dev_login_request value = Cbor.encode (encode_dev_login_request value)
+let decode_dev_auth_service_dev_login_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_dev_login_request root) | Error e -> failwith e
+
+let decode_dev_auth_service_dev_login_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_login_response root) | Error e -> failwith e
+
+let encode_dev_auth_service_dev_login_reply = function
+  | Ok value -> ("LoginResponse", Cbor.encode (encode_login_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_user_service_get_profile_request value = Cbor.encode (encode_empty_request value)
+let decode_user_service_get_profile_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_user_service_get_profile_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_user root) | Error e -> failwith e
+
+let encode_user_service_get_profile_reply = function
+  | Ok value -> ("User", Cbor.encode (encode_user value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_user_service_update_profile_request value = Cbor.encode (encode_update_profile_request value)
+let decode_user_service_update_profile_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_update_profile_request root) | Error e -> failwith e
+
+let decode_user_service_update_profile_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_user root) | Error e -> failwith e
+
+let encode_user_service_update_profile_reply = function
+  | Ok value -> ("User", Cbor.encode (encode_user value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_user_service_lookup_person_request value = Cbor.encode (encode_lookup_person_request value)
+let decode_user_service_lookup_person_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_lookup_person_request root) | Error e -> failwith e
+
+let decode_user_service_lookup_person_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_person_summary root) | Error e -> failwith e
+
+let encode_user_service_lookup_person_reply = function
+  | Ok value -> ("PersonSummary", Cbor.encode (encode_person_summary value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_list_calendars_request value = Cbor.encode (encode_empty_request value)
+let decode_calendar_service_list_calendars_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_calendar_service_list_calendars_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar_list root) | Error e -> failwith e
+
+let encode_calendar_service_list_calendars_reply = function
+  | Ok value -> ("CalendarList", Cbor.encode (encode_calendar_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_get_calendar_request value = Cbor.encode (Cbor.Text value)
+let decode_calendar_service_get_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_calendar_service_get_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_get_calendar_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_create_calendar_request value = Cbor.encode (encode_create_calendar_request value)
+let decode_calendar_service_create_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_calendar_request root) | Error e -> failwith e
+
+let decode_calendar_service_create_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_create_calendar_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_update_calendar_request value = Cbor.encode (encode_update_calendar_request value)
+let decode_calendar_service_update_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_update_calendar_request root) | Error e -> failwith e
+
+let decode_calendar_service_update_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_update_calendar_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_delete_calendar_request value = Cbor.encode (Cbor.Text value)
+let decode_calendar_service_delete_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_calendar_service_delete_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_response root) | Error e -> failwith e
+
+let encode_calendar_service_delete_calendar_reply = function
+  | Ok value -> ("EmptyResponse", Cbor.encode (encode_empty_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_subscribe_calendar_request value = Cbor.encode (encode_subscribe_calendar_request value)
+let decode_calendar_service_subscribe_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_subscribe_calendar_request root) | Error e -> failwith e
+
+let decode_calendar_service_subscribe_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_subscribe_calendar_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_refresh_subscription_request value = Cbor.encode (Cbor.Text value)
+let decode_calendar_service_refresh_subscription_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_calendar_service_refresh_subscription_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_refresh_subscription_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_calendar_service_set_feed_request value = Cbor.encode (encode_set_feed_request value)
+let decode_calendar_service_set_feed_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_set_feed_request root) | Error e -> failwith e
+
+let decode_calendar_service_set_feed_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_calendar root) | Error e -> failwith e
+
+let encode_calendar_service_set_feed_reply = function
+  | Ok value -> ("Calendar", Cbor.encode (encode_calendar value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_share_service_list_shares_request value = Cbor.encode (Cbor.Text value)
+let decode_share_service_list_shares_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_share_service_list_shares_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_share_list root) | Error e -> failwith e
+
+let encode_share_service_list_shares_reply = function
+  | Ok value -> ("ShareList", Cbor.encode (encode_share_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_share_service_put_share_request value = Cbor.encode (encode_share value)
+let decode_share_service_put_share_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_share root) | Error e -> failwith e
+
+let decode_share_service_put_share_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_share root) | Error e -> failwith e
+
+let encode_share_service_put_share_reply = function
+  | Ok value -> ("Share", Cbor.encode (encode_share value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_share_service_delete_share_request value = Cbor.encode (Cbor.Text value)
+let decode_share_service_delete_share_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_share_service_delete_share_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_response root) | Error e -> failwith e
+
+let encode_share_service_delete_share_reply = function
+  | Ok value -> ("EmptyResponse", Cbor.encode (encode_empty_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_list_groups_request value = Cbor.encode (encode_empty_request value)
+let decode_group_service_list_groups_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_group_service_list_groups_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_group_list root) | Error e -> failwith e
+
+let encode_group_service_list_groups_reply = function
+  | Ok value -> ("GroupList", Cbor.encode (encode_group_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_get_group_request value = Cbor.encode (Cbor.Text value)
+let decode_group_service_get_group_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_group_service_get_group_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_group root) | Error e -> failwith e
+
+let encode_group_service_get_group_reply = function
+  | Ok value -> ("Group", Cbor.encode (encode_group value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_create_group_request value = Cbor.encode (encode_create_group_request value)
+let decode_group_service_create_group_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_group_request root) | Error e -> failwith e
+
+let decode_group_service_create_group_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_group root) | Error e -> failwith e
+
+let encode_group_service_create_group_reply = function
+  | Ok value -> ("Group", Cbor.encode (encode_group value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_update_group_request value = Cbor.encode (encode_update_group_request value)
+let decode_group_service_update_group_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_update_group_request root) | Error e -> failwith e
+
+let decode_group_service_update_group_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_group root) | Error e -> failwith e
+
+let encode_group_service_update_group_reply = function
+  | Ok value -> ("Group", Cbor.encode (encode_group value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_set_members_request value = Cbor.encode (encode_set_group_members_request value)
+let decode_group_service_set_members_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_set_group_members_request root) | Error e -> failwith e
+
+let decode_group_service_set_members_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_group root) | Error e -> failwith e
+
+let encode_group_service_set_members_reply = function
+  | Ok value -> ("Group", Cbor.encode (encode_group value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_group_service_delete_group_request value = Cbor.encode (Cbor.Text value)
+let decode_group_service_delete_group_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_group_service_delete_group_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_response root) | Error e -> failwith e
+
+let encode_group_service_delete_group_reply = function
+  | Ok value -> ("EmptyResponse", Cbor.encode (encode_empty_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_delegation_service_list_granted_request value = Cbor.encode (encode_empty_request value)
+let decode_delegation_service_list_granted_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_delegation_service_list_granted_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation_list root) | Error e -> failwith e
+
+let encode_delegation_service_list_granted_reply = function
+  | Ok value -> ("DelegationList", Cbor.encode (encode_delegation_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_delegation_service_list_received_request value = Cbor.encode (encode_empty_request value)
+let decode_delegation_service_list_received_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_delegation_service_list_received_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation_list root) | Error e -> failwith e
+
+let encode_delegation_service_list_received_reply = function
+  | Ok value -> ("DelegationList", Cbor.encode (encode_delegation_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_delegation_service_create_delegation_request value = Cbor.encode (encode_delegation value)
+let decode_delegation_service_create_delegation_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation root) | Error e -> failwith e
+
+let decode_delegation_service_create_delegation_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation root) | Error e -> failwith e
+
+let encode_delegation_service_create_delegation_reply = function
+  | Ok value -> ("Delegation", Cbor.encode (encode_delegation value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_delegation_service_update_delegation_request value = Cbor.encode (encode_delegation value)
+let decode_delegation_service_update_delegation_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation root) | Error e -> failwith e
+
+let decode_delegation_service_update_delegation_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delegation root) | Error e -> failwith e
+
+let encode_delegation_service_update_delegation_reply = function
+  | Ok value -> ("Delegation", Cbor.encode (encode_delegation value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_delegation_service_revoke_delegation_request value = Cbor.encode (Cbor.Text value)
+let decode_delegation_service_revoke_delegation_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_delegation_service_revoke_delegation_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_response root) | Error e -> failwith e
+
+let encode_delegation_service_revoke_delegation_reply = function
+  | Ok value -> ("EmptyResponse", Cbor.encode (encode_empty_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_list_events_request value = Cbor.encode (encode_list_events_request value)
+let decode_event_service_list_events_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_list_events_request root) | Error e -> failwith e
+
+let decode_event_service_list_events_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_occurrence_list root) | Error e -> failwith e
+
+let encode_event_service_list_events_reply = function
+  | Ok value -> ("OccurrenceList", Cbor.encode (encode_occurrence_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_get_event_request value = Cbor.encode (Cbor.Text value)
+let decode_event_service_get_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (Cbor.to_text root) | Error e -> failwith e
+
+let decode_event_service_get_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_get_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_get_occurrence_request value = Cbor.encode (encode_get_occurrence_request value)
+let decode_event_service_get_occurrence_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_get_occurrence_request root) | Error e -> failwith e
+
+let decode_event_service_get_occurrence_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_occurrence root) | Error e -> failwith e
+
+let encode_event_service_get_occurrence_reply = function
+  | Ok value -> ("Occurrence", Cbor.encode (encode_occurrence value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_create_event_request value = Cbor.encode (encode_event value)
+let decode_event_service_create_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let decode_event_service_create_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_create_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_update_event_request value = Cbor.encode (encode_update_event_request value)
+let decode_event_service_update_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_update_event_request root) | Error e -> failwith e
+
+let decode_event_service_update_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_update_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_delete_event_request value = Cbor.encode (encode_delete_event_request value)
+let decode_event_service_delete_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delete_event_request root) | Error e -> failwith e
+
+let decode_event_service_delete_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_delete_event_response root) | Error e -> failwith e
+
+let encode_event_service_delete_event_reply = function
+  | Ok value -> ("DeleteEventResponse", Cbor.encode (encode_delete_event_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_move_event_request value = Cbor.encode (encode_move_event_request value)
+let decode_event_service_move_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_move_event_request root) | Error e -> failwith e
+
+let decode_event_service_move_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_move_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_respond_request value = Cbor.encode (encode_respond_request value)
+let decode_event_service_respond_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_respond_request root) | Error e -> failwith e
+
+let decode_event_service_respond_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_respond_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_list_invitations_request value = Cbor.encode (encode_empty_request value)
+let decode_event_service_list_invitations_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_empty_request root) | Error e -> failwith e
+
+let decode_event_service_list_invitations_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event_list root) | Error e -> failwith e
+
+let encode_event_service_list_invitations_reply = function
+  | Ok value -> ("EventList", Cbor.encode (encode_event_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_search_events_request value = Cbor.encode (encode_search_events_request value)
+let decode_event_service_search_events_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_search_events_request root) | Error e -> failwith e
+
+let decode_event_service_search_events_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event_list root) | Error e -> failwith e
+
+let encode_event_service_search_events_reply = function
+  | Ok value -> ("EventList", Cbor.encode (encode_event_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_list_trash_request value = Cbor.encode (encode_list_trash_request value)
+let decode_event_service_list_trash_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_list_trash_request root) | Error e -> failwith e
+
+let decode_event_service_list_trash_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_trash_list root) | Error e -> failwith e
+
+let encode_event_service_list_trash_reply = function
+  | Ok value -> ("TrashList", Cbor.encode (encode_trash_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_restore_event_request value = Cbor.encode (encode_restore_event_request value)
+let decode_event_service_restore_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_restore_event_request root) | Error e -> failwith e
+
+let decode_event_service_restore_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_restore_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_import_event_request value = Cbor.encode (encode_import_event_request value)
+let decode_event_service_import_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_import_event_request root) | Error e -> failwith e
+
+let decode_event_service_import_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_event root) | Error e -> failwith e
+
+let encode_event_service_import_event_reply = function
+  | Ok value -> ("Event", Cbor.encode (encode_event value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_create_event_once_request value = Cbor.encode (encode_create_event_once_request value)
+let decode_event_service_create_event_once_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_event_once_request root) | Error e -> failwith e
+
+let decode_event_service_create_event_once_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_event_receipt root) | Error e -> failwith e
+
+let encode_event_service_create_event_once_reply = function
+  | Ok value -> ("CreateEventReceipt", Cbor.encode (encode_create_event_receipt value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_get_create_receipt_request value = Cbor.encode (encode_create_receipt_request value)
+let decode_event_service_get_create_receipt_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_receipt_request root) | Error e -> failwith e
+
+let decode_event_service_get_create_receipt_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_create_event_receipt root) | Error e -> failwith e
+
+let encode_event_service_get_create_receipt_reply = function
+  | Ok value -> ("CreateEventReceipt", Cbor.encode (encode_create_event_receipt value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_split_series_once_request value = Cbor.encode (encode_split_series_once_request value)
+let decode_event_service_split_series_once_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_split_series_once_request root) | Error e -> failwith e
+
+let decode_event_service_split_series_once_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_split_series_receipt root) | Error e -> failwith e
+
+let encode_event_service_split_series_once_reply = function
+  | Ok value -> ("SplitSeriesReceipt", Cbor.encode (encode_split_series_receipt value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_event_service_get_split_receipt_request value = Cbor.encode (encode_split_receipt_request value)
+let decode_event_service_get_split_receipt_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_split_receipt_request root) | Error e -> failwith e
+
+let decode_event_service_get_split_receipt_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_split_series_receipt root) | Error e -> failwith e
+
+let encode_event_service_get_split_receipt_reply = function
+  | Ok value -> ("SplitSeriesReceipt", Cbor.encode (encode_split_series_receipt value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_free_busy_service_query_request value = Cbor.encode (encode_free_busy_request value)
+let decode_free_busy_service_query_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_free_busy_request root) | Error e -> failwith e
+
+let decode_free_busy_service_query_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_free_busy_response root) | Error e -> failwith e
+
+let encode_free_busy_service_query_reply = function
+  | Ok value -> ("FreeBusyResponse", Cbor.encode (encode_free_busy_response value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_ics_service_import_ics_request value = Cbor.encode (encode_import_ics_request value)
+let decode_ics_service_import_ics_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_import_ics_request root) | Error e -> failwith e
+
+let decode_ics_service_import_ics_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_import_result root) | Error e -> failwith e
+
+let encode_ics_service_import_ics_reply = function
+  | Ok value -> ("ImportResult", Cbor.encode (encode_import_result value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_ics_service_export_calendar_request value = Cbor.encode (encode_export_calendar_request value)
+let decode_ics_service_export_calendar_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_export_calendar_request root) | Error e -> failwith e
+
+let decode_ics_service_export_calendar_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_ics_document root) | Error e -> failwith e
+
+let encode_ics_service_export_calendar_reply = function
+  | Ok value -> ("IcsDocument", Cbor.encode (encode_ics_document value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_ics_service_export_event_request value = Cbor.encode (encode_export_event_request value)
+let decode_ics_service_export_event_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_export_event_request root) | Error e -> failwith e
+
+let decode_ics_service_export_event_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_ics_document root) | Error e -> failwith e
+
+let encode_ics_service_export_event_reply = function
+  | Ok value -> ("IcsDocument", Cbor.encode (encode_ics_document value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let encode_audit_service_list_audit_request value = Cbor.encode (encode_audit_query value)
+let decode_audit_service_list_audit_request bytes =
+  match Cbor.decode bytes with Ok root -> (decode_audit_query root) | Error e -> failwith e
+
+let decode_audit_service_list_audit_success bytes =
+  match Cbor.decode bytes with Ok root -> (decode_audit_list root) | Error e -> failwith e
+
+let encode_audit_service_list_audit_reply = function
+  | Ok value -> ("AuditList", Cbor.encode (encode_audit_list value))
+  | Error (`Service_error value) -> ("ServiceError", Cbor.encode (encode_service_error value))
+
+let resolve_rpc_reply ~service ~op ~variant payload =
+  match service, op, variant with
+  | "AuthService", "complete", Some "LoginResponse" -> payload
+  | "AuthService", "complete", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "complete", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "resume-session", Some "LoginResponse" -> payload
+  | "AuthService", "resume-session", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "resume-session", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "end-session", Some "EmptyResponse" -> payload
+  | "AuthService", "end-session", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "end-session", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "me", Some "MeResponse" -> payload
+  | "AuthService", "me", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "me", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "assume-principal", Some "LoginResponse" -> payload
+  | "AuthService", "assume-principal", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "assume-principal", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "release-principal", Some "LoginResponse" -> payload
+  | "AuthService", "release-principal", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "release-principal", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "exchange-act-as-credential", Some "LoginResponse" -> payload
+  | "AuthService", "exchange-act-as-credential", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "exchange-act-as-credential", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "get-act-as-scope-set", Some "ScopeSetResponse" -> payload
+  | "AuthService", "get-act-as-scope-set", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "get-act-as-scope-set", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "get-application-identity", Some "ApplicationIdentityResponse" -> payload
+  | "AuthService", "get-application-identity", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "get-application-identity", _ -> failwith "invalid RPC reply variant"
+  | "AuthService", "exchange-application-presentation", Some "LoginResponse" -> payload
+  | "AuthService", "exchange-application-presentation", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuthService", "exchange-application-presentation", _ -> failwith "invalid RPC reply variant"
+  | "DevAuthService", "list-dev-users", Some "DevUsersResponse" -> payload
+  | "DevAuthService", "list-dev-users", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DevAuthService", "list-dev-users", _ -> failwith "invalid RPC reply variant"
+  | "DevAuthService", "dev-login", Some "LoginResponse" -> payload
+  | "DevAuthService", "dev-login", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DevAuthService", "dev-login", _ -> failwith "invalid RPC reply variant"
+  | "UserService", "get-profile", Some "User" -> payload
+  | "UserService", "get-profile", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "UserService", "get-profile", _ -> failwith "invalid RPC reply variant"
+  | "UserService", "update-profile", Some "User" -> payload
+  | "UserService", "update-profile", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "UserService", "update-profile", _ -> failwith "invalid RPC reply variant"
+  | "UserService", "lookup-person", Some "PersonSummary" -> payload
+  | "UserService", "lookup-person", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "UserService", "lookup-person", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "list-calendars", Some "CalendarList" -> payload
+  | "CalendarService", "list-calendars", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "list-calendars", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "get-calendar", Some "Calendar" -> payload
+  | "CalendarService", "get-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "get-calendar", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "create-calendar", Some "Calendar" -> payload
+  | "CalendarService", "create-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "create-calendar", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "update-calendar", Some "Calendar" -> payload
+  | "CalendarService", "update-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "update-calendar", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "delete-calendar", Some "EmptyResponse" -> payload
+  | "CalendarService", "delete-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "delete-calendar", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "subscribe-calendar", Some "Calendar" -> payload
+  | "CalendarService", "subscribe-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "subscribe-calendar", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "refresh-subscription", Some "Calendar" -> payload
+  | "CalendarService", "refresh-subscription", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "refresh-subscription", _ -> failwith "invalid RPC reply variant"
+  | "CalendarService", "set-feed", Some "Calendar" -> payload
+  | "CalendarService", "set-feed", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "CalendarService", "set-feed", _ -> failwith "invalid RPC reply variant"
+  | "ShareService", "list-shares", Some "ShareList" -> payload
+  | "ShareService", "list-shares", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "ShareService", "list-shares", _ -> failwith "invalid RPC reply variant"
+  | "ShareService", "put-share", Some "Share" -> payload
+  | "ShareService", "put-share", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "ShareService", "put-share", _ -> failwith "invalid RPC reply variant"
+  | "ShareService", "delete-share", Some "EmptyResponse" -> payload
+  | "ShareService", "delete-share", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "ShareService", "delete-share", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "list-groups", Some "GroupList" -> payload
+  | "GroupService", "list-groups", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "list-groups", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "get-group", Some "Group" -> payload
+  | "GroupService", "get-group", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "get-group", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "create-group", Some "Group" -> payload
+  | "GroupService", "create-group", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "create-group", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "update-group", Some "Group" -> payload
+  | "GroupService", "update-group", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "update-group", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "set-members", Some "Group" -> payload
+  | "GroupService", "set-members", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "set-members", _ -> failwith "invalid RPC reply variant"
+  | "GroupService", "delete-group", Some "EmptyResponse" -> payload
+  | "GroupService", "delete-group", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "GroupService", "delete-group", _ -> failwith "invalid RPC reply variant"
+  | "DelegationService", "list-granted", Some "DelegationList" -> payload
+  | "DelegationService", "list-granted", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DelegationService", "list-granted", _ -> failwith "invalid RPC reply variant"
+  | "DelegationService", "list-received", Some "DelegationList" -> payload
+  | "DelegationService", "list-received", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DelegationService", "list-received", _ -> failwith "invalid RPC reply variant"
+  | "DelegationService", "create-delegation", Some "Delegation" -> payload
+  | "DelegationService", "create-delegation", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DelegationService", "create-delegation", _ -> failwith "invalid RPC reply variant"
+  | "DelegationService", "update-delegation", Some "Delegation" -> payload
+  | "DelegationService", "update-delegation", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DelegationService", "update-delegation", _ -> failwith "invalid RPC reply variant"
+  | "DelegationService", "revoke-delegation", Some "EmptyResponse" -> payload
+  | "DelegationService", "revoke-delegation", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "DelegationService", "revoke-delegation", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "list-events", Some "OccurrenceList" -> payload
+  | "EventService", "list-events", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "list-events", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "get-event", Some "Event" -> payload
+  | "EventService", "get-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "get-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "get-occurrence", Some "Occurrence" -> payload
+  | "EventService", "get-occurrence", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "get-occurrence", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "create-event", Some "Event" -> payload
+  | "EventService", "create-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "create-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "update-event", Some "Event" -> payload
+  | "EventService", "update-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "update-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "delete-event", Some "DeleteEventResponse" -> payload
+  | "EventService", "delete-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "delete-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "move-event", Some "Event" -> payload
+  | "EventService", "move-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "move-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "respond", Some "Event" -> payload
+  | "EventService", "respond", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "respond", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "list-invitations", Some "EventList" -> payload
+  | "EventService", "list-invitations", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "list-invitations", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "search-events", Some "EventList" -> payload
+  | "EventService", "search-events", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "search-events", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "list-trash", Some "TrashList" -> payload
+  | "EventService", "list-trash", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "list-trash", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "restore-event", Some "Event" -> payload
+  | "EventService", "restore-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "restore-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "import-event", Some "Event" -> payload
+  | "EventService", "import-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "import-event", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "create-event-once", Some "CreateEventReceipt" -> payload
+  | "EventService", "create-event-once", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "create-event-once", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "get-create-receipt", Some "CreateEventReceipt" -> payload
+  | "EventService", "get-create-receipt", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "get-create-receipt", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "split-series-once", Some "SplitSeriesReceipt" -> payload
+  | "EventService", "split-series-once", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "split-series-once", _ -> failwith "invalid RPC reply variant"
+  | "EventService", "get-split-receipt", Some "SplitSeriesReceipt" -> payload
+  | "EventService", "get-split-receipt", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "EventService", "get-split-receipt", _ -> failwith "invalid RPC reply variant"
+  | "FreeBusyService", "query", Some "FreeBusyResponse" -> payload
+  | "FreeBusyService", "query", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "FreeBusyService", "query", _ -> failwith "invalid RPC reply variant"
+  | "IcsService", "import-ics", Some "ImportResult" -> payload
+  | "IcsService", "import-ics", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "IcsService", "import-ics", _ -> failwith "invalid RPC reply variant"
+  | "IcsService", "export-calendar", Some "IcsDocument" -> payload
+  | "IcsService", "export-calendar", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "IcsService", "export-calendar", _ -> failwith "invalid RPC reply variant"
+  | "IcsService", "export-event", Some "IcsDocument" -> payload
+  | "IcsService", "export-event", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "IcsService", "export-event", _ -> failwith "invalid RPC reply variant"
+  | "AuditService", "list-audit", Some "AuditList" -> payload
+  | "AuditService", "list-audit", Some "ServiceError" ->
+      (match Cbor.decode payload with Ok root -> raise (Service_error_refusal ((decode_service_error root))) | Error e -> failwith e)
+  | "AuditService", "list-audit", _ -> failwith "invalid RPC reply variant"
+  | _ -> payload

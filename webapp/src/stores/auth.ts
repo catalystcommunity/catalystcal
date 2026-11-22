@@ -25,7 +25,7 @@ export interface Session {
 }
 
 export function sessionFromLogin(r: LoginResponse): Session {
-  return { token: r.token, expiresAt: r.expiresAt, user: r.user, actingAs: r.actingAs, via: r.via, scopes: r.scopes };
+  return { token: r.token, expiresAt: r.expiresAt.toISOString(), user: r.user, actingAs: r.actingAs, via: r.via, scopes: r.scopes };
 }
 
 const readSession = (): Session | null => {

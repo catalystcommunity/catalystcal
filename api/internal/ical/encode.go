@@ -222,19 +222,15 @@ func dateValue(t timing, zone string, at time.Time) ([]param, string) {
 	}
 }
 
-func dateList(t timing, zone string, vals []csil.Timestamp) ([]param, string, error) {
+func dateList(t timing, zone string, vals []time.Time) ([]param, string) {
 	var ps []param
 	var out []string
 	for _, v := range vals {
-		at, err := parseInstant(string(v))
-		if err != nil {
-			return nil, "", err
-		}
-		p, s := dateValue(t, zone, at)
+		p, s := dateValue(t, zone, v)
 		ps = p
 		out = append(out, s)
 	}
-	return ps, strings.Join(out, ","), nil
+	return ps, strings.Join(out, ",")
 }
 
 func eventUID(ev csil.Event) string {
@@ -246,7 +242,7 @@ func eventUID(ev csil.Event) string {
 	}
 	start := ""
 	if ev.Start != nil {
-		start = string(*ev.Start)
+		start = ev.Start.UTC().Format(TimeLayout)
 	}
 	h := sha1.Sum([]byte(ev.Title + "\x00" + start))
 	return hex.EncodeToString(h[:]) + "@catalystcal"
@@ -259,22 +255,18 @@ func writeEvent(w *lineWriter, ev csil.Event, t timing, opts EncodeOptions, now 
 	w.line("UID", nil, eventUID(ev))
 	w.line("DTSTAMP", nil, now.Format("20060102T150405Z"))
 	w.line("SEQUENCE", nil, strconv.FormatInt(ev.Sequence, 10))
-	if ts, err := parseInstant(string(ev.CreatedAt)); err == nil && ev.CreatedAt != "" {
-		w.line("CREATED", nil, ts.Format("20060102T150405Z"))
+	if !ev.CreatedAt.IsZero() {
+		w.line("CREATED", nil, ev.CreatedAt.UTC().Format("20060102T150405Z"))
 	}
-	if ts, err := parseInstant(string(ev.UpdatedAt)); err == nil && ev.UpdatedAt != "" {
-		w.line("LAST-MODIFIED", nil, ts.Format("20060102T150405Z"))
+	if !ev.UpdatedAt.IsZero() {
+		w.line("LAST-MODIFIED", nil, ev.UpdatedAt.UTC().Format("20060102T150405Z"))
 	}
 	p, v := dateValue(t, zone, t.start)
 	w.line("DTSTART", p, v)
 	p, v = dateValue(t, zone, t.end)
 	w.line("DTEND", p, v)
 	if ev.RecurrenceId != nil {
-		rid, err := parseInstant(string(*ev.RecurrenceId))
-		if err != nil {
-			return err
-		}
-		p, v = dateValue(t, zone, rid)
+		p, v = dateValue(t, zone, *ev.RecurrenceId)
 		w.line("RECURRENCE-ID", p, v)
 	}
 	if rec := ev.Recurrence; rec != nil && ev.RecurrenceId == nil {
@@ -286,17 +278,11 @@ func writeEvent(w *lineWriter, ev csil.Event, t timing, opts EncodeOptions, now 
 			w.line("RRULE", nil, rule)
 		}
 		if len(rec.Exdates) > 0 {
-			p, v, err := dateList(t, zone, rec.Exdates)
-			if err != nil {
-				return err
-			}
+			p, v := dateList(t, zone, rec.Exdates)
 			w.line("EXDATE", p, v)
 		}
 		if len(rec.Rdates) > 0 {
-			p, v, err := dateList(t, zone, rec.Rdates)
-			if err != nil {
-				return err
-			}
+			p, v := dateList(t, zone, rec.Rdates)
 			w.line("RDATE", p, v)
 		}
 	}

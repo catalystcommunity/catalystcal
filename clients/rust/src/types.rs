@@ -1,6 +1,6 @@
 //! Generated types from CSIL specification
 
-#![allow(non_camel_case_types, clippy::large_enum_variant)]
+#![allow(clippy::large_enum_variant)]
 
 /// Returned by a generated `validate` method when a field violates one of its
 /// CSIL constraints. `field` names the offending field; `message` explains.
@@ -40,10 +40,6 @@ pub type TrashID = String;
 
 pub type SessionID = String;
 
-pub type Timestamp = String;
-
-pub type DateText = String;
-
 /// ShareRole variants
 #[derive(Debug, Clone, PartialEq)]
 pub enum ShareRole {
@@ -78,11 +74,11 @@ pub enum AccessPath {
 /// Scope variants
 #[derive(Debug, Clone, PartialEq)]
 pub enum Scope {
-    Calendars.read,
-    Freebusy.read,
-    Events.write,
-    Events.respond,
-    Calendars.manage,
+    CalendarsRead,
+    FreebusyRead,
+    EventsWrite,
+    EventsRespond,
+    CalendarsManage,
 }
 
 /// CalendarKind variants
@@ -153,7 +149,7 @@ pub enum RecurrenceScope {
 /// ActingVia variants
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActingVia {
-    Self,
+    SelfActor,
     Delegation,
     ActAsGrant,
 }
@@ -185,8 +181,8 @@ pub struct User {
     pub display_name: Option<String>,
     pub email: Option<String>,
     pub timezone: Option<String>,
-    pub created_at: Timestamp,
-    pub updated_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
+    pub updated_at: time::OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -210,14 +206,14 @@ pub struct Calendar {
     pub timezone: Option<String>,
     pub kind: CalendarKind,
     pub source_url: Option<String>,
-    pub last_synced_at: Option<Timestamp>,
+    pub last_synced_at: Option<time::OffsetDateTime>,
     pub sync_error: Option<String>,
     pub is_default: bool,
     pub access: AccessRole,
     pub access_path: AccessPath,
     pub feed_path: Option<String>,
-    pub created_at: Timestamp,
-    pub updated_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
+    pub updated_at: time::OffsetDateTime,
 }
 
 impl Calendar {
@@ -330,7 +326,7 @@ pub struct Share {
     pub role: ShareRole,
     pub grantee_person: Option<PersonSummary>,
     pub grantee_group_name: Option<String>,
-    pub created_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -355,8 +351,8 @@ pub struct Group {
     pub description: Option<String>,
     pub revision: u64,
     pub members: Vec<GroupMember>,
-    pub created_at: Timestamp,
-    pub updated_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
+    pub updated_at: time::OffsetDateTime,
 }
 
 impl Group {
@@ -443,9 +439,9 @@ pub struct Delegation {
     pub scopes: Vec<Scope>,
     pub calendar_ids: Option<Vec<CalendarID>>,
     pub note: Option<String>,
-    pub expires_at: Option<Timestamp>,
-    pub created_at: Timestamp,
-    pub revoked_at: Option<Timestamp>,
+    pub expires_at: Option<time::OffsetDateTime>,
+    pub created_at: time::OffsetDateTime,
+    pub revoked_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -461,8 +457,8 @@ pub struct AssumePrincipalRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Recurrence {
     pub rrule: String,
-    pub exdates: Option<Vec<Timestamp>>,
-    pub rdates: Option<Vec<Timestamp>>,
+    pub exdates: Option<Vec<time::OffsetDateTime>>,
+    pub rdates: Option<Vec<time::OffsetDateTime>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -498,12 +494,12 @@ pub struct Event {
     pub location: Option<String>,
     pub url: Option<String>,
     pub conference_url: Option<String>,
-    pub start: Option<Timestamp>,
-    pub end: Option<Timestamp>,
+    pub start: Option<time::OffsetDateTime>,
+    pub end: Option<time::OffsetDateTime>,
     /// default: false
     pub all_day: Option<bool>,
-    pub start_date: Option<DateText>,
-    pub end_date: Option<DateText>,
+    pub start_date: Option<time::Date>,
+    pub end_date: Option<time::Date>,
     pub timezone: Option<String>,
     /// default: "confirmed"
     pub status: Option<EventStatus>,
@@ -513,7 +509,7 @@ pub struct Event {
     pub visibility: Option<EventVisibility>,
     pub recurrence: Option<Recurrence>,
     pub master_event_id: Option<EventID>,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
     pub attendees: Option<Vec<Attendee>>,
     pub reminders: Option<Vec<Reminder>>,
     pub categories: Option<Vec<String>>,
@@ -523,8 +519,8 @@ pub struct Event {
     pub updated_by: Option<PersonSummary>,
     pub updated_via: Option<ActingVia>,
     pub sequence: i64,
-    pub created_at: Timestamp,
-    pub updated_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
+    pub updated_at: time::OffsetDateTime,
 }
 
 impl Event {
@@ -546,9 +542,9 @@ impl Event {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Occurrence {
     pub event: Event,
-    pub start: Timestamp,
-    pub end: Timestamp,
-    pub recurrence_id: Option<Timestamp>,
+    pub start: time::OffsetDateTime,
+    pub end: time::OffsetDateTime,
+    pub recurrence_id: Option<time::OffsetDateTime>,
     pub access: AccessRole,
     pub busy_only: bool,
     pub invited: bool,
@@ -556,8 +552,8 @@ pub struct Occurrence {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ListEventsRequest {
-    pub range_start: Timestamp,
-    pub range_end: Timestamp,
+    pub range_start: time::OffsetDateTime,
+    pub range_end: time::OffsetDateTime,
     pub calendar_ids: Option<Vec<CalendarID>>,
     /// default: true
     pub include_invitations: Option<bool>,
@@ -574,7 +570,7 @@ pub struct UpdateEventRequest {
     pub event: Event,
     /// default: "all"
     pub scope: Option<RecurrenceScope>,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -582,7 +578,7 @@ pub struct DeleteEventRequest {
     pub event_id: EventID,
     /// default: "all"
     pub scope: Option<RecurrenceScope>,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -602,12 +598,12 @@ pub struct TrashEntry {
     pub calendar_id: CalendarID,
     pub event_id: EventID,
     pub scope: RecurrenceScope,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
     pub event: Event,
     pub instance: Option<Event>,
     pub deleted_by: Option<PersonSummary>,
-    pub deleted_at: Timestamp,
-    pub expires_at: Timestamp,
+    pub deleted_at: time::OffsetDateTime,
+    pub expires_at: time::OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -631,7 +627,7 @@ pub struct RestoreEventRequest {
 pub struct ImportEventRequest {
     pub event: Event,
     pub created_by: IdentityRef,
-    pub created_at: Option<Timestamp>,
+    pub created_at: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -687,7 +683,7 @@ pub struct CreateEventReceipt {
     pub event_id: EventID,
     pub state: CreateReceiptState,
     pub created: bool,
-    pub created_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
     pub event: Option<Event>,
     pub trash_id: Option<TrashID>,
 }
@@ -697,8 +693,8 @@ pub struct SplitSeriesOnceRequest {
     /// constraint: size in 1..=200
     pub idempotency_key: String,
     pub event: Event,
-    pub recurrence_id: Timestamp,
-    pub map_recurrence_ids: Option<Vec<Timestamp>>,
+    pub recurrence_id: time::OffsetDateTime,
+    pub map_recurrence_ids: Option<Vec<time::OffsetDateTime>>,
 }
 
 impl SplitSeriesOnceRequest {
@@ -722,7 +718,7 @@ pub struct SplitReceiptRequest {
     pub series_id: EventID,
     /// constraint: size in 1..=200
     pub idempotency_key: String,
-    pub map_recurrence_ids: Option<Vec<Timestamp>>,
+    pub map_recurrence_ids: Option<Vec<time::OffsetDateTime>>,
 }
 
 impl SplitReceiptRequest {
@@ -751,10 +747,10 @@ pub enum SplitMapResult {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplitOccurrenceMapping {
-    pub recurrence_id: Timestamp,
+    pub recurrence_id: time::OffsetDateTime,
     pub result: SplitMapResult,
     pub event_id: Option<EventID>,
-    pub mapped_recurrence_id: Option<Timestamp>,
+    pub mapped_recurrence_id: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -762,10 +758,10 @@ pub struct SplitSeriesReceipt {
     pub series_id: EventID,
     pub idempotency_key: String,
     pub successor_id: EventID,
-    pub split_at: Timestamp,
+    pub split_at: time::OffsetDateTime,
     pub in_place: bool,
     pub created: bool,
-    pub created_at: Timestamp,
+    pub created_at: time::OffsetDateTime,
     pub calendar_id: CalendarID,
     pub series_state: CreateReceiptState,
     pub series: Option<Event>,
@@ -779,14 +775,14 @@ pub struct SplitSeriesReceipt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct GetOccurrenceRequest {
     pub event_id: EventID,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RespondRequest {
     pub event_id: EventID,
     pub status: ParticipationStatus,
-    pub recurrence_id: Option<Timestamp>,
+    pub recurrence_id: Option<time::OffsetDateTime>,
     pub comment: Option<String>,
 }
 
@@ -821,16 +817,16 @@ pub struct EventList {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BusyInterval {
-    pub start: Timestamp,
-    pub end: Timestamp,
+    pub start: time::OffsetDateTime,
+    pub end: time::OffsetDateTime,
     pub tentative: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FreeBusyRequest {
     pub people: Vec<IdentityRef>,
-    pub range_start: Timestamp,
-    pub range_end: Timestamp,
+    pub range_start: time::OffsetDateTime,
+    pub range_end: time::OffsetDateTime,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -880,7 +876,7 @@ pub struct IcsDocument {
 #[derive(Debug, Clone, PartialEq)]
 pub struct AuditEntry {
     pub audit_id: AuditID,
-    pub at: Timestamp,
+    pub at: time::OffsetDateTime,
     pub actor: PersonSummary,
     pub principal: PersonSummary,
     pub via: ActingVia,
@@ -912,7 +908,7 @@ pub struct CompleteRequest {
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoginResponse {
     pub token: String,
-    pub expires_at: Timestamp,
+    pub expires_at: time::OffsetDateTime,
     pub user: PersonSummary,
     pub acting_as: Option<PersonSummary>,
     pub via: ActingVia,
@@ -960,7 +956,7 @@ pub struct ApplicationPresentation {
     pub signer_instance_id: String,
     pub audience: ApplicationRef,
     pub request_digest: Vec<u8>,
-    pub presented_at: Timestamp,
+    pub presented_at: time::OffsetDateTime,
     pub nonce: Vec<u8>,
 }
 

@@ -2,6 +2,7 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record Delegation(
@@ -12,8 +13,8 @@ public record Delegation(
     List<Scope> scopes /* wire: "scopes" */,
     List<CalendarId> calendarIds /* wire: "calendar_ids" */,
     String note /* wire: "note" */,
-    Timestamp expiresAt /* wire: "expires_at" */,
-    Timestamp createdAt /* wire: "created_at" */,
-    Timestamp revokedAt /* wire: "revoked_at" */
+    Instant expiresAt /* wire: "expires_at" */,
+    Instant createdAt /* wire: "created_at" */,
+    Instant revokedAt /* wire: "revoked_at" */
 ) {
 }

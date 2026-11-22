@@ -2,4 +2,22 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record CreateReceiptState(Object value) {}
+public enum CreateReceiptState {
+    LIVE("live"),
+    TRASHED("trashed"),
+    DELETED("deleted"),
+    HIDDEN("hidden");
+
+    private final String value;
+
+    CreateReceiptState(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static CreateReceiptState fromWire(String value) {
+        for (CreateReceiptState member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown CreateReceiptState value: " + value);
+    }
+}

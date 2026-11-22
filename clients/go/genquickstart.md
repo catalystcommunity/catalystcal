@@ -85,12 +85,7 @@ func (t *HTTPRpcCarrier) Call(ctx context.Context, service, op string, req []byt
 	if err := resp.AsTransportError(); err != nil {
 		return nil, err
 	}
-	// A typed application error rides as a status-0 "ServiceError" variant — distinct
-	// from a transport failure. Surface it so the typed client decodes success only.
-	if resp.Variant != nil && *resp.Variant == "ServiceError" {
-		return nil, fmt.Errorf("csil-rpc %s/%s: ServiceError", service, op)
-	}
-	return resp.Payload, nil
+	return api.ResolveRPCReply(service, op, resp.Variant, resp.Payload)
 }
 
 func main() {

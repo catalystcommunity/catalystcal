@@ -2,8 +2,10 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record GetOccurrenceRequest(
     EventId eventId /* wire: "event_id" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */
+    Instant recurrenceId /* wire: "recurrence_id" */
 ) {
 }

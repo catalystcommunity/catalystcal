@@ -45,84 +45,180 @@ defmodule Csilgen.Generated.SessionID do
   @type t :: String.t()
 end
 
-defmodule Csilgen.Generated.Timestamp do
-  @moduledoc "Type alias for Timestamp."
-  @type t :: String.t()
-end
-
-defmodule Csilgen.Generated.DateText do
-  @moduledoc "Type alias for DateText."
-  @type t :: String.t()
-end
-
 defmodule Csilgen.Generated.ShareRole do
-  @moduledoc "Type alias for ShareRole."
-  @type t :: String.t()
+  @type t :: :free_busy | :read | :contribute | :write | :manage
+  def to_wire(:free_busy), do: "free_busy"
+  def to_wire(:read), do: "read"
+  def to_wire(:contribute), do: "contribute"
+  def to_wire(:write), do: "write"
+  def to_wire(:manage), do: "manage"
+  def from_wire("free_busy"), do: :free_busy
+  def from_wire("read"), do: :read
+  def from_wire("contribute"), do: :contribute
+  def from_wire("write"), do: :write
+  def from_wire("manage"), do: :manage
+  def from_wire(value), do: raise(ArgumentError, "unknown ShareRole: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.AccessRole do
-  @moduledoc "Type alias for AccessRole."
-  @type t :: String.t()
+  @type t :: :none | :free_busy | :read | :contribute | :write | :manage | :owner
+  def to_wire(:none), do: "none"
+  def to_wire(:free_busy), do: "free_busy"
+  def to_wire(:read), do: "read"
+  def to_wire(:contribute), do: "contribute"
+  def to_wire(:write), do: "write"
+  def to_wire(:manage), do: "manage"
+  def to_wire(:owner), do: "owner"
+  def from_wire("none"), do: :none
+  def from_wire("free_busy"), do: :free_busy
+  def from_wire("read"), do: :read
+  def from_wire("contribute"), do: :contribute
+  def from_wire("write"), do: :write
+  def from_wire("manage"), do: :manage
+  def from_wire("owner"), do: :owner
+  def from_wire(value), do: raise(ArgumentError, "unknown AccessRole: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.AccessPath do
-  @moduledoc "Type alias for AccessPath."
-  @type t :: String.t()
+  @type t :: :owner | :share | :delegation | :attendee
+  def to_wire(:owner), do: "owner"
+  def to_wire(:share), do: "share"
+  def to_wire(:delegation), do: "delegation"
+  def to_wire(:attendee), do: "attendee"
+  def from_wire("owner"), do: :owner
+  def from_wire("share"), do: :share
+  def from_wire("delegation"), do: :delegation
+  def from_wire("attendee"), do: :attendee
+  def from_wire(value), do: raise(ArgumentError, "unknown AccessPath: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.Scope do
-  @moduledoc "Type alias for Scope."
-  @type t :: String.t()
+  @type t :: :calendars_read | :freebusy_read | :events_write | :events_respond | :calendars_manage
+  def to_wire(:calendars_read), do: "calendars.read"
+  def to_wire(:freebusy_read), do: "freebusy.read"
+  def to_wire(:events_write), do: "events.write"
+  def to_wire(:events_respond), do: "events.respond"
+  def to_wire(:calendars_manage), do: "calendars.manage"
+  def from_wire("calendars.read"), do: :calendars_read
+  def from_wire("freebusy.read"), do: :freebusy_read
+  def from_wire("events.write"), do: :events_write
+  def from_wire("events.respond"), do: :events_respond
+  def from_wire("calendars.manage"), do: :calendars_manage
+  def from_wire(value), do: raise(ArgumentError, "unknown Scope: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.CalendarKind do
-  @moduledoc "Type alias for CalendarKind."
-  @type t :: String.t()
+  @type t :: :local | :subscription
+  def to_wire(:local), do: "local"
+  def to_wire(:subscription), do: "subscription"
+  def from_wire("local"), do: :local
+  def from_wire("subscription"), do: :subscription
+  def from_wire(value), do: raise(ArgumentError, "unknown CalendarKind: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.EventStatus do
-  @moduledoc "Type alias for EventStatus."
-  @type t :: String.t()
+  @type t :: :confirmed | :tentative | :cancelled
+  def to_wire(:confirmed), do: "confirmed"
+  def to_wire(:tentative), do: "tentative"
+  def to_wire(:cancelled), do: "cancelled"
+  def from_wire("confirmed"), do: :confirmed
+  def from_wire("tentative"), do: :tentative
+  def from_wire("cancelled"), do: :cancelled
+  def from_wire(value), do: raise(ArgumentError, "unknown EventStatus: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.EventTransparency do
-  @moduledoc "Type alias for EventTransparency."
-  @type t :: String.t()
+  @type t :: :opaque | :transparent
+  def to_wire(:opaque), do: "opaque"
+  def to_wire(:transparent), do: "transparent"
+  def from_wire("opaque"), do: :opaque
+  def from_wire("transparent"), do: :transparent
+  def from_wire(value), do: raise(ArgumentError, "unknown EventTransparency: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.EventVisibility do
-  @moduledoc "Type alias for EventVisibility."
-  @type t :: String.t()
+  @type t :: :default | :public | :private | :confidential
+  def to_wire(:default), do: "default"
+  def to_wire(:public), do: "public"
+  def to_wire(:private), do: "private"
+  def to_wire(:confidential), do: "confidential"
+  def from_wire("default"), do: :default
+  def from_wire("public"), do: :public
+  def from_wire("private"), do: :private
+  def from_wire("confidential"), do: :confidential
+  def from_wire(value), do: raise(ArgumentError, "unknown EventVisibility: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.ParticipationStatus do
-  @moduledoc "Type alias for ParticipationStatus."
-  @type t :: String.t()
+  @type t :: :needs_action | :accepted | :declined | :tentative | :delegated
+  def to_wire(:needs_action), do: "needs_action"
+  def to_wire(:accepted), do: "accepted"
+  def to_wire(:declined), do: "declined"
+  def to_wire(:tentative), do: "tentative"
+  def to_wire(:delegated), do: "delegated"
+  def from_wire("needs_action"), do: :needs_action
+  def from_wire("accepted"), do: :accepted
+  def from_wire("declined"), do: :declined
+  def from_wire("tentative"), do: :tentative
+  def from_wire("delegated"), do: :delegated
+  def from_wire(value), do: raise(ArgumentError, "unknown ParticipationStatus: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.AttendeeRole do
-  @moduledoc "Type alias for AttendeeRole."
-  @type t :: String.t()
+  @type t :: :chair | :required | :optional | :non_participant
+  def to_wire(:chair), do: "chair"
+  def to_wire(:required), do: "required"
+  def to_wire(:optional), do: "optional"
+  def to_wire(:non_participant), do: "non_participant"
+  def from_wire("chair"), do: :chair
+  def from_wire("required"), do: :required
+  def from_wire("optional"), do: :optional
+  def from_wire("non_participant"), do: :non_participant
+  def from_wire(value), do: raise(ArgumentError, "unknown AttendeeRole: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.ReminderMethod do
-  @moduledoc "Type alias for ReminderMethod."
-  @type t :: String.t()
+  @type t :: :display | :email
+  def to_wire(:display), do: "display"
+  def to_wire(:email), do: "email"
+  def from_wire("display"), do: :display
+  def from_wire("email"), do: :email
+  def from_wire(value), do: raise(ArgumentError, "unknown ReminderMethod: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.RecurrenceScope do
-  @moduledoc "Type alias for RecurrenceScope."
-  @type t :: String.t()
+  @type t :: :all | :this | :this_and_future
+  def to_wire(:all), do: "all"
+  def to_wire(:this), do: "this"
+  def to_wire(:this_and_future), do: "this_and_future"
+  def from_wire("all"), do: :all
+  def from_wire("this"), do: :this
+  def from_wire("this_and_future"), do: :this_and_future
+  def from_wire(value), do: raise(ArgumentError, "unknown RecurrenceScope: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.ActingVia do
-  @moduledoc "Type alias for ActingVia."
-  @type t :: String.t()
+  @type t :: :self | :delegation | :act_as_grant
+  def to_wire(:self), do: "self"
+  def to_wire(:delegation), do: "delegation"
+  def to_wire(:act_as_grant), do: "act_as_grant"
+  def from_wire("self"), do: :self
+  def from_wire("delegation"), do: :delegation
+  def from_wire("act_as_grant"), do: :act_as_grant
+  def from_wire(value), do: raise(ArgumentError, "unknown ActingVia: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.CreateReceiptState do
-  @moduledoc "Type alias for CreateReceiptState."
-  @type t :: String.t()
+  @type t :: :live | :trashed | :deleted | :hidden
+  def to_wire(:live), do: "live"
+  def to_wire(:trashed), do: "trashed"
+  def to_wire(:deleted), do: "deleted"
+  def to_wire(:hidden), do: "hidden"
+  def from_wire("live"), do: :live
+  def from_wire("trashed"), do: :trashed
+  def from_wire("deleted"), do: :deleted
+  def from_wire("hidden"), do: :hidden
+  def from_wire(value), do: raise(ArgumentError, "unknown CreateReceiptState: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.IdentityRef do
@@ -226,8 +322,8 @@ defmodule Csilgen.Generated.User do
           display_name: String.t() | nil,
           email: String.t() | nil,
           timezone: String.t() | nil,
-          created_at: Csilgen.Generated.Timestamp.t(),
-          updated_at: Csilgen.Generated.Timestamp.t()
+          created_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @wire_keys [
@@ -258,8 +354,8 @@ defmodule Csilgen.Generated.User do
          {{:text, "subject"}, {:text, v.subject}},
          {{:text, "user_id"}, {:text, v.user_id}},
          if(is_nil(v.timezone), do: nil, else: {{:text, "timezone"}, {:text, v.timezone}}),
-         {{:text, "created_at"}, {:text, v.created_at}},
-         {{:text, "updated_at"}, {:text, v.updated_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
+         {{:text, "updated_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.updated_at)}}},
          if(is_nil(v.display_name),
            do: nil,
            else: {{:text, "display_name"}, {:text, v.display_name}}
@@ -297,8 +393,14 @@ defmodule Csilgen.Generated.User do
           nil -> nil
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
-      updated_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "updated_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
+      updated_at:
+        case Map.fetch!(csil_fields, {:text, "updated_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       display_name:
         case Map.get(csil_fields, {:text, "display_name"}) do
           nil -> nil
@@ -449,14 +551,14 @@ defmodule Csilgen.Generated.Calendar do
           timezone: String.t() | nil,
           kind: Csilgen.Generated.CalendarKind.t(),
           source_url: String.t() | nil,
-          last_synced_at: Csilgen.Generated.Timestamp.t() | nil,
+          last_synced_at: DateTime.t() | nil,
           sync_error: String.t() | nil,
           is_default: boolean(),
           access: Csilgen.Generated.AccessRole.t(),
           access_path: Csilgen.Generated.AccessPath.t(),
           feed_path: String.t() | nil,
-          created_at: Csilgen.Generated.Timestamp.t(),
-          updated_at: Csilgen.Generated.Timestamp.t()
+          created_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @wire_keys [
@@ -487,19 +589,19 @@ defmodule Csilgen.Generated.Calendar do
     {:map,
      Enum.reject(
        [
-         {{:text, "kind"}, {:text, v.kind}},
+         {{:text, "kind"}, {:text, Csilgen.Generated.CalendarKind.to_wire(v.kind)}},
          {{:text, "name"}, {:text, v.name}},
          if(is_nil(v.color), do: nil, else: {{:text, "color"}, {:text, v.color}}),
          {{:text, "owner"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.owner)},
-         {{:text, "access"}, {:text, v.access}},
+         {{:text, "access"}, {:text, Csilgen.Generated.AccessRole.to_wire(v.access)}},
          if(is_nil(v.timezone), do: nil, else: {{:text, "timezone"}, {:text, v.timezone}}),
          if(is_nil(v.feed_path), do: nil, else: {{:text, "feed_path"}, {:text, v.feed_path}}),
-         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
          {{:text, "is_default"}, {:bool, v.is_default}},
          if(is_nil(v.source_url), do: nil, else: {{:text, "source_url"}, {:text, v.source_url}}),
          if(is_nil(v.sync_error), do: nil, else: {{:text, "sync_error"}, {:text, v.sync_error}}),
-         {{:text, "updated_at"}, {:text, v.updated_at}},
-         {{:text, "access_path"}, {:text, v.access_path}},
+         {{:text, "updated_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.updated_at)}}},
+         {{:text, "access_path"}, {:text, Csilgen.Generated.AccessPath.to_wire(v.access_path)}},
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
          if(is_nil(v.description),
            do: nil,
@@ -507,7 +609,9 @@ defmodule Csilgen.Generated.Calendar do
          ),
          if(is_nil(v.last_synced_at),
            do: nil,
-           else: {{:text, "last_synced_at"}, {:text, v.last_synced_at}}
+           else:
+             {{:text, "last_synced_at"},
+              {:tag, 0, {:text, DateTime.to_iso8601(v.last_synced_at)}}}
          )
        ],
        &is_nil/1
@@ -521,11 +625,9 @@ defmodule Csilgen.Generated.Calendar do
 
     %__MODULE__{
       kind:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "kind"})) do
-          "local" -> "local"
-          "subscription" -> "subscription"
-          csil_other -> raise("csilgen: unknown CalendarKind literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.CalendarKind.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "kind"}))
+        ),
       name: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "name"})),
       color:
         case Map.get(csil_fields, {:text, "color"}) do
@@ -535,16 +637,9 @@ defmodule Csilgen.Generated.Calendar do
       owner:
         Csilgen.Generated.PersonSummary.from_cbor_value(Map.fetch!(csil_fields, {:text, "owner"})),
       access:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access"})) do
-          "none" -> "none"
-          "free_busy" -> "free_busy"
-          "read" -> "read"
-          "contribute" -> "contribute"
-          "write" -> "write"
-          "manage" -> "manage"
-          "owner" -> "owner"
-          csil_other -> raise("csilgen: unknown AccessRole literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.AccessRole.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access"}))
+        ),
       timezone:
         case Map.get(csil_fields, {:text, "timezone"}) do
           nil -> nil
@@ -555,7 +650,10 @@ defmodule Csilgen.Generated.Calendar do
           nil -> nil
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       is_default: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "is_default"})),
       source_url:
         case Map.get(csil_fields, {:text, "source_url"}) do
@@ -567,15 +665,14 @@ defmodule Csilgen.Generated.Calendar do
           nil -> nil
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
-      updated_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "updated_at"})),
-      access_path:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access_path"})) do
-          "owner" -> "owner"
-          "share" -> "share"
-          "delegation" -> "delegation"
-          "attendee" -> "attendee"
-          csil_other -> raise("csilgen: unknown AccessPath literal #{inspect(csil_other)}")
+      updated_at:
+        case Map.fetch!(csil_fields, {:text, "updated_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
         end,
+      access_path:
+        Csilgen.Generated.AccessPath.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access_path"}))
+        ),
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
       description:
@@ -585,8 +682,13 @@ defmodule Csilgen.Generated.Calendar do
         end,
       last_synced_at:
         case Map.get(csil_fields, {:text, "last_synced_at"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -936,7 +1038,7 @@ defmodule Csilgen.Generated.Share do
           role: Csilgen.Generated.ShareRole.t(),
           grantee_person: Csilgen.Generated.PersonSummary.t() | nil,
           grantee_group_name: String.t() | nil,
-          created_at: Csilgen.Generated.Timestamp.t()
+          created_at: DateTime.t()
         }
 
   @wire_keys [
@@ -959,13 +1061,13 @@ defmodule Csilgen.Generated.Share do
     {:map,
      Enum.reject(
        [
-         {{:text, "role"}, {:text, v.role}},
+         {{:text, "role"}, {:text, Csilgen.Generated.ShareRole.to_wire(v.role)}},
          if(is_nil(v.grantee),
            do: nil,
            else: {{:text, "grantee"}, Csilgen.Generated.IdentityRef.to_cbor_value(v.grantee)}
          ),
          {{:text, "share_id"}, {:text, v.share_id}},
-         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
          if(is_nil(v.grantee_person),
            do: nil,
@@ -993,21 +1095,19 @@ defmodule Csilgen.Generated.Share do
 
     %__MODULE__{
       role:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "role"})) do
-          "free_busy" -> "free_busy"
-          "read" -> "read"
-          "contribute" -> "contribute"
-          "write" -> "write"
-          "manage" -> "manage"
-          csil_other -> raise("csilgen: unknown ShareRole literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.ShareRole.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "role"}))
+        ),
       grantee:
         case Map.get(csil_fields, {:text, "grantee"}) do
           nil -> nil
           csil_v -> Csilgen.Generated.IdentityRef.from_cbor_value(csil_v)
         end,
       share_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "share_id"})),
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
       grantee_person:
@@ -1192,8 +1292,8 @@ defmodule Csilgen.Generated.Group do
           description: String.t() | nil,
           revision: integer(),
           members: [Csilgen.Generated.GroupMember.t()],
-          created_at: Csilgen.Generated.Timestamp.t(),
-          updated_at: Csilgen.Generated.Timestamp.t()
+          created_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @wire_keys [
@@ -1225,8 +1325,8 @@ defmodule Csilgen.Generated.Group do
            end)}},
          {{:text, "group_id"}, {:text, v.group_id}},
          {{:text, "revision"}, {:int, v.revision}},
-         {{:text, "created_at"}, {:text, v.created_at}},
-         {{:text, "updated_at"}, {:text, v.updated_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
+         {{:text, "updated_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.updated_at)}}},
          if(is_nil(v.description),
            do: nil,
            else: {{:text, "description"}, {:text, v.description}}
@@ -1254,8 +1354,14 @@ defmodule Csilgen.Generated.Group do
         end,
       group_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "group_id"})),
       revision: Csilgen.Generated.Cbor.to_int(Map.fetch!(csil_fields, {:text, "revision"})),
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
-      updated_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "updated_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
+      updated_at:
+        case Map.fetch!(csil_fields, {:text, "updated_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       description:
         case Map.get(csil_fields, {:text, "description"}) do
           nil -> nil
@@ -1561,9 +1667,9 @@ defmodule Csilgen.Generated.Delegation do
           scopes: [Csilgen.Generated.Scope.t()],
           calendar_ids: [Csilgen.Generated.CalendarID.t()] | nil,
           note: String.t() | nil,
-          expires_at: Csilgen.Generated.Timestamp.t() | nil,
-          created_at: Csilgen.Generated.Timestamp.t(),
-          revoked_at: Csilgen.Generated.Timestamp.t() | nil
+          expires_at: DateTime.t() | nil,
+          created_at: DateTime.t(),
+          revoked_at: DateTime.t() | nil
         }
 
   @wire_keys [
@@ -1589,12 +1695,20 @@ defmodule Csilgen.Generated.Delegation do
      Enum.reject(
        [
          if(is_nil(v.note), do: nil, else: {{:text, "note"}, {:text, v.note}}),
-         {{:text, "scopes"}, {:array, Enum.map(v.scopes, fn csil_e -> {:text, csil_e} end)}},
+         {{:text, "scopes"},
+          {:array,
+           Enum.map(v.scopes, fn csil_e -> {:text, Csilgen.Generated.Scope.to_wire(csil_e)} end)}},
          {{:text, "delegate"}, Csilgen.Generated.IdentityRef.to_cbor_value(v.delegate)},
          {{:text, "principal"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.principal)},
-         {{:text, "created_at"}, {:text, v.created_at}},
-         if(is_nil(v.expires_at), do: nil, else: {{:text, "expires_at"}, {:text, v.expires_at}}),
-         if(is_nil(v.revoked_at), do: nil, else: {{:text, "revoked_at"}, {:text, v.revoked_at}}),
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
+         if(is_nil(v.expires_at),
+           do: nil,
+           else: {{:text, "expires_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.expires_at)}}}
+         ),
+         if(is_nil(v.revoked_at),
+           do: nil,
+           else: {{:text, "revoked_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.revoked_at)}}}
+         ),
          if(is_nil(v.calendar_ids),
            do: nil,
            else:
@@ -1628,14 +1742,7 @@ defmodule Csilgen.Generated.Delegation do
         case Map.fetch!(csil_fields, {:text, "scopes"}) do
           {:array, csil_xs} ->
             Enum.map(csil_xs, fn csil_e ->
-              case Csilgen.Generated.Cbor.to_text(csil_e) do
-                "calendars.read" -> "calendars.read"
-                "freebusy.read" -> "freebusy.read"
-                "events.write" -> "events.write"
-                "events.respond" -> "events.respond"
-                "calendars.manage" -> "calendars.manage"
-                csil_other -> raise("csilgen: unknown Scope literal #{inspect(csil_other)}")
-              end
+              Csilgen.Generated.Scope.from_wire(Csilgen.Generated.Cbor.to_text(csil_e))
             end)
         end,
       delegate:
@@ -1646,16 +1753,29 @@ defmodule Csilgen.Generated.Delegation do
         Csilgen.Generated.PersonSummary.from_cbor_value(
           Map.fetch!(csil_fields, {:text, "principal"})
         ),
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       expires_at:
         case Map.get(csil_fields, {:text, "expires_at"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       revoked_at:
         case Map.get(csil_fields, {:text, "revoked_at"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       calendar_ids:
         case Map.get(csil_fields, {:text, "calendar_ids"}) do
@@ -1798,8 +1918,8 @@ defmodule Csilgen.Generated.Recurrence do
 
   @type t :: %__MODULE__{
           rrule: String.t(),
-          exdates: [Csilgen.Generated.Timestamp.t()] | nil,
-          rdates: [Csilgen.Generated.Timestamp.t()] | nil
+          exdates: [DateTime.t()] | nil,
+          rdates: [DateTime.t()] | nil
         }
 
   @wire_keys [rrule: "rrule", exdates: "exdates", rdates: "rdates"]
@@ -1817,12 +1937,20 @@ defmodule Csilgen.Generated.Recurrence do
          if(is_nil(v.rdates),
            do: nil,
            else:
-             {{:text, "rdates"}, {:array, Enum.map(v.rdates, fn csil_e -> {:text, csil_e} end)}}
+             {{:text, "rdates"},
+              {:array,
+               Enum.map(v.rdates, fn csil_e ->
+                 {:tag, 0, {:text, DateTime.to_iso8601(csil_e)}}
+               end)}}
          ),
          if(is_nil(v.exdates),
            do: nil,
            else:
-             {{:text, "exdates"}, {:array, Enum.map(v.exdates, fn csil_e -> {:text, csil_e} end)}}
+             {{:text, "exdates"},
+              {:array,
+               Enum.map(v.exdates, fn csil_e ->
+                 {:tag, 0, {:text, DateTime.to_iso8601(csil_e)}}
+               end)}}
          )
        ],
        &is_nil/1
@@ -1844,7 +1972,11 @@ defmodule Csilgen.Generated.Recurrence do
           csil_v ->
             case csil_v do
               {:array, csil_xs} ->
-                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+                Enum.map(csil_xs, fn csil_e ->
+                  case csil_e do
+                    {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+                  end
+                end)
             end
         end,
       exdates:
@@ -1855,7 +1987,11 @@ defmodule Csilgen.Generated.Recurrence do
           csil_v ->
             case csil_v do
               {:array, csil_xs} ->
-                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+                Enum.map(csil_xs, fn csil_e ->
+                  case csil_e do
+                    {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+                  end
+                end)
             end
         end
     }
@@ -1879,8 +2015,8 @@ defmodule Csilgen.Generated.Attendee do
     :name,
     :person,
     :responded_by,
-    role: "required",
-    status: "needs_action",
+    role: :required,
+    status: :needs_action,
     rsvp: true
   ]
 
@@ -1916,14 +2052,21 @@ defmodule Csilgen.Generated.Attendee do
      Enum.reject(
        [
          if(is_nil(v.name), do: nil, else: {{:text, "name"}, {:text, v.name}}),
-         if(is_nil(v.role), do: nil, else: {{:text, "role"}, {:text, v.role}}),
+         if(is_nil(v.role),
+           do: nil,
+           else: {{:text, "role"}, {:text, Csilgen.Generated.AttendeeRole.to_wire(v.role)}}
+         ),
          if(is_nil(v.rsvp), do: nil, else: {{:text, "rsvp"}, {:bool, v.rsvp}}),
          if(is_nil(v.email), do: nil, else: {{:text, "email"}, {:text, v.email}}),
          if(is_nil(v.person),
            do: nil,
            else: {{:text, "person"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.person)}
          ),
-         if(is_nil(v.status), do: nil, else: {{:text, "status"}, {:text, v.status}}),
+         if(is_nil(v.status),
+           do: nil,
+           else:
+             {{:text, "status"}, {:text, Csilgen.Generated.ParticipationStatus.to_wire(v.status)}}
+         ),
          if(is_nil(v.identity),
            do: nil,
            else: {{:text, "identity"}, Csilgen.Generated.IdentityRef.to_cbor_value(v.identity)}
@@ -1956,13 +2099,7 @@ defmodule Csilgen.Generated.Attendee do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "chair" -> "chair"
-              "required" -> "required"
-              "optional" -> "optional"
-              "non_participant" -> "non_participant"
-              csil_other -> raise("csilgen: unknown AttendeeRole literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.AttendeeRole.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       rsvp:
         case Map.get(csil_fields, {:text, "rsvp"}) do
@@ -1985,25 +2122,9 @@ defmodule Csilgen.Generated.Attendee do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "needs_action" ->
-                "needs_action"
-
-              "accepted" ->
-                "accepted"
-
-              "declined" ->
-                "declined"
-
-              "tentative" ->
-                "tentative"
-
-              "delegated" ->
-                "delegated"
-
-              csil_other ->
-                raise("csilgen: unknown ParticipationStatus literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.ParticipationStatus.from_wire(
+              Csilgen.Generated.Cbor.to_text(csil_v)
+            )
         end,
       identity:
         case Map.get(csil_fields, {:text, "identity"}) do
@@ -2031,7 +2152,7 @@ defmodule Csilgen.Generated.Reminder do
   @moduledoc "Generated struct for the Reminder type."
 
   @enforce_keys [:minutes_before]
-  defstruct [:minutes_before, method: "display"]
+  defstruct [:minutes_before, method: :display]
 
   @type t :: %__MODULE__{
           minutes_before: integer(),
@@ -2049,7 +2170,10 @@ defmodule Csilgen.Generated.Reminder do
     {:map,
      Enum.reject(
        [
-         if(is_nil(v.method), do: nil, else: {{:text, "method"}, {:text, v.method}}),
+         if(is_nil(v.method),
+           do: nil,
+           else: {{:text, "method"}, {:text, Csilgen.Generated.ReminderMethod.to_wire(v.method)}}
+         ),
          {{:text, "minutes_before"}, {:int, v.minutes_before}}
        ],
        &is_nil/1
@@ -2068,16 +2192,7 @@ defmodule Csilgen.Generated.Reminder do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "display" ->
-                "display"
-
-              "email" ->
-                "email"
-
-              csil_other ->
-                raise("csilgen: unknown ReminderMethod literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.ReminderMethod.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       minutes_before:
         Csilgen.Generated.Cbor.to_int(Map.fetch!(csil_fields, {:text, "minutes_before"}))
@@ -2126,9 +2241,9 @@ defmodule Csilgen.Generated.Event do
     :created_at,
     :updated_at,
     all_day: false,
-    status: "confirmed",
-    transparency: "opaque",
-    visibility: "default"
+    status: :confirmed,
+    transparency: :opaque,
+    visibility: :default
   ]
 
   @type t :: %__MODULE__{
@@ -2140,18 +2255,18 @@ defmodule Csilgen.Generated.Event do
           location: String.t() | nil,
           url: String.t() | nil,
           conference_url: String.t() | nil,
-          start: Csilgen.Generated.Timestamp.t() | nil,
-          end: Csilgen.Generated.Timestamp.t() | nil,
+          start: DateTime.t() | nil,
+          end: DateTime.t() | nil,
           all_day: boolean() | nil,
-          start_date: Csilgen.Generated.DateText.t() | nil,
-          end_date: Csilgen.Generated.DateText.t() | nil,
+          start_date: Date.t() | nil,
+          end_date: Date.t() | nil,
           timezone: String.t() | nil,
           status: Csilgen.Generated.EventStatus.t() | nil,
           transparency: Csilgen.Generated.EventTransparency.t() | nil,
           visibility: Csilgen.Generated.EventVisibility.t() | nil,
           recurrence: Csilgen.Generated.Recurrence.t() | nil,
           master_event_id: Csilgen.Generated.EventID.t() | nil,
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil,
+          recurrence_id: DateTime.t() | nil,
           attendees: [Csilgen.Generated.Attendee.t()] | nil,
           reminders: [Csilgen.Generated.Reminder.t()] | nil,
           categories: [String.t()] | nil,
@@ -2161,8 +2276,8 @@ defmodule Csilgen.Generated.Event do
           updated_by: Csilgen.Generated.PersonSummary.t() | nil,
           updated_via: Csilgen.Generated.ActingVia.t() | nil,
           sequence: integer(),
-          created_at: Csilgen.Generated.Timestamp.t(),
-          updated_at: Csilgen.Generated.Timestamp.t()
+          created_at: DateTime.t(),
+          updated_at: DateTime.t()
         }
 
   @wire_keys [
@@ -2208,15 +2323,27 @@ defmodule Csilgen.Generated.Event do
     {:map,
      Enum.reject(
        [
-         if(is_nil(v.end), do: nil, else: {{:text, "end"}, {:text, v.end}}),
+         if(is_nil(v.end),
+           do: nil,
+           else: {{:text, "end"}, {:tag, 0, {:text, DateTime.to_iso8601(v.end)}}}
+         ),
          if(is_nil(v.uid), do: nil, else: {{:text, "uid"}, {:text, v.uid}}),
          if(is_nil(v.url), do: nil, else: {{:text, "url"}, {:text, v.url}}),
          if(is_nil(v.color), do: nil, else: {{:text, "color"}, {:text, v.color}}),
-         if(is_nil(v.start), do: nil, else: {{:text, "start"}, {:text, v.start}}),
+         if(is_nil(v.start),
+           do: nil,
+           else: {{:text, "start"}, {:tag, 0, {:text, DateTime.to_iso8601(v.start)}}}
+         ),
          {{:text, "title"}, {:text, v.title}},
-         if(is_nil(v.status), do: nil, else: {{:text, "status"}, {:text, v.status}}),
+         if(is_nil(v.status),
+           do: nil,
+           else: {{:text, "status"}, {:text, Csilgen.Generated.EventStatus.to_wire(v.status)}}
+         ),
          if(is_nil(v.all_day), do: nil, else: {{:text, "all_day"}, {:bool, v.all_day}}),
-         if(is_nil(v.end_date), do: nil, else: {{:text, "end_date"}, {:text, v.end_date}}),
+         if(is_nil(v.end_date),
+           do: nil,
+           else: {{:text, "end_date"}, Csilgen.Generated.Cbor.enc_date(v.end_date)}
+         ),
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.location), do: nil, else: {{:text, "location"}, {:text, v.location}}),
          {{:text, "sequence"}, {:int, v.sequence}},
@@ -2250,7 +2377,7 @@ defmodule Csilgen.Generated.Event do
              {{:text, "categories"},
               {:array, Enum.map(v.categories, fn csil_e -> {:text, csil_e} end)}}
          ),
-         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
          if(is_nil(v.created_by),
            do: nil,
            else:
@@ -2260,14 +2387,22 @@ defmodule Csilgen.Generated.Event do
            do: nil,
            else: {{:text, "recurrence"}, Csilgen.Generated.Recurrence.to_cbor_value(v.recurrence)}
          ),
-         if(is_nil(v.start_date), do: nil, else: {{:text, "start_date"}, {:text, v.start_date}}),
-         {{:text, "updated_at"}, {:text, v.updated_at}},
+         if(is_nil(v.start_date),
+           do: nil,
+           else: {{:text, "start_date"}, Csilgen.Generated.Cbor.enc_date(v.start_date)}
+         ),
+         {{:text, "updated_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.updated_at)}}},
          if(is_nil(v.updated_by),
            do: nil,
            else:
              {{:text, "updated_by"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.updated_by)}
          ),
-         if(is_nil(v.visibility), do: nil, else: {{:text, "visibility"}, {:text, v.visibility}}),
+         if(is_nil(v.visibility),
+           do: nil,
+           else:
+             {{:text, "visibility"},
+              {:text, Csilgen.Generated.EventVisibility.to_wire(v.visibility)}}
+         ),
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
          if(is_nil(v.description),
            do: nil,
@@ -2275,15 +2410,19 @@ defmodule Csilgen.Generated.Event do
          ),
          if(is_nil(v.updated_via),
            do: nil,
-           else: {{:text, "updated_via"}, {:text, v.updated_via}}
+           else:
+             {{:text, "updated_via"}, {:text, Csilgen.Generated.ActingVia.to_wire(v.updated_via)}}
          ),
          if(is_nil(v.transparency),
            do: nil,
-           else: {{:text, "transparency"}, {:text, v.transparency}}
+           else:
+             {{:text, "transparency"},
+              {:text, Csilgen.Generated.EventTransparency.to_wire(v.transparency)}}
          ),
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          ),
          if(is_nil(v.conference_url),
            do: nil,
@@ -2306,8 +2445,13 @@ defmodule Csilgen.Generated.Event do
     %__MODULE__{
       end:
         case Map.get(csil_fields, {:text, "end"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       uid:
         case Map.get(csil_fields, {:text, "uid"}) do
@@ -2326,8 +2470,13 @@ defmodule Csilgen.Generated.Event do
         end,
       start:
         case Map.get(csil_fields, {:text, "start"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       title: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "title"})),
       status:
@@ -2336,12 +2485,7 @@ defmodule Csilgen.Generated.Event do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "confirmed" -> "confirmed"
-              "tentative" -> "tentative"
-              "cancelled" -> "cancelled"
-              csil_other -> raise("csilgen: unknown EventStatus literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.EventStatus.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       all_day:
         case Map.get(csil_fields, {:text, "all_day"}) do
@@ -2351,7 +2495,7 @@ defmodule Csilgen.Generated.Event do
       end_date:
         case Map.get(csil_fields, {:text, "end_date"}) do
           nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          csil_v -> Csilgen.Generated.Cbor.as_date(csil_v)
         end,
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       location:
@@ -2407,7 +2551,10 @@ defmodule Csilgen.Generated.Event do
                 Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
             end
         end,
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       created_by:
         case Map.get(csil_fields, {:text, "created_by"}) do
           nil -> nil
@@ -2421,9 +2568,12 @@ defmodule Csilgen.Generated.Event do
       start_date:
         case Map.get(csil_fields, {:text, "start_date"}) do
           nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          csil_v -> Csilgen.Generated.Cbor.as_date(csil_v)
         end,
-      updated_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "updated_at"})),
+      updated_at:
+        case Map.fetch!(csil_fields, {:text, "updated_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       updated_by:
         case Map.get(csil_fields, {:text, "updated_by"}) do
           nil -> nil
@@ -2435,22 +2585,7 @@ defmodule Csilgen.Generated.Event do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "default" ->
-                "default"
-
-              "public" ->
-                "public"
-
-              "private" ->
-                "private"
-
-              "confidential" ->
-                "confidential"
-
-              csil_other ->
-                raise("csilgen: unknown EventVisibility literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.EventVisibility.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
@@ -2461,16 +2596,8 @@ defmodule Csilgen.Generated.Event do
         end,
       updated_via:
         case Map.get(csil_fields, {:text, "updated_via"}) do
-          nil ->
-            nil
-
-          csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "self" -> "self"
-              "delegation" -> "delegation"
-              "act_as_grant" -> "act_as_grant"
-              csil_other -> raise("csilgen: unknown ActingVia literal #{inspect(csil_other)}")
-            end
+          nil -> nil
+          csil_v -> Csilgen.Generated.ActingVia.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       transparency:
         case Map.get(csil_fields, {:text, "transparency"}) do
@@ -2478,21 +2605,17 @@ defmodule Csilgen.Generated.Event do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "opaque" ->
-                "opaque"
-
-              "transparent" ->
-                "transparent"
-
-              csil_other ->
-                raise("csilgen: unknown EventTransparency literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.EventTransparency.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       conference_url:
         case Map.get(csil_fields, {:text, "conference_url"}) do
@@ -2524,9 +2647,9 @@ defmodule Csilgen.Generated.Occurrence do
 
   @type t :: %__MODULE__{
           event: Csilgen.Generated.Event.t(),
-          start: Csilgen.Generated.Timestamp.t(),
-          end: Csilgen.Generated.Timestamp.t(),
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil,
+          start: DateTime.t(),
+          end: DateTime.t(),
+          recurrence_id: DateTime.t() | nil,
           access: Csilgen.Generated.AccessRole.t(),
           busy_only: boolean(),
           invited: boolean()
@@ -2551,15 +2674,16 @@ defmodule Csilgen.Generated.Occurrence do
     {:map,
      Enum.reject(
        [
-         {{:text, "end"}, {:text, v.end}},
+         {{:text, "end"}, {:tag, 0, {:text, DateTime.to_iso8601(v.end)}}},
          {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
-         {{:text, "start"}, {:text, v.start}},
-         {{:text, "access"}, {:text, v.access}},
+         {{:text, "start"}, {:tag, 0, {:text, DateTime.to_iso8601(v.start)}}},
+         {{:text, "access"}, {:text, Csilgen.Generated.AccessRole.to_wire(v.access)}},
          {{:text, "invited"}, {:bool, v.invited}},
          {{:text, "busy_only"}, {:bool, v.busy_only}},
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -2572,26 +2696,30 @@ defmodule Csilgen.Generated.Occurrence do
     csil_fields = Map.new(csil_kvs)
 
     %__MODULE__{
-      end: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "end"})),
-      event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
-      start: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "start"})),
-      access:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access"})) do
-          "none" -> "none"
-          "free_busy" -> "free_busy"
-          "read" -> "read"
-          "contribute" -> "contribute"
-          "write" -> "write"
-          "manage" -> "manage"
-          "owner" -> "owner"
-          csil_other -> raise("csilgen: unknown AccessRole literal #{inspect(csil_other)}")
+      end:
+        case Map.fetch!(csil_fields, {:text, "end"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
         end,
+      event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
+      start:
+        case Map.fetch!(csil_fields, {:text, "start"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
+      access:
+        Csilgen.Generated.AccessRole.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "access"}))
+        ),
       invited: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "invited"})),
       busy_only: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "busy_only"})),
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -2612,8 +2740,8 @@ defmodule Csilgen.Generated.ListEventsRequest do
   defstruct [:range_start, :range_end, :calendar_ids, include_invitations: true]
 
   @type t :: %__MODULE__{
-          range_start: Csilgen.Generated.Timestamp.t(),
-          range_end: Csilgen.Generated.Timestamp.t(),
+          range_start: DateTime.t(),
+          range_end: DateTime.t(),
           calendar_ids: [Csilgen.Generated.CalendarID.t()] | nil,
           include_invitations: boolean() | nil
         }
@@ -2634,8 +2762,8 @@ defmodule Csilgen.Generated.ListEventsRequest do
     {:map,
      Enum.reject(
        [
-         {{:text, "range_end"}, {:text, v.range_end}},
-         {{:text, "range_start"}, {:text, v.range_start}},
+         {{:text, "range_end"}, {:tag, 0, {:text, DateTime.to_iso8601(v.range_end)}}},
+         {{:text, "range_start"}, {:tag, 0, {:text, DateTime.to_iso8601(v.range_start)}}},
          if(is_nil(v.calendar_ids),
            do: nil,
            else:
@@ -2657,9 +2785,14 @@ defmodule Csilgen.Generated.ListEventsRequest do
     csil_fields = Map.new(csil_kvs)
 
     %__MODULE__{
-      range_end: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "range_end"})),
+      range_end:
+        case Map.fetch!(csil_fields, {:text, "range_end"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       range_start:
-        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "range_start"})),
+        case Map.fetch!(csil_fields, {:text, "range_start"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       calendar_ids:
         case Map.get(csil_fields, {:text, "calendar_ids"}) do
           nil ->
@@ -2751,12 +2884,12 @@ defmodule Csilgen.Generated.UpdateEventRequest do
   @moduledoc "Generated struct for the UpdateEventRequest type."
 
   @enforce_keys [:event]
-  defstruct [:event, :recurrence_id, scope: "all"]
+  defstruct [:event, :recurrence_id, scope: :all]
 
   @type t :: %__MODULE__{
           event: Csilgen.Generated.Event.t(),
           scope: Csilgen.Generated.RecurrenceScope.t() | nil,
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil
+          recurrence_id: DateTime.t() | nil
         }
 
   @wire_keys [event: "event", scope: "scope", recurrence_id: "recurrence_id"]
@@ -2771,10 +2904,14 @@ defmodule Csilgen.Generated.UpdateEventRequest do
      Enum.reject(
        [
          {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
-         if(is_nil(v.scope), do: nil, else: {{:text, "scope"}, {:text, v.scope}}),
+         if(is_nil(v.scope),
+           do: nil,
+           else: {{:text, "scope"}, {:text, Csilgen.Generated.RecurrenceScope.to_wire(v.scope)}}
+         ),
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -2794,24 +2931,17 @@ defmodule Csilgen.Generated.UpdateEventRequest do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "all" ->
-                "all"
-
-              "this" ->
-                "this"
-
-              "this_and_future" ->
-                "this_and_future"
-
-              csil_other ->
-                raise("csilgen: unknown RecurrenceScope literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.RecurrenceScope.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -2829,12 +2959,12 @@ defmodule Csilgen.Generated.DeleteEventRequest do
   @moduledoc "Generated struct for the DeleteEventRequest type."
 
   @enforce_keys [:event_id]
-  defstruct [:event_id, :recurrence_id, scope: "all"]
+  defstruct [:event_id, :recurrence_id, scope: :all]
 
   @type t :: %__MODULE__{
           event_id: Csilgen.Generated.EventID.t(),
           scope: Csilgen.Generated.RecurrenceScope.t() | nil,
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil
+          recurrence_id: DateTime.t() | nil
         }
 
   @wire_keys [event_id: "event_id", scope: "scope", recurrence_id: "recurrence_id"]
@@ -2848,11 +2978,15 @@ defmodule Csilgen.Generated.DeleteEventRequest do
     {:map,
      Enum.reject(
        [
-         if(is_nil(v.scope), do: nil, else: {{:text, "scope"}, {:text, v.scope}}),
+         if(is_nil(v.scope),
+           do: nil,
+           else: {{:text, "scope"}, {:text, Csilgen.Generated.RecurrenceScope.to_wire(v.scope)}}
+         ),
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -2871,25 +3005,18 @@ defmodule Csilgen.Generated.DeleteEventRequest do
             nil
 
           csil_v ->
-            case Csilgen.Generated.Cbor.to_text(csil_v) do
-              "all" ->
-                "all"
-
-              "this" ->
-                "this"
-
-              "this_and_future" ->
-                "this_and_future"
-
-              csil_other ->
-                raise("csilgen: unknown RecurrenceScope literal #{inspect(csil_other)}")
-            end
+            Csilgen.Generated.RecurrenceScope.from_wire(Csilgen.Generated.Cbor.to_text(csil_v))
         end,
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -3023,12 +3150,12 @@ defmodule Csilgen.Generated.TrashEntry do
           calendar_id: Csilgen.Generated.CalendarID.t(),
           event_id: Csilgen.Generated.EventID.t(),
           scope: Csilgen.Generated.RecurrenceScope.t(),
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil,
+          recurrence_id: DateTime.t() | nil,
           event: Csilgen.Generated.Event.t(),
           instance: Csilgen.Generated.Event.t() | nil,
           deleted_by: Csilgen.Generated.PersonSummary.t() | nil,
-          deleted_at: Csilgen.Generated.Timestamp.t(),
-          expires_at: Csilgen.Generated.Timestamp.t()
+          deleted_at: DateTime.t(),
+          expires_at: DateTime.t()
         }
 
   @wire_keys [
@@ -3054,24 +3181,25 @@ defmodule Csilgen.Generated.TrashEntry do
      Enum.reject(
        [
          {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
-         {{:text, "scope"}, {:text, v.scope}},
+         {{:text, "scope"}, {:text, Csilgen.Generated.RecurrenceScope.to_wire(v.scope)}},
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.instance),
            do: nil,
            else: {{:text, "instance"}, Csilgen.Generated.Event.to_cbor_value(v.instance)}
          ),
          {{:text, "trash_id"}, {:text, v.trash_id}},
-         {{:text, "deleted_at"}, {:text, v.deleted_at}},
+         {{:text, "deleted_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.deleted_at)}}},
          if(is_nil(v.deleted_by),
            do: nil,
            else:
              {{:text, "deleted_by"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.deleted_by)}
          ),
-         {{:text, "expires_at"}, {:text, v.expires_at}},
+         {{:text, "expires_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.expires_at)}}},
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -3086,12 +3214,9 @@ defmodule Csilgen.Generated.TrashEntry do
     %__MODULE__{
       event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
       scope:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "scope"})) do
-          "all" -> "all"
-          "this" -> "this"
-          "this_and_future" -> "this_and_future"
-          csil_other -> raise("csilgen: unknown RecurrenceScope literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.RecurrenceScope.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "scope"}))
+        ),
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       instance:
         case Map.get(csil_fields, {:text, "instance"}) do
@@ -3099,19 +3224,30 @@ defmodule Csilgen.Generated.TrashEntry do
           csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
         end,
       trash_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "trash_id"})),
-      deleted_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "deleted_at"})),
+      deleted_at:
+        case Map.fetch!(csil_fields, {:text, "deleted_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       deleted_by:
         case Map.get(csil_fields, {:text, "deleted_by"}) do
           nil -> nil
           csil_v -> Csilgen.Generated.PersonSummary.from_cbor_value(csil_v)
         end,
-      expires_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "expires_at"})),
+      expires_at:
+        case Map.fetch!(csil_fields, {:text, "expires_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -3289,7 +3425,7 @@ defmodule Csilgen.Generated.ImportEventRequest do
   @type t :: %__MODULE__{
           event: Csilgen.Generated.Event.t(),
           created_by: Csilgen.Generated.IdentityRef.t(),
-          created_at: Csilgen.Generated.Timestamp.t() | nil
+          created_at: DateTime.t() | nil
         }
 
   @wire_keys [event: "event", created_by: "created_by", created_at: "created_at"]
@@ -3304,7 +3440,10 @@ defmodule Csilgen.Generated.ImportEventRequest do
      Enum.reject(
        [
          {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
-         if(is_nil(v.created_at), do: nil, else: {{:text, "created_at"}, {:text, v.created_at}}),
+         if(is_nil(v.created_at),
+           do: nil,
+           else: {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}}
+         ),
          {{:text, "created_by"}, Csilgen.Generated.IdentityRef.to_cbor_value(v.created_by)}
        ],
        &is_nil/1
@@ -3320,8 +3459,13 @@ defmodule Csilgen.Generated.ImportEventRequest do
       event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
       created_at:
         case Map.get(csil_fields, {:text, "created_at"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end,
       created_by:
         Csilgen.Generated.IdentityRef.from_cbor_value(
@@ -3461,7 +3605,7 @@ defmodule Csilgen.Generated.CreateEventReceipt do
           event_id: Csilgen.Generated.EventID.t(),
           state: Csilgen.Generated.CreateReceiptState.t(),
           created: boolean(),
-          created_at: Csilgen.Generated.Timestamp.t(),
+          created_at: DateTime.t(),
           event: Csilgen.Generated.Event.t() | nil,
           trash_id: Csilgen.Generated.TrashID.t() | nil
         }
@@ -3490,11 +3634,11 @@ defmodule Csilgen.Generated.CreateEventReceipt do
            do: nil,
            else: {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)}
          ),
-         {{:text, "state"}, {:text, v.state}},
+         {{:text, "state"}, {:text, Csilgen.Generated.CreateReceiptState.to_wire(v.state)}},
          {{:text, "created"}, {:bool, v.created}},
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.trash_id), do: nil, else: {{:text, "trash_id"}, {:text, v.trash_id}}),
-         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
          {{:text, "idempotency_key"}, {:text, v.idempotency_key}}
        ],
@@ -3514,22 +3658,9 @@ defmodule Csilgen.Generated.CreateEventReceipt do
           csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
         end,
       state:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "state"})) do
-          "live" ->
-            "live"
-
-          "trashed" ->
-            "trashed"
-
-          "deleted" ->
-            "deleted"
-
-          "hidden" ->
-            "hidden"
-
-          csil_other ->
-            raise("csilgen: unknown CreateReceiptState literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.CreateReceiptState.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "state"}))
+        ),
       created: Csilgen.Generated.Cbor.to_bool(Map.fetch!(csil_fields, {:text, "created"})),
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       trash_id:
@@ -3537,7 +3668,10 @@ defmodule Csilgen.Generated.CreateEventReceipt do
           nil -> nil
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
       idempotency_key:
@@ -3563,8 +3697,8 @@ defmodule Csilgen.Generated.SplitSeriesOnceRequest do
   @type t :: %__MODULE__{
           idempotency_key: String.t(),
           event: Csilgen.Generated.Event.t(),
-          recurrence_id: Csilgen.Generated.Timestamp.t(),
-          map_recurrence_ids: [Csilgen.Generated.Timestamp.t()] | nil
+          recurrence_id: DateTime.t(),
+          map_recurrence_ids: [DateTime.t()] | nil
         }
 
   @wire_keys [
@@ -3584,13 +3718,16 @@ defmodule Csilgen.Generated.SplitSeriesOnceRequest do
      Enum.reject(
        [
          {{:text, "event"}, Csilgen.Generated.Event.to_cbor_value(v.event)},
-         {{:text, "recurrence_id"}, {:text, v.recurrence_id}},
+         {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}},
          {{:text, "idempotency_key"}, {:text, v.idempotency_key}},
          if(is_nil(v.map_recurrence_ids),
            do: nil,
            else:
              {{:text, "map_recurrence_ids"},
-              {:array, Enum.map(v.map_recurrence_ids, fn csil_e -> {:text, csil_e} end)}}
+              {:array,
+               Enum.map(v.map_recurrence_ids, fn csil_e ->
+                 {:tag, 0, {:text, DateTime.to_iso8601(csil_e)}}
+               end)}}
          )
        ],
        &is_nil/1
@@ -3605,7 +3742,9 @@ defmodule Csilgen.Generated.SplitSeriesOnceRequest do
     %__MODULE__{
       event: Csilgen.Generated.Event.from_cbor_value(Map.fetch!(csil_fields, {:text, "event"})),
       recurrence_id:
-        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "recurrence_id"})),
+        case Map.fetch!(csil_fields, {:text, "recurrence_id"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       idempotency_key:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "idempotency_key"})),
       map_recurrence_ids:
@@ -3616,7 +3755,11 @@ defmodule Csilgen.Generated.SplitSeriesOnceRequest do
           csil_v ->
             case csil_v do
               {:array, csil_xs} ->
-                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+                Enum.map(csil_xs, fn csil_e ->
+                  case csil_e do
+                    {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+                  end
+                end)
             end
         end
     }
@@ -3640,7 +3783,7 @@ defmodule Csilgen.Generated.SplitReceiptRequest do
   @type t :: %__MODULE__{
           series_id: Csilgen.Generated.EventID.t(),
           idempotency_key: String.t(),
-          map_recurrence_ids: [Csilgen.Generated.Timestamp.t()] | nil
+          map_recurrence_ids: [DateTime.t()] | nil
         }
 
   @wire_keys [
@@ -3664,7 +3807,10 @@ defmodule Csilgen.Generated.SplitReceiptRequest do
            do: nil,
            else:
              {{:text, "map_recurrence_ids"},
-              {:array, Enum.map(v.map_recurrence_ids, fn csil_e -> {:text, csil_e} end)}}
+              {:array,
+               Enum.map(v.map_recurrence_ids, fn csil_e ->
+                 {:tag, 0, {:text, DateTime.to_iso8601(csil_e)}}
+               end)}}
          )
        ],
        &is_nil/1
@@ -3688,7 +3834,11 @@ defmodule Csilgen.Generated.SplitReceiptRequest do
           csil_v ->
             case csil_v do
               {:array, csil_xs} ->
-                Enum.map(csil_xs, fn csil_e -> Csilgen.Generated.Cbor.to_text(csil_e) end)
+                Enum.map(csil_xs, fn csil_e ->
+                  case csil_e do
+                    {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+                  end
+                end)
             end
         end
     }
@@ -3704,8 +3854,14 @@ defmodule Csilgen.Generated.SplitReceiptRequest do
 end
 
 defmodule Csilgen.Generated.SplitMapResult do
-  @moduledoc "Type alias for SplitMapResult."
-  @type t :: String.t()
+  @type t :: :original | :successor | :none
+  def to_wire(:original), do: "original"
+  def to_wire(:successor), do: "successor"
+  def to_wire(:none), do: "none"
+  def from_wire("original"), do: :original
+  def from_wire("successor"), do: :successor
+  def from_wire("none"), do: :none
+  def from_wire(value), do: raise(ArgumentError, "unknown SplitMapResult: #{inspect(value)}")
 end
 
 defmodule Csilgen.Generated.SplitOccurrenceMapping do
@@ -3715,10 +3871,10 @@ defmodule Csilgen.Generated.SplitOccurrenceMapping do
   defstruct [:recurrence_id, :result, :event_id, :mapped_recurrence_id]
 
   @type t :: %__MODULE__{
-          recurrence_id: Csilgen.Generated.Timestamp.t(),
+          recurrence_id: DateTime.t(),
           result: Csilgen.Generated.SplitMapResult.t(),
           event_id: Csilgen.Generated.EventID.t() | nil,
-          mapped_recurrence_id: Csilgen.Generated.Timestamp.t() | nil
+          mapped_recurrence_id: DateTime.t() | nil
         }
 
   @wire_keys [
@@ -3737,12 +3893,14 @@ defmodule Csilgen.Generated.SplitOccurrenceMapping do
     {:map,
      Enum.reject(
        [
-         {{:text, "result"}, {:text, v.result}},
+         {{:text, "result"}, {:text, Csilgen.Generated.SplitMapResult.to_wire(v.result)}},
          if(is_nil(v.event_id), do: nil, else: {{:text, "event_id"}, {:text, v.event_id}}),
-         {{:text, "recurrence_id"}, {:text, v.recurrence_id}},
+         {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}},
          if(is_nil(v.mapped_recurrence_id),
            do: nil,
-           else: {{:text, "mapped_recurrence_id"}, {:text, v.mapped_recurrence_id}}
+           else:
+             {{:text, "mapped_recurrence_id"},
+              {:tag, 0, {:text, DateTime.to_iso8601(v.mapped_recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -3756,23 +3914,27 @@ defmodule Csilgen.Generated.SplitOccurrenceMapping do
 
     %__MODULE__{
       result:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "result"})) do
-          "original" -> "original"
-          "successor" -> "successor"
-          "none" -> "none"
-          csil_other -> raise("csilgen: unknown SplitMapResult literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.SplitMapResult.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "result"}))
+        ),
       event_id:
         case Map.get(csil_fields, {:text, "event_id"}) do
           nil -> nil
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
       recurrence_id:
-        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "recurrence_id"})),
+        case Map.fetch!(csil_fields, {:text, "recurrence_id"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       mapped_recurrence_id:
         case Map.get(csil_fields, {:text, "mapped_recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -3824,10 +3986,10 @@ defmodule Csilgen.Generated.SplitSeriesReceipt do
           series_id: Csilgen.Generated.EventID.t(),
           idempotency_key: String.t(),
           successor_id: Csilgen.Generated.EventID.t(),
-          split_at: Csilgen.Generated.Timestamp.t(),
+          split_at: DateTime.t(),
           in_place: boolean(),
           created: boolean(),
-          created_at: Csilgen.Generated.Timestamp.t(),
+          created_at: DateTime.t(),
           calendar_id: Csilgen.Generated.CalendarID.t(),
           series_state: Csilgen.Generated.CreateReceiptState.t(),
           series: Csilgen.Generated.Event.t() | nil,
@@ -3876,22 +4038,24 @@ defmodule Csilgen.Generated.SplitSeriesReceipt do
            Enum.map(v.mappings, fn csil_e ->
              Csilgen.Generated.SplitOccurrenceMapping.to_cbor_value(csil_e)
            end)}},
-         {{:text, "split_at"}, {:text, v.split_at}},
+         {{:text, "split_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.split_at)}}},
          {{:text, "series_id"}, {:text, v.series_id}},
          if(is_nil(v.successor),
            do: nil,
            else: {{:text, "successor"}, Csilgen.Generated.Event.to_cbor_value(v.successor)}
          ),
-         {{:text, "created_at"}, {:text, v.created_at}},
+         {{:text, "created_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.created_at)}}},
          {{:text, "calendar_id"}, {:text, v.calendar_id}},
-         {{:text, "series_state"}, {:text, v.series_state}},
+         {{:text, "series_state"},
+          {:text, Csilgen.Generated.CreateReceiptState.to_wire(v.series_state)}},
          {{:text, "successor_id"}, {:text, v.successor_id}},
          {{:text, "idempotency_key"}, {:text, v.idempotency_key}},
          if(is_nil(v.series_trash_id),
            do: nil,
            else: {{:text, "series_trash_id"}, {:text, v.series_trash_id}}
          ),
-         {{:text, "successor_state"}, {:text, v.successor_state}},
+         {{:text, "successor_state"},
+          {:text, Csilgen.Generated.CreateReceiptState.to_wire(v.successor_state)}},
          if(is_nil(v.successor_trash_id),
            do: nil,
            else: {{:text, "successor_trash_id"}, {:text, v.successor_trash_id}}
@@ -3921,33 +4085,26 @@ defmodule Csilgen.Generated.SplitSeriesReceipt do
               Csilgen.Generated.SplitOccurrenceMapping.from_cbor_value(csil_e)
             end)
         end,
-      split_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "split_at"})),
+      split_at:
+        case Map.fetch!(csil_fields, {:text, "split_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       series_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_id"})),
       successor:
         case Map.get(csil_fields, {:text, "successor"}) do
           nil -> nil
           csil_v -> Csilgen.Generated.Event.from_cbor_value(csil_v)
         end,
-      created_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "created_at"})),
+      created_at:
+        case Map.fetch!(csil_fields, {:text, "created_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       calendar_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "calendar_id"})),
       series_state:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_state"})) do
-          "live" ->
-            "live"
-
-          "trashed" ->
-            "trashed"
-
-          "deleted" ->
-            "deleted"
-
-          "hidden" ->
-            "hidden"
-
-          csil_other ->
-            raise("csilgen: unknown CreateReceiptState literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.CreateReceiptState.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "series_state"}))
+        ),
       successor_id:
         Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "successor_id"})),
       idempotency_key:
@@ -3958,22 +4115,9 @@ defmodule Csilgen.Generated.SplitSeriesReceipt do
           csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
         end,
       successor_state:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "successor_state"})) do
-          "live" ->
-            "live"
-
-          "trashed" ->
-            "trashed"
-
-          "deleted" ->
-            "deleted"
-
-          "hidden" ->
-            "hidden"
-
-          csil_other ->
-            raise("csilgen: unknown CreateReceiptState literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.CreateReceiptState.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "successor_state"}))
+        ),
       successor_trash_id:
         case Map.get(csil_fields, {:text, "successor_trash_id"}) do
           nil -> nil
@@ -3999,7 +4143,7 @@ defmodule Csilgen.Generated.GetOccurrenceRequest do
 
   @type t :: %__MODULE__{
           event_id: Csilgen.Generated.EventID.t(),
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil
+          recurrence_id: DateTime.t() | nil
         }
 
   @wire_keys [event_id: "event_id", recurrence_id: "recurrence_id"]
@@ -4016,7 +4160,8 @@ defmodule Csilgen.Generated.GetOccurrenceRequest do
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -4032,8 +4177,13 @@ defmodule Csilgen.Generated.GetOccurrenceRequest do
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -4056,7 +4206,7 @@ defmodule Csilgen.Generated.RespondRequest do
   @type t :: %__MODULE__{
           event_id: Csilgen.Generated.EventID.t(),
           status: Csilgen.Generated.ParticipationStatus.t(),
-          recurrence_id: Csilgen.Generated.Timestamp.t() | nil,
+          recurrence_id: DateTime.t() | nil,
           comment: String.t() | nil
         }
 
@@ -4076,12 +4226,13 @@ defmodule Csilgen.Generated.RespondRequest do
     {:map,
      Enum.reject(
        [
-         {{:text, "status"}, {:text, v.status}},
+         {{:text, "status"}, {:text, Csilgen.Generated.ParticipationStatus.to_wire(v.status)}},
          if(is_nil(v.comment), do: nil, else: {{:text, "comment"}, {:text, v.comment}}),
          {{:text, "event_id"}, {:text, v.event_id}},
          if(is_nil(v.recurrence_id),
            do: nil,
-           else: {{:text, "recurrence_id"}, {:text, v.recurrence_id}}
+           else:
+             {{:text, "recurrence_id"}, {:tag, 0, {:text, DateTime.to_iso8601(v.recurrence_id)}}}
          )
        ],
        &is_nil/1
@@ -4095,25 +4246,9 @@ defmodule Csilgen.Generated.RespondRequest do
 
     %__MODULE__{
       status:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "status"})) do
-          "needs_action" ->
-            "needs_action"
-
-          "accepted" ->
-            "accepted"
-
-          "declined" ->
-            "declined"
-
-          "tentative" ->
-            "tentative"
-
-          "delegated" ->
-            "delegated"
-
-          csil_other ->
-            raise("csilgen: unknown ParticipationStatus literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.ParticipationStatus.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "status"}))
+        ),
       comment:
         case Map.get(csil_fields, {:text, "comment"}) do
           nil -> nil
@@ -4122,8 +4257,13 @@ defmodule Csilgen.Generated.RespondRequest do
       event_id: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "event_id"})),
       recurrence_id:
         case Map.get(csil_fields, {:text, "recurrence_id"}) do
-          nil -> nil
-          csil_v -> Csilgen.Generated.Cbor.to_text(csil_v)
+          nil ->
+            nil
+
+          csil_v ->
+            case csil_v do
+              {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+            end
         end
     }
   end
@@ -4249,8 +4389,8 @@ defmodule Csilgen.Generated.BusyInterval do
   defstruct [:start, :end, :tentative]
 
   @type t :: %__MODULE__{
-          start: Csilgen.Generated.Timestamp.t(),
-          end: Csilgen.Generated.Timestamp.t(),
+          start: DateTime.t(),
+          end: DateTime.t(),
           tentative: boolean() | nil
         }
 
@@ -4265,8 +4405,8 @@ defmodule Csilgen.Generated.BusyInterval do
     {:map,
      Enum.reject(
        [
-         {{:text, "end"}, {:text, v.end}},
-         {{:text, "start"}, {:text, v.start}},
+         {{:text, "end"}, {:tag, 0, {:text, DateTime.to_iso8601(v.end)}}},
+         {{:text, "start"}, {:tag, 0, {:text, DateTime.to_iso8601(v.start)}}},
          if(is_nil(v.tentative), do: nil, else: {{:text, "tentative"}, {:bool, v.tentative}})
        ],
        &is_nil/1
@@ -4279,8 +4419,14 @@ defmodule Csilgen.Generated.BusyInterval do
     csil_fields = Map.new(csil_kvs)
 
     %__MODULE__{
-      end: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "end"})),
-      start: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "start"})),
+      end:
+        case Map.fetch!(csil_fields, {:text, "end"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
+      start:
+        case Map.fetch!(csil_fields, {:text, "start"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       tentative:
         case Map.get(csil_fields, {:text, "tentative"}) do
           nil -> nil
@@ -4306,8 +4452,8 @@ defmodule Csilgen.Generated.FreeBusyRequest do
 
   @type t :: %__MODULE__{
           people: [Csilgen.Generated.IdentityRef.t()],
-          range_start: Csilgen.Generated.Timestamp.t(),
-          range_end: Csilgen.Generated.Timestamp.t()
+          range_start: DateTime.t(),
+          range_end: DateTime.t()
         }
 
   @wire_keys [people: "people", range_start: "range_start", range_end: "range_end"]
@@ -4326,8 +4472,8 @@ defmodule Csilgen.Generated.FreeBusyRequest do
            Enum.map(v.people, fn csil_e ->
              Csilgen.Generated.IdentityRef.to_cbor_value(csil_e)
            end)}},
-         {{:text, "range_end"}, {:text, v.range_end}},
-         {{:text, "range_start"}, {:text, v.range_start}}
+         {{:text, "range_end"}, {:tag, 0, {:text, DateTime.to_iso8601(v.range_end)}}},
+         {{:text, "range_start"}, {:tag, 0, {:text, DateTime.to_iso8601(v.range_start)}}}
        ],
        &is_nil/1
      )}
@@ -4346,8 +4492,14 @@ defmodule Csilgen.Generated.FreeBusyRequest do
               Csilgen.Generated.IdentityRef.from_cbor_value(csil_e)
             end)
         end,
-      range_end: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "range_end"})),
-      range_start: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "range_start"}))
+      range_end:
+        case Map.fetch!(csil_fields, {:text, "range_end"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
+      range_start:
+        case Map.fetch!(csil_fields, {:text, "range_start"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end
     }
   end
 
@@ -4774,7 +4926,7 @@ defmodule Csilgen.Generated.AuditEntry do
 
   @type t :: %__MODULE__{
           audit_id: Csilgen.Generated.AuditID.t(),
-          at: Csilgen.Generated.Timestamp.t(),
+          at: DateTime.t(),
           actor: Csilgen.Generated.PersonSummary.t(),
           principal: Csilgen.Generated.PersonSummary.t(),
           via: Csilgen.Generated.ActingVia.t(),
@@ -4805,8 +4957,8 @@ defmodule Csilgen.Generated.AuditEntry do
     {:map,
      Enum.reject(
        [
-         {{:text, "at"}, {:text, v.at}},
-         {{:text, "via"}, {:text, v.via}},
+         {{:text, "at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.at)}}},
+         {{:text, "via"}, {:text, Csilgen.Generated.ActingVia.to_wire(v.via)}},
          {{:text, "actor"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.actor)},
          if(is_nil(v.target), do: nil, else: {{:text, "target"}, {:text, v.target}}),
          {{:text, "outcome"}, {:text, v.outcome}},
@@ -4828,14 +4980,14 @@ defmodule Csilgen.Generated.AuditEntry do
     csil_fields = Map.new(csil_kvs)
 
     %__MODULE__{
-      at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "at"})),
-      via:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"})) do
-          "self" -> "self"
-          "delegation" -> "delegation"
-          "act_as_grant" -> "act_as_grant"
-          csil_other -> raise("csilgen: unknown ActingVia literal #{inspect(csil_other)}")
+      at:
+        case Map.fetch!(csil_fields, {:text, "at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
         end,
+      via:
+        Csilgen.Generated.ActingVia.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"}))
+        ),
       actor:
         Csilgen.Generated.PersonSummary.from_cbor_value(Map.fetch!(csil_fields, {:text, "actor"})),
       target:
@@ -5044,7 +5196,7 @@ defmodule Csilgen.Generated.LoginResponse do
 
   @type t :: %__MODULE__{
           token: String.t(),
-          expires_at: Csilgen.Generated.Timestamp.t(),
+          expires_at: DateTime.t(),
           user: Csilgen.Generated.PersonSummary.t(),
           acting_as: Csilgen.Generated.PersonSummary.t() | nil,
           via: Csilgen.Generated.ActingVia.t(),
@@ -5069,20 +5221,24 @@ defmodule Csilgen.Generated.LoginResponse do
     {:map,
      Enum.reject(
        [
-         {{:text, "via"}, {:text, v.via}},
+         {{:text, "via"}, {:text, Csilgen.Generated.ActingVia.to_wire(v.via)}},
          {{:text, "user"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.user)},
          {{:text, "token"}, {:text, v.token}},
          if(is_nil(v.scopes),
            do: nil,
            else:
-             {{:text, "scopes"}, {:array, Enum.map(v.scopes, fn csil_e -> {:text, csil_e} end)}}
+             {{:text, "scopes"},
+              {:array,
+               Enum.map(v.scopes, fn csil_e ->
+                 {:text, Csilgen.Generated.Scope.to_wire(csil_e)}
+               end)}}
          ),
          if(is_nil(v.acting_as),
            do: nil,
            else:
              {{:text, "acting_as"}, Csilgen.Generated.PersonSummary.to_cbor_value(v.acting_as)}
          ),
-         {{:text, "expires_at"}, {:text, v.expires_at}}
+         {{:text, "expires_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.expires_at)}}}
        ],
        &is_nil/1
      )}
@@ -5095,12 +5251,9 @@ defmodule Csilgen.Generated.LoginResponse do
 
     %__MODULE__{
       via:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"})) do
-          "self" -> "self"
-          "delegation" -> "delegation"
-          "act_as_grant" -> "act_as_grant"
-          csil_other -> raise("csilgen: unknown ActingVia literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.ActingVia.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"}))
+        ),
       user:
         Csilgen.Generated.PersonSummary.from_cbor_value(Map.fetch!(csil_fields, {:text, "user"})),
       token: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "token"})),
@@ -5113,14 +5266,7 @@ defmodule Csilgen.Generated.LoginResponse do
             case csil_v do
               {:array, csil_xs} ->
                 Enum.map(csil_xs, fn csil_e ->
-                  case Csilgen.Generated.Cbor.to_text(csil_e) do
-                    "calendars.read" -> "calendars.read"
-                    "freebusy.read" -> "freebusy.read"
-                    "events.write" -> "events.write"
-                    "events.respond" -> "events.respond"
-                    "calendars.manage" -> "calendars.manage"
-                    csil_other -> raise("csilgen: unknown Scope literal #{inspect(csil_other)}")
-                  end
+                  Csilgen.Generated.Scope.from_wire(Csilgen.Generated.Cbor.to_text(csil_e))
                 end)
             end
         end,
@@ -5129,7 +5275,10 @@ defmodule Csilgen.Generated.LoginResponse do
           nil -> nil
           csil_v -> Csilgen.Generated.PersonSummary.from_cbor_value(csil_v)
         end,
-      expires_at: Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "expires_at"}))
+      expires_at:
+        case Map.fetch!(csil_fields, {:text, "expires_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end
     }
   end
 
@@ -5173,12 +5322,16 @@ defmodule Csilgen.Generated.MeResponse do
     {:map,
      Enum.reject(
        [
-         {{:text, "via"}, {:text, v.via}},
+         {{:text, "via"}, {:text, Csilgen.Generated.ActingVia.to_wire(v.via)}},
          {{:text, "user"}, Csilgen.Generated.User.to_cbor_value(v.user)},
          if(is_nil(v.scopes),
            do: nil,
            else:
-             {{:text, "scopes"}, {:array, Enum.map(v.scopes, fn csil_e -> {:text, csil_e} end)}}
+             {{:text, "scopes"},
+              {:array,
+               Enum.map(v.scopes, fn csil_e ->
+                 {:text, Csilgen.Generated.Scope.to_wire(csil_e)}
+               end)}}
          ),
          if(is_nil(v.acting_as),
            do: nil,
@@ -5202,12 +5355,9 @@ defmodule Csilgen.Generated.MeResponse do
 
     %__MODULE__{
       via:
-        case Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"})) do
-          "self" -> "self"
-          "delegation" -> "delegation"
-          "act_as_grant" -> "act_as_grant"
-          csil_other -> raise("csilgen: unknown ActingVia literal #{inspect(csil_other)}")
-        end,
+        Csilgen.Generated.ActingVia.from_wire(
+          Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "via"}))
+        ),
       user: Csilgen.Generated.User.from_cbor_value(Map.fetch!(csil_fields, {:text, "user"})),
       scopes:
         case Map.get(csil_fields, {:text, "scopes"}) do
@@ -5218,14 +5368,7 @@ defmodule Csilgen.Generated.MeResponse do
             case csil_v do
               {:array, csil_xs} ->
                 Enum.map(csil_xs, fn csil_e ->
-                  case Csilgen.Generated.Cbor.to_text(csil_e) do
-                    "calendars.read" -> "calendars.read"
-                    "freebusy.read" -> "freebusy.read"
-                    "events.write" -> "events.write"
-                    "events.respond" -> "events.respond"
-                    "calendars.manage" -> "calendars.manage"
-                    csil_other -> raise("csilgen: unknown Scope literal #{inspect(csil_other)}")
-                  end
+                  Csilgen.Generated.Scope.from_wire(Csilgen.Generated.Cbor.to_text(csil_e))
                 end)
             end
         end,
@@ -5512,7 +5655,7 @@ defmodule Csilgen.Generated.ApplicationPresentation do
           signer_instance_id: String.t(),
           audience: Csilgen.Generated.ApplicationRef.t(),
           request_digest: binary(),
-          presented_at: Csilgen.Generated.Timestamp.t(),
+          presented_at: DateTime.t(),
           nonce: binary()
         }
 
@@ -5537,7 +5680,7 @@ defmodule Csilgen.Generated.ApplicationPresentation do
          {{:text, "nonce"}, {:bytes, v.nonce}},
          {{:text, "signer"}, Csilgen.Generated.ApplicationRef.to_cbor_value(v.signer)},
          {{:text, "audience"}, Csilgen.Generated.ApplicationRef.to_cbor_value(v.audience)},
-         {{:text, "presented_at"}, {:text, v.presented_at}},
+         {{:text, "presented_at"}, {:tag, 0, {:text, DateTime.to_iso8601(v.presented_at)}}},
          {{:text, "request_digest"}, {:bytes, v.request_digest}},
          {{:text, "signer_instance_id"}, {:text, v.signer_instance_id}}
        ],
@@ -5561,7 +5704,9 @@ defmodule Csilgen.Generated.ApplicationPresentation do
           Map.fetch!(csil_fields, {:text, "audience"})
         ),
       presented_at:
-        Csilgen.Generated.Cbor.to_text(Map.fetch!(csil_fields, {:text, "presented_at"})),
+        case Map.fetch!(csil_fields, {:text, "presented_at"}) do
+          {:tag, 0, {:text, csil_s}} -> elem(DateTime.from_iso8601(csil_s), 1)
+        end,
       request_digest:
         Csilgen.Generated.Cbor.to_bytes(Map.fetch!(csil_fields, {:text, "request_digest"})),
       signer_instance_id:

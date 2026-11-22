@@ -12,7 +12,7 @@ code, files, and docs. Do not use other spellings or abbreviations.
 
 - **csil/catalystcal.csil** is the source of truth for the API. It drives the Go
   server code (`api/internal/csil`) and every client (`clients/<lang>/`).
-  `csil/regenerate.sh` pins csilgen (`CSILGEN_PIN`, now 0.2.10) and stops
+  `csil/regenerate.sh` pins csilgen (`CSILGEN_PIN`, now 0.2.15) and stops
   when a different csilgen is on PATH.
 - **api/** is the Go module `github.com/catalystcommunity/catalystcal/api`.
   `main.go` holds `var Version = "dev"`. Builds set it with
@@ -119,7 +119,8 @@ code, files, and docs. Do not use other spellings or abbreviations.
   Recreate`, and no API autoscaler. Do not change this.
 - **Time text layout.** An instant is text in ONE fixed layout: UTC, whole
   seconds, `Z` suffix (`2026-10-15T17:00:00Z`, Go layout
-  `2006-01-02T15:04:05Z`). The database (TEXT columns) and CSIL use it. Text
+  `2006-01-02T15:04:05Z`). SQLite stores this text. CSIL uses `timestamp` (CBOR tag 0) for an
+  instant and `date` (tag 1004) for a calendar date. Text
   order is then time order, so `ORDER BY` and range checks work on the
   text. Do not write other layouts (offsets, fractions). An IANA time zone
   name (`America/Denver`) is a separate field. All-day events use dates, not

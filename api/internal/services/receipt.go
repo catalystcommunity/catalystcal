@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"time"
 	"unicode/utf8"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/access"
@@ -12,6 +13,7 @@ import (
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 	"github.com/catalystcommunity/catalystcal/api/internal/csilrpc"
 	"github.com/catalystcommunity/catalystcal/api/internal/store"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // receiptBinding scopes a create receipt to the bearer: the exact grantee
@@ -36,11 +38,31 @@ func checkIdempotencyKey(k string) error {
 	return nil
 }
 
-// contentHash identifies the requested content of a create: the event as
-// the client sent it, without the receive-only fields.
-func contentHash(ev csil.Event) string {
-	sum := sha256.Sum256(csil.EncodeEvent(ev))
-	return hex.EncodeToString(sum[:])
+// Receipt hashes predate tagged dates. Keep their canonical CBOR input stable
+// so a retry can match a permanent receipt written by an earlier release.
+var receiptDecoder, _ = (cbor.DecOptions{
+	TimeTagToAny:         cbor.TimeTagToRFC3339Nano,
+	UnrecognizedTagToAny: cbor.UnrecognizedTagContentToAny,
+}).DecMode()
+var receiptEncoder, _ = cbor.CanonicalEncOptions().EncMode()
+
+func contentHash(ev csil.Event, splitAt *time.Time) (string, error) {
+	var fields map[string]any
+	if err := receiptDecoder.Unmarshal(csil.EncodeEvent(ev), &fields); err != nil {
+		return "", err
+	}
+	// The old encoder wrote empty strings for the two receive-only times.
+	fields["created_at"], fields["updated_at"] = "", ""
+	data, err := receiptEncoder.Marshal(fields)
+	if err != nil {
+		return "", err
+	}
+	if splitAt != nil {
+		data = append(data, 0)
+		data = append(data, store.FormatTime(*splitAt)...)
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // CreateEventOnce makes an event at most once for each idempotency key.
@@ -66,9 +88,13 @@ func (s *EventService) CreateEventOnce(ctx context.Context, req csil.CreateEvent
 	if err := requireCreatable(c, acc); err != nil {
 		return csil.CreateEventReceipt{}, err
 	}
+	hash, err := contentHash(ev, nil)
+	if err != nil {
+		return csil.CreateEventReceipt{}, internal(err, "hash create request")
+	}
 	rc := store.CreateReceipt{
 		CalendarID: c.ID, CreatorID: id.EffectiveUserID(), Binding: receiptBinding(id),
-		Key: req.IdempotencyKey, ContentHash: contentHash(ev),
+		Key: req.IdempotencyKey, ContentHash: hash,
 	}
 	known, err := s.Store.GetCreateReceipt(ctx, rc.CalendarID, rc.CreatorID, rc.Binding, rc.Key)
 	switch {

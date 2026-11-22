@@ -2,6 +2,7 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record Group(
@@ -11,8 +12,8 @@ public record Group(
     String description /* wire: "description" */,
     long revision /* wire: "revision" */,
     List<GroupMember> members /* wire: "members" */,
-    Timestamp createdAt /* wire: "created_at" */,
-    Timestamp updatedAt /* wire: "updated_at" */
+    Instant createdAt /* wire: "created_at" */,
+    Instant updatedAt /* wire: "updated_at" */
 ) {
     public Group {
         if (name.length() < 1) {

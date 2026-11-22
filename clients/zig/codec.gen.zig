@@ -330,6 +330,20 @@ fn as_bytes(v: Value) CodecError![]const u8 {
     };
 }
 
+fn calendar_date(s: []const u8) CodecError![]const u8 {
+    if (s.len != 10 or s[4] != '-' or s[7] != '-') return error.WrongType;
+    for (s, 0..) |c, i| {
+        if (i != 4 and i != 7 and (c < '0' or c > '9')) return error.WrongType;
+    }
+    const year = std.fmt.parseInt(u16, s[0..4], 10) catch return error.WrongType;
+    const month = std.fmt.parseInt(u8, s[5..7], 10) catch return error.WrongType;
+    const day = std.fmt.parseInt(u8, s[8..10], 10) catch return error.WrongType;
+    const leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0);
+    const days = [_]u8{ 31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    if (month < 1 or month > 12 or day < 1 or day > days[month - 1]) return error.WrongType;
+    return s;
+}
+
 fn as_tagged_text(v: Value, num: u64) CodecError![]const u8 {
     if (v != .tag or v.tag.num != num or v.tag.content.* != .text) return error.WrongType;
     return v.tag.content.text;
@@ -778,9 +792,11 @@ fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "updated_at");
-    try w_text(out, v.updated_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.updated_at).rfc3339);
     if (v.display_name) |csil_x| {
         try w_text(out, "display_name");
         try w_text(out, csil_x);
@@ -829,11 +845,11 @@ fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!voi
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "updated_at");
-        out.updated_at = try as_text(csil_fv);
+        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "display_name")) |csil_fv| {
@@ -946,7 +962,8 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "is_default");
     try w_bool(out, v.is_default);
     if (v.source_url) |csil_x| {
@@ -958,7 +975,8 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
         try w_text(out, csil_x);
     }
     try w_text(out, "updated_at");
-    try w_text(out, v.updated_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.updated_at).rfc3339);
     try w_text(out, "access_path");
     try enc_AccessPath(out, &(v.access_path));
     try w_text(out, "calendar_id");
@@ -969,7 +987,8 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
     }
     if (v.last_synced_at) |csil_x| {
         try w_text(out, "last_synced_at");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -1014,7 +1033,7 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "is_default");
@@ -1036,7 +1055,7 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
     }
     {
         const csil_fv = try req(m, "updated_at");
-        out.updated_at = try as_text(csil_fv);
+        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "access_path");
@@ -1055,7 +1074,7 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
     }
     {
         if (mget(m, "last_synced_at")) |csil_fv| {
-            out.last_synced_at = try as_text(csil_fv);
+            out.last_synced_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.last_synced_at = null;
         }
@@ -1270,7 +1289,8 @@ fn enc_Share(out: *std.ArrayList(u8), v: *const types.Share) CodecError!void {
     try w_text(out, "share_id");
     try w_text(out, v.share_id);
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     if (v.grantee_person) |csil_x| {
@@ -1308,7 +1328,7 @@ fn dec_Share(alloc: std.mem.Allocator, m: Value, out: *types.Share) CodecError!v
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "calendar_id");
@@ -1439,9 +1459,11 @@ fn enc_Group(out: *std.ArrayList(u8), v: *const types.Group) CodecError!void {
     try w_text(out, "revision");
     try w_uint(out, v.revision);
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "updated_at");
-    try w_text(out, v.updated_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.updated_at).rfc3339);
     if (v.description) |csil_x| {
         try w_text(out, "description");
         try w_text(out, csil_x);
@@ -1476,11 +1498,11 @@ fn dec_Group(alloc: std.mem.Allocator, m: Value, out: *types.Group) CodecError!v
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "updated_at");
-        out.updated_at = try as_text(csil_fv);
+        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "description")) |csil_fv| {
@@ -1661,14 +1683,17 @@ fn enc_Delegation(out: *std.ArrayList(u8), v: *const types.Delegation) CodecErro
     try w_text(out, "principal");
     try enc_PersonSummary(out, &(v.principal));
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     if (v.expires_at) |csil_x| {
         try w_text(out, "expires_at");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     if (v.revoked_at) |csil_x| {
         try w_text(out, "revoked_at");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     if (v.calendar_ids) |csil_arr| {
         try w_text(out, "calendar_ids");
@@ -1712,18 +1737,18 @@ fn dec_Delegation(alloc: std.mem.Allocator, m: Value, out: *types.Delegation) Co
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "expires_at")) |csil_fv| {
-            out.expires_at = try as_text(csil_fv);
+            out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.expires_at = null;
         }
     }
     {
         if (mget(m, "revoked_at")) |csil_fv| {
-            out.revoked_at = try as_text(csil_fv);
+            out.revoked_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.revoked_at = null;
         }
@@ -1802,14 +1827,16 @@ fn enc_Recurrence(out: *std.ArrayList(u8), v: *const types.Recurrence) CodecErro
         try w_text(out, "rdates");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_text(out, csil_it);
+            try w_tag(out, 0);
+            try w_text(out, (csil_it).rfc3339);
         }
     }
     if (v.exdates) |csil_arr| {
         try w_text(out, "exdates");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_text(out, csil_it);
+            try w_tag(out, 0);
+            try w_text(out, (csil_it).rfc3339);
         }
     }
 }
@@ -1823,9 +1850,9 @@ fn dec_Recurrence(alloc: std.mem.Allocator, m: Value, out: *types.Recurrence) Co
     {
         if (mget(m, "rdates")) |csil_fv| {
             if (csil_fv != .array) return error.WrongType;
-            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = try as_text(csil_it);
+                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
             }
             out.rdates = csil_tmp;
         } else {
@@ -1835,9 +1862,9 @@ fn dec_Recurrence(alloc: std.mem.Allocator, m: Value, out: *types.Recurrence) Co
     {
         if (mget(m, "exdates")) |csil_fv| {
             if (csil_fv != .array) return error.WrongType;
-            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = try as_text(csil_it);
+                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
             }
             out.exdates = csil_tmp;
         } else {
@@ -2020,7 +2047,8 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     try w_map_head(out, csil_n);
     if (v.end) |csil_x| {
         try w_text(out, "end");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     if (v.uid) |csil_x| {
         try w_text(out, "uid");
@@ -2036,7 +2064,8 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.start) |csil_x| {
         try w_text(out, "start");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     try w_text(out, "title");
     try w_text(out, v.title);
@@ -2050,7 +2079,8 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.end_date) |csil_x| {
         try w_text(out, "end_date");
-        try w_text(out, csil_x);
+        try w_tag(out, 1004);
+        try w_text(out, try calendar_date(csil_x));
     }
     try w_text(out, "event_id");
     try w_text(out, v.event_id);
@@ -2090,7 +2120,8 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
         }
     }
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     if (v.created_by) |csil_x| {
         try w_text(out, "created_by");
         try enc_PersonSummary(out, &(csil_x));
@@ -2101,10 +2132,12 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.start_date) |csil_x| {
         try w_text(out, "start_date");
-        try w_text(out, csil_x);
+        try w_tag(out, 1004);
+        try w_text(out, try calendar_date(csil_x));
     }
     try w_text(out, "updated_at");
-    try w_text(out, v.updated_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.updated_at).rfc3339);
     if (v.updated_by) |csil_x| {
         try w_text(out, "updated_by");
         try enc_PersonSummary(out, &(csil_x));
@@ -2129,7 +2162,8 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     if (v.conference_url) |csil_x| {
         try w_text(out, "conference_url");
@@ -2145,7 +2179,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     if (m != .map) return error.WrongType;
     {
         if (mget(m, "end")) |csil_fv| {
-            out.end = try as_text(csil_fv);
+            out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.end = null;
         }
@@ -2173,7 +2207,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "start")) |csil_fv| {
-            out.start = try as_text(csil_fv);
+            out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.start = null;
         }
@@ -2200,7 +2234,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "end_date")) |csil_fv| {
-            out.end_date = try as_text(csil_fv);
+            out.end_date = try calendar_date(try as_tagged_text(csil_fv, 1004));
         } else {
             out.end_date = null;
         }
@@ -2274,7 +2308,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "created_by")) |csil_fv| {
@@ -2296,14 +2330,14 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "start_date")) |csil_fv| {
-            out.start_date = try as_text(csil_fv);
+            out.start_date = try calendar_date(try as_tagged_text(csil_fv, 1004));
         } else {
             out.start_date = null;
         }
     }
     {
         const csil_fv = try req(m, "updated_at");
-        out.updated_at = try as_text(csil_fv);
+        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "updated_by")) |csil_fv| {
@@ -2354,7 +2388,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -2380,11 +2414,13 @@ fn enc_Occurrence(out: *std.ArrayList(u8), v: *const types.Occurrence) CodecErro
     if (v.recurrence_id != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "end");
-    try w_text(out, v.end);
+    try w_tag(out, 0);
+    try w_text(out, (v.end).rfc3339);
     try w_text(out, "event");
     try enc_Event(out, &(v.event));
     try w_text(out, "start");
-    try w_text(out, v.start);
+    try w_tag(out, 0);
+    try w_text(out, (v.start).rfc3339);
     try w_text(out, "access");
     try enc_AccessRole(out, &(v.access));
     try w_text(out, "invited");
@@ -2393,7 +2429,8 @@ fn enc_Occurrence(out: *std.ArrayList(u8), v: *const types.Occurrence) CodecErro
     try w_bool(out, v.busy_only);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -2401,7 +2438,7 @@ fn dec_Occurrence(alloc: std.mem.Allocator, m: Value, out: *types.Occurrence) Co
     if (m != .map) return error.WrongType;
     {
         const csil_fv = try req(m, "end");
-        out.end = try as_text(csil_fv);
+        out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "event");
@@ -2409,7 +2446,7 @@ fn dec_Occurrence(alloc: std.mem.Allocator, m: Value, out: *types.Occurrence) Co
     }
     {
         const csil_fv = try req(m, "start");
-        out.start = try as_text(csil_fv);
+        out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "access");
@@ -2425,7 +2462,7 @@ fn dec_Occurrence(alloc: std.mem.Allocator, m: Value, out: *types.Occurrence) Co
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -2438,9 +2475,11 @@ fn enc_ListEventsRequest(out: *std.ArrayList(u8), v: *const types.ListEventsRequ
     if (v.include_invitations != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "range_end");
-    try w_text(out, v.range_end);
+    try w_tag(out, 0);
+    try w_text(out, (v.range_end).rfc3339);
     try w_text(out, "range_start");
-    try w_text(out, v.range_start);
+    try w_tag(out, 0);
+    try w_text(out, (v.range_start).rfc3339);
     if (v.calendar_ids) |csil_arr| {
         try w_text(out, "calendar_ids");
         try w_array_head(out, csil_arr.len);
@@ -2458,11 +2497,11 @@ fn dec_ListEventsRequest(alloc: std.mem.Allocator, m: Value, out: *types.ListEve
     if (m != .map) return error.WrongType;
     {
         const csil_fv = try req(m, "range_end");
-        out.range_end = try as_text(csil_fv);
+        out.range_end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "range_start");
-        out.range_start = try as_text(csil_fv);
+        out.range_start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "calendar_ids")) |csil_fv| {
@@ -2525,7 +2564,8 @@ fn enc_UpdateEventRequest(out: *std.ArrayList(u8), v: *const types.UpdateEventRe
     }
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -2546,7 +2586,7 @@ fn dec_UpdateEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Update
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -2566,7 +2606,8 @@ fn enc_DeleteEventRequest(out: *std.ArrayList(u8), v: *const types.DeleteEventRe
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -2587,7 +2628,7 @@ fn dec_DeleteEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Delete
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -2656,18 +2697,21 @@ fn enc_TrashEntry(out: *std.ArrayList(u8), v: *const types.TrashEntry) CodecErro
     try w_text(out, "trash_id");
     try w_text(out, v.trash_id);
     try w_text(out, "deleted_at");
-    try w_text(out, v.deleted_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.deleted_at).rfc3339);
     if (v.deleted_by) |csil_x| {
         try w_text(out, "deleted_by");
         try enc_PersonSummary(out, &(csil_x));
     }
     try w_text(out, "expires_at");
-    try w_text(out, v.expires_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.expires_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -2700,7 +2744,7 @@ fn dec_TrashEntry(alloc: std.mem.Allocator, m: Value, out: *types.TrashEntry) Co
     }
     {
         const csil_fv = try req(m, "deleted_at");
-        out.deleted_at = try as_text(csil_fv);
+        out.deleted_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "deleted_by")) |csil_fv| {
@@ -2713,7 +2757,7 @@ fn dec_TrashEntry(alloc: std.mem.Allocator, m: Value, out: *types.TrashEntry) Co
     }
     {
         const csil_fv = try req(m, "expires_at");
-        out.expires_at = try as_text(csil_fv);
+        out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "calendar_id");
@@ -2721,7 +2765,7 @@ fn dec_TrashEntry(alloc: std.mem.Allocator, m: Value, out: *types.TrashEntry) Co
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -2800,7 +2844,8 @@ fn enc_ImportEventRequest(out: *std.ArrayList(u8), v: *const types.ImportEventRe
     try enc_Event(out, &(v.event));
     if (v.created_at) |csil_x| {
         try w_text(out, "created_at");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
     try w_text(out, "created_by");
     try enc_IdentityRef(out, &(v.created_by));
@@ -2814,7 +2859,7 @@ fn dec_ImportEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Import
     }
     {
         if (mget(m, "created_at")) |csil_fv| {
-            out.created_at = try as_text(csil_fv);
+            out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.created_at = null;
         }
@@ -2886,7 +2931,8 @@ fn enc_CreateEventReceipt(out: *std.ArrayList(u8), v: *const types.CreateEventRe
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     try w_text(out, "idempotency_key");
@@ -2925,7 +2971,7 @@ fn dec_CreateEventReceipt(alloc: std.mem.Allocator, m: Value, out: *types.Create
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "calendar_id");
@@ -2944,14 +2990,16 @@ fn enc_SplitSeriesOnceRequest(out: *std.ArrayList(u8), v: *const types.SplitSeri
     try w_text(out, "event");
     try enc_Event(out, &(v.event));
     try w_text(out, "recurrence_id");
-    try w_text(out, v.recurrence_id);
+    try w_tag(out, 0);
+    try w_text(out, (v.recurrence_id).rfc3339);
     try w_text(out, "idempotency_key");
     try w_text(out, v.idempotency_key);
     if (v.map_recurrence_ids) |csil_arr| {
         try w_text(out, "map_recurrence_ids");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_text(out, csil_it);
+            try w_tag(out, 0);
+            try w_text(out, (csil_it).rfc3339);
         }
     }
 }
@@ -2964,7 +3012,7 @@ fn dec_SplitSeriesOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.Sp
     }
     {
         const csil_fv = try req(m, "recurrence_id");
-        out.recurrence_id = try as_text(csil_fv);
+        out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "idempotency_key");
@@ -2973,9 +3021,9 @@ fn dec_SplitSeriesOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.Sp
     {
         if (mget(m, "map_recurrence_ids")) |csil_fv| {
             if (csil_fv != .array) return error.WrongType;
-            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = try as_text(csil_it);
+                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
             }
             out.map_recurrence_ids = csil_tmp;
         } else {
@@ -2996,7 +3044,8 @@ fn enc_SplitReceiptRequest(out: *std.ArrayList(u8), v: *const types.SplitReceipt
         try w_text(out, "map_recurrence_ids");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_text(out, csil_it);
+            try w_tag(out, 0);
+            try w_text(out, (csil_it).rfc3339);
         }
     }
 }
@@ -3014,9 +3063,9 @@ fn dec_SplitReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.Split
     {
         if (mget(m, "map_recurrence_ids")) |csil_fv| {
             if (csil_fv != .array) return error.WrongType;
-            const csil_tmp = try alloc.alloc(types.Timestamp, csil_fv.array.len);
+            const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = try as_text(csil_it);
+                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
             }
             out.map_recurrence_ids = csil_tmp;
         } else {
@@ -3059,10 +3108,12 @@ fn enc_SplitOccurrenceMapping(out: *std.ArrayList(u8), v: *const types.SplitOccu
         try w_text(out, csil_x);
     }
     try w_text(out, "recurrence_id");
-    try w_text(out, v.recurrence_id);
+    try w_tag(out, 0);
+    try w_text(out, (v.recurrence_id).rfc3339);
     if (v.mapped_recurrence_id) |csil_x| {
         try w_text(out, "mapped_recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -3081,11 +3132,11 @@ fn dec_SplitOccurrenceMapping(alloc: std.mem.Allocator, m: Value, out: *types.Sp
     }
     {
         const csil_fv = try req(m, "recurrence_id");
-        out.recurrence_id = try as_text(csil_fv);
+        out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "mapped_recurrence_id")) |csil_fv| {
-            out.mapped_recurrence_id = try as_text(csil_fv);
+            out.mapped_recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.mapped_recurrence_id = null;
         }
@@ -3113,7 +3164,8 @@ fn enc_SplitSeriesReceipt(out: *std.ArrayList(u8), v: *const types.SplitSeriesRe
         try enc_SplitOccurrenceMapping(out, &(csil_it));
     }
     try w_text(out, "split_at");
-    try w_text(out, v.split_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.split_at).rfc3339);
     try w_text(out, "series_id");
     try w_text(out, v.series_id);
     if (v.successor) |csil_x| {
@@ -3121,7 +3173,8 @@ fn enc_SplitSeriesReceipt(out: *std.ArrayList(u8), v: *const types.SplitSeriesRe
         try enc_Event(out, &(csil_x));
     }
     try w_text(out, "created_at");
-    try w_text(out, v.created_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     try w_text(out, "series_state");
@@ -3171,7 +3224,7 @@ fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitS
     }
     {
         const csil_fv = try req(m, "split_at");
-        out.split_at = try as_text(csil_fv);
+        out.split_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "series_id");
@@ -3188,7 +3241,7 @@ fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitS
     }
     {
         const csil_fv = try req(m, "created_at");
-        out.created_at = try as_text(csil_fv);
+        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "calendar_id");
@@ -3234,7 +3287,8 @@ fn enc_GetOccurrenceRequest(out: *std.ArrayList(u8), v: *const types.GetOccurren
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -3247,7 +3301,7 @@ fn dec_GetOccurrenceRequest(alloc: std.mem.Allocator, m: Value, out: *types.GetO
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -3269,7 +3323,8 @@ fn enc_RespondRequest(out: *std.ArrayList(u8), v: *const types.RespondRequest) C
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_text(out, csil_x);
+        try w_tag(out, 0);
+        try w_text(out, (csil_x).rfc3339);
     }
 }
 
@@ -3292,7 +3347,7 @@ fn dec_RespondRequest(alloc: std.mem.Allocator, m: Value, out: *types.RespondReq
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = try as_text(csil_fv);
+            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
         } else {
             out.recurrence_id = null;
         }
@@ -3353,9 +3408,11 @@ fn enc_BusyInterval(out: *std.ArrayList(u8), v: *const types.BusyInterval) Codec
     if (v.tentative != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "end");
-    try w_text(out, v.end);
+    try w_tag(out, 0);
+    try w_text(out, (v.end).rfc3339);
     try w_text(out, "start");
-    try w_text(out, v.start);
+    try w_tag(out, 0);
+    try w_text(out, (v.start).rfc3339);
     if (v.tentative) |csil_x| {
         try w_text(out, "tentative");
         try w_bool(out, csil_x);
@@ -3367,11 +3424,11 @@ fn dec_BusyInterval(alloc: std.mem.Allocator, m: Value, out: *types.BusyInterval
     if (m != .map) return error.WrongType;
     {
         const csil_fv = try req(m, "end");
-        out.end = try as_text(csil_fv);
+        out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "start");
-        out.start = try as_text(csil_fv);
+        out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         if (mget(m, "tentative")) |csil_fv| {
@@ -3390,9 +3447,11 @@ fn enc_FreeBusyRequest(out: *std.ArrayList(u8), v: *const types.FreeBusyRequest)
         try enc_IdentityRef(out, &(csil_it));
     }
     try w_text(out, "range_end");
-    try w_text(out, v.range_end);
+    try w_tag(out, 0);
+    try w_text(out, (v.range_end).rfc3339);
     try w_text(out, "range_start");
-    try w_text(out, v.range_start);
+    try w_tag(out, 0);
+    try w_text(out, (v.range_start).rfc3339);
 }
 
 fn dec_FreeBusyRequest(alloc: std.mem.Allocator, m: Value, out: *types.FreeBusyRequest) CodecError!void {
@@ -3407,11 +3466,11 @@ fn dec_FreeBusyRequest(alloc: std.mem.Allocator, m: Value, out: *types.FreeBusyR
     }
     {
         const csil_fv = try req(m, "range_end");
-        out.range_end = try as_text(csil_fv);
+        out.range_end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "range_start");
-        out.range_start = try as_text(csil_fv);
+        out.range_start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
 }
 
@@ -3622,7 +3681,8 @@ fn enc_AuditEntry(out: *std.ArrayList(u8), v: *const types.AuditEntry) CodecErro
     if (v.application != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "at");
-    try w_text(out, v.at);
+    try w_tag(out, 0);
+    try w_text(out, (v.at).rfc3339);
     try w_text(out, "via");
     try enc_ActingVia(out, &(v.via));
     try w_text(out, "actor");
@@ -3649,7 +3709,7 @@ fn dec_AuditEntry(alloc: std.mem.Allocator, m: Value, out: *types.AuditEntry) Co
     if (m != .map) return error.WrongType;
     {
         const csil_fv = try req(m, "at");
-        out.at = try as_text(csil_fv);
+        out.at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "via");
@@ -3797,7 +3857,8 @@ fn enc_LoginResponse(out: *std.ArrayList(u8), v: *const types.LoginResponse) Cod
         try enc_PersonSummary(out, &(csil_x));
     }
     try w_text(out, "expires_at");
-    try w_text(out, v.expires_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.expires_at).rfc3339);
 }
 
 fn dec_LoginResponse(alloc: std.mem.Allocator, m: Value, out: *types.LoginResponse) CodecError!void {
@@ -3837,7 +3898,7 @@ fn dec_LoginResponse(alloc: std.mem.Allocator, m: Value, out: *types.LoginRespon
     }
     {
         const csil_fv = try req(m, "expires_at");
-        out.expires_at = try as_text(csil_fv);
+        out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
 }
 
@@ -4042,7 +4103,8 @@ fn enc_ApplicationPresentation(out: *std.ArrayList(u8), v: *const types.Applicat
     try w_text(out, "audience");
     try enc_ApplicationRef(out, &(v.audience));
     try w_text(out, "presented_at");
-    try w_text(out, v.presented_at);
+    try w_tag(out, 0);
+    try w_text(out, (v.presented_at).rfc3339);
     try w_text(out, "request_digest");
     try w_bytes(out, v.request_digest);
     try w_text(out, "signer_instance_id");
@@ -4065,7 +4127,7 @@ fn dec_ApplicationPresentation(alloc: std.mem.Allocator, m: Value, out: *types.A
     }
     {
         const csil_fv = try req(m, "presented_at");
-        out.presented_at = try as_text(csil_fv);
+        out.presented_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
     }
     {
         const csil_fv = try req(m, "request_digest");
@@ -5822,4 +5884,2084 @@ pub fn encode_ServiceError(alloc: std.mem.Allocator, v: *const types.ServiceErro
 pub fn decode_ServiceError(alloc: std.mem.Allocator, bytes: []const u8, out: *types.ServiceError) CodecError!void {
     const root = try decode(alloc, bytes);
     try dec_ServiceError(alloc, root, out);
+}
+
+pub const RpcReply = struct { variant: []const u8, payload: []u8 };
+
+pub fn encode_AuthServiceCompleteReply(alloc: std.mem.Allocator, value: types.AuthServiceCompleteReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceCompleteReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceCompleteReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceResumeSessionReply(alloc: std.mem.Allocator, value: types.AuthServiceResumeSessionReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceResumeSessionReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceResumeSessionReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceEndSessionReply(alloc: std.mem.Allocator, value: types.AuthServiceEndSessionReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .empty_response => |v| {
+            try enc_EmptyResponse(out, &(v));
+            return .{ .variant = "EmptyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceEndSessionReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceEndSessionReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EmptyResponse")) {
+        var v: types.EmptyResponse = undefined;
+        try dec_EmptyResponse(alloc, src, &(v));
+        out.* = .{ .empty_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceMeReply(alloc: std.mem.Allocator, value: types.AuthServiceMeReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .me_response => |v| {
+            try enc_MeResponse(out, &(v));
+            return .{ .variant = "MeResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceMeReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceMeReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "MeResponse")) {
+        var v: types.MeResponse = undefined;
+        try dec_MeResponse(alloc, src, &(v));
+        out.* = .{ .me_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceAssumePrincipalReply(alloc: std.mem.Allocator, value: types.AuthServiceAssumePrincipalReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceAssumePrincipalReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceAssumePrincipalReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceReleasePrincipalReply(alloc: std.mem.Allocator, value: types.AuthServiceReleasePrincipalReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceReleasePrincipalReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceReleasePrincipalReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceExchangeActAsCredentialReply(alloc: std.mem.Allocator, value: types.AuthServiceExchangeActAsCredentialReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceExchangeActAsCredentialReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceExchangeActAsCredentialReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceGetActAsScopeSetReply(alloc: std.mem.Allocator, value: types.AuthServiceGetActAsScopeSetReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .scope_set_response => |v| {
+            try enc_ScopeSetResponse(out, &(v));
+            return .{ .variant = "ScopeSetResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceGetActAsScopeSetReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceGetActAsScopeSetReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "ScopeSetResponse")) {
+        var v: types.ScopeSetResponse = undefined;
+        try dec_ScopeSetResponse(alloc, src, &(v));
+        out.* = .{ .scope_set_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceGetApplicationIdentityReply(alloc: std.mem.Allocator, value: types.AuthServiceGetApplicationIdentityReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .application_identity_response => |v| {
+            try enc_ApplicationIdentityResponse(out, &(v));
+            return .{ .variant = "ApplicationIdentityResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceGetApplicationIdentityReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceGetApplicationIdentityReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "ApplicationIdentityResponse")) {
+        var v: types.ApplicationIdentityResponse = undefined;
+        try dec_ApplicationIdentityResponse(alloc, src, &(v));
+        out.* = .{ .application_identity_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuthServiceExchangeApplicationPresentationReply(alloc: std.mem.Allocator, value: types.AuthServiceExchangeApplicationPresentationReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuthServiceExchangeApplicationPresentationReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuthServiceExchangeApplicationPresentationReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DevAuthServiceListDevUsersReply(alloc: std.mem.Allocator, value: types.DevAuthServiceListDevUsersReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .dev_users_response => |v| {
+            try enc_DevUsersResponse(out, &(v));
+            return .{ .variant = "DevUsersResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DevAuthServiceListDevUsersReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DevAuthServiceListDevUsersReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "DevUsersResponse")) {
+        var v: types.DevUsersResponse = undefined;
+        try dec_DevUsersResponse(alloc, src, &(v));
+        out.* = .{ .dev_users_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DevAuthServiceDevLoginReply(alloc: std.mem.Allocator, value: types.DevAuthServiceDevLoginReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .login_response => |v| {
+            try enc_LoginResponse(out, &(v));
+            return .{ .variant = "LoginResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DevAuthServiceDevLoginReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DevAuthServiceDevLoginReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "LoginResponse")) {
+        var v: types.LoginResponse = undefined;
+        try dec_LoginResponse(alloc, src, &(v));
+        out.* = .{ .login_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_UserServiceGetProfileReply(alloc: std.mem.Allocator, value: types.UserServiceGetProfileReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .user => |v| {
+            try enc_User(out, &(v));
+            return .{ .variant = "User", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_UserServiceGetProfileReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.UserServiceGetProfileReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "User")) {
+        var v: types.User = undefined;
+        try dec_User(alloc, src, &(v));
+        out.* = .{ .user = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_UserServiceUpdateProfileReply(alloc: std.mem.Allocator, value: types.UserServiceUpdateProfileReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .user => |v| {
+            try enc_User(out, &(v));
+            return .{ .variant = "User", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_UserServiceUpdateProfileReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.UserServiceUpdateProfileReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "User")) {
+        var v: types.User = undefined;
+        try dec_User(alloc, src, &(v));
+        out.* = .{ .user = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_UserServiceLookupPersonReply(alloc: std.mem.Allocator, value: types.UserServiceLookupPersonReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .person_summary => |v| {
+            try enc_PersonSummary(out, &(v));
+            return .{ .variant = "PersonSummary", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_UserServiceLookupPersonReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.UserServiceLookupPersonReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "PersonSummary")) {
+        var v: types.PersonSummary = undefined;
+        try dec_PersonSummary(alloc, src, &(v));
+        out.* = .{ .person_summary = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceListCalendarsReply(alloc: std.mem.Allocator, value: types.CalendarServiceListCalendarsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar_list => |v| {
+            try enc_CalendarList(out, &(v));
+            return .{ .variant = "CalendarList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceListCalendarsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceListCalendarsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "CalendarList")) {
+        var v: types.CalendarList = undefined;
+        try dec_CalendarList(alloc, src, &(v));
+        out.* = .{ .calendar_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceGetCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_CalendarServiceGetCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceGetCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceGetCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceGetCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceCreateCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceCreateCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceCreateCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceCreateCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceUpdateCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceUpdateCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceUpdateCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceUpdateCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceDeleteCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_CalendarServiceDeleteCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceDeleteCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .empty_response => |v| {
+            try enc_EmptyResponse(out, &(v));
+            return .{ .variant = "EmptyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceDeleteCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceDeleteCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EmptyResponse")) {
+        var v: types.EmptyResponse = undefined;
+        try dec_EmptyResponse(alloc, src, &(v));
+        out.* = .{ .empty_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceSubscribeCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceSubscribeCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceSubscribeCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceSubscribeCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceRefreshSubscriptionReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_CalendarServiceRefreshSubscriptionReply(alloc: std.mem.Allocator, value: types.CalendarServiceRefreshSubscriptionReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceRefreshSubscriptionReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceRefreshSubscriptionReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_CalendarServiceSetFeedReply(alloc: std.mem.Allocator, value: types.CalendarServiceSetFeedReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .calendar => |v| {
+            try enc_Calendar(out, &(v));
+            return .{ .variant = "Calendar", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_CalendarServiceSetFeedReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.CalendarServiceSetFeedReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Calendar")) {
+        var v: types.Calendar = undefined;
+        try dec_Calendar(alloc, src, &(v));
+        out.* = .{ .calendar = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_ShareServiceListSharesReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_ShareServiceListSharesReply(alloc: std.mem.Allocator, value: types.ShareServiceListSharesReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .share_list => |v| {
+            try enc_ShareList(out, &(v));
+            return .{ .variant = "ShareList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_ShareServiceListSharesReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.ShareServiceListSharesReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "ShareList")) {
+        var v: types.ShareList = undefined;
+        try dec_ShareList(alloc, src, &(v));
+        out.* = .{ .share_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_ShareServicePutShareReply(alloc: std.mem.Allocator, value: types.ShareServicePutShareReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .share => |v| {
+            try enc_Share(out, &(v));
+            return .{ .variant = "Share", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_ShareServicePutShareReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.ShareServicePutShareReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Share")) {
+        var v: types.Share = undefined;
+        try dec_Share(alloc, src, &(v));
+        out.* = .{ .share = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_ShareServiceDeleteShareReplyRequest(alloc: std.mem.Allocator, req: *const types.ShareID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_ShareServiceDeleteShareReply(alloc: std.mem.Allocator, value: types.ShareServiceDeleteShareReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .empty_response => |v| {
+            try enc_EmptyResponse(out, &(v));
+            return .{ .variant = "EmptyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_ShareServiceDeleteShareReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.ShareServiceDeleteShareReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EmptyResponse")) {
+        var v: types.EmptyResponse = undefined;
+        try dec_EmptyResponse(alloc, src, &(v));
+        out.* = .{ .empty_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceListGroupsReply(alloc: std.mem.Allocator, value: types.GroupServiceListGroupsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .group_list => |v| {
+            try enc_GroupList(out, &(v));
+            return .{ .variant = "GroupList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceListGroupsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceListGroupsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "GroupList")) {
+        var v: types.GroupList = undefined;
+        try dec_GroupList(alloc, src, &(v));
+        out.* = .{ .group_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceGetGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_GroupServiceGetGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceGetGroupReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .group => |v| {
+            try enc_Group(out, &(v));
+            return .{ .variant = "Group", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceGetGroupReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceGetGroupReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Group")) {
+        var v: types.Group = undefined;
+        try dec_Group(alloc, src, &(v));
+        out.* = .{ .group = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceCreateGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceCreateGroupReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .group => |v| {
+            try enc_Group(out, &(v));
+            return .{ .variant = "Group", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceCreateGroupReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceCreateGroupReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Group")) {
+        var v: types.Group = undefined;
+        try dec_Group(alloc, src, &(v));
+        out.* = .{ .group = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceUpdateGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceUpdateGroupReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .group => |v| {
+            try enc_Group(out, &(v));
+            return .{ .variant = "Group", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceUpdateGroupReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceUpdateGroupReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Group")) {
+        var v: types.Group = undefined;
+        try dec_Group(alloc, src, &(v));
+        out.* = .{ .group = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceSetMembersReply(alloc: std.mem.Allocator, value: types.GroupServiceSetMembersReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .group => |v| {
+            try enc_Group(out, &(v));
+            return .{ .variant = "Group", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceSetMembersReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceSetMembersReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Group")) {
+        var v: types.Group = undefined;
+        try dec_Group(alloc, src, &(v));
+        out.* = .{ .group = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_GroupServiceDeleteGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_GroupServiceDeleteGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceDeleteGroupReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .empty_response => |v| {
+            try enc_EmptyResponse(out, &(v));
+            return .{ .variant = "EmptyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_GroupServiceDeleteGroupReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.GroupServiceDeleteGroupReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EmptyResponse")) {
+        var v: types.EmptyResponse = undefined;
+        try dec_EmptyResponse(alloc, src, &(v));
+        out.* = .{ .empty_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DelegationServiceListGrantedReply(alloc: std.mem.Allocator, value: types.DelegationServiceListGrantedReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .delegation_list => |v| {
+            try enc_DelegationList(out, &(v));
+            return .{ .variant = "DelegationList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DelegationServiceListGrantedReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DelegationServiceListGrantedReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "DelegationList")) {
+        var v: types.DelegationList = undefined;
+        try dec_DelegationList(alloc, src, &(v));
+        out.* = .{ .delegation_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DelegationServiceListReceivedReply(alloc: std.mem.Allocator, value: types.DelegationServiceListReceivedReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .delegation_list => |v| {
+            try enc_DelegationList(out, &(v));
+            return .{ .variant = "DelegationList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DelegationServiceListReceivedReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DelegationServiceListReceivedReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "DelegationList")) {
+        var v: types.DelegationList = undefined;
+        try dec_DelegationList(alloc, src, &(v));
+        out.* = .{ .delegation_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DelegationServiceCreateDelegationReply(alloc: std.mem.Allocator, value: types.DelegationServiceCreateDelegationReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .delegation => |v| {
+            try enc_Delegation(out, &(v));
+            return .{ .variant = "Delegation", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DelegationServiceCreateDelegationReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DelegationServiceCreateDelegationReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Delegation")) {
+        var v: types.Delegation = undefined;
+        try dec_Delegation(alloc, src, &(v));
+        out.* = .{ .delegation = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DelegationServiceUpdateDelegationReply(alloc: std.mem.Allocator, value: types.DelegationServiceUpdateDelegationReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .delegation => |v| {
+            try enc_Delegation(out, &(v));
+            return .{ .variant = "Delegation", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DelegationServiceUpdateDelegationReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DelegationServiceUpdateDelegationReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Delegation")) {
+        var v: types.Delegation = undefined;
+        try dec_Delegation(alloc, src, &(v));
+        out.* = .{ .delegation = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_DelegationServiceRevokeDelegationReplyRequest(alloc: std.mem.Allocator, req: *const types.DelegationID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_DelegationServiceRevokeDelegationReply(alloc: std.mem.Allocator, value: types.DelegationServiceRevokeDelegationReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .empty_response => |v| {
+            try enc_EmptyResponse(out, &(v));
+            return .{ .variant = "EmptyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_DelegationServiceRevokeDelegationReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.DelegationServiceRevokeDelegationReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EmptyResponse")) {
+        var v: types.EmptyResponse = undefined;
+        try dec_EmptyResponse(alloc, src, &(v));
+        out.* = .{ .empty_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceListEventsReply(alloc: std.mem.Allocator, value: types.EventServiceListEventsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .occurrence_list => |v| {
+            try enc_OccurrenceList(out, &(v));
+            return .{ .variant = "OccurrenceList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceListEventsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceListEventsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "OccurrenceList")) {
+        var v: types.OccurrenceList = undefined;
+        try dec_OccurrenceList(alloc, src, &(v));
+        out.* = .{ .occurrence_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceGetEventReplyRequest(alloc: std.mem.Allocator, req: *const types.EventID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_EventServiceGetEventReply(alloc: std.mem.Allocator, value: types.EventServiceGetEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceGetEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceGetEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceGetOccurrenceReply(alloc: std.mem.Allocator, value: types.EventServiceGetOccurrenceReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .occurrence => |v| {
+            try enc_Occurrence(out, &(v));
+            return .{ .variant = "Occurrence", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceGetOccurrenceReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceGetOccurrenceReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Occurrence")) {
+        var v: types.Occurrence = undefined;
+        try dec_Occurrence(alloc, src, &(v));
+        out.* = .{ .occurrence = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceCreateEventReply(alloc: std.mem.Allocator, value: types.EventServiceCreateEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceCreateEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceCreateEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceUpdateEventReply(alloc: std.mem.Allocator, value: types.EventServiceUpdateEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceUpdateEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceUpdateEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceDeleteEventReply(alloc: std.mem.Allocator, value: types.EventServiceDeleteEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .delete_event_response => |v| {
+            try enc_DeleteEventResponse(out, &(v));
+            return .{ .variant = "DeleteEventResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceDeleteEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceDeleteEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "DeleteEventResponse")) {
+        var v: types.DeleteEventResponse = undefined;
+        try dec_DeleteEventResponse(alloc, src, &(v));
+        out.* = .{ .delete_event_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceMoveEventReply(alloc: std.mem.Allocator, value: types.EventServiceMoveEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceMoveEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceMoveEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceRespondReply(alloc: std.mem.Allocator, value: types.EventServiceRespondReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceRespondReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceRespondReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceListInvitationsReply(alloc: std.mem.Allocator, value: types.EventServiceListInvitationsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event_list => |v| {
+            try enc_EventList(out, &(v));
+            return .{ .variant = "EventList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceListInvitationsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceListInvitationsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EventList")) {
+        var v: types.EventList = undefined;
+        try dec_EventList(alloc, src, &(v));
+        out.* = .{ .event_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceSearchEventsReply(alloc: std.mem.Allocator, value: types.EventServiceSearchEventsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event_list => |v| {
+            try enc_EventList(out, &(v));
+            return .{ .variant = "EventList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceSearchEventsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceSearchEventsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "EventList")) {
+        var v: types.EventList = undefined;
+        try dec_EventList(alloc, src, &(v));
+        out.* = .{ .event_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceListTrashReply(alloc: std.mem.Allocator, value: types.EventServiceListTrashReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .trash_list => |v| {
+            try enc_TrashList(out, &(v));
+            return .{ .variant = "TrashList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceListTrashReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceListTrashReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "TrashList")) {
+        var v: types.TrashList = undefined;
+        try dec_TrashList(alloc, src, &(v));
+        out.* = .{ .trash_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceRestoreEventReply(alloc: std.mem.Allocator, value: types.EventServiceRestoreEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceRestoreEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceRestoreEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceImportEventReply(alloc: std.mem.Allocator, value: types.EventServiceImportEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .event => |v| {
+            try enc_Event(out, &(v));
+            return .{ .variant = "Event", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceImportEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceImportEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "Event")) {
+        var v: types.Event = undefined;
+        try dec_Event(alloc, src, &(v));
+        out.* = .{ .event = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceCreateEventOnceReply(alloc: std.mem.Allocator, value: types.EventServiceCreateEventOnceReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .create_event_receipt => |v| {
+            try enc_CreateEventReceipt(out, &(v));
+            return .{ .variant = "CreateEventReceipt", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceCreateEventOnceReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceCreateEventOnceReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "CreateEventReceipt")) {
+        var v: types.CreateEventReceipt = undefined;
+        try dec_CreateEventReceipt(alloc, src, &(v));
+        out.* = .{ .create_event_receipt = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceGetCreateReceiptReply(alloc: std.mem.Allocator, value: types.EventServiceGetCreateReceiptReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .create_event_receipt => |v| {
+            try enc_CreateEventReceipt(out, &(v));
+            return .{ .variant = "CreateEventReceipt", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceGetCreateReceiptReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceGetCreateReceiptReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "CreateEventReceipt")) {
+        var v: types.CreateEventReceipt = undefined;
+        try dec_CreateEventReceipt(alloc, src, &(v));
+        out.* = .{ .create_event_receipt = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceSplitSeriesOnceReply(alloc: std.mem.Allocator, value: types.EventServiceSplitSeriesOnceReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .split_series_receipt => |v| {
+            try enc_SplitSeriesReceipt(out, &(v));
+            return .{ .variant = "SplitSeriesReceipt", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceSplitSeriesOnceReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceSplitSeriesOnceReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "SplitSeriesReceipt")) {
+        var v: types.SplitSeriesReceipt = undefined;
+        try dec_SplitSeriesReceipt(alloc, src, &(v));
+        out.* = .{ .split_series_receipt = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_EventServiceGetSplitReceiptReply(alloc: std.mem.Allocator, value: types.EventServiceGetSplitReceiptReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .split_series_receipt => |v| {
+            try enc_SplitSeriesReceipt(out, &(v));
+            return .{ .variant = "SplitSeriesReceipt", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_EventServiceGetSplitReceiptReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.EventServiceGetSplitReceiptReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "SplitSeriesReceipt")) {
+        var v: types.SplitSeriesReceipt = undefined;
+        try dec_SplitSeriesReceipt(alloc, src, &(v));
+        out.* = .{ .split_series_receipt = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_FreeBusyServiceQueryReply(alloc: std.mem.Allocator, value: types.FreeBusyServiceQueryReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .free_busy_response => |v| {
+            try enc_FreeBusyResponse(out, &(v));
+            return .{ .variant = "FreeBusyResponse", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_FreeBusyServiceQueryReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.FreeBusyServiceQueryReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "FreeBusyResponse")) {
+        var v: types.FreeBusyResponse = undefined;
+        try dec_FreeBusyResponse(alloc, src, &(v));
+        out.* = .{ .free_busy_response = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_IcsServiceImportIcsReply(alloc: std.mem.Allocator, value: types.IcsServiceImportIcsReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .import_result => |v| {
+            try enc_ImportResult(out, &(v));
+            return .{ .variant = "ImportResult", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_IcsServiceImportIcsReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.IcsServiceImportIcsReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "ImportResult")) {
+        var v: types.ImportResult = undefined;
+        try dec_ImportResult(alloc, src, &(v));
+        out.* = .{ .import_result = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_IcsServiceExportCalendarReply(alloc: std.mem.Allocator, value: types.IcsServiceExportCalendarReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .ics_document => |v| {
+            try enc_IcsDocument(out, &(v));
+            return .{ .variant = "IcsDocument", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_IcsServiceExportCalendarReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.IcsServiceExportCalendarReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "IcsDocument")) {
+        var v: types.IcsDocument = undefined;
+        try dec_IcsDocument(alloc, src, &(v));
+        out.* = .{ .ics_document = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_IcsServiceExportEventReply(alloc: std.mem.Allocator, value: types.IcsServiceExportEventReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .ics_document => |v| {
+            try enc_IcsDocument(out, &(v));
+            return .{ .variant = "IcsDocument", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_IcsServiceExportEventReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.IcsServiceExportEventReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "IcsDocument")) {
+        var v: types.IcsDocument = undefined;
+        try dec_IcsDocument(alloc, src, &(v));
+        out.* = .{ .ics_document = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
+}
+
+pub fn encode_AuditServiceListAuditReply(alloc: std.mem.Allocator, value: types.AuditServiceListAuditReply) CodecError!RpcReply {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    switch (value) {
+        .audit_list => |v| {
+            try enc_AuditList(out, &(v));
+            return .{ .variant = "AuditList", .payload = try buf.toOwnedSlice() };
+        },
+        .service_error => |v| {
+            try enc_ServiceError(out, &(v));
+            return .{ .variant = "ServiceError", .payload = try buf.toOwnedSlice() };
+        },
+    }
+}
+
+pub fn decode_AuditServiceListAuditReply(alloc: std.mem.Allocator, variant: ?[]const u8, payload: []const u8, out: *types.AuditServiceListAuditReply) CodecError!void {
+    const name = variant orelse return error.WrongType;
+    const src = try decode(alloc, payload);
+    if (std.mem.eql(u8, name, "AuditList")) {
+        var v: types.AuditList = undefined;
+        try dec_AuditList(alloc, src, &(v));
+        out.* = .{ .audit_list = v };
+        return;
+    }
+    if (std.mem.eql(u8, name, "ServiceError")) {
+        var v: types.ServiceError = undefined;
+        try dec_ServiceError(alloc, src, &(v));
+        out.* = .{ .service_error = v };
+        return;
+    }
+    return error.WrongType;
 }
