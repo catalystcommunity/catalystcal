@@ -9,5 +9,4 @@ job:
   priority: 15
   working_dir: /job
 environment:
-  REACTORCIDE_REPO: "catalystcommunity/catalystcal"
   GITHUB_PAT: "${secret:catalystcommunity/ci:githubpat}"
