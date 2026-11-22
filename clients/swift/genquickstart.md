@@ -68,12 +68,7 @@ struct HttpRpcCarrier: CsilTransport {
         // transport status (distinct from a typed application error).
         let resp = try RpcResponse.decode(try outcome.get())
         if let err = resp.asTransportError() { throw err }
-        // A typed application error rides as a status-0 `ServiceError` variant — surface it
-        // so the typed client decodes success only.
-        if resp.variant == "ServiceError" {
-            throw TransportError.carrier("csil-rpc \(service)/\(op): ServiceError")
-        }
-        return resp.payload
+        return try resolveRpcReply(service: service, op: op, variant: resp.variant, payload: resp.payload)
     }
 }
 

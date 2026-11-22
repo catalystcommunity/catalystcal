@@ -304,6 +304,18 @@ object CsilCbor {
     fun asMap(v: CborValue): List<Pair<CborValue, CborValue>> =
         (v as? CborValue.CMap)?.entries ?: throw CborError("expected map")
 
+    fun encDate(date: java.time.LocalDate): CborValue {
+        val text = date.toString()
+        require(text.length == 10) { "date requires a four-digit year" }
+        return CborValue.CTag(1004uL, CborValue.CText(text))
+    }
+
+    fun asDate(v: CborValue): java.time.LocalDate {
+        val text = asTaggedText(v, 1004uL)
+        require(text.length == 10) { "expected YYYY-MM-DD" }
+        return java.time.LocalDate.parse(text)
+    }
+
     fun asTaggedText(v: CborValue, tag: ULong): String {
         if (v is CborValue.CTag && v.tag == tag) return asText(v.value)
         throw CborError("expected tag $tag")
@@ -590,8 +602,8 @@ fun User.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("subject") to CborValue.CText(this.subject))
     csilEntries.add(CborValue.CText("user_id") to CborValue.CText(this.userId))
     this.timezone?.let { csilV -> csilEntries.add(CborValue.CText("timezone") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
     this.displayName?.let { csilV -> csilEntries.add(CborValue.CText("display_name") to CborValue.CText(csilV)) }
     this.applicationId?.let { csilV -> csilEntries.add(CborValue.CText("application_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -610,8 +622,8 @@ fun userFromCborValue(cbor: CborValue): User {
     val displayName = CsilCbor.mapGet(cbor, "display_name")?.let { csilV -> CsilCbor.asText(csilV) }
     val email = CsilCbor.mapGet(cbor, "email")?.let { csilV -> CsilCbor.asText(csilV) }
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
     return User(userId = userId, domain = domain, subject = subject, applicationId = applicationId, handle = handle, displayName = displayName, email = email, timezone = timezone, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -657,15 +669,15 @@ fun Calendar.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("access") to this.access.toCborValue())
     this.timezone?.let { csilV -> csilEntries.add(CborValue.CText("timezone") to CborValue.CText(csilV)) }
     this.feedPath?.let { csilV -> csilEntries.add(CborValue.CText("feed_path") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
     csilEntries.add(CborValue.CText("is_default") to CborValue.CBool(this.isDefault))
     this.sourceUrl?.let { csilV -> csilEntries.add(CborValue.CText("source_url") to CborValue.CText(csilV)) }
     this.syncError?.let { csilV -> csilEntries.add(CborValue.CText("sync_error") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
+    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
     csilEntries.add(CborValue.CText("access_path") to this.accessPath.toCborValue())
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
-    this.lastSyncedAt?.let { csilV -> csilEntries.add(CborValue.CText("last_synced_at") to CborValue.CText(csilV)) }
+    this.lastSyncedAt?.let { csilV -> csilEntries.add(CborValue.CText("last_synced_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -682,14 +694,14 @@ fun calendarFromCborValue(cbor: CborValue): Calendar {
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
     val kind = calendarKindFromCborValue(CsilCbor.require(cbor, "kind"))
     val sourceUrl = CsilCbor.mapGet(cbor, "source_url")?.let { csilV -> CsilCbor.asText(csilV) }
-    val lastSyncedAt = CsilCbor.mapGet(cbor, "last_synced_at")?.let { csilV -> CsilCbor.asText(csilV) }
+    val lastSyncedAt = CsilCbor.mapGet(cbor, "last_synced_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val syncError = CsilCbor.mapGet(cbor, "sync_error")?.let { csilV -> CsilCbor.asText(csilV) }
     val isDefault = CsilCbor.asBoolean(CsilCbor.require(cbor, "is_default"))
     val access = accessRoleFromCborValue(CsilCbor.require(cbor, "access"))
     val accessPath = accessPathFromCborValue(CsilCbor.require(cbor, "access_path"))
     val feedPath = CsilCbor.mapGet(cbor, "feed_path")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
     return Calendar(calendarId = calendarId, owner = owner, name = name, description = description, color = color, timezone = timezone, kind = kind, sourceUrl = sourceUrl, lastSyncedAt = lastSyncedAt, syncError = syncError, isDefault = isDefault, access = access, accessPath = accessPath, feedPath = feedPath, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -817,7 +829,7 @@ fun Share.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("role") to this.role.toCborValue())
     this.grantee?.let { csilV -> csilEntries.add(CborValue.CText("grantee") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("share_id") to CborValue.CText(this.shareId))
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.granteePerson?.let { csilV -> csilEntries.add(CborValue.CText("grantee_person") to csilV.toCborValue()) }
     this.granteeGroupId?.let { csilV -> csilEntries.add(CborValue.CText("grantee_group_id") to CborValue.CText(csilV)) }
@@ -837,7 +849,7 @@ fun shareFromCborValue(cbor: CborValue): Share {
     val role = shareRoleFromCborValue(CsilCbor.require(cbor, "role"))
     val granteePerson = CsilCbor.mapGet(cbor, "grantee_person")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val granteeGroupName = CsilCbor.mapGet(cbor, "grantee_group_name")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
     return Share(shareId = shareId, calendarId = calendarId, grantee = grantee, granteeGroupId = granteeGroupId, role = role, granteePerson = granteePerson, granteeGroupName = granteeGroupName, createdAt = createdAt)
 }
 
@@ -896,8 +908,8 @@ fun Group.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("members") to CborValue.CArray((this.members).map { csilE -> csilE.toCborValue() }))
     csilEntries.add(CborValue.CText("group_id") to CborValue.CText(this.groupId))
     csilEntries.add(CborValue.CText("revision") to CborValue.CUint(this.revision))
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
@@ -913,8 +925,8 @@ fun groupFromCborValue(cbor: CborValue): Group {
     val description = CsilCbor.mapGet(cbor, "description")?.let { csilV -> CsilCbor.asText(csilV) }
     val revision = CsilCbor.asULong(CsilCbor.require(cbor, "revision"))
     val members = CsilCbor.asArray(CsilCbor.require(cbor, "members")).map { csilE -> groupMemberFromCborValue(csilE) }
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
     return Group(groupId = groupId, owner = owner, name = name, description = description, revision = revision, members = members, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -1016,9 +1028,9 @@ fun Delegation.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("scopes") to CborValue.CArray((this.scopes).map { csilE -> csilE.toCborValue() }))
     csilEntries.add(CborValue.CText("delegate") to this.delegate.toCborValue())
     csilEntries.add(CborValue.CText("principal") to this.principal.toCborValue())
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
-    this.expiresAt?.let { csilV -> csilEntries.add(CborValue.CText("expires_at") to CborValue.CText(csilV)) }
-    this.revokedAt?.let { csilV -> csilEntries.add(CborValue.CText("revoked_at") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    this.expiresAt?.let { csilV -> csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.revokedAt?.let { csilV -> csilEntries.add(CborValue.CText("revoked_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     this.calendarIds?.let { csilV -> csilEntries.add(CborValue.CText("calendar_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     csilEntries.add(CborValue.CText("delegation_id") to CborValue.CText(this.delegationId))
     this.delegatePerson?.let { csilV -> csilEntries.add(CborValue.CText("delegate_person") to csilV.toCborValue()) }
@@ -1037,9 +1049,9 @@ fun delegationFromCborValue(cbor: CborValue): Delegation {
     val scopes = CsilCbor.asArray(CsilCbor.require(cbor, "scopes")).map { csilE -> scopeFromCborValue(csilE) }
     val calendarIds = CsilCbor.mapGet(cbor, "calendar_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
     val note = CsilCbor.mapGet(cbor, "note")?.let { csilV -> CsilCbor.asText(csilV) }
-    val expiresAt = CsilCbor.mapGet(cbor, "expires_at")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    val revokedAt = CsilCbor.mapGet(cbor, "revoked_at")?.let { csilV -> CsilCbor.asText(csilV) }
+    val expiresAt = CsilCbor.mapGet(cbor, "expires_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val revokedAt = CsilCbor.mapGet(cbor, "revoked_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return Delegation(delegationId = delegationId, principal = principal, delegate = delegate, delegatePerson = delegatePerson, scopes = scopes, calendarIds = calendarIds, note = note, expiresAt = expiresAt, createdAt = createdAt, revokedAt = revokedAt)
 }
 
@@ -1088,8 +1100,8 @@ fun assumePrincipalRequestFromCbor(bytes: ByteArray): AssumePrincipalRequest = a
 fun Recurrence.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("rrule") to CborValue.CText(this.rrule))
-    this.rdates?.let { csilV -> csilEntries.add(CborValue.CText("rdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
-    this.exdates?.let { csilV -> csilEntries.add(CborValue.CText("exdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
+    this.rdates?.let { csilV -> csilEntries.add(CborValue.CText("rdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
+    this.exdates?.let { csilV -> csilEntries.add(CborValue.CText("exdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1099,8 +1111,8 @@ fun Recurrence.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a Recurrence from a decoded CBOR value tree. */
 fun recurrenceFromCborValue(cbor: CborValue): Recurrence {
     val rrule = CsilCbor.asText(CsilCbor.require(cbor, "rrule"))
-    val exdates = CsilCbor.mapGet(cbor, "exdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
-    val rdates = CsilCbor.mapGet(cbor, "rdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    val exdates = CsilCbor.mapGet(cbor, "exdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
+    val rdates = CsilCbor.mapGet(cbor, "rdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
     return Recurrence(rrule = rrule, exdates = exdates, rdates = rdates)
 }
 
@@ -1164,15 +1176,15 @@ fun reminderFromCbor(bytes: ByteArray): Reminder = reminderFromCborValue(CsilCbo
 /** The CBOR value tree for a Event (deep, canonical key order). */
 fun Event.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    this.end?.let { csilV -> csilEntries.add(CborValue.CText("end") to CborValue.CText(csilV)) }
+    this.end?.let { csilV -> csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     this.uid?.let { csilV -> csilEntries.add(CborValue.CText("uid") to CborValue.CText(csilV)) }
     this.url?.let { csilV -> csilEntries.add(CborValue.CText("url") to CborValue.CText(csilV)) }
     this.color?.let { csilV -> csilEntries.add(CborValue.CText("color") to CborValue.CText(csilV)) }
-    this.start?.let { csilV -> csilEntries.add(CborValue.CText("start") to CborValue.CText(csilV)) }
+    this.start?.let { csilV -> csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     csilEntries.add(CborValue.CText("title") to CborValue.CText(this.title))
     this.status?.let { csilV -> csilEntries.add(CborValue.CText("status") to csilV.toCborValue()) }
     this.allDay?.let { csilV -> csilEntries.add(CborValue.CText("all_day") to CborValue.CBool(csilV)) }
-    this.endDate?.let { csilV -> csilEntries.add(CborValue.CText("end_date") to CborValue.CText(csilV)) }
+    this.endDate?.let { csilV -> csilEntries.add(CborValue.CText("end_date") to CsilCbor.encDate(csilV)) }
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
     this.location?.let { csilV -> csilEntries.add(CborValue.CText("location") to CborValue.CText(csilV)) }
     csilEntries.add(CborValue.CText("sequence") to CborValue.CInt(this.sequence))
@@ -1181,18 +1193,18 @@ fun Event.toCborValue(): CborValue {
     this.organizer?.let { csilV -> csilEntries.add(CborValue.CText("organizer") to csilV.toCborValue()) }
     this.reminders?.let { csilV -> csilEntries.add(CborValue.CText("reminders") to CborValue.CArray((csilV).map { csilE -> csilE.toCborValue() })) }
     this.categories?.let { csilV -> csilEntries.add(CborValue.CText("categories") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
     this.createdBy?.let { csilV -> csilEntries.add(CborValue.CText("created_by") to csilV.toCborValue()) }
     this.recurrence?.let { csilV -> csilEntries.add(CborValue.CText("recurrence") to csilV.toCborValue()) }
-    this.startDate?.let { csilV -> csilEntries.add(CborValue.CText("start_date") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CText(this.updatedAt))
+    this.startDate?.let { csilV -> csilEntries.add(CborValue.CText("start_date") to CsilCbor.encDate(csilV)) }
+    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
     this.updatedBy?.let { csilV -> csilEntries.add(CborValue.CText("updated_by") to csilV.toCborValue()) }
     this.visibility?.let { csilV -> csilEntries.add(CborValue.CText("visibility") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
     this.updatedVia?.let { csilV -> csilEntries.add(CborValue.CText("updated_via") to csilV.toCborValue()) }
     this.transparency?.let { csilV -> csilEntries.add(CborValue.CText("transparency") to csilV.toCborValue()) }
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     this.conferenceUrl?.let { csilV -> csilEntries.add(CborValue.CText("conference_url") to CborValue.CText(csilV)) }
     this.masterEventId?.let { csilV -> csilEntries.add(CborValue.CText("master_event_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -1211,18 +1223,18 @@ fun eventFromCborValue(cbor: CborValue): Event {
     val location = CsilCbor.mapGet(cbor, "location")?.let { csilV -> CsilCbor.asText(csilV) }
     val url = CsilCbor.mapGet(cbor, "url")?.let { csilV -> CsilCbor.asText(csilV) }
     val conferenceUrl = CsilCbor.mapGet(cbor, "conference_url")?.let { csilV -> CsilCbor.asText(csilV) }
-    val start = CsilCbor.mapGet(cbor, "start")?.let { csilV -> CsilCbor.asText(csilV) }
-    val end = CsilCbor.mapGet(cbor, "end")?.let { csilV -> CsilCbor.asText(csilV) }
+    val start = CsilCbor.mapGet(cbor, "start")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val end = CsilCbor.mapGet(cbor, "end")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val allDay = CsilCbor.mapGet(cbor, "all_day")?.let { csilV -> CsilCbor.asBoolean(csilV) }
-    val startDate = CsilCbor.mapGet(cbor, "start_date")?.let { csilV -> CsilCbor.asText(csilV) }
-    val endDate = CsilCbor.mapGet(cbor, "end_date")?.let { csilV -> CsilCbor.asText(csilV) }
+    val startDate = CsilCbor.mapGet(cbor, "start_date")?.let { csilV -> CsilCbor.asDate(csilV) }
+    val endDate = CsilCbor.mapGet(cbor, "end_date")?.let { csilV -> CsilCbor.asDate(csilV) }
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
     val status = CsilCbor.mapGet(cbor, "status")?.let { csilV -> eventStatusFromCborValue(csilV) }
     val transparency = CsilCbor.mapGet(cbor, "transparency")?.let { csilV -> eventTransparencyFromCborValue(csilV) }
     val visibility = CsilCbor.mapGet(cbor, "visibility")?.let { csilV -> eventVisibilityFromCborValue(csilV) }
     val recurrence = CsilCbor.mapGet(cbor, "recurrence")?.let { csilV -> recurrenceFromCborValue(csilV) }
     val masterEventId = CsilCbor.mapGet(cbor, "master_event_id")?.let { csilV -> CsilCbor.asText(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val attendees = CsilCbor.mapGet(cbor, "attendees")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> attendeeFromCborValue(csilE) } }
     val reminders = CsilCbor.mapGet(cbor, "reminders")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> reminderFromCborValue(csilE) } }
     val categories = CsilCbor.mapGet(cbor, "categories")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
@@ -1232,8 +1244,8 @@ fun eventFromCborValue(cbor: CborValue): Event {
     val updatedBy = CsilCbor.mapGet(cbor, "updated_by")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val updatedVia = CsilCbor.mapGet(cbor, "updated_via")?.let { csilV -> actingViaFromCborValue(csilV) }
     val sequence = CsilCbor.asLong(CsilCbor.require(cbor, "sequence"))
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
-    val updatedAt = CsilCbor.asText(CsilCbor.require(cbor, "updated_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
     return Event(eventId = eventId, calendarId = calendarId, uid = uid, title = title, description = description, location = location, url = url, conferenceUrl = conferenceUrl, start = start, end = end, allDay = allDay, startDate = startDate, endDate = endDate, timezone = timezone, status = status, transparency = transparency, visibility = visibility, recurrence = recurrence, masterEventId = masterEventId, recurrenceId = recurrenceId, attendees = attendees, reminders = reminders, categories = categories, color = color, organizer = organizer, createdBy = createdBy, updatedBy = updatedBy, updatedVia = updatedVia, sequence = sequence, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -1243,13 +1255,13 @@ fun eventFromCbor(bytes: ByteArray): Event = eventFromCborValue(CsilCbor.decode(
 /** The CBOR value tree for a Occurrence (deep, canonical key order). */
 fun Occurrence.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("end") to CborValue.CText(this.end))
+    csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((this.end).toString())))
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    csilEntries.add(CborValue.CText("start") to CborValue.CText(this.start))
+    csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((this.start).toString())))
     csilEntries.add(CborValue.CText("access") to this.access.toCborValue())
     csilEntries.add(CborValue.CText("invited") to CborValue.CBool(this.invited))
     csilEntries.add(CborValue.CText("busy_only") to CborValue.CBool(this.busyOnly))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1259,9 +1271,9 @@ fun Occurrence.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a Occurrence from a decoded CBOR value tree. */
 fun occurrenceFromCborValue(cbor: CborValue): Occurrence {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
-    val start = CsilCbor.asText(CsilCbor.require(cbor, "start"))
-    val end = CsilCbor.asText(CsilCbor.require(cbor, "end"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val start = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "start"), 0uL))
+    val end = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "end"), 0uL))
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val access = accessRoleFromCborValue(CsilCbor.require(cbor, "access"))
     val busyOnly = CsilCbor.asBoolean(CsilCbor.require(cbor, "busy_only"))
     val invited = CsilCbor.asBoolean(CsilCbor.require(cbor, "invited"))
@@ -1274,8 +1286,8 @@ fun occurrenceFromCbor(bytes: ByteArray): Occurrence = occurrenceFromCborValue(C
 /** The CBOR value tree for a ListEventsRequest (deep, canonical key order). */
 fun ListEventsRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("range_end") to CborValue.CText(this.rangeEnd))
-    csilEntries.add(CborValue.CText("range_start") to CborValue.CText(this.rangeStart))
+    csilEntries.add(CborValue.CText("range_end") to CborValue.CTag(0uL, CborValue.CText((this.rangeEnd).toString())))
+    csilEntries.add(CborValue.CText("range_start") to CborValue.CTag(0uL, CborValue.CText((this.rangeStart).toString())))
     this.calendarIds?.let { csilV -> csilEntries.add(CborValue.CText("calendar_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     this.includeInvitations?.let { csilV -> csilEntries.add(CborValue.CText("include_invitations") to CborValue.CBool(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -1286,8 +1298,8 @@ fun ListEventsRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 
 /** Reconstruct a ListEventsRequest from a decoded CBOR value tree. */
 fun listEventsRequestFromCborValue(cbor: CborValue): ListEventsRequest {
-    val rangeStart = CsilCbor.asText(CsilCbor.require(cbor, "range_start"))
-    val rangeEnd = CsilCbor.asText(CsilCbor.require(cbor, "range_end"))
+    val rangeStart = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_start"), 0uL))
+    val rangeEnd = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_end"), 0uL))
     val calendarIds = CsilCbor.mapGet(cbor, "calendar_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
     val includeInvitations = CsilCbor.mapGet(cbor, "include_invitations")?.let { csilV -> CsilCbor.asBoolean(csilV) }
     return ListEventsRequest(rangeStart = rangeStart, rangeEnd = rangeEnd, calendarIds = calendarIds, includeInvitations = includeInvitations)
@@ -1322,7 +1334,7 @@ fun UpdateEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
     this.scope?.let { csilV -> csilEntries.add(CborValue.CText("scope") to csilV.toCborValue()) }
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1333,7 +1345,7 @@ fun UpdateEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun updateEventRequestFromCborValue(cbor: CborValue): UpdateEventRequest {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val scope = CsilCbor.mapGet(cbor, "scope")?.let { csilV -> recurrenceScopeFromCborValue(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return UpdateEventRequest(event = event, scope = scope, recurrenceId = recurrenceId)
 }
 
@@ -1345,7 +1357,7 @@ fun DeleteEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     this.scope?.let { csilV -> csilEntries.add(CborValue.CText("scope") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1356,7 +1368,7 @@ fun DeleteEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun deleteEventRequestFromCborValue(cbor: CborValue): DeleteEventRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val scope = CsilCbor.mapGet(cbor, "scope")?.let { csilV -> recurrenceScopeFromCborValue(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return DeleteEventRequest(eventId = eventId, scope = scope, recurrenceId = recurrenceId)
 }
 
@@ -1411,11 +1423,11 @@ fun TrashEntry.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
     this.instance?.let { csilV -> csilEntries.add(CborValue.CText("instance") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(this.trashId))
-    csilEntries.add(CborValue.CText("deleted_at") to CborValue.CText(this.deletedAt))
+    csilEntries.add(CborValue.CText("deleted_at") to CborValue.CTag(0uL, CborValue.CText((this.deletedAt).toString())))
     this.deletedBy?.let { csilV -> csilEntries.add(CborValue.CText("deleted_by") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("expires_at") to CborValue.CText(this.expiresAt))
+    csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((this.expiresAt).toString())))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1428,12 +1440,12 @@ fun trashEntryFromCborValue(cbor: CborValue): TrashEntry {
     val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val scope = recurrenceScopeFromCborValue(CsilCbor.require(cbor, "scope"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val instance = CsilCbor.mapGet(cbor, "instance")?.let { csilV -> eventFromCborValue(csilV) }
     val deletedBy = CsilCbor.mapGet(cbor, "deleted_by")?.let { csilV -> personSummaryFromCborValue(csilV) }
-    val deletedAt = CsilCbor.asText(CsilCbor.require(cbor, "deleted_at"))
-    val expiresAt = CsilCbor.asText(CsilCbor.require(cbor, "expires_at"))
+    val deletedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "deleted_at"), 0uL))
+    val expiresAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "expires_at"), 0uL))
     return TrashEntry(trashId = trashId, calendarId = calendarId, eventId = eventId, scope = scope, recurrenceId = recurrenceId, event = event, instance = instance, deletedBy = deletedBy, deletedAt = deletedAt, expiresAt = expiresAt)
 }
 
@@ -1503,7 +1515,7 @@ fun restoreEventRequestFromCbor(bytes: ByteArray): RestoreEventRequest = restore
 fun ImportEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    this.createdAt?.let { csilV -> csilEntries.add(CborValue.CText("created_at") to CborValue.CText(csilV)) }
+    this.createdAt?.let { csilV -> csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     csilEntries.add(CborValue.CText("created_by") to this.createdBy.toCborValue())
     return CborValue.CMap(csilEntries)
 }
@@ -1515,7 +1527,7 @@ fun ImportEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun importEventRequestFromCborValue(cbor: CborValue): ImportEventRequest {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val createdBy = identityRefFromCborValue(CsilCbor.require(cbor, "created_by"))
-    val createdAt = CsilCbor.mapGet(cbor, "created_at")?.let { csilV -> CsilCbor.asText(csilV) }
+    val createdAt = CsilCbor.mapGet(cbor, "created_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return ImportEventRequest(event = event, createdBy = createdBy, createdAt = createdAt)
 }
 
@@ -1572,7 +1584,7 @@ fun CreateEventReceipt.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
     this.trashId?.let { csilV -> csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
     return CborValue.CMap(csilEntries)
@@ -1588,7 +1600,7 @@ fun createEventReceiptFromCborValue(cbor: CborValue): CreateEventReceipt {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val state = createReceiptStateFromCborValue(CsilCbor.require(cbor, "state"))
     val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
     val event = CsilCbor.mapGet(cbor, "event")?.let { csilV -> eventFromCborValue(csilV) }
     val trashId = CsilCbor.mapGet(cbor, "trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
     return CreateEventReceipt(calendarId = calendarId, idempotencyKey = idempotencyKey, eventId = eventId, state = state, created = created, createdAt = createdAt, event = event, trashId = trashId)
@@ -1601,9 +1613,9 @@ fun createEventReceiptFromCbor(bytes: ByteArray): CreateEventReceipt = createEve
 fun SplitSeriesOnceRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(this.recurrenceId))
+    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((this.recurrenceId).toString())))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
-    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1614,8 +1626,8 @@ fun SplitSeriesOnceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValu
 fun splitSeriesOnceRequestFromCborValue(cbor: CborValue): SplitSeriesOnceRequest {
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
-    val recurrenceId = CsilCbor.asText(CsilCbor.require(cbor, "recurrence_id"))
-    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    val recurrenceId = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "recurrence_id"), 0uL))
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
     return SplitSeriesOnceRequest(idempotencyKey = idempotencyKey, event = event, recurrenceId = recurrenceId, mapRecurrenceIds = mapRecurrenceIds)
 }
 
@@ -1627,7 +1639,7 @@ fun SplitReceiptRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
-    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1638,7 +1650,7 @@ fun SplitReceiptRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue()
 fun splitReceiptRequestFromCborValue(cbor: CborValue): SplitReceiptRequest {
     val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
-    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
     return SplitReceiptRequest(seriesId = seriesId, idempotencyKey = idempotencyKey, mapRecurrenceIds = mapRecurrenceIds)
 }
 
@@ -1665,8 +1677,8 @@ fun SplitOccurrenceMapping.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("result") to this.result.toCborValue())
     this.eventId?.let { csilV -> csilEntries.add(CborValue.CText("event_id") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(this.recurrenceId))
-    this.mappedRecurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("mapped_recurrence_id") to CborValue.CText(csilV)) }
+    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((this.recurrenceId).toString())))
+    this.mappedRecurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("mapped_recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1675,10 +1687,10 @@ fun SplitOccurrenceMapping.toCbor(): ByteArray = CsilCbor.encode(this.toCborValu
 
 /** Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree. */
 fun splitOccurrenceMappingFromCborValue(cbor: CborValue): SplitOccurrenceMapping {
-    val recurrenceId = CsilCbor.asText(CsilCbor.require(cbor, "recurrence_id"))
+    val recurrenceId = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "recurrence_id"), 0uL))
     val result = splitMapResultFromCborValue(CsilCbor.require(cbor, "result"))
     val eventId = CsilCbor.mapGet(cbor, "event_id")?.let { csilV -> CsilCbor.asText(csilV) }
-    val mappedRecurrenceId = CsilCbor.mapGet(cbor, "mapped_recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val mappedRecurrenceId = CsilCbor.mapGet(cbor, "mapped_recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return SplitOccurrenceMapping(recurrenceId = recurrenceId, result = result, eventId = eventId, mappedRecurrenceId = mappedRecurrenceId)
 }
 
@@ -1692,10 +1704,10 @@ fun SplitSeriesReceipt.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
     csilEntries.add(CborValue.CText("in_place") to CborValue.CBool(this.inPlace))
     csilEntries.add(CborValue.CText("mappings") to CborValue.CArray((this.mappings).map { csilE -> csilE.toCborValue() }))
-    csilEntries.add(CborValue.CText("split_at") to CborValue.CText(this.splitAt))
+    csilEntries.add(CborValue.CText("split_at") to CborValue.CTag(0uL, CborValue.CText((this.splitAt).toString())))
     csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
     this.successor?.let { csilV -> csilEntries.add(CborValue.CText("successor") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CText(this.createdAt))
+    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     csilEntries.add(CborValue.CText("series_state") to this.seriesState.toCborValue())
     csilEntries.add(CborValue.CText("successor_id") to CborValue.CText(this.successorId))
@@ -1714,10 +1726,10 @@ fun splitSeriesReceiptFromCborValue(cbor: CborValue): SplitSeriesReceipt {
     val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
     val successorId = CsilCbor.asText(CsilCbor.require(cbor, "successor_id"))
-    val splitAt = CsilCbor.asText(CsilCbor.require(cbor, "split_at"))
+    val splitAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "split_at"), 0uL))
     val inPlace = CsilCbor.asBoolean(CsilCbor.require(cbor, "in_place"))
     val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
-    val createdAt = CsilCbor.asText(CsilCbor.require(cbor, "created_at"))
+    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
     val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
     val seriesState = createReceiptStateFromCborValue(CsilCbor.require(cbor, "series_state"))
     val series = CsilCbor.mapGet(cbor, "series")?.let { csilV -> eventFromCborValue(csilV) }
@@ -1736,7 +1748,7 @@ fun splitSeriesReceiptFromCbor(bytes: ByteArray): SplitSeriesReceipt = splitSeri
 fun GetOccurrenceRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1746,7 +1758,7 @@ fun GetOccurrenceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue(
 /** Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree. */
 fun getOccurrenceRequestFromCborValue(cbor: CborValue): GetOccurrenceRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     return GetOccurrenceRequest(eventId = eventId, recurrenceId = recurrenceId)
 }
 
@@ -1759,7 +1771,7 @@ fun RespondRequest.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("status") to this.status.toCborValue())
     this.comment?.let { csilV -> csilEntries.add(CborValue.CText("comment") to CborValue.CText(csilV)) }
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CText(csilV)) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1770,7 +1782,7 @@ fun RespondRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun respondRequestFromCborValue(cbor: CborValue): RespondRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val status = participationStatusFromCborValue(CsilCbor.require(cbor, "status"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asText(csilV) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
     val comment = CsilCbor.mapGet(cbor, "comment")?.let { csilV -> CsilCbor.asText(csilV) }
     return RespondRequest(eventId = eventId, status = status, recurrenceId = recurrenceId, comment = comment)
 }
@@ -1821,8 +1833,8 @@ fun eventListFromCbor(bytes: ByteArray): EventList = eventListFromCborValue(Csil
 /** The CBOR value tree for a BusyInterval (deep, canonical key order). */
 fun BusyInterval.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("end") to CborValue.CText(this.end))
-    csilEntries.add(CborValue.CText("start") to CborValue.CText(this.start))
+    csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((this.end).toString())))
+    csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((this.start).toString())))
     this.tentative?.let { csilV -> csilEntries.add(CborValue.CText("tentative") to CborValue.CBool(csilV)) }
     return CborValue.CMap(csilEntries)
 }
@@ -1832,8 +1844,8 @@ fun BusyInterval.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 
 /** Reconstruct a BusyInterval from a decoded CBOR value tree. */
 fun busyIntervalFromCborValue(cbor: CborValue): BusyInterval {
-    val start = CsilCbor.asText(CsilCbor.require(cbor, "start"))
-    val end = CsilCbor.asText(CsilCbor.require(cbor, "end"))
+    val start = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "start"), 0uL))
+    val end = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "end"), 0uL))
     val tentative = CsilCbor.mapGet(cbor, "tentative")?.let { csilV -> CsilCbor.asBoolean(csilV) }
     return BusyInterval(start = start, end = end, tentative = tentative)
 }
@@ -1845,8 +1857,8 @@ fun busyIntervalFromCbor(bytes: ByteArray): BusyInterval = busyIntervalFromCborV
 fun FreeBusyRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("people") to CborValue.CArray((this.people).map { csilE -> csilE.toCborValue() }))
-    csilEntries.add(CborValue.CText("range_end") to CborValue.CText(this.rangeEnd))
-    csilEntries.add(CborValue.CText("range_start") to CborValue.CText(this.rangeStart))
+    csilEntries.add(CborValue.CText("range_end") to CborValue.CTag(0uL, CborValue.CText((this.rangeEnd).toString())))
+    csilEntries.add(CborValue.CText("range_start") to CborValue.CTag(0uL, CborValue.CText((this.rangeStart).toString())))
     return CborValue.CMap(csilEntries)
 }
 
@@ -1856,8 +1868,8 @@ fun FreeBusyRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a FreeBusyRequest from a decoded CBOR value tree. */
 fun freeBusyRequestFromCborValue(cbor: CborValue): FreeBusyRequest {
     val people = CsilCbor.asArray(CsilCbor.require(cbor, "people")).map { csilE -> identityRefFromCborValue(csilE) }
-    val rangeStart = CsilCbor.asText(CsilCbor.require(cbor, "range_start"))
-    val rangeEnd = CsilCbor.asText(CsilCbor.require(cbor, "range_end"))
+    val rangeStart = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_start"), 0uL))
+    val rangeEnd = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_end"), 0uL))
     return FreeBusyRequest(people = people, rangeStart = rangeStart, rangeEnd = rangeEnd)
 }
 
@@ -2018,7 +2030,7 @@ fun icsDocumentFromCbor(bytes: ByteArray): IcsDocument = icsDocumentFromCborValu
 /** The CBOR value tree for a AuditEntry (deep, canonical key order). */
 fun AuditEntry.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("at") to CborValue.CText(this.at))
+    csilEntries.add(CborValue.CText("at") to CborValue.CTag(0uL, CborValue.CText((this.at).toString())))
     csilEntries.add(CborValue.CText("via") to this.via.toCborValue())
     csilEntries.add(CborValue.CText("actor") to this.actor.toCborValue())
     this.target?.let { csilV -> csilEntries.add(CborValue.CText("target") to CborValue.CText(csilV)) }
@@ -2036,7 +2048,7 @@ fun AuditEntry.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a AuditEntry from a decoded CBOR value tree. */
 fun auditEntryFromCborValue(cbor: CborValue): AuditEntry {
     val auditId = CsilCbor.asText(CsilCbor.require(cbor, "audit_id"))
-    val at = CsilCbor.asText(CsilCbor.require(cbor, "at"))
+    val at = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "at"), 0uL))
     val actor = personSummaryFromCborValue(CsilCbor.require(cbor, "actor"))
     val principal = personSummaryFromCborValue(CsilCbor.require(cbor, "principal"))
     val via = actingViaFromCborValue(CsilCbor.require(cbor, "via"))
@@ -2119,7 +2131,7 @@ fun LoginResponse.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("token") to CborValue.CText(this.token))
     this.scopes?.let { csilV -> csilEntries.add(CborValue.CText("scopes") to CborValue.CArray((csilV).map { csilE -> csilE.toCborValue() })) }
     this.actingAs?.let { csilV -> csilEntries.add(CborValue.CText("acting_as") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("expires_at") to CborValue.CText(this.expiresAt))
+    csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((this.expiresAt).toString())))
     return CborValue.CMap(csilEntries)
 }
 
@@ -2129,7 +2141,7 @@ fun LoginResponse.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a LoginResponse from a decoded CBOR value tree. */
 fun loginResponseFromCborValue(cbor: CborValue): LoginResponse {
     val token = CsilCbor.asText(CsilCbor.require(cbor, "token"))
-    val expiresAt = CsilCbor.asText(CsilCbor.require(cbor, "expires_at"))
+    val expiresAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "expires_at"), 0uL))
     val user = personSummaryFromCborValue(CsilCbor.require(cbor, "user"))
     val actingAs = CsilCbor.mapGet(cbor, "acting_as")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val via = actingViaFromCborValue(CsilCbor.require(cbor, "via"))
@@ -2261,7 +2273,7 @@ fun ApplicationPresentation.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("nonce") to CborValue.CBytes(this.nonce))
     csilEntries.add(CborValue.CText("signer") to this.signer.toCborValue())
     csilEntries.add(CborValue.CText("audience") to this.audience.toCborValue())
-    csilEntries.add(CborValue.CText("presented_at") to CborValue.CText(this.presentedAt))
+    csilEntries.add(CborValue.CText("presented_at") to CborValue.CTag(0uL, CborValue.CText((this.presentedAt).toString())))
     csilEntries.add(CborValue.CText("request_digest") to CborValue.CBytes(this.requestDigest))
     csilEntries.add(CborValue.CText("signer_instance_id") to CborValue.CText(this.signerInstanceId))
     return CborValue.CMap(csilEntries)
@@ -2276,7 +2288,7 @@ fun applicationPresentationFromCborValue(cbor: CborValue): ApplicationPresentati
     val signerInstanceId = CsilCbor.asText(CsilCbor.require(cbor, "signer_instance_id"))
     val audience = applicationRefFromCborValue(CsilCbor.require(cbor, "audience"))
     val requestDigest = CsilCbor.asBytes(CsilCbor.require(cbor, "request_digest"))
-    val presentedAt = CsilCbor.asText(CsilCbor.require(cbor, "presented_at"))
+    val presentedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "presented_at"), 0uL))
     val nonce = CsilCbor.asBytes(CsilCbor.require(cbor, "nonce"))
     return ApplicationPresentation(signer = signer, signerInstanceId = signerInstanceId, audience = audience, requestDigest = requestDigest, presentedAt = presentedAt, nonce = nonce)
 }
@@ -2759,3 +2771,895 @@ fun decodeEventGetEventRequest(bytes: ByteArray): EventID {
     return CsilCbor.asText(csilRoot)
 }
 
+data class RpcReply(val variant: String, val payload: ByteArray)
+
+class ServiceErrorRefusal(val value: ServiceError) : RuntimeException("ServiceError")
+
+fun encodeAuthCompleteReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthResumeSessionReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthEndSessionReply(handler: () -> EmptyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthMeReply(handler: () -> MeResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("MeResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthAssumePrincipalReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthReleasePrincipalReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthExchangeActAsCredentialReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthGetActAsScopeSetReply(handler: () -> ScopeSetResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("ScopeSetResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthGetApplicationIdentityReply(handler: () -> ApplicationIdentityResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("ApplicationIdentityResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuthExchangeApplicationPresentationReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDevAuthListDevUsersReply(handler: () -> DevUsersResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("DevUsersResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDevAuthDevLoginReply(handler: () -> LoginResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeUserGetProfileReply(handler: () -> User): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("User", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeUserUpdateProfileReply(handler: () -> User): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("User", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeUserLookupPersonReply(handler: () -> PersonSummary): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("PersonSummary", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarListCalendarsReply(handler: () -> CalendarList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("CalendarList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarGetCalendarReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarCreateCalendarReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarUpdateCalendarReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarDeleteCalendarReply(handler: () -> EmptyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarSubscribeCalendarReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarRefreshSubscriptionReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeCalendarSetFeedReply(handler: () -> Calendar): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeShareListSharesReply(handler: () -> ShareList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("ShareList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeSharePutShareReply(handler: () -> Share): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Share", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeShareDeleteShareReply(handler: () -> EmptyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupListGroupsReply(handler: () -> GroupList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("GroupList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupGetGroupReply(handler: () -> Group): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Group", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupCreateGroupReply(handler: () -> Group): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Group", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupUpdateGroupReply(handler: () -> Group): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Group", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupSetMembersReply(handler: () -> Group): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Group", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeGroupDeleteGroupReply(handler: () -> EmptyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDelegationListGrantedReply(handler: () -> DelegationList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("DelegationList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDelegationListReceivedReply(handler: () -> DelegationList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("DelegationList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDelegationCreateDelegationReply(handler: () -> Delegation): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Delegation", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDelegationUpdateDelegationReply(handler: () -> Delegation): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Delegation", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeDelegationRevokeDelegationReply(handler: () -> EmptyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventListEventsReply(handler: () -> OccurrenceList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("OccurrenceList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventGetEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventGetOccurrenceReply(handler: () -> Occurrence): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Occurrence", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventCreateEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventUpdateEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventDeleteEventReply(handler: () -> DeleteEventResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("DeleteEventResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventMoveEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventRespondReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventListInvitationsReply(handler: () -> EventList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EventList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventSearchEventsReply(handler: () -> EventList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("EventList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventListTrashReply(handler: () -> TrashList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("TrashList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventRestoreEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventImportEventReply(handler: () -> Event): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("Event", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventCreateEventOnceReply(handler: () -> CreateEventReceipt): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("CreateEventReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventGetCreateReceiptReply(handler: () -> CreateEventReceipt): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("CreateEventReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventSplitSeriesOnceReply(handler: () -> SplitSeriesReceipt): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("SplitSeriesReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeEventGetSplitReceiptReply(handler: () -> SplitSeriesReceipt): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("SplitSeriesReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeFreeBusyQueryReply(handler: () -> FreeBusyResponse): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("FreeBusyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeIcsImportIcsReply(handler: () -> ImportResult): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("ImportResult", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeIcsExportCalendarReply(handler: () -> IcsDocument): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("IcsDocument", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeIcsExportEventReply(handler: () -> IcsDocument): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("IcsDocument", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun encodeAuditListAuditReply(handler: () -> AuditList): RpcReply =
+    try {
+        val value = handler()
+        RpcReply("AuditList", CsilCbor.encode(value.toCborValue()))
+    } catch (refusal: ServiceErrorRefusal) {
+        RpcReply("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+
+fun resolveRpcReply(service: String, op: String, variant: String?, payload: ByteArray): ByteArray {
+    if (service == "AuthService" && op == "complete") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "resume-session") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "end-session") {
+        return when (variant) {
+            "EmptyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "me") {
+        return when (variant) {
+            "MeResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "assume-principal") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "release-principal") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "exchange-act-as-credential") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "get-act-as-scope-set") {
+        return when (variant) {
+            "ScopeSetResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "get-application-identity") {
+        return when (variant) {
+            "ApplicationIdentityResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuthService" && op == "exchange-application-presentation") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DevAuthService" && op == "list-dev-users") {
+        return when (variant) {
+            "DevUsersResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DevAuthService" && op == "dev-login") {
+        return when (variant) {
+            "LoginResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "UserService" && op == "get-profile") {
+        return when (variant) {
+            "User" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "UserService" && op == "update-profile") {
+        return when (variant) {
+            "User" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "UserService" && op == "lookup-person") {
+        return when (variant) {
+            "PersonSummary" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "list-calendars") {
+        return when (variant) {
+            "CalendarList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "get-calendar") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "create-calendar") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "update-calendar") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "delete-calendar") {
+        return when (variant) {
+            "EmptyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "subscribe-calendar") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "refresh-subscription") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "CalendarService" && op == "set-feed") {
+        return when (variant) {
+            "Calendar" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "ShareService" && op == "list-shares") {
+        return when (variant) {
+            "ShareList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "ShareService" && op == "put-share") {
+        return when (variant) {
+            "Share" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "ShareService" && op == "delete-share") {
+        return when (variant) {
+            "EmptyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "list-groups") {
+        return when (variant) {
+            "GroupList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "get-group") {
+        return when (variant) {
+            "Group" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "create-group") {
+        return when (variant) {
+            "Group" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "update-group") {
+        return when (variant) {
+            "Group" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "set-members") {
+        return when (variant) {
+            "Group" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "GroupService" && op == "delete-group") {
+        return when (variant) {
+            "EmptyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DelegationService" && op == "list-granted") {
+        return when (variant) {
+            "DelegationList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DelegationService" && op == "list-received") {
+        return when (variant) {
+            "DelegationList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DelegationService" && op == "create-delegation") {
+        return when (variant) {
+            "Delegation" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DelegationService" && op == "update-delegation") {
+        return when (variant) {
+            "Delegation" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "DelegationService" && op == "revoke-delegation") {
+        return when (variant) {
+            "EmptyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "list-events") {
+        return when (variant) {
+            "OccurrenceList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "get-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "get-occurrence") {
+        return when (variant) {
+            "Occurrence" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "create-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "update-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "delete-event") {
+        return when (variant) {
+            "DeleteEventResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "move-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "respond") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "list-invitations") {
+        return when (variant) {
+            "EventList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "search-events") {
+        return when (variant) {
+            "EventList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "list-trash") {
+        return when (variant) {
+            "TrashList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "restore-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "import-event") {
+        return when (variant) {
+            "Event" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "create-event-once") {
+        return when (variant) {
+            "CreateEventReceipt" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "get-create-receipt") {
+        return when (variant) {
+            "CreateEventReceipt" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "split-series-once") {
+        return when (variant) {
+            "SplitSeriesReceipt" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "EventService" && op == "get-split-receipt") {
+        return when (variant) {
+            "SplitSeriesReceipt" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "FreeBusyService" && op == "query") {
+        return when (variant) {
+            "FreeBusyResponse" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "IcsService" && op == "import-ics") {
+        return when (variant) {
+            "ImportResult" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "IcsService" && op == "export-calendar") {
+        return when (variant) {
+            "IcsDocument" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "IcsService" && op == "export-event") {
+        return when (variant) {
+            "IcsDocument" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    if (service == "AuditService" && op == "list-audit") {
+        return when (variant) {
+            "AuditList" -> payload
+            "ServiceError" -> throw ServiceErrorRefusal(serviceErrorFromCborValue(CsilCbor.decode(payload)))
+            else -> throw CborError("invalid RPC reply variant: $variant")
+        }
+    }
+    return payload
+}

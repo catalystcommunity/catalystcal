@@ -2,4 +2,20 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record ReminderMethod(Object value) {}
+public enum ReminderMethod {
+    DISPLAY("display"),
+    EMAIL("email");
+
+    private final String value;
+
+    ReminderMethod(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static ReminderMethod fromWire(String value) {
+        for (ReminderMethod member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown ReminderMethod value: " + value);
+    }
+}

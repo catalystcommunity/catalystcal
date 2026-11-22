@@ -49,7 +49,11 @@ func (c *AuthClient) Complete(ctx context.Context, req CompleteRequest) (LoginRe
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) ResumeSession(ctx context.Context, req EmptyRequest) (LoginResponse, error) {
@@ -58,7 +62,11 @@ func (c *AuthClient) ResumeSession(ctx context.Context, req EmptyRequest) (Login
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) EndSession(ctx context.Context, req EmptyRequest) (EmptyResponse, error) {
@@ -67,7 +75,11 @@ func (c *AuthClient) EndSession(ctx context.Context, req EmptyRequest) (EmptyRes
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	value, err := DecodeEmptyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) Me(ctx context.Context, req EmptyRequest) (MeResponse, error) {
@@ -76,7 +88,11 @@ func (c *AuthClient) Me(ctx context.Context, req EmptyRequest) (MeResponse, erro
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeMeResponse(csilResp)
+	value, err := DecodeMeResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) AssumePrincipal(ctx context.Context, req AssumePrincipalRequest) (LoginResponse, error) {
@@ -85,7 +101,11 @@ func (c *AuthClient) AssumePrincipal(ctx context.Context, req AssumePrincipalReq
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) ReleasePrincipal(ctx context.Context, req EmptyRequest) (LoginResponse, error) {
@@ -94,7 +114,11 @@ func (c *AuthClient) ReleasePrincipal(ctx context.Context, req EmptyRequest) (Lo
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) ExchangeActAsCredential(ctx context.Context, req ExchangeActAsCredentialRequest) (LoginResponse, error) {
@@ -103,7 +127,11 @@ func (c *AuthClient) ExchangeActAsCredential(ctx context.Context, req ExchangeAc
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) GetActAsScopeSet(ctx context.Context, req ScopeSetRequest) (ScopeSetResponse, error) {
@@ -112,7 +140,11 @@ func (c *AuthClient) GetActAsScopeSet(ctx context.Context, req ScopeSetRequest) 
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeScopeSetResponse(csilResp)
+	value, err := DecodeScopeSetResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) GetApplicationIdentity(ctx context.Context, req EmptyRequest) (ApplicationIdentityResponse, error) {
@@ -121,7 +153,11 @@ func (c *AuthClient) GetApplicationIdentity(ctx context.Context, req EmptyReques
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeApplicationIdentityResponse(csilResp)
+	value, err := DecodeApplicationIdentityResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *AuthClient) ExchangeApplicationPresentation(ctx context.Context, req ExchangeApplicationPresentationRequest) (LoginResponse, error) {
@@ -130,7 +166,11 @@ func (c *AuthClient) ExchangeApplicationPresentation(ctx context.Context, req Ex
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // DevAuthClient is a typed client for the DevAuthService service. The client owns
@@ -149,7 +189,11 @@ func (c *DevAuthClient) ListDevUsers(ctx context.Context, req EmptyRequest) (Dev
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDevUsersResponse(csilResp)
+	value, err := DecodeDevUsersResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *DevAuthClient) DevLogin(ctx context.Context, req DevLoginRequest) (LoginResponse, error) {
@@ -158,7 +202,11 @@ func (c *DevAuthClient) DevLogin(ctx context.Context, req DevLoginRequest) (Logi
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeLoginResponse(csilResp)
+	value, err := DecodeLoginResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // UserClient is a typed client for the UserService service. The client owns
@@ -177,7 +225,11 @@ func (c *UserClient) GetProfile(ctx context.Context, req EmptyRequest) (User, er
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeUser(csilResp)
+	value, err := DecodeUser(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *UserClient) UpdateProfile(ctx context.Context, req UpdateProfileRequest) (User, error) {
@@ -186,7 +238,11 @@ func (c *UserClient) UpdateProfile(ctx context.Context, req UpdateProfileRequest
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeUser(csilResp)
+	value, err := DecodeUser(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *UserClient) LookupPerson(ctx context.Context, req LookupPersonRequest) (PersonSummary, error) {
@@ -195,7 +251,11 @@ func (c *UserClient) LookupPerson(ctx context.Context, req LookupPersonRequest) 
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodePersonSummary(csilResp)
+	value, err := DecodePersonSummary(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // CalendarClient is a typed client for the CalendarService service. The client owns
@@ -214,7 +274,11 @@ func (c *CalendarClient) ListCalendars(ctx context.Context, req EmptyRequest) (C
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendarList(csilResp)
+	value, err := DecodeCalendarList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) GetCalendar(ctx context.Context, req CalendarID) (Calendar, error) {
@@ -223,7 +287,11 @@ func (c *CalendarClient) GetCalendar(ctx context.Context, req CalendarID) (Calen
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) CreateCalendar(ctx context.Context, req CreateCalendarRequest) (Calendar, error) {
@@ -232,7 +300,11 @@ func (c *CalendarClient) CreateCalendar(ctx context.Context, req CreateCalendarR
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) UpdateCalendar(ctx context.Context, req UpdateCalendarRequest) (Calendar, error) {
@@ -241,7 +313,11 @@ func (c *CalendarClient) UpdateCalendar(ctx context.Context, req UpdateCalendarR
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) DeleteCalendar(ctx context.Context, req CalendarID) (EmptyResponse, error) {
@@ -250,7 +326,11 @@ func (c *CalendarClient) DeleteCalendar(ctx context.Context, req CalendarID) (Em
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	value, err := DecodeEmptyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) SubscribeCalendar(ctx context.Context, req SubscribeCalendarRequest) (Calendar, error) {
@@ -259,7 +339,11 @@ func (c *CalendarClient) SubscribeCalendar(ctx context.Context, req SubscribeCal
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) RefreshSubscription(ctx context.Context, req CalendarID) (Calendar, error) {
@@ -268,7 +352,11 @@ func (c *CalendarClient) RefreshSubscription(ctx context.Context, req CalendarID
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *CalendarClient) SetFeed(ctx context.Context, req SetFeedRequest) (Calendar, error) {
@@ -277,7 +365,11 @@ func (c *CalendarClient) SetFeed(ctx context.Context, req SetFeedRequest) (Calen
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCalendar(csilResp)
+	value, err := DecodeCalendar(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // ShareClient is a typed client for the ShareService service. The client owns
@@ -296,7 +388,11 @@ func (c *ShareClient) ListShares(ctx context.Context, req CalendarID) (ShareList
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeShareList(csilResp)
+	value, err := DecodeShareList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *ShareClient) PutShare(ctx context.Context, req Share) (Share, error) {
@@ -305,7 +401,11 @@ func (c *ShareClient) PutShare(ctx context.Context, req Share) (Share, error) {
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeShare(csilResp)
+	value, err := DecodeShare(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *ShareClient) DeleteShare(ctx context.Context, req ShareID) (EmptyResponse, error) {
@@ -314,7 +414,11 @@ func (c *ShareClient) DeleteShare(ctx context.Context, req ShareID) (EmptyRespon
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	value, err := DecodeEmptyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // GroupClient is a typed client for the GroupService service. The client owns
@@ -333,7 +437,11 @@ func (c *GroupClient) ListGroups(ctx context.Context, req EmptyRequest) (GroupLi
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeGroupList(csilResp)
+	value, err := DecodeGroupList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *GroupClient) GetGroup(ctx context.Context, req GroupID) (Group, error) {
@@ -342,7 +450,11 @@ func (c *GroupClient) GetGroup(ctx context.Context, req GroupID) (Group, error) 
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeGroup(csilResp)
+	value, err := DecodeGroup(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *GroupClient) CreateGroup(ctx context.Context, req CreateGroupRequest) (Group, error) {
@@ -351,7 +463,11 @@ func (c *GroupClient) CreateGroup(ctx context.Context, req CreateGroupRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeGroup(csilResp)
+	value, err := DecodeGroup(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *GroupClient) UpdateGroup(ctx context.Context, req UpdateGroupRequest) (Group, error) {
@@ -360,7 +476,11 @@ func (c *GroupClient) UpdateGroup(ctx context.Context, req UpdateGroupRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeGroup(csilResp)
+	value, err := DecodeGroup(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *GroupClient) SetMembers(ctx context.Context, req SetGroupMembersRequest) (Group, error) {
@@ -369,7 +489,11 @@ func (c *GroupClient) SetMembers(ctx context.Context, req SetGroupMembersRequest
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeGroup(csilResp)
+	value, err := DecodeGroup(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *GroupClient) DeleteGroup(ctx context.Context, req GroupID) (EmptyResponse, error) {
@@ -378,7 +502,11 @@ func (c *GroupClient) DeleteGroup(ctx context.Context, req GroupID) (EmptyRespon
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	value, err := DecodeEmptyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // DelegationClient is a typed client for the DelegationService service. The client owns
@@ -397,7 +525,11 @@ func (c *DelegationClient) ListGranted(ctx context.Context, req EmptyRequest) (D
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDelegationList(csilResp)
+	value, err := DecodeDelegationList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *DelegationClient) ListReceived(ctx context.Context, req EmptyRequest) (DelegationList, error) {
@@ -406,7 +538,11 @@ func (c *DelegationClient) ListReceived(ctx context.Context, req EmptyRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDelegationList(csilResp)
+	value, err := DecodeDelegationList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *DelegationClient) CreateDelegation(ctx context.Context, req Delegation) (Delegation, error) {
@@ -415,7 +551,11 @@ func (c *DelegationClient) CreateDelegation(ctx context.Context, req Delegation)
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDelegation(csilResp)
+	value, err := DecodeDelegation(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *DelegationClient) UpdateDelegation(ctx context.Context, req Delegation) (Delegation, error) {
@@ -424,7 +564,11 @@ func (c *DelegationClient) UpdateDelegation(ctx context.Context, req Delegation)
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDelegation(csilResp)
+	value, err := DecodeDelegation(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *DelegationClient) RevokeDelegation(ctx context.Context, req DelegationID) (EmptyResponse, error) {
@@ -433,7 +577,11 @@ func (c *DelegationClient) RevokeDelegation(ctx context.Context, req DelegationI
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEmptyResponse(csilResp)
+	value, err := DecodeEmptyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // EventClient is a typed client for the EventService service. The client owns
@@ -452,7 +600,11 @@ func (c *EventClient) ListEvents(ctx context.Context, req ListEventsRequest) (Oc
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeOccurrenceList(csilResp)
+	value, err := DecodeOccurrenceList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) GetEvent(ctx context.Context, req EventID) (Event, error) {
@@ -461,7 +613,11 @@ func (c *EventClient) GetEvent(ctx context.Context, req EventID) (Event, error) 
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) GetOccurrence(ctx context.Context, req GetOccurrenceRequest) (Occurrence, error) {
@@ -470,7 +626,11 @@ func (c *EventClient) GetOccurrence(ctx context.Context, req GetOccurrenceReques
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeOccurrence(csilResp)
+	value, err := DecodeOccurrence(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) CreateEvent(ctx context.Context, req Event) (Event, error) {
@@ -479,7 +639,11 @@ func (c *EventClient) CreateEvent(ctx context.Context, req Event) (Event, error)
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) UpdateEvent(ctx context.Context, req UpdateEventRequest) (Event, error) {
@@ -488,7 +652,11 @@ func (c *EventClient) UpdateEvent(ctx context.Context, req UpdateEventRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) DeleteEvent(ctx context.Context, req DeleteEventRequest) (DeleteEventResponse, error) {
@@ -497,7 +665,11 @@ func (c *EventClient) DeleteEvent(ctx context.Context, req DeleteEventRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeDeleteEventResponse(csilResp)
+	value, err := DecodeDeleteEventResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) MoveEvent(ctx context.Context, req MoveEventRequest) (Event, error) {
@@ -506,7 +678,11 @@ func (c *EventClient) MoveEvent(ctx context.Context, req MoveEventRequest) (Even
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) Respond(ctx context.Context, req RespondRequest) (Event, error) {
@@ -515,7 +691,11 @@ func (c *EventClient) Respond(ctx context.Context, req RespondRequest) (Event, e
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) ListInvitations(ctx context.Context, req EmptyRequest) (EventList, error) {
@@ -524,7 +704,11 @@ func (c *EventClient) ListInvitations(ctx context.Context, req EmptyRequest) (Ev
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEventList(csilResp)
+	value, err := DecodeEventList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) SearchEvents(ctx context.Context, req SearchEventsRequest) (EventList, error) {
@@ -533,7 +717,11 @@ func (c *EventClient) SearchEvents(ctx context.Context, req SearchEventsRequest)
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEventList(csilResp)
+	value, err := DecodeEventList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) ListTrash(ctx context.Context, req ListTrashRequest) (TrashList, error) {
@@ -542,7 +730,11 @@ func (c *EventClient) ListTrash(ctx context.Context, req ListTrashRequest) (Tras
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeTrashList(csilResp)
+	value, err := DecodeTrashList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) RestoreEvent(ctx context.Context, req RestoreEventRequest) (Event, error) {
@@ -551,7 +743,11 @@ func (c *EventClient) RestoreEvent(ctx context.Context, req RestoreEventRequest)
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) ImportEvent(ctx context.Context, req ImportEventRequest) (Event, error) {
@@ -560,7 +756,11 @@ func (c *EventClient) ImportEvent(ctx context.Context, req ImportEventRequest) (
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeEvent(csilResp)
+	value, err := DecodeEvent(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) CreateEventOnce(ctx context.Context, req CreateEventOnceRequest) (CreateEventReceipt, error) {
@@ -569,7 +769,11 @@ func (c *EventClient) CreateEventOnce(ctx context.Context, req CreateEventOnceRe
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCreateEventReceipt(csilResp)
+	value, err := DecodeCreateEventReceipt(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) GetCreateReceipt(ctx context.Context, req CreateReceiptRequest) (CreateEventReceipt, error) {
@@ -578,7 +782,11 @@ func (c *EventClient) GetCreateReceipt(ctx context.Context, req CreateReceiptReq
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeCreateEventReceipt(csilResp)
+	value, err := DecodeCreateEventReceipt(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) SplitSeriesOnce(ctx context.Context, req SplitSeriesOnceRequest) (SplitSeriesReceipt, error) {
@@ -587,7 +795,11 @@ func (c *EventClient) SplitSeriesOnce(ctx context.Context, req SplitSeriesOnceRe
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeSplitSeriesReceipt(csilResp)
+	value, err := DecodeSplitSeriesReceipt(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *EventClient) GetSplitReceipt(ctx context.Context, req SplitReceiptRequest) (SplitSeriesReceipt, error) {
@@ -596,7 +808,11 @@ func (c *EventClient) GetSplitReceipt(ctx context.Context, req SplitReceiptReque
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeSplitSeriesReceipt(csilResp)
+	value, err := DecodeSplitSeriesReceipt(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // FreeBusyClient is a typed client for the FreeBusyService service. The client owns
@@ -615,7 +831,11 @@ func (c *FreeBusyClient) Query(ctx context.Context, req FreeBusyRequest) (FreeBu
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeFreeBusyResponse(csilResp)
+	value, err := DecodeFreeBusyResponse(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // IcsClient is a typed client for the IcsService service. The client owns
@@ -634,7 +854,11 @@ func (c *IcsClient) ImportIcs(ctx context.Context, req ImportIcsRequest) (Import
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeImportResult(csilResp)
+	value, err := DecodeImportResult(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *IcsClient) ExportCalendar(ctx context.Context, req ExportCalendarRequest) (IcsDocument, error) {
@@ -643,7 +867,11 @@ func (c *IcsClient) ExportCalendar(ctx context.Context, req ExportCalendarReques
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeIcsDocument(csilResp)
+	value, err := DecodeIcsDocument(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 func (c *IcsClient) ExportEvent(ctx context.Context, req ExportEventRequest) (IcsDocument, error) {
@@ -652,7 +880,11 @@ func (c *IcsClient) ExportEvent(ctx context.Context, req ExportEventRequest) (Ic
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeIcsDocument(csilResp)
+	value, err := DecodeIcsDocument(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }
 
 // AuditClient is a typed client for the AuditService service. The client owns
@@ -671,5 +903,9 @@ func (c *AuditClient) ListAudit(ctx context.Context, req AuditQuery) (AuditList,
 	if csilErr != nil {
 		return csilZero, csilErr
 	}
-	return DecodeAuditList(csilResp)
+	value, err := DecodeAuditList(csilResp)
+	if err != nil {
+		return csilZero, &RPCDecodeError{err}
+	}
+	return value, nil
 }

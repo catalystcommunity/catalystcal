@@ -24,19 +24,6 @@ type timing struct {
 	days int
 }
 
-// parseInstant reads a Timestamp. It accepts TimeLayout and other RFC 3339
-// forms, and drops fractions of a second.
-func parseInstant(s string) (time.Time, error) {
-	t, err := time.Parse(TimeLayout, s)
-	if err != nil {
-		t, err = time.Parse(time.RFC3339Nano, s)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("ical: bad timestamp %q", s)
-		}
-	}
-	return t.UTC().Truncate(time.Second), nil
-}
-
 func parseDate(s string) (time.Time, error) {
 	t, err := time.Parse(DateLayout, s)
 	if err != nil {
@@ -59,10 +46,9 @@ func eventTiming(ev csil.Event) (timing, error) {
 		var err error
 		switch {
 		case ev.StartDate != nil && *ev.StartDate != "":
-			sd, err = parseDate(string(*ev.StartDate))
-		case ev.Start != nil && *ev.Start != "":
-			sd, err = parseInstant(string(*ev.Start))
-			sd = midnight(sd)
+			sd, err = parseDate(*ev.StartDate)
+		case ev.Start != nil:
+			sd = midnight(ev.Start.UTC())
 		default:
 			err = errors.New("ical: all-day event has no start date")
 		}
@@ -71,10 +57,9 @@ func eventTiming(ev csil.Event) (timing, error) {
 		}
 		switch {
 		case ev.EndDate != nil && *ev.EndDate != "":
-			ed, err = parseDate(string(*ev.EndDate))
-		case ev.End != nil && *ev.End != "":
-			ed, err = parseInstant(string(*ev.End))
-			ed = midnight(ed)
+			ed, err = parseDate(*ev.EndDate)
+		case ev.End != nil:
+			ed = midnight(ev.End.UTC())
 		}
 		if err != nil {
 			return timing{}, err
@@ -84,24 +69,20 @@ func eventTiming(ev csil.Event) (timing, error) {
 		}
 		return timing{allDay: true, loc: time.UTC, start: sd, end: ed, days: civilDays(sd, ed)}, nil
 	}
-	if ev.Start == nil || *ev.Start == "" {
+	if ev.Start == nil {
 		return timing{}, errors.New("ical: event has no start")
 	}
-	st, err := parseInstant(string(*ev.Start))
-	if err != nil {
-		return timing{}, err
-	}
+	st := ev.Start.UTC().Truncate(time.Second)
 	en := st
-	if ev.End != nil && *ev.End != "" {
-		if en, err = parseInstant(string(*ev.End)); err != nil {
-			return timing{}, err
-		}
+	if ev.End != nil {
+		en = ev.End.UTC().Truncate(time.Second)
 	}
 	if en.Before(st) {
 		en = st
 	}
 	loc := time.UTC
 	if ev.Timezone != nil {
+		var err error
 		if loc, err = loadZone(*ev.Timezone); err != nil {
 			return timing{}, err
 		}
@@ -176,20 +157,14 @@ func newSeries(ev csil.Event, t timing) (*series, error) {
 		}
 	}
 	for _, v := range rec.Rdates {
-		ts, err := parseInstant(string(v))
-		if err != nil {
-			return nil, err
-		}
+		ts := v.UTC().Truncate(time.Second)
 		if t.allDay {
 			ts = midnight(ts)
 		}
 		s.rdates = append(s.rdates, ts)
 	}
 	for _, v := range rec.Exdates {
-		ts, err := parseInstant(string(v))
-		if err != nil {
-			return nil, err
-		}
+		ts := v.UTC().Truncate(time.Second)
 		if t.allDay {
 			ts = midnight(ts)
 		}
@@ -307,12 +282,12 @@ func overlaps(start, end, rs, re time.Time) bool {
 
 // withTimes returns a copy of ev with its times set to one instance.
 func withTimes(ev csil.Event, t timing, start, end time.Time) csil.Event {
-	s := csil.Timestamp(start.UTC().Format(TimeLayout))
-	e := csil.Timestamp(end.UTC().Format(TimeLayout))
+	s := start.UTC().Truncate(time.Second)
+	e := end.UTC().Truncate(time.Second)
 	ev.Start, ev.End = &s, &e
 	if t.allDay {
-		sd := csil.DateText(start.UTC().Format(DateLayout))
-		ed := csil.DateText(end.UTC().Format(DateLayout))
+		sd := start.UTC().Format(DateLayout)
+		ed := end.UTC().Format(DateLayout)
 		ev.StartDate, ev.EndDate = &sd, &ed
 	}
 	return ev
@@ -371,10 +346,7 @@ func Expand(ev csil.Event, overrides []csil.Event, rangeStart, rangeEnd time.Tim
 		if o.RecurrenceId == nil {
 			continue
 		}
-		rid, err := parseInstant(string(*o.RecurrenceId))
-		if err != nil {
-			return nil, false, err
-		}
+		rid := o.RecurrenceId.UTC().Truncate(time.Second)
 		if t.allDay {
 			rid = midnight(rid)
 		}

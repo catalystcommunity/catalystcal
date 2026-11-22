@@ -92,7 +92,7 @@ func TestActAsExchange(t *testing.T) {
 	if login.User.Domain != "home.example" || login.User.Subject != "acct-1" {
 		t.Fatalf("user: %+v", login.User)
 	}
-	exp, _ := time.Parse(time.RFC3339, string(login.ExpiresAt))
+	exp := login.ExpiresAt
 	if exp.After(fake.expires) {
 		t.Fatalf("bearer outlives the grant: %s > %s", exp, fake.expires)
 	}

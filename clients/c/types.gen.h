@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "csil_timestamp.gen.h"
 
 typedef struct CsilBytes {
     uint8_t *data;
@@ -235,12 +236,6 @@ typedef char *TrashID;
 /* SessionID is a type alias. */
 typedef char *SessionID;
 
-/* Timestamp is a type alias. */
-typedef char *Timestamp;
-
-/* DateText is a type alias. */
-typedef char *DateText;
-
 /* IdentityRef is a structured data type. */
 typedef struct IdentityRef {
     char *domain;
@@ -259,8 +254,8 @@ typedef struct User {
     char *display_name;
     char *email;
     char *timezone;
-    Timestamp created_at;
-    Timestamp updated_at;
+    CsilTimestamp created_at;
+    CsilTimestamp updated_at;
 } User;
 
 /* PersonSummary is a structured data type. */
@@ -283,14 +278,14 @@ typedef struct Calendar {
     char *timezone;
     CalendarKind kind;
     char *source_url;
-    Timestamp *last_synced_at;
+    CsilTimestamp *last_synced_at;
     char *sync_error;
     bool is_default;
     AccessRole access;
     AccessPath access_path;
     char *feed_path;
-    Timestamp created_at;
-    Timestamp updated_at;
+    CsilTimestamp created_at;
+    CsilTimestamp updated_at;
 } Calendar;
 
 /* CreateCalendarRequest is a structured data type. */
@@ -338,7 +333,7 @@ typedef struct Share {
     ShareRole role;
     PersonSummary *grantee_person;
     char *grantee_group_name;
-    Timestamp created_at;
+    CsilTimestamp created_at;
 } Share;
 
 /* ShareList is a structured data type. */
@@ -364,8 +359,8 @@ typedef struct Group {
     uint64_t revision;
     GroupMember *members;
     size_t members_count;
-    Timestamp created_at;
-    Timestamp updated_at;
+    CsilTimestamp created_at;
+    CsilTimestamp updated_at;
 } Group;
 
 /* CreateGroupRequest is a structured data type. */
@@ -408,9 +403,9 @@ typedef struct Delegation {
     CalendarID *calendar_ids;
     size_t calendar_ids_count;
     char *note;
-    Timestamp *expires_at;
-    Timestamp created_at;
-    Timestamp *revoked_at;
+    CsilTimestamp *expires_at;
+    CsilTimestamp created_at;
+    CsilTimestamp *revoked_at;
 } Delegation;
 
 /* DelegationList is a structured data type. */
@@ -427,9 +422,9 @@ typedef struct AssumePrincipalRequest {
 /* Recurrence is a structured data type. */
 typedef struct Recurrence {
     char *rrule;
-    Timestamp *exdates;
+    CsilTimestamp *exdates;
     size_t exdates_count;
-    Timestamp *rdates;
+    CsilTimestamp *rdates;
     size_t rdates_count;
 } Recurrence;
 
@@ -461,18 +456,18 @@ typedef struct Event {
     char *location;
     char *url;
     char *conference_url;
-    Timestamp *start;
-    Timestamp *end;
+    CsilTimestamp *start;
+    CsilTimestamp *end;
     bool *all_day;
-    DateText *start_date;
-    DateText *end_date;
+    const char *start_date;
+    const char *end_date;
     char *timezone;
     EventStatus *status;
     EventTransparency *transparency;
     EventVisibility *visibility;
     Recurrence *recurrence;
     EventID *master_event_id;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
     Attendee *attendees;
     size_t attendees_count;
     Reminder *reminders;
@@ -485,16 +480,16 @@ typedef struct Event {
     PersonSummary *updated_by;
     ActingVia *updated_via;
     int64_t sequence;
-    Timestamp created_at;
-    Timestamp updated_at;
+    CsilTimestamp created_at;
+    CsilTimestamp updated_at;
 } Event;
 
 /* Occurrence is a structured data type. */
 typedef struct Occurrence {
     Event event;
-    Timestamp start;
-    Timestamp end;
-    Timestamp *recurrence_id;
+    CsilTimestamp start;
+    CsilTimestamp end;
+    CsilTimestamp *recurrence_id;
     AccessRole access;
     bool busy_only;
     bool invited;
@@ -502,8 +497,8 @@ typedef struct Occurrence {
 
 /* ListEventsRequest is a structured data type. */
 typedef struct ListEventsRequest {
-    Timestamp range_start;
-    Timestamp range_end;
+    CsilTimestamp range_start;
+    CsilTimestamp range_end;
     CalendarID *calendar_ids;
     size_t calendar_ids_count;
     bool *include_invitations;
@@ -520,14 +515,14 @@ typedef struct OccurrenceList {
 typedef struct UpdateEventRequest {
     Event event;
     RecurrenceScope *scope;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
 } UpdateEventRequest;
 
 /* DeleteEventRequest is a structured data type. */
 typedef struct DeleteEventRequest {
     EventID event_id;
     RecurrenceScope *scope;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
 } DeleteEventRequest;
 
 /* DeleteEventResponse is a structured data type. */
@@ -547,12 +542,12 @@ typedef struct TrashEntry {
     CalendarID calendar_id;
     EventID event_id;
     RecurrenceScope scope;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
     Event event;
     Event *instance;
     PersonSummary *deleted_by;
-    Timestamp deleted_at;
-    Timestamp expires_at;
+    CsilTimestamp deleted_at;
+    CsilTimestamp expires_at;
 } TrashEntry;
 
 /* ListTrashRequest is a structured data type. */
@@ -576,7 +571,7 @@ typedef struct RestoreEventRequest {
 typedef struct ImportEventRequest {
     Event event;
     IdentityRef created_by;
-    Timestamp *created_at;
+    CsilTimestamp *created_at;
 } ImportEventRequest;
 
 /* CreateEventOnceRequest is a structured data type. */
@@ -598,7 +593,7 @@ typedef struct CreateEventReceipt {
     EventID event_id;
     CreateReceiptState state;
     bool created;
-    Timestamp created_at;
+    CsilTimestamp created_at;
     Event *event;
     TrashID *trash_id;
 } CreateEventReceipt;
@@ -607,8 +602,8 @@ typedef struct CreateEventReceipt {
 typedef struct SplitSeriesOnceRequest {
     char *idempotency_key;
     Event event;
-    Timestamp recurrence_id;
-    Timestamp *map_recurrence_ids;
+    CsilTimestamp recurrence_id;
+    CsilTimestamp *map_recurrence_ids;
     size_t map_recurrence_ids_count;
 } SplitSeriesOnceRequest;
 
@@ -616,16 +611,16 @@ typedef struct SplitSeriesOnceRequest {
 typedef struct SplitReceiptRequest {
     EventID series_id;
     char *idempotency_key;
-    Timestamp *map_recurrence_ids;
+    CsilTimestamp *map_recurrence_ids;
     size_t map_recurrence_ids_count;
 } SplitReceiptRequest;
 
 /* SplitOccurrenceMapping is a structured data type. */
 typedef struct SplitOccurrenceMapping {
-    Timestamp recurrence_id;
+    CsilTimestamp recurrence_id;
     SplitMapResult result;
     EventID *event_id;
-    Timestamp *mapped_recurrence_id;
+    CsilTimestamp *mapped_recurrence_id;
 } SplitOccurrenceMapping;
 
 /* SplitSeriesReceipt is a structured data type. */
@@ -633,10 +628,10 @@ typedef struct SplitSeriesReceipt {
     EventID series_id;
     char *idempotency_key;
     EventID successor_id;
-    Timestamp split_at;
+    CsilTimestamp split_at;
     bool in_place;
     bool created;
-    Timestamp created_at;
+    CsilTimestamp created_at;
     CalendarID calendar_id;
     CreateReceiptState series_state;
     Event *series;
@@ -651,14 +646,14 @@ typedef struct SplitSeriesReceipt {
 /* GetOccurrenceRequest is a structured data type. */
 typedef struct GetOccurrenceRequest {
     EventID event_id;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
 } GetOccurrenceRequest;
 
 /* RespondRequest is a structured data type. */
 typedef struct RespondRequest {
     EventID event_id;
     ParticipationStatus status;
-    Timestamp *recurrence_id;
+    CsilTimestamp *recurrence_id;
     char *comment;
 } RespondRequest;
 
@@ -676,8 +671,8 @@ typedef struct EventList {
 
 /* BusyInterval is a structured data type. */
 typedef struct BusyInterval {
-    Timestamp start;
-    Timestamp end;
+    CsilTimestamp start;
+    CsilTimestamp end;
     bool *tentative;
 } BusyInterval;
 
@@ -685,8 +680,8 @@ typedef struct BusyInterval {
 typedef struct FreeBusyRequest {
     IdentityRef *people;
     size_t people_count;
-    Timestamp range_start;
-    Timestamp range_end;
+    CsilTimestamp range_start;
+    CsilTimestamp range_end;
 } FreeBusyRequest;
 
 /* PersonFreeBusy is a structured data type. */
@@ -739,7 +734,7 @@ typedef struct IcsDocument {
 /* AuditEntry is a structured data type. */
 typedef struct AuditEntry {
     AuditID audit_id;
-    Timestamp at;
+    CsilTimestamp at;
     PersonSummary actor;
     PersonSummary principal;
     ActingVia via;
@@ -770,7 +765,7 @@ typedef struct CompleteRequest {
 /* LoginResponse is a structured data type. */
 typedef struct LoginResponse {
     char *token;
-    Timestamp expires_at;
+    CsilTimestamp expires_at;
     PersonSummary user;
     PersonSummary *acting_as;
     ActingVia via;
@@ -823,7 +818,7 @@ typedef struct ApplicationPresentation {
     char *signer_instance_id;
     ApplicationRef audience;
     CsilBytes request_digest;
-    Timestamp presented_at;
+    CsilTimestamp presented_at;
     CsilBytes nonce;
 } ApplicationPresentation;
 
@@ -889,5 +884,654 @@ typedef struct ServiceError {
     uint64_t code;
     char *message;
 } ServiceError;
+
+typedef struct AuthServiceCompleteReply {
+    enum {
+        AuthServiceCompleteReply_as_login_response,
+        AuthServiceCompleteReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceCompleteReply;
+
+typedef struct AuthServiceResumeSessionReply {
+    enum {
+        AuthServiceResumeSessionReply_as_login_response,
+        AuthServiceResumeSessionReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceResumeSessionReply;
+
+typedef struct AuthServiceEndSessionReply {
+    enum {
+        AuthServiceEndSessionReply_as_empty_response,
+        AuthServiceEndSessionReply_as_service_error,
+    } kind;
+    union {
+        EmptyResponse as_empty_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceEndSessionReply;
+
+typedef struct AuthServiceMeReply {
+    enum {
+        AuthServiceMeReply_as_me_response,
+        AuthServiceMeReply_as_service_error,
+    } kind;
+    union {
+        MeResponse as_me_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceMeReply;
+
+typedef struct AuthServiceAssumePrincipalReply {
+    enum {
+        AuthServiceAssumePrincipalReply_as_login_response,
+        AuthServiceAssumePrincipalReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceAssumePrincipalReply;
+
+typedef struct AuthServiceReleasePrincipalReply {
+    enum {
+        AuthServiceReleasePrincipalReply_as_login_response,
+        AuthServiceReleasePrincipalReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceReleasePrincipalReply;
+
+typedef struct AuthServiceExchangeActAsCredentialReply {
+    enum {
+        AuthServiceExchangeActAsCredentialReply_as_login_response,
+        AuthServiceExchangeActAsCredentialReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceExchangeActAsCredentialReply;
+
+typedef struct AuthServiceGetActAsScopeSetReply {
+    enum {
+        AuthServiceGetActAsScopeSetReply_as_scope_set_response,
+        AuthServiceGetActAsScopeSetReply_as_service_error,
+    } kind;
+    union {
+        ScopeSetResponse as_scope_set_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceGetActAsScopeSetReply;
+
+typedef struct AuthServiceGetApplicationIdentityReply {
+    enum {
+        AuthServiceGetApplicationIdentityReply_as_application_identity_response,
+        AuthServiceGetApplicationIdentityReply_as_service_error,
+    } kind;
+    union {
+        ApplicationIdentityResponse as_application_identity_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceGetApplicationIdentityReply;
+
+typedef struct AuthServiceExchangeApplicationPresentationReply {
+    enum {
+        AuthServiceExchangeApplicationPresentationReply_as_login_response,
+        AuthServiceExchangeApplicationPresentationReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} AuthServiceExchangeApplicationPresentationReply;
+
+typedef struct DevAuthServiceListDevUsersReply {
+    enum {
+        DevAuthServiceListDevUsersReply_as_dev_users_response,
+        DevAuthServiceListDevUsersReply_as_service_error,
+    } kind;
+    union {
+        DevUsersResponse as_dev_users_response;
+        ServiceError as_service_error;
+    } value;
+} DevAuthServiceListDevUsersReply;
+
+typedef struct DevAuthServiceDevLoginReply {
+    enum {
+        DevAuthServiceDevLoginReply_as_login_response,
+        DevAuthServiceDevLoginReply_as_service_error,
+    } kind;
+    union {
+        LoginResponse as_login_response;
+        ServiceError as_service_error;
+    } value;
+} DevAuthServiceDevLoginReply;
+
+typedef struct UserServiceGetProfileReply {
+    enum {
+        UserServiceGetProfileReply_as_user,
+        UserServiceGetProfileReply_as_service_error,
+    } kind;
+    union {
+        User as_user;
+        ServiceError as_service_error;
+    } value;
+} UserServiceGetProfileReply;
+
+typedef struct UserServiceUpdateProfileReply {
+    enum {
+        UserServiceUpdateProfileReply_as_user,
+        UserServiceUpdateProfileReply_as_service_error,
+    } kind;
+    union {
+        User as_user;
+        ServiceError as_service_error;
+    } value;
+} UserServiceUpdateProfileReply;
+
+typedef struct UserServiceLookupPersonReply {
+    enum {
+        UserServiceLookupPersonReply_as_person_summary,
+        UserServiceLookupPersonReply_as_service_error,
+    } kind;
+    union {
+        PersonSummary as_person_summary;
+        ServiceError as_service_error;
+    } value;
+} UserServiceLookupPersonReply;
+
+typedef struct CalendarServiceListCalendarsReply {
+    enum {
+        CalendarServiceListCalendarsReply_as_calendar_list,
+        CalendarServiceListCalendarsReply_as_service_error,
+    } kind;
+    union {
+        CalendarList as_calendar_list;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceListCalendarsReply;
+
+typedef struct CalendarServiceGetCalendarReply {
+    enum {
+        CalendarServiceGetCalendarReply_as_calendar,
+        CalendarServiceGetCalendarReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceGetCalendarReply;
+
+typedef struct CalendarServiceCreateCalendarReply {
+    enum {
+        CalendarServiceCreateCalendarReply_as_calendar,
+        CalendarServiceCreateCalendarReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceCreateCalendarReply;
+
+typedef struct CalendarServiceUpdateCalendarReply {
+    enum {
+        CalendarServiceUpdateCalendarReply_as_calendar,
+        CalendarServiceUpdateCalendarReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceUpdateCalendarReply;
+
+typedef struct CalendarServiceDeleteCalendarReply {
+    enum {
+        CalendarServiceDeleteCalendarReply_as_empty_response,
+        CalendarServiceDeleteCalendarReply_as_service_error,
+    } kind;
+    union {
+        EmptyResponse as_empty_response;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceDeleteCalendarReply;
+
+typedef struct CalendarServiceSubscribeCalendarReply {
+    enum {
+        CalendarServiceSubscribeCalendarReply_as_calendar,
+        CalendarServiceSubscribeCalendarReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceSubscribeCalendarReply;
+
+typedef struct CalendarServiceRefreshSubscriptionReply {
+    enum {
+        CalendarServiceRefreshSubscriptionReply_as_calendar,
+        CalendarServiceRefreshSubscriptionReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceRefreshSubscriptionReply;
+
+typedef struct CalendarServiceSetFeedReply {
+    enum {
+        CalendarServiceSetFeedReply_as_calendar,
+        CalendarServiceSetFeedReply_as_service_error,
+    } kind;
+    union {
+        Calendar as_calendar;
+        ServiceError as_service_error;
+    } value;
+} CalendarServiceSetFeedReply;
+
+typedef struct ShareServiceListSharesReply {
+    enum {
+        ShareServiceListSharesReply_as_share_list,
+        ShareServiceListSharesReply_as_service_error,
+    } kind;
+    union {
+        ShareList as_share_list;
+        ServiceError as_service_error;
+    } value;
+} ShareServiceListSharesReply;
+
+typedef struct ShareServicePutShareReply {
+    enum {
+        ShareServicePutShareReply_as_share,
+        ShareServicePutShareReply_as_service_error,
+    } kind;
+    union {
+        Share as_share;
+        ServiceError as_service_error;
+    } value;
+} ShareServicePutShareReply;
+
+typedef struct ShareServiceDeleteShareReply {
+    enum {
+        ShareServiceDeleteShareReply_as_empty_response,
+        ShareServiceDeleteShareReply_as_service_error,
+    } kind;
+    union {
+        EmptyResponse as_empty_response;
+        ServiceError as_service_error;
+    } value;
+} ShareServiceDeleteShareReply;
+
+typedef struct GroupServiceListGroupsReply {
+    enum {
+        GroupServiceListGroupsReply_as_group_list,
+        GroupServiceListGroupsReply_as_service_error,
+    } kind;
+    union {
+        GroupList as_group_list;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceListGroupsReply;
+
+typedef struct GroupServiceGetGroupReply {
+    enum {
+        GroupServiceGetGroupReply_as_group,
+        GroupServiceGetGroupReply_as_service_error,
+    } kind;
+    union {
+        Group as_group;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceGetGroupReply;
+
+typedef struct GroupServiceCreateGroupReply {
+    enum {
+        GroupServiceCreateGroupReply_as_group,
+        GroupServiceCreateGroupReply_as_service_error,
+    } kind;
+    union {
+        Group as_group;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceCreateGroupReply;
+
+typedef struct GroupServiceUpdateGroupReply {
+    enum {
+        GroupServiceUpdateGroupReply_as_group,
+        GroupServiceUpdateGroupReply_as_service_error,
+    } kind;
+    union {
+        Group as_group;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceUpdateGroupReply;
+
+typedef struct GroupServiceSetMembersReply {
+    enum {
+        GroupServiceSetMembersReply_as_group,
+        GroupServiceSetMembersReply_as_service_error,
+    } kind;
+    union {
+        Group as_group;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceSetMembersReply;
+
+typedef struct GroupServiceDeleteGroupReply {
+    enum {
+        GroupServiceDeleteGroupReply_as_empty_response,
+        GroupServiceDeleteGroupReply_as_service_error,
+    } kind;
+    union {
+        EmptyResponse as_empty_response;
+        ServiceError as_service_error;
+    } value;
+} GroupServiceDeleteGroupReply;
+
+typedef struct DelegationServiceListGrantedReply {
+    enum {
+        DelegationServiceListGrantedReply_as_delegation_list,
+        DelegationServiceListGrantedReply_as_service_error,
+    } kind;
+    union {
+        DelegationList as_delegation_list;
+        ServiceError as_service_error;
+    } value;
+} DelegationServiceListGrantedReply;
+
+typedef struct DelegationServiceListReceivedReply {
+    enum {
+        DelegationServiceListReceivedReply_as_delegation_list,
+        DelegationServiceListReceivedReply_as_service_error,
+    } kind;
+    union {
+        DelegationList as_delegation_list;
+        ServiceError as_service_error;
+    } value;
+} DelegationServiceListReceivedReply;
+
+typedef struct DelegationServiceCreateDelegationReply {
+    enum {
+        DelegationServiceCreateDelegationReply_as_delegation,
+        DelegationServiceCreateDelegationReply_as_service_error,
+    } kind;
+    union {
+        Delegation as_delegation;
+        ServiceError as_service_error;
+    } value;
+} DelegationServiceCreateDelegationReply;
+
+typedef struct DelegationServiceUpdateDelegationReply {
+    enum {
+        DelegationServiceUpdateDelegationReply_as_delegation,
+        DelegationServiceUpdateDelegationReply_as_service_error,
+    } kind;
+    union {
+        Delegation as_delegation;
+        ServiceError as_service_error;
+    } value;
+} DelegationServiceUpdateDelegationReply;
+
+typedef struct DelegationServiceRevokeDelegationReply {
+    enum {
+        DelegationServiceRevokeDelegationReply_as_empty_response,
+        DelegationServiceRevokeDelegationReply_as_service_error,
+    } kind;
+    union {
+        EmptyResponse as_empty_response;
+        ServiceError as_service_error;
+    } value;
+} DelegationServiceRevokeDelegationReply;
+
+typedef struct EventServiceListEventsReply {
+    enum {
+        EventServiceListEventsReply_as_occurrence_list,
+        EventServiceListEventsReply_as_service_error,
+    } kind;
+    union {
+        OccurrenceList as_occurrence_list;
+        ServiceError as_service_error;
+    } value;
+} EventServiceListEventsReply;
+
+typedef struct EventServiceGetEventReply {
+    enum {
+        EventServiceGetEventReply_as_event,
+        EventServiceGetEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceGetEventReply;
+
+typedef struct EventServiceGetOccurrenceReply {
+    enum {
+        EventServiceGetOccurrenceReply_as_occurrence,
+        EventServiceGetOccurrenceReply_as_service_error,
+    } kind;
+    union {
+        Occurrence as_occurrence;
+        ServiceError as_service_error;
+    } value;
+} EventServiceGetOccurrenceReply;
+
+typedef struct EventServiceCreateEventReply {
+    enum {
+        EventServiceCreateEventReply_as_event,
+        EventServiceCreateEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceCreateEventReply;
+
+typedef struct EventServiceUpdateEventReply {
+    enum {
+        EventServiceUpdateEventReply_as_event,
+        EventServiceUpdateEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceUpdateEventReply;
+
+typedef struct EventServiceDeleteEventReply {
+    enum {
+        EventServiceDeleteEventReply_as_delete_event_response,
+        EventServiceDeleteEventReply_as_service_error,
+    } kind;
+    union {
+        DeleteEventResponse as_delete_event_response;
+        ServiceError as_service_error;
+    } value;
+} EventServiceDeleteEventReply;
+
+typedef struct EventServiceMoveEventReply {
+    enum {
+        EventServiceMoveEventReply_as_event,
+        EventServiceMoveEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceMoveEventReply;
+
+typedef struct EventServiceRespondReply {
+    enum {
+        EventServiceRespondReply_as_event,
+        EventServiceRespondReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceRespondReply;
+
+typedef struct EventServiceListInvitationsReply {
+    enum {
+        EventServiceListInvitationsReply_as_event_list,
+        EventServiceListInvitationsReply_as_service_error,
+    } kind;
+    union {
+        EventList as_event_list;
+        ServiceError as_service_error;
+    } value;
+} EventServiceListInvitationsReply;
+
+typedef struct EventServiceSearchEventsReply {
+    enum {
+        EventServiceSearchEventsReply_as_event_list,
+        EventServiceSearchEventsReply_as_service_error,
+    } kind;
+    union {
+        EventList as_event_list;
+        ServiceError as_service_error;
+    } value;
+} EventServiceSearchEventsReply;
+
+typedef struct EventServiceListTrashReply {
+    enum {
+        EventServiceListTrashReply_as_trash_list,
+        EventServiceListTrashReply_as_service_error,
+    } kind;
+    union {
+        TrashList as_trash_list;
+        ServiceError as_service_error;
+    } value;
+} EventServiceListTrashReply;
+
+typedef struct EventServiceRestoreEventReply {
+    enum {
+        EventServiceRestoreEventReply_as_event,
+        EventServiceRestoreEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceRestoreEventReply;
+
+typedef struct EventServiceImportEventReply {
+    enum {
+        EventServiceImportEventReply_as_event,
+        EventServiceImportEventReply_as_service_error,
+    } kind;
+    union {
+        Event as_event;
+        ServiceError as_service_error;
+    } value;
+} EventServiceImportEventReply;
+
+typedef struct EventServiceCreateEventOnceReply {
+    enum {
+        EventServiceCreateEventOnceReply_as_create_event_receipt,
+        EventServiceCreateEventOnceReply_as_service_error,
+    } kind;
+    union {
+        CreateEventReceipt as_create_event_receipt;
+        ServiceError as_service_error;
+    } value;
+} EventServiceCreateEventOnceReply;
+
+typedef struct EventServiceGetCreateReceiptReply {
+    enum {
+        EventServiceGetCreateReceiptReply_as_create_event_receipt,
+        EventServiceGetCreateReceiptReply_as_service_error,
+    } kind;
+    union {
+        CreateEventReceipt as_create_event_receipt;
+        ServiceError as_service_error;
+    } value;
+} EventServiceGetCreateReceiptReply;
+
+typedef struct EventServiceSplitSeriesOnceReply {
+    enum {
+        EventServiceSplitSeriesOnceReply_as_split_series_receipt,
+        EventServiceSplitSeriesOnceReply_as_service_error,
+    } kind;
+    union {
+        SplitSeriesReceipt as_split_series_receipt;
+        ServiceError as_service_error;
+    } value;
+} EventServiceSplitSeriesOnceReply;
+
+typedef struct EventServiceGetSplitReceiptReply {
+    enum {
+        EventServiceGetSplitReceiptReply_as_split_series_receipt,
+        EventServiceGetSplitReceiptReply_as_service_error,
+    } kind;
+    union {
+        SplitSeriesReceipt as_split_series_receipt;
+        ServiceError as_service_error;
+    } value;
+} EventServiceGetSplitReceiptReply;
+
+typedef struct FreeBusyServiceQueryReply {
+    enum {
+        FreeBusyServiceQueryReply_as_free_busy_response,
+        FreeBusyServiceQueryReply_as_service_error,
+    } kind;
+    union {
+        FreeBusyResponse as_free_busy_response;
+        ServiceError as_service_error;
+    } value;
+} FreeBusyServiceQueryReply;
+
+typedef struct IcsServiceImportIcsReply {
+    enum {
+        IcsServiceImportIcsReply_as_import_result,
+        IcsServiceImportIcsReply_as_service_error,
+    } kind;
+    union {
+        ImportResult as_import_result;
+        ServiceError as_service_error;
+    } value;
+} IcsServiceImportIcsReply;
+
+typedef struct IcsServiceExportCalendarReply {
+    enum {
+        IcsServiceExportCalendarReply_as_ics_document,
+        IcsServiceExportCalendarReply_as_service_error,
+    } kind;
+    union {
+        IcsDocument as_ics_document;
+        ServiceError as_service_error;
+    } value;
+} IcsServiceExportCalendarReply;
+
+typedef struct IcsServiceExportEventReply {
+    enum {
+        IcsServiceExportEventReply_as_ics_document,
+        IcsServiceExportEventReply_as_service_error,
+    } kind;
+    union {
+        IcsDocument as_ics_document;
+        ServiceError as_service_error;
+    } value;
+} IcsServiceExportEventReply;
+
+typedef struct AuditServiceListAuditReply {
+    enum {
+        AuditServiceListAuditReply_as_audit_list,
+        AuditServiceListAuditReply_as_service_error,
+    } kind;
+    union {
+        AuditList as_audit_list;
+        ServiceError as_service_error;
+    } value;
+} AuditServiceListAuditReply;
 
 #endif /* CSILGEN_TYPES_GEN_H */

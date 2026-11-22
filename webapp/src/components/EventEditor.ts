@@ -1,3 +1,4 @@
+import type { DateTimePicker } from "@catalystcommunity/date-time-picker";
 import type { EventStatus, EventTransparency, EventVisibility, Reminder } from "@catalystcal/client";
 import { eventClient } from "~/data/clients";
 import { CALENDARS, bumpEvents, calendarColor, calendars, canAddEvents } from "~/stores/calendars";
@@ -59,10 +60,10 @@ export class EventEditor extends CalElement {
   #moveHint!: HTMLElement;
   #color!: ColorPicker;
   #allDay!: CheckControl;
-  #startDate!: ValueControl;
-  #startTime!: ValueControl;
-  #endTime!: ValueControl;
-  #endDate!: ValueControl;
+  #startDate!: DateTimePicker;
+  #startTime!: DateTimePicker;
+  #endTime!: DateTimePicker;
+  #endDate!: DateTimePicker;
   #zoneField!: HTMLElement;
   #zone!: OptionControl;
   #zoneHint!: HTMLElement;
@@ -119,15 +120,15 @@ export class EventEditor extends CalElement {
     }) as unknown as ColorPicker;
 
     this.#allDay = h("check-box", { checked: f.allDay, onChange: () => this.#set({ allDay: this.#allDay.checked }) }, "All day") as CheckControl;
-    this.#startDate = h("date-time-picker", { mode: "date", label: "Start date", class: "input-date", onChange: () => this.#setStartDate(this.#startDate.value) }) as ValueControl;
-    this.#startTime = h("date-time-picker", { mode: "time", "minute-step": "5", label: "Start time", class: "input-time", onChange: () => this.#setStartTime(this.#startTime.value) }) as ValueControl;
-    this.#endTime = h("date-time-picker", { mode: "time", "minute-step": "5", label: "End time", class: "input-time", onChange: () => this.#setEndTime(this.#endTime.value) }) as ValueControl;
+    this.#startDate = h("date-time-picker", { mode: "date", label: "Start date", class: "input-date", onChange: () => this.#setStartDate(this.#startDate.value) });
+    this.#startTime = h("date-time-picker", { mode: "time", "minute-step": "5", label: "Start time", class: "input-time", onChange: () => this.#setStartTime(this.#startTime.value) });
+    this.#endTime = h("date-time-picker", { mode: "time", "minute-step": "5", label: "End time", class: "input-time", onChange: () => this.#setEndTime(this.#endTime.value) });
     this.#endDate = h("date-time-picker", {
       mode: "date",
       label: "End date",
       class: "input-date",
       onChange: () => this.#endDate.value && this.#set({ endDate: this.#endDate.value }),
-    }) as ValueControl;
+    });
     this.#zone = h("combo-box", {
       label: "Time zone",
       editable: true,
@@ -327,6 +328,9 @@ export class EventEditor extends CalElement {
     if (this.#color.value !== f.color) this.#color.value = f.color;
 
     if (this.#allDay.checked !== f.allDay) this.#allDay.checked = f.allDay;
+    for (const picker of [this.#startDate, this.#endDate, this.#startTime, this.#endTime]) {
+      if (picker.timeZone !== f.timezone) picker.setAttribute("time-zone", f.timezone);
+    }
     if (this.#startDate.value !== f.startDate) this.#startDate.value = f.startDate;
     if (this.#endDate.value !== f.endDate) this.#endDate.value = f.endDate;
     setAttr(this.#endDate, "min", f.startDate);

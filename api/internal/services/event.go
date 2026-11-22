@@ -84,15 +84,9 @@ func (s *EventService) requireEditable(ctx context.Context, id *auth.Identity, c
 	return nil
 }
 
-func parseRange(start, end csil.Timestamp) (time.Time, time.Time, error) {
-	st, err := parseTS("range_start", start)
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
-	en, err := parseTS("range_end", end)
-	if err != nil {
-		return time.Time{}, time.Time{}, err
-	}
+func parseRange(start, end time.Time) (time.Time, time.Time, error) {
+	st := ts(start)
+	en := ts(end)
 	if !en.After(st) {
 		return time.Time{}, time.Time{}, badReq("range_end must be after range_start")
 	}
@@ -217,7 +211,7 @@ func (s *EventService) ListEvents(ctx context.Context, req csil.ListEventsReques
 		}
 	}
 	sort.SliceStable(out.Occurrences, func(i, j int) bool {
-		return out.Occurrences[i].Start < out.Occurrences[j].Start
+		return out.Occurrences[i].Start.Before(out.Occurrences[j].Start)
 	})
 	return out, nil
 }
@@ -319,10 +313,7 @@ func (s *EventService) ImportEvent(ctx context.Context, req csil.ImportEventRequ
 	}
 	createdAt := s.now()
 	if req.CreatedAt != nil {
-		t, err := parseTS("created_at", *req.CreatedAt)
-		if err != nil {
-			return csil.Event{}, err
-		}
+		t := ts(*req.CreatedAt)
 		if t.After(createdAt) {
 			return csil.Event{}, badReq("created_at must not be after now")
 		}
@@ -416,10 +407,10 @@ func nextContent(id *auth.Identity, r *resolver, prev store.Event, content csil.
 	}
 }
 
-func splitTimes(in []csil.Timestamp, cut time.Time) (before, after []csil.Timestamp) {
+func splitTimes(in []time.Time, cut time.Time) (before, after []time.Time) {
 	c := ts(cut)
 	for _, v := range in {
-		if v < c {
+		if v.Before(c) {
 			before = append(before, v)
 		} else {
 			after = append(after, v)
@@ -474,10 +465,7 @@ func (s *EventService) UpdateEvent(ctx context.Context, req csil.UpdateEventRequ
 		if req.RecurrenceId == nil {
 			return csil.Event{}, badReq("recurrence_id is required for scope this")
 		}
-		rid, err := parseTS("recurrence_id", *req.RecurrenceId)
-		if err != nil {
-			return csil.Event{}, err
-		}
+		rid := ts(*req.RecurrenceId)
 		content.Recurrence = nil
 		ov, err := s.Store.FindOverride(ctx, prev.ID(), rid)
 		switch {
@@ -509,10 +497,7 @@ func (s *EventService) UpdateEvent(ctx context.Context, req csil.UpdateEventRequ
 		if req.RecurrenceId == nil {
 			return csil.Event{}, badReq("recurrence_id is required for scope this_and_future")
 		}
-		rid, err := parseTS("recurrence_id", *req.RecurrenceId)
-		if err != nil {
-			return csil.Event{}, err
-		}
+		rid := ts(*req.RecurrenceId)
 		sp, err := planSplit(id, r, prev, content, rid)
 		if err != nil {
 			return csil.Event{}, err
@@ -622,14 +607,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 	}
 	scope := scopeOf(req.Scope)
 	master := row
-	var rid *time.Time
-	if req.RecurrenceId != nil {
-		t, err := parseTS("recurrence_id", *req.RecurrenceId)
-		if err != nil {
-			return csil.DeleteEventResponse{}, err
-		}
-		rid = &t
-	}
+	rid := tsPtr(req.RecurrenceId)
 	if row.MasterID() != "" {
 		// An override: "all" removes the series; otherwise this instance.
 		m, err := s.Store.GetEvent(ctx, row.MasterID())
@@ -638,8 +616,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 		}
 		master = m
 		if rid == nil {
-			t, _ := store.ParseTime(string(*row.Ev.RecurrenceId))
-			rid = &t
+			rid = row.Ev.RecurrenceId
 		}
 		if scope == "all" {
 			return s.trashWhole(ctx, id, master)
@@ -665,7 +642,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 		m := master
 		ev := m.Ev
 		rec := *ev.Recurrence
-		rec.Exdates, _ = normalizeTimes("exdates", append(append([]csil.Timestamp{}, rec.Exdates...), ts(*rid)))
+		rec.Exdates = normalizeTimes(append(append([]time.Time{}, rec.Exdates...), ts(*rid)))
 		ev.Recurrence = &rec
 		ev.Sequence++
 		ev.UpdatedVia = viaOf(id)
@@ -689,7 +666,7 @@ func (s *EventService) DeleteEvent(ctx context.Context, req csil.DeleteEventRequ
 			return csil.DeleteEventResponse{}, internal(err, "list overrides")
 		}
 		for _, ov := range ovs {
-			if t, err := store.ParseTime(string(*ov.Ev.RecurrenceId)); err == nil && !t.Before(*rid) {
+			if !ov.Ev.RecurrenceId.Before(*rid) {
 				entry.Snapshot.Removed = append(entry.Snapshot.Removed, ov)
 			}
 		}
@@ -794,10 +771,7 @@ func (s *EventService) Respond(ctx context.Context, req csil.RespondRequest) (cs
 	}
 	target := row
 	if req.RecurrenceId != nil && row.MasterID() == "" && row.Ev.Recurrence != nil {
-		rid, err := parseTS("recurrence_id", *req.RecurrenceId)
-		if err != nil {
-			return csil.Event{}, err
-		}
+		rid := ts(*req.RecurrenceId)
 		ov, err := s.Store.FindOverride(ctx, row.ID(), rid)
 		switch {
 		case err == nil:

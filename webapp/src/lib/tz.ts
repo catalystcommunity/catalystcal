@@ -115,13 +115,9 @@ export function todayIn(tz: string, now = Date.now()): DateText {
   return civilDate(now, tz);
 }
 
-/** RFC3339 UTC with whole seconds and a Z: the CSIL Timestamp form. */
-export function toTimestamp(ms: number): string {
-  return new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
-export function parseTimestamp(ts: string): number {
-  return Date.parse(ts);
+/** The API stores instants at whole-second precision. */
+export function toTimestamp(ms: number): Date {
+  return new Date(Math.floor(ms / 1000) * 1000);
 }
 
 /** "HH:MM" for minutes since midnight. */

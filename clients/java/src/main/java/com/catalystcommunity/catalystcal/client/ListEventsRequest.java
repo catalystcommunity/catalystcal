@@ -2,11 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record ListEventsRequest(
-    Timestamp rangeStart /* wire: "range_start" */,
-    Timestamp rangeEnd /* wire: "range_end" */,
+    Instant rangeStart /* wire: "range_start" */,
+    Instant rangeEnd /* wire: "range_end" */,
     List<CalendarId> calendarIds /* wire: "calendar_ids" */,
     Boolean includeInvitations /* wire: "include_invitations" */
 ) {

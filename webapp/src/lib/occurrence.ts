@@ -1,10 +1,10 @@
 /** A stable key for an occurrence, and the dates of an all-day occurrence. */
 import type { Occurrence } from "@catalystcal/client";
 import { DateText, daysBetween, isDateText } from "~/lib/dates";
-import { civilDate, parseTimestamp } from "~/lib/tz";
+import { civilDate } from "~/lib/tz";
 
 export function occurrenceKey(o: Occurrence): string {
-  return `${o.event.eventId}|${o.recurrenceId ?? o.start}`;
+  return `${o.event.eventId}|${(o.recurrenceId ?? o.start).toISOString()}`;
 }
 
 /**
@@ -15,8 +15,9 @@ export function occurrenceKey(o: Occurrence): string {
 export function allDayStart(o: Occurrence, viewerTz: string): DateText {
   const ev = o.event;
   if (!ev.recurrence && !o.recurrenceId && ev.startDate && isDateText(ev.startDate)) return ev.startDate;
-  if (/T00:00:00Z$/.test(o.start)) return o.start.slice(0, 10);
-  return civilDate(parseTimestamp(o.start), ev.timezone || viewerTz);
+  const utc = o.start.toISOString();
+  if (utc.endsWith("T00:00:00.000Z")) return utc.slice(0, 10);
+  return civilDate(o.start.getTime(), ev.timezone || viewerTz);
 }
 
 export function allDayLength(o: Occurrence): number {
@@ -24,5 +25,5 @@ export function allDayLength(o: Occurrence): number {
   if (ev.startDate && ev.endDate && isDateText(ev.startDate) && isDateText(ev.endDate)) {
     return Math.max(1, daysBetween(ev.startDate, ev.endDate));
   }
-  return Math.max(1, Math.round((parseTimestamp(o.end) - parseTimestamp(o.start)) / 86_400_000));
+  return Math.max(1, Math.round((o.end.getTime() - o.start.getTime()) / 86_400_000));
 }

@@ -2,6 +2,8 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 public record Event(
@@ -13,18 +15,18 @@ public record Event(
     String location /* wire: "location" */,
     String url /* wire: "url" */,
     String conferenceUrl /* wire: "conference_url" */,
-    Timestamp start /* wire: "start" */,
-    Timestamp end /* wire: "end" */,
+    Instant start /* wire: "start" */,
+    Instant end /* wire: "end" */,
     Boolean allDay /* wire: "all_day" */,
-    DateText startDate /* wire: "start_date" */,
-    DateText endDate /* wire: "end_date" */,
+    LocalDate startDate /* wire: "start_date" */,
+    LocalDate endDate /* wire: "end_date" */,
     String timezone /* wire: "timezone" */,
     EventStatus status /* wire: "status" */,
     EventTransparency transparency /* wire: "transparency" */,
     EventVisibility visibility /* wire: "visibility" */,
     Recurrence recurrence /* wire: "recurrence" */,
     EventId masterEventId /* wire: "master_event_id" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
+    Instant recurrenceId /* wire: "recurrence_id" */,
     List<Attendee> attendees /* wire: "attendees" */,
     List<Reminder> reminders /* wire: "reminders" */,
     List<String> categories /* wire: "categories" */,
@@ -34,8 +36,8 @@ public record Event(
     PersonSummary updatedBy /* wire: "updated_by" */,
     ActingVia updatedVia /* wire: "updated_via" */,
     long sequence /* wire: "sequence" */,
-    Timestamp createdAt /* wire: "created_at" */,
-    Timestamp updatedAt /* wire: "updated_at" */
+    Instant createdAt /* wire: "created_at" */,
+    Instant updatedAt /* wire: "updated_at" */
 ) {
     public Event {
         if (title.length() < 1) {

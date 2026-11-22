@@ -2,4 +2,23 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record ShareRole(Object value) {}
+public enum ShareRole {
+    FREE_BUSY("free_busy"),
+    READ("read"),
+    CONTRIBUTE("contribute"),
+    WRITE("write"),
+    MANAGE("manage");
+
+    private final String value;
+
+    ShareRole(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static ShareRole fromWire(String value) {
+        for (ShareRole member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown ShareRole value: " + value);
+    }
+}

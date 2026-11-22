@@ -118,7 +118,7 @@ class CalendarClient
 
   # get-calendar: -> Calendar
   def get_calendar(req)
-    Calendar.from_cbor(@transport.call("CalendarService", "get-calendar", req.to_cbor))
+    Calendar.from_cbor(@transport.call("CalendarService", "get-calendar", CsilCbor.encode(req)))
   end
 
   # create-calendar: -> Calendar
@@ -133,7 +133,7 @@ class CalendarClient
 
   # delete-calendar: -> EmptyResponse
   def delete_calendar(req)
-    EmptyResponse.from_cbor(@transport.call("CalendarService", "delete-calendar", req.to_cbor))
+    EmptyResponse.from_cbor(@transport.call("CalendarService", "delete-calendar", CsilCbor.encode(req)))
   end
 
   # subscribe-calendar: -> Calendar
@@ -143,7 +143,7 @@ class CalendarClient
 
   # refresh-subscription: -> Calendar
   def refresh_subscription(req)
-    Calendar.from_cbor(@transport.call("CalendarService", "refresh-subscription", req.to_cbor))
+    Calendar.from_cbor(@transport.call("CalendarService", "refresh-subscription", CsilCbor.encode(req)))
   end
 
   # set-feed: -> Calendar
@@ -160,7 +160,7 @@ class ShareClient
 
   # list-shares: -> ShareList
   def list_shares(req)
-    ShareList.from_cbor(@transport.call("ShareService", "list-shares", req.to_cbor))
+    ShareList.from_cbor(@transport.call("ShareService", "list-shares", CsilCbor.encode(req)))
   end
 
   # put-share: -> Share
@@ -170,7 +170,7 @@ class ShareClient
 
   # delete-share: -> EmptyResponse
   def delete_share(req)
-    EmptyResponse.from_cbor(@transport.call("ShareService", "delete-share", req.to_cbor))
+    EmptyResponse.from_cbor(@transport.call("ShareService", "delete-share", CsilCbor.encode(req)))
   end
 end
 
@@ -187,7 +187,7 @@ class GroupClient
 
   # get-group: -> Group
   def get_group(req)
-    Group.from_cbor(@transport.call("GroupService", "get-group", req.to_cbor))
+    Group.from_cbor(@transport.call("GroupService", "get-group", CsilCbor.encode(req)))
   end
 
   # create-group: -> Group
@@ -207,7 +207,7 @@ class GroupClient
 
   # delete-group: -> EmptyResponse
   def delete_group(req)
-    EmptyResponse.from_cbor(@transport.call("GroupService", "delete-group", req.to_cbor))
+    EmptyResponse.from_cbor(@transport.call("GroupService", "delete-group", CsilCbor.encode(req)))
   end
 end
 
@@ -239,7 +239,7 @@ class DelegationClient
 
   # revoke-delegation: -> EmptyResponse
   def revoke_delegation(req)
-    EmptyResponse.from_cbor(@transport.call("DelegationService", "revoke-delegation", req.to_cbor))
+    EmptyResponse.from_cbor(@transport.call("DelegationService", "revoke-delegation", CsilCbor.encode(req)))
   end
 end
 
@@ -256,7 +256,7 @@ class EventClient
 
   # get-event: -> Event
   def get_event(req)
-    Event.from_cbor(@transport.call("EventService", "get-event", req.to_cbor))
+    Event.from_cbor(@transport.call("EventService", "get-event", CsilCbor.encode(req)))
   end
 
   # get-occurrence: -> Occurrence

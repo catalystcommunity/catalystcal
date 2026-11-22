@@ -2,6 +2,8 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record User(
     UserId userId /* wire: "user_id" */,
     String domain /* wire: "domain" */,
@@ -11,7 +13,7 @@ public record User(
     String displayName /* wire: "display_name" */,
     String email /* wire: "email" */,
     String timezone /* wire: "timezone" */,
-    Timestamp createdAt /* wire: "created_at" */,
-    Timestamp updatedAt /* wire: "updated_at" */
+    Instant createdAt /* wire: "created_at" */,
+    Instant updatedAt /* wire: "updated_at" */
 ) {
 }

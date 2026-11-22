@@ -8,7 +8,7 @@ import (
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
 
-func deleteEvent(c *client, id csil.EventID, scope string, rid *csil.Timestamp) reply[csil.DeleteEventResponse] {
+func deleteEvent(c *client, id csil.EventID, scope string, rid *time.Time) reply[csil.DeleteEventResponse] {
 	req := csil.DeleteEventRequest{EventId: id, RecurrenceId: rid}
 	if scope != "" {
 		s := csil.RecurrenceScope(scope)
@@ -25,7 +25,7 @@ func restore(c *client, id *csil.TrashID) reply[csil.Event] {
 	return call(c, "EventService", "restore-event", csil.RestoreEventRequest{TrashId: *id}, csil.EncodeRestoreEventRequest, csil.DecodeEvent)
 }
 
-func importEvent(c *client, ev csil.Event, by csil.IdentityRef, at *csil.Timestamp) reply[csil.Event] {
+func importEvent(c *client, ev csil.Event, by csil.IdentityRef, at *time.Time) reply[csil.Event] {
 	return call(c, "EventService", "import-event", csil.ImportEventRequest{Event: ev, CreatedBy: by, CreatedAt: at},
 		csil.EncodeImportEventRequest, csil.DecodeEvent)
 }
@@ -42,7 +42,7 @@ func starts(t *testing.T, c *client, id csil.EventID) []string {
 	var out []string
 	for _, o := range must(t, listEvents(c, "2026-11-01T00:00:00Z", "2026-12-31T00:00:00Z")).Occurrences {
 		if o.Event.EventId == id || (o.Event.MasterEventId != nil && *o.Event.MasterEventId == id) {
-			out = append(out, string(o.Start))
+			out = append(out, o.Start.Format(time.RFC3339))
 		}
 	}
 	return out
@@ -70,7 +70,7 @@ func TestTrashWholeEvent(t *testing.T) {
 	if en.TrashId != *del.TrashId || en.Scope != "all" || en.Event.Title != "Dentist" || en.DeletedBy == nil {
 		t.Fatalf("entry: %+v", en)
 	}
-	if exp, _ := time.Parse(time.RFC3339, string(en.ExpiresAt)); exp.Sub(mustTime(t, en.DeletedAt)) != 30*24*time.Hour {
+	if en.ExpiresAt.Sub(en.DeletedAt) != 30*24*time.Hour {
 		t.Fatalf("expires %s deleted %s", en.ExpiresAt, en.DeletedAt)
 	}
 
@@ -105,15 +105,6 @@ func TestTrashWholeEvent(t *testing.T) {
 	}
 }
 
-func mustTime(t *testing.T, v csil.Timestamp) time.Time {
-	t.Helper()
-	x, err := time.Parse(time.RFC3339, string(v))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return x
-}
-
 func TestTrashSeriesScopes(t *testing.T) {
 	e := newEnv(t)
 	alice, _ := e.login("alice")
@@ -138,7 +129,7 @@ func TestTrashSeriesScopes(t *testing.T) {
 		t.Fatalf("after this: %v", got)
 	}
 	en := must(t, listTrash(alice, a1.CalendarId)).Entries[0]
-	if en.Scope != "this" || en.RecurrenceId == nil || *en.RecurrenceId != csil.Timestamp(all[1]) ||
+	if en.Scope != "this" || en.RecurrenceId == nil || *en.RecurrenceId != instant(all[1]) ||
 		en.Instance == nil || en.Instance.Title != "Standup (long)" {
 		t.Fatalf("this entry: %+v", en)
 	}
@@ -146,7 +137,7 @@ func TestTrashSeriesScopes(t *testing.T) {
 	if got := starts(t, alice, series.EventId); len(got) != 6 {
 		t.Fatalf("after restore this: %v", got)
 	}
-	ovr := call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: csil.Timestamp(all[1]), RangeEnd: "2026-11-10T00:00:00Z"},
+	ovr := call(alice, "EventService", "list-events", csil.ListEventsRequest{RangeStart: instant(all[1]), RangeEnd: instant("2026-11-10T00:00:00Z")},
 		csil.EncodeListEventsRequest, csil.DecodeOccurrenceList)
 	if occ := must(t, ovr).Occurrences; len(occ) != 1 || occ[0].Event.Title != "Standup (long)" {
 		t.Fatalf("override not restored: %+v", occ)

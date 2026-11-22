@@ -11,8 +11,6 @@ and audit_id = string
 and group_id = string
 and trash_id = string
 and session_id = string
-and timestamp = string
-and date_text = string
 and share_role = Free_busy | Read | Contribute | Write | Manage
 and access_role = None | Free_busy | Read | Contribute | Write | Manage | Owner
 and access_path = Owner | Share | Delegation | Attendee
@@ -58,8 +56,10 @@ and user = {
   display_name : string option;
   email : string option;
   timezone : string option;
-  created_at : timestamp;
-  updated_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  updated_at : string;
 }
 
 and person_summary = {
@@ -80,14 +80,17 @@ and calendar = {
   timezone : string option;
   kind : calendar_kind;
   source_url : string option;
-  last_synced_at : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  last_synced_at : string option;
   sync_error : string option;
   is_default : bool;
   access : access_role;
   access_path : access_path;
   feed_path : string option;
-  created_at : timestamp;
-  updated_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  updated_at : string;
 }
 
 and create_calendar_request = {
@@ -122,7 +125,8 @@ and share = {
   role : share_role;
   grantee_person : person_summary option;
   grantee_group_name : string option;
-  created_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
 }
 
 and share_list = { shares : share list }
@@ -141,8 +145,10 @@ and group = {
   description : string option;
   revision : int64;
   members : group_member list;
-  created_at : timestamp;
-  updated_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  updated_at : string;
 }
 
 and create_group_request = {
@@ -173,9 +179,12 @@ and delegation = {
   scopes : scope list;
   calendar_ids : calendar_id list option;
   note : string option;
-  expires_at : timestamp option;
-  created_at : timestamp;
-  revoked_at : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  expires_at : string option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  revoked_at : string option;
 }
 
 and delegation_list = { delegations : delegation list }
@@ -183,8 +192,10 @@ and assume_principal_request = { principal_user_id : user_id }
 
 and recurrence = {
   rrule : string;
-  exdates : timestamp list option;
-  rdates : timestamp list option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  exdates : string list option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  rdates : string list option;
 }
 
 and attendee = {
@@ -209,18 +220,21 @@ and event = {
   location : string option;
   url : string option;
   conference_url : string option;
-  start : timestamp option;
-  end_ : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  start : string option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  end_ : string option;
   all_day : bool option;
-  start_date : date_text option;
-  end_date : date_text option;
+  start_date : string option;
+  end_date : string option;
   timezone : string option;
   status : event_status option;
   transparency : event_transparency option;
   visibility : event_visibility option;
   recurrence : recurrence option;
   master_event_id : event_id option;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
   attendees : attendee list option;
   reminders : reminder list option;
   categories : string list option;
@@ -230,23 +244,30 @@ and event = {
   updated_by : person_summary option;
   updated_via : acting_via option;
   sequence : int64;
-  created_at : timestamp;
-  updated_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  updated_at : string;
 }
 
 and occurrence = {
   event : event;
-  start : timestamp;
-  end_ : timestamp;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  start : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  end_ : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
   access : access_role;
   busy_only : bool;
   invited : bool;
 }
 
 and list_events_request = {
-  range_start : timestamp;
-  range_end : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  range_start : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  range_end : string;
   calendar_ids : calendar_id list option;
   include_invitations : bool option;
 }
@@ -256,13 +277,15 @@ and occurrence_list = { occurrences : occurrence list; truncated : bool }
 and update_event_request = {
   event : event;
   scope : recurrence_scope option;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
 }
 
 and delete_event_request = {
   event_id : event_id;
   scope : recurrence_scope option;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
 }
 
 and delete_event_response = { trash_id : trash_id option }
@@ -273,12 +296,15 @@ and trash_entry = {
   calendar_id : calendar_id;
   event_id : event_id;
   scope : recurrence_scope;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
   event : event;
   instance : event option;
   deleted_by : person_summary option;
-  deleted_at : timestamp;
-  expires_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  deleted_at : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  expires_at : string;
 }
 
 and list_trash_request = { calendar_id : calendar_id; limit : int64 option }
@@ -288,7 +314,8 @@ and restore_event_request = { trash_id : trash_id }
 and import_event_request = {
   event : event;
   created_by : identity_ref;
-  created_at : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string option;
 }
 
 and create_event_once_request = { idempotency_key : string; event : event }
@@ -304,7 +331,8 @@ and create_event_receipt = {
   event_id : event_id;
   state : create_receipt_state;
   created : bool;
-  created_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
   event : event option;
   trash_id : trash_id option;
 }
@@ -312,33 +340,40 @@ and create_event_receipt = {
 and split_series_once_request = {
   idempotency_key : string;
   event : event;
-  recurrence_id : timestamp;
-  map_recurrence_ids : timestamp list option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  map_recurrence_ids : string list option;
 }
 
 and split_receipt_request = {
   series_id : event_id;
   idempotency_key : string;
-  map_recurrence_ids : timestamp list option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  map_recurrence_ids : string list option;
 }
 
 and split_map_result = Original | Successor | None
 
 and split_occurrence_mapping = {
-  recurrence_id : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string;
   result : split_map_result;
   event_id : event_id option;
-  mapped_recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  mapped_recurrence_id : string option;
 }
 
 and split_series_receipt = {
   series_id : event_id;
   idempotency_key : string;
   successor_id : event_id;
-  split_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  split_at : string;
   in_place : bool;
   created : bool;
-  created_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  created_at : string;
   calendar_id : calendar_id;
   series_state : create_receipt_state;
   series : event option;
@@ -351,13 +386,15 @@ and split_series_receipt = {
 
 and get_occurrence_request = {
   event_id : event_id;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
 }
 
 and respond_request = {
   event_id : event_id;
   status : participation_status;
-  recurrence_id : timestamp option;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  recurrence_id : string option;
   comment : string option;
 }
 
@@ -365,15 +402,19 @@ and search_events_request = { query : string; limit : int64 option }
 and event_list = { events : event list }
 
 and busy_interval = {
-  start : timestamp;
-  end_ : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  start : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  end_ : string;
   tentative : bool option;
 }
 
 and free_busy_request = {
   people : identity_ref list;
-  range_start : timestamp;
-  range_end : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  range_start : string;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  range_end : string;
 }
 
 and person_free_busy = {
@@ -399,7 +440,8 @@ and ics_document = { ics : string; filename : string }
 
 and audit_entry = {
   audit_id : audit_id;
-  at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  at : string;
   actor : person_summary;
   principal : person_summary;
   via : acting_via;
@@ -415,7 +457,8 @@ and complete_request = { encrypted_token : string; domain : string option }
 
 and login_response = {
   token : string;
-  expires_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  expires_at : string;
   user : person_summary;
   acting_as : person_summary option;
   via : acting_via;
@@ -453,7 +496,8 @@ and application_presentation = {
   signer_instance_id : string;
   audience : application_ref;
   request_digest : bytes;
-  presented_at : timestamp;
+  (* wire: CBOR tag 0 RFC3339 UTC timestamp text *)
+  presented_at : string;
   nonce : bytes;
 }
 

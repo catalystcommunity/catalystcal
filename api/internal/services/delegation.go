@@ -143,10 +143,7 @@ func (s *DelegationService) CreateDelegation(ctx context.Context, req csil.Deleg
 		Scopes: scopes, CalendarIDs: cals, Note: strings.TrimSpace(deref(req.Note)),
 	}
 	if req.ExpiresAt != nil {
-		t, err := parseTS("expires_at", *req.ExpiresAt)
-		if err != nil {
-			return csil.Delegation{}, err
-		}
+		t := ts(*req.ExpiresAt)
 		if !t.After(s.now()) {
 			return csil.Delegation{}, badReq("expires_at must be in the future")
 		}
@@ -195,10 +192,7 @@ func (s *DelegationService) UpdateDelegation(ctx context.Context, req csil.Deleg
 	}
 	d.Scopes, d.CalendarIDs, d.Note, d.ExpiresAt = scopes, cals, strings.TrimSpace(deref(req.Note)), nil
 	if req.ExpiresAt != nil {
-		t, err := parseTS("expires_at", *req.ExpiresAt)
-		if err != nil {
-			return csil.Delegation{}, err
-		}
+		t := ts(*req.ExpiresAt)
 		d.ExpiresAt = &t
 	}
 	d, err = s.Store.UpdateDelegation(ctx, d)

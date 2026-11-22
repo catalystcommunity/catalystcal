@@ -199,11 +199,11 @@ func (s *Store) restoreSeries(ctx context.Context, tx *sql.Tx, t TrashEntry, by 
 	rec := *cur.Ev.Recurrence
 	switch t.Scope {
 	case TrashThis:
-		rid := csil.Timestamp(FormatTime(*t.RecurrenceID))
-		var kept []csil.Timestamp
+		rid := *t.RecurrenceID
+		var kept []time.Time
 		found := false
 		for _, x := range rec.Exdates {
-			if x == rid {
+			if x.Equal(rid) {
 				found = true
 				continue
 			}
@@ -215,7 +215,7 @@ func (s *Store) restoreSeries(ctx context.Context, tx *sql.Tx, t TrashEntry, by 
 		rec.Exdates = kept
 		var n int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM events WHERE master_id = ? AND recurrence_id = ?`,
-			cur.ID(), string(rid)).Scan(&n); err != nil {
+			cur.ID(), FormatTime(rid)).Scan(&n); err != nil {
 			return err
 		}
 		if n > 0 {

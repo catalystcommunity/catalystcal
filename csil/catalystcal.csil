@@ -40,10 +40,6 @@ AuditID       = text
 GroupID       = text
 TrashID       = text
 SessionID     = text
-;; RFC3339 UTC, whole seconds, "Z" suffix: 2026-10-15T17:00:00Z.
-Timestamp     = text
-;; A calendar date, YYYY-MM-DD. Used for all-day events.
-DateText      = text
 
 ;; ---- Enumerations -----------------------------------------------------
 
@@ -145,10 +141,10 @@ User = {
     ? timezone: text,
 
     @receive-only
-    created_at: Timestamp,
+    created_at: timestamp,
 
     @receive-only
-    updated_at: Timestamp
+    updated_at: timestamp
 }
 
 ;; A short public view of a person. `user_id` is the catalystcal user id (a ULID);
@@ -188,7 +184,7 @@ Calendar = {
     ? source_url: text,
 
     @receive-only
-    ? last_synced_at: Timestamp,
+    ? last_synced_at: timestamp,
 
     @receive-only
     ? sync_error: text,
@@ -209,10 +205,10 @@ Calendar = {
     ? feed_path: text,
 
     @receive-only
-    created_at: Timestamp,
+    created_at: timestamp,
 
     @receive-only
-    updated_at: Timestamp
+    updated_at: timestamp
 }
 
 CreateCalendarRequest = {
@@ -269,7 +265,7 @@ Share = {
     ? grantee_group_name: text,
 
     @receive-only
-    created_at: Timestamp
+    created_at: timestamp
 }
 
 ShareList = {
@@ -313,10 +309,10 @@ Group = {
     members: [* GroupMember],
 
     @receive-only
-    created_at: Timestamp,
+    created_at: timestamp,
 
     @receive-only
-    updated_at: Timestamp
+    updated_at: timestamp
 }
 
 CreateGroupRequest = {
@@ -366,13 +362,13 @@ Delegation = {
     ? calendar_ids: [* CalendarID],
 
     ? note: text,
-    ? expires_at: Timestamp,
+    ? expires_at: timestamp,
 
     @receive-only
-    created_at: Timestamp,
+    created_at: timestamp,
 
     @receive-only
-    ? revoked_at: Timestamp
+    ? revoked_at: timestamp
 }
 
 DelegationList = {
@@ -391,8 +387,8 @@ AssumePrincipalRequest = {
 ;; prefix, for example "FREQ=WEEKLY;BYDAY=MO,WE;COUNT=10".
 Recurrence = {
     rrule: text,
-    ? exdates: [* Timestamp],
-    ? rdates: [* Timestamp]
+    ? exdates: [* timestamp],
+    ? rdates: [* timestamp]
 }
 
 Attendee = {
@@ -434,11 +430,11 @@ Event = {
 
     ;; For a timed event: RFC3339 instants. For an all-day event: start_date
     ;; and end_date (end is exclusive, as in iCalendar).
-    ? start: Timestamp,
-    ? end: Timestamp,
+    ? start: timestamp,
+    ? end: timestamp,
     ? all_day: bool .default false,
-    ? start_date: DateText,
-    ? end_date: DateText,
+    ? start_date: date,
+    ? end_date: date,
 
     ;; IANA zone the event was written in. Recurrence expands in this zone.
     ? timezone: text,
@@ -453,7 +449,7 @@ Event = {
     @receive-only
     ? master_event_id: EventID,
     @receive-only
-    ? recurrence_id: Timestamp,
+    ? recurrence_id: timestamp,
 
     ? attendees: [* Attendee],
     ? reminders: [* Reminder],
@@ -477,10 +473,10 @@ Event = {
     sequence: int,
 
     @receive-only
-    created_at: Timestamp,
+    created_at: timestamp,
 
     @receive-only
-    updated_at: Timestamp
+    updated_at: timestamp
 }
 
 ;; One instance in a time range. For an all-day event, start and end are
@@ -489,9 +485,9 @@ Event = {
 ;; has one per occurrence; an override replaces the generated instance.
 Occurrence = {
     event: Event,
-    start: Timestamp,
-    end: Timestamp,
-    ? recurrence_id: Timestamp,
+    start: timestamp,
+    end: timestamp,
+    ? recurrence_id: timestamp,
 
     ;; The caller's access on the calendar that holds the event.
     access: AccessRole,
@@ -505,8 +501,8 @@ Occurrence = {
 }
 
 ListEventsRequest = {
-    range_start: Timestamp,
-    range_end: Timestamp,
+    range_start: timestamp,
+    range_end: timestamp,
     ;; Absent means every calendar the caller can see, plus invitations.
     ? calendar_ids: [* CalendarID],
     ? include_invitations: bool .default true
@@ -522,13 +518,13 @@ UpdateEventRequest = {
     event: Event,
     ? scope: RecurrenceScope .default "all",
     ;; Needed for scope this / this_and_future: which instance.
-    ? recurrence_id: Timestamp
+    ? recurrence_id: timestamp
 }
 
 DeleteEventRequest = {
     event_id: EventID,
     ? scope: RecurrenceScope .default "all",
-    ? recurrence_id: Timestamp
+    ? recurrence_id: timestamp
 }
 
 DeleteEventResponse = {
@@ -553,15 +549,15 @@ TrashEntry = {
     event_id: EventID,
     scope: RecurrenceScope,
     ;; The instance, for scope this and this_and_future.
-    ? recurrence_id: Timestamp,
+    ? recurrence_id: timestamp,
     ;; The event or the series master as it was before the delete.
     event: Event,
     ;; For scope this: the instance as it was (its override, or the
     ;; generated instance).
     ? instance: Event,
     ? deleted_by: PersonSummary,
-    deleted_at: Timestamp,
-    expires_at: Timestamp
+    deleted_at: timestamp,
+    expires_at: timestamp
 }
 
 ;; A caller sees the trash entries of the events that the caller can
@@ -597,7 +593,7 @@ ImportEventRequest = {
     event: Event,
     created_by: IdentityRef,
     ;; The original creation time. Not after now. Default: now.
-    ? created_at: Timestamp
+    ? created_at: timestamp
 }
 
 ;; A create that a client can send again safely. The server keeps a
@@ -637,7 +633,7 @@ CreateEventReceipt = {
     ;; True only for the call that made the event.
     created: bool,
     ;; When the create happened.
-    created_at: Timestamp,
+    created_at: timestamp,
     ;; The event now, for state live.
     ? event: Event,
     ;; For state trashed, when the caller can restore the entry.
@@ -667,10 +663,10 @@ SplitSeriesOnceRequest = {
     ;; 1 to 200 characters.
     idempotency_key: text .size (1..200),
     event: Event,
-    recurrence_id: Timestamp,
+    recurrence_id: timestamp,
     ;; Recurrence ids of the series before the split to map (at most 500).
     ;; Not part of the content of the request.
-    ? map_recurrence_ids: [* Timestamp]
+    ? map_recurrence_ids: [* timestamp]
 }
 
 ;; Find the receipt of a split-series-once call. The same scope and the
@@ -679,7 +675,7 @@ SplitReceiptRequest = {
     ;; event.event_id of the split request.
     series_id: EventID,
     idempotency_key: text .size (1..200),
-    ? map_recurrence_ids: [* Timestamp]
+    ? map_recurrence_ids: [* timestamp]
 }
 
 ;; Where an instance of the series before the split is after the split.
@@ -700,11 +696,11 @@ SplitMapResult = "original" / "successor" / "none"
 ;; across daylight time keeps the local time. For an all-day successor the
 ;; mapped time is 00:00:00Z of the date.
 SplitOccurrenceMapping = {
-    recurrence_id: Timestamp,
+    recurrence_id: timestamp,
     result: SplitMapResult,
     ;; For original and successor.
     ? event_id: EventID,
-    ? mapped_recurrence_id: Timestamp
+    ? mapped_recurrence_id: timestamp
 }
 
 SplitSeriesReceipt = {
@@ -715,12 +711,12 @@ SplitSeriesReceipt = {
     successor_id: EventID,
     ;; The first instance that the successor took: the request
     ;; recurrence_id, or the first instance for an in-place change.
-    split_at: Timestamp,
+    split_at: timestamp,
     in_place: bool,
     ;; True only for the call that made the split.
     created: bool,
     ;; When the split happened.
-    created_at: Timestamp,
+    created_at: timestamp,
     ;; The calendar of the split.
     calendar_id: CalendarID,
     ;; The two series now. The states are as in CreateEventReceipt.
@@ -755,13 +751,13 @@ SplitSeriesReceipt = {
 ;;   split-series-once keeps a receipt that maps the old references.
 GetOccurrenceRequest = {
     event_id: EventID,
-    ? recurrence_id: Timestamp
+    ? recurrence_id: timestamp
 }
 
 RespondRequest = {
     event_id: EventID,
     status: ParticipationStatus,
-    ? recurrence_id: Timestamp,
+    ? recurrence_id: timestamp,
     ? comment: text
 }
 
@@ -779,15 +775,15 @@ EventList = {
 ;; ============================================================
 
 BusyInterval = {
-    start: Timestamp,
-    end: Timestamp,
+    start: timestamp,
+    end: timestamp,
     ? tentative: bool
 }
 
 FreeBusyRequest = {
     people: [+ IdentityRef],
-    range_start: Timestamp,
-    range_end: Timestamp
+    range_start: timestamp,
+    range_end: timestamp
 }
 
 PersonFreeBusy = {
@@ -840,7 +836,7 @@ IcsDocument = {
 
 AuditEntry = {
     audit_id: AuditID,
-    at: Timestamp,
+    at: timestamp,
     ;; The person who made the call.
     actor: PersonSummary,
     ;; The person whose authority the call used (same as actor for "self").
@@ -879,7 +875,7 @@ CompleteRequest = {
 
 LoginResponse = {
     token: text,
-    expires_at: Timestamp,
+    expires_at: timestamp,
     user: PersonSummary,
     ;; For a delegated bearer: whose authority the bearer uses.
     ? acting_as: PersonSummary,
@@ -934,13 +930,13 @@ ApplicationRef = {
 ;; "catalystcal-application-presentation-v1", where `presentation` is the
 ;; CBOR bytes of this map. `request_digest` is SHA-256 of the UTF-8 bytes of
 ;; "catalystcal/AuthService/exchange-application-presentation".
-;; `presented_at` is a Timestamp. `nonce` is 16 to 64 random bytes.
+;; `presented_at` is a timestamp. `nonce` is 16 to 64 random bytes.
 ApplicationPresentation = {
     signer: ApplicationRef,
     signer_instance_id: text,
     audience: ApplicationRef,
     request_digest: bytes,
-    presented_at: Timestamp,
+    presented_at: timestamp,
     nonce: bytes
 }
 

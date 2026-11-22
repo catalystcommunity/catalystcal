@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Event, Occurrence } from "@catalystcal/client";
 import { allDayLength, allDayStart, occurrenceKey } from "./occurrence";
 
-const base: Event = { eventId: "e", calendarId: "c", title: "t", sequence: 0, createdAt: "", updatedAt: "" };
+const base: Event = { eventId: "e", calendarId: "c", title: "t", sequence: 0, createdAt: new Date(0), updatedAt: new Date(0) };
 const o = (e: Partial<Event>, start: string, end: string, recurrenceId?: string): Occurrence => ({
   event: { ...base, ...e },
-  start,
-  end,
-  recurrenceId,
+  start: new Date(start),
+  end: new Date(end),
+  recurrenceId: recurrenceId ? new Date(recurrenceId) : undefined,
   access: "owner",
   busyOnly: false,
   invited: false,
@@ -33,7 +33,7 @@ describe("all-day occurrences", () => {
 
 describe("occurrenceKey", () => {
   it("is the event and the instance", () => {
-    expect(occurrenceKey(o({}, "2026-10-15T00:00:00Z", "2026-10-15T01:00:00Z"))).toBe("e|2026-10-15T00:00:00Z");
-    expect(occurrenceKey(o({}, "2026-10-16T00:00:00Z", "2026-10-16T01:00:00Z", "2026-10-15T00:00:00Z"))).toBe("e|2026-10-15T00:00:00Z");
+    expect(occurrenceKey(o({}, "2026-10-15T00:00:00Z", "2026-10-15T01:00:00Z"))).toBe("e|2026-10-15T00:00:00.000Z");
+    expect(occurrenceKey(o({}, "2026-10-16T00:00:00Z", "2026-10-16T01:00:00Z", "2026-10-15T00:00:00Z"))).toBe("e|2026-10-15T00:00:00.000Z");
   });
 });

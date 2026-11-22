@@ -12,7 +12,7 @@ You need:
 
 You need these tools only for some tasks:
 
-- csilgen 0.2.10 (`./tools gen`, `./tools gen-check`, `./tools lint`)
+- csilgen 0.2.15 (`./tools gen`, `./tools gen-check`, `./tools lint`)
 - Docker with the compose plugin (`./tools build-images`, `./tools compose-up`)
 - helm 3 (`./tools helm-lint`)
 
@@ -118,11 +118,23 @@ client manifest carries the version), and commits the result with the
 version bump. It then tags that commit `clients/go/vX.Y.Z`, so a Go
 program can `go get github.com/catalystcommunity/catalystcal/clients/go@vX.Y.Z`.
 
-`csil/regenerate.sh` requires csilgen 0.2.10 exactly. A different version
+`csil/regenerate.sh` requires csilgen 0.2.15 exactly. A different version
 can change the generated code without a schema change. If you have more than
-one csilgen version, use an isolated install: put the 0.2.10 CLI first on
+one csilgen version, use an isolated install: put the 0.2.15 CLI first on
 `PATH` and its generators in `$HOME/.csilgen/generators` of a separate
 `HOME`. `.reactorcide/jobs/scripts/lib.sh` (`install_csilgen`) shows how.
+
+### Calendar dates and instants
+
+Use CSIL `date` for an all-day boundary. The end date is exclusive. Use
+`timestamp` for an instant. The Go client uses `time.Time` for an instant.
+The TypeScript client uses `Date`. Both use `YYYY-MM-DD` text for a date.
+
+Deploy the API, webapp, and API clients together when you upgrade from
+the text-based schema. Complete pending requests saved by external clients
+before the upgrade. The new codecs require CBOR tag 1004 for a date
+and tag 0 for an instant. SQLite keeps its UTC text layout. The API can
+read split receipts and trash snapshots from the earlier schema.
 
 ## Database migrations
 

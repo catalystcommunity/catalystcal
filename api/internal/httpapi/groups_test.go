@@ -222,7 +222,7 @@ func (k *appKeys) present(nonce string) csil.ExchangeApplicationPresentationRequ
 	p := csil.EncodeApplicationPresentation(csil.ApplicationPresentation{
 		Signer: k.signer.CSIL(), SignerInstanceId: "lh-1", Audience: k.own.CSIL(),
 		RequestDigest: apppresent.RequestDigest(),
-		PresentedAt:   csil.Timestamp(time.Now().UTC().Format("2006-01-02T15:04:05Z")),
+		PresentedAt:   time.Now().UTC().Truncate(time.Second),
 		Nonce:         []byte(nonce),
 	})
 	return csil.ExchangeApplicationPresentationRequest{Presentation: csil.SignedApplicationPresentation{

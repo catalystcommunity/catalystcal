@@ -2,11 +2,12 @@ package httpapi
 
 import (
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
 
-func getOccurrence(c *client, id csil.EventID, rid *csil.Timestamp) reply[csil.Occurrence] {
+func getOccurrence(c *client, id csil.EventID, rid *time.Time) reply[csil.Occurrence] {
 	return call(c, "EventService", "get-occurrence", csil.GetOccurrenceRequest{EventId: id, RecurrenceId: rid},
 		csil.EncodeGetOccurrenceRequest, csil.DecodeOccurrence)
 }
@@ -15,9 +16,9 @@ func wantOcc(t *testing.T, o csil.Occurrence, rid, start, end, title string) {
 	t.Helper()
 	gotRid := ""
 	if o.RecurrenceId != nil {
-		gotRid = string(*o.RecurrenceId)
+		gotRid = o.RecurrenceId.Format(time.RFC3339)
 	}
-	if gotRid != rid || string(o.Start) != start || string(o.End) != end || o.Event.Title != title {
+	if gotRid != rid || o.Start.Format(time.RFC3339) != start || o.End.Format(time.RFC3339) != end || o.Event.Title != title {
 		t.Fatalf("occurrence rid %q %s..%s %q, want %q %s..%s %q", gotRid, o.Start, o.End, o.Event.Title, rid, start, end, title)
 	}
 }
@@ -94,7 +95,7 @@ func TestGetOccurrence(t *testing.T) {
 
 	// An all-day series: the date counts.
 	day := csil.Event{CalendarId: a1.CalendarId, Title: "Trash day", AllDay: ptrBool(true),
-		StartDate: ptr(csil.DateText("2026-11-06")), EndDate: ptr(csil.DateText("2026-11-07")),
+		StartDate: ptr("2026-11-06"), EndDate: ptr("2026-11-07"),
 		Recurrence: &csil.Recurrence{Rrule: "FREQ=WEEKLY;COUNT=4"}}
 	days := must(t, createEvent(alice, day))
 	o = must(t, getOccurrence(bob, days.EventId, tsp("2026-11-13T00:00:00Z")))

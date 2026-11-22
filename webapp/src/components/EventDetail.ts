@@ -9,7 +9,7 @@ import { toast } from "~/stores/toast";
 import { STATUS_LABEL, myAttendee, occColor, occTitle } from "~/lib/eventVisual";
 import { allDayLength, allDayStart } from "~/lib/occurrence";
 import { addDays } from "~/lib/dates";
-import { civilDate, formatDate, formatTimeRange, parseTimestamp, zoneAbbrev } from "~/lib/tz";
+import { civilDate, formatDate, formatTimeRange, zoneAbbrev } from "~/lib/tz";
 import { describeRRule } from "~/lib/rrule";
 import { buildDelete, duplicateForm, formFromOccurrence, isSeriesOccurrence } from "~/lib/eventForm";
 import { identityLabel, personName, samePerson } from "~/lib/people";
@@ -33,8 +33,8 @@ export function whenText(o: Occurrence, tz: string): string {
     const a = formatDate(s, { weekday: "long", month: "long", day: "numeric" });
     return len > 1 ? `${a} – ${formatDate(addDays(s, len - 1), { weekday: "long", month: "long", day: "numeric" })}` : `${a}, all day`;
   }
-  const s = parseTimestamp(o.start);
-  const e = parseTimestamp(o.end);
+  const s = o.start.getTime();
+  const e = o.end.getTime();
   const sd = civilDate(s, tz);
   const ed = civilDate(e - 1, tz);
   const day = formatDate(sd, { weekday: "long", month: "long", day: "numeric" });
@@ -87,7 +87,7 @@ export class EventDetail extends CalElement {
     const isOrganizer = samePerson(ev.organizer, me);
     const eventTz = ev.timezone;
     const otherZone =
-      !ev.allDay && !!eventTz && eventTz !== tz && zoneAbbrev(parseTimestamp(o.start), eventTz) !== zoneAbbrev(parseTimestamp(o.start), tz);
+      !ev.allDay && !!eventTz && eventTz !== tz && zoneAbbrev(o.start.getTime(), eventTz) !== zoneAbbrev(o.start.getTime(), tz);
 
     const parts: Child[] = [];
     parts.push(
@@ -105,7 +105,7 @@ export class EventDetail extends CalElement {
                 icon("repeat", 13),
                 describeRRule(
                   ev.recurrence.rrule,
-                  ev.allDay ? (ev.startDate ?? civilDate(parseTimestamp(o.start), tz)) : civilDate(parseTimestamp(ev.start ?? o.start), eventTz || tz),
+                  ev.allDay ? (ev.startDate ?? civilDate(o.start.getTime(), tz)) : civilDate((ev.start ?? o.start).getTime(), eventTz || tz),
                   eventTz || tz,
                 ),
               )

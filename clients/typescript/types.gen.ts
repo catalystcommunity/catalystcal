@@ -2,6 +2,14 @@
 // Source: <csil spec>
 // Target: typescript-typesonly
 
+export function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || value.length !== 10 || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1];
+}
+
 export type UserID = string;
 
 export type CalendarID = string;
@@ -20,36 +28,113 @@ export type TrashID = string;
 
 export type SessionID = string;
 
-export type Timestamp = string;
-
-export type DateText = string;
-
+export const ShareRole = {
+  FREE_BUSY: "free_busy",
+  READ: "read",
+  CONTRIBUTE: "contribute",
+  WRITE: "write",
+  MANAGE: "manage",
+} as const;
 export type ShareRole = "free_busy" | "read" | "contribute" | "write" | "manage";
 
+export const AccessRole = {
+  NONE: "none",
+  FREE_BUSY: "free_busy",
+  READ: "read",
+  CONTRIBUTE: "contribute",
+  WRITE: "write",
+  MANAGE: "manage",
+  OWNER: "owner",
+} as const;
 export type AccessRole = "none" | "free_busy" | "read" | "contribute" | "write" | "manage" | "owner";
 
+export const AccessPath = {
+  OWNER: "owner",
+  SHARE: "share",
+  DELEGATION: "delegation",
+  ATTENDEE: "attendee",
+} as const;
 export type AccessPath = "owner" | "share" | "delegation" | "attendee";
 
+export const Scope = {
+  CALENDARS_READ: "calendars.read",
+  FREEBUSY_READ: "freebusy.read",
+  EVENTS_WRITE: "events.write",
+  EVENTS_RESPOND: "events.respond",
+  CALENDARS_MANAGE: "calendars.manage",
+} as const;
 export type Scope = "calendars.read" | "freebusy.read" | "events.write" | "events.respond" | "calendars.manage";
 
+export const CalendarKind = {
+  LOCAL: "local",
+  SUBSCRIPTION: "subscription",
+} as const;
 export type CalendarKind = "local" | "subscription";
 
+export const EventStatus = {
+  CONFIRMED: "confirmed",
+  TENTATIVE: "tentative",
+  CANCELLED: "cancelled",
+} as const;
 export type EventStatus = "confirmed" | "tentative" | "cancelled";
 
+export const EventTransparency = {
+  OPAQUE: "opaque",
+  TRANSPARENT: "transparent",
+} as const;
 export type EventTransparency = "opaque" | "transparent";
 
+export const EventVisibility = {
+  DEFAULT: "default",
+  PUBLIC: "public",
+  PRIVATE: "private",
+  CONFIDENTIAL: "confidential",
+} as const;
 export type EventVisibility = "default" | "public" | "private" | "confidential";
 
+export const ParticipationStatus = {
+  NEEDS_ACTION: "needs_action",
+  ACCEPTED: "accepted",
+  DECLINED: "declined",
+  TENTATIVE: "tentative",
+  DELEGATED: "delegated",
+} as const;
 export type ParticipationStatus = "needs_action" | "accepted" | "declined" | "tentative" | "delegated";
 
+export const AttendeeRole = {
+  CHAIR: "chair",
+  REQUIRED: "required",
+  OPTIONAL: "optional",
+  NON_PARTICIPANT: "non_participant",
+} as const;
 export type AttendeeRole = "chair" | "required" | "optional" | "non_participant";
 
+export const ReminderMethod = {
+  DISPLAY: "display",
+  EMAIL: "email",
+} as const;
 export type ReminderMethod = "display" | "email";
 
+export const RecurrenceScope = {
+  ALL: "all",
+  THIS: "this",
+  THIS_AND_FUTURE: "this_and_future",
+} as const;
 export type RecurrenceScope = "all" | "this" | "this_and_future";
 
+export const ActingVia = {
+  SELF: "self",
+  DELEGATION: "delegation",
+  ACT_AS_GRANT: "act_as_grant",
+} as const;
 export type ActingVia = "self" | "delegation" | "act_as_grant";
 
+export const CreateReceiptState = {
+  LIVE: "live",
+  TRASHED: "trashed",
+  DELETED: "deleted",
+  HIDDEN: "hidden",
+} as const;
 export type CreateReceiptState = "live" | "trashed" | "deleted" | "hidden";
 
 export interface IdentityRef {
@@ -68,8 +153,8 @@ export interface User {
   displayName?: string;
   email?: string;
   timezone?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface PersonSummary {
@@ -90,14 +175,14 @@ export interface Calendar {
   timezone?: string;
   kind: CalendarKind;
   sourceUrl?: string;
-  lastSyncedAt?: Timestamp;
+  lastSyncedAt?: Date;
   syncError?: string;
   isDefault: boolean;
   access: AccessRole;
   accessPath: AccessPath;
   feedPath?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateCalendarRequest {
@@ -138,7 +223,7 @@ export interface Share {
   role: ShareRole;
   granteePerson?: PersonSummary;
   granteeGroupName?: string;
-  createdAt: Timestamp;
+  createdAt: Date;
 }
 
 export interface ShareList {
@@ -159,8 +244,8 @@ export interface Group {
   description?: string;
   revision: number;
   members: GroupMember[];
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface CreateGroupRequest {
@@ -193,9 +278,9 @@ export interface Delegation {
   scopes: Scope[];
   calendarIds?: CalendarID[];
   note?: string;
-  expiresAt?: Timestamp;
-  createdAt: Timestamp;
-  revokedAt?: Timestamp;
+  expiresAt?: Date;
+  createdAt: Date;
+  revokedAt?: Date;
 }
 
 export interface DelegationList {
@@ -208,8 +293,8 @@ export interface AssumePrincipalRequest {
 
 export interface Recurrence {
   rrule: string;
-  exdates?: Timestamp[];
-  rdates?: Timestamp[];
+  exdates?: Date[];
+  rdates?: Date[];
 }
 
 export interface Attendee {
@@ -237,18 +322,18 @@ export interface Event {
   location?: string;
   url?: string;
   conferenceUrl?: string;
-  start?: Timestamp;
-  end?: Timestamp;
+  start?: Date;
+  end?: Date;
   allDay?: boolean;
-  startDate?: DateText;
-  endDate?: DateText;
+  startDate?: string;
+  endDate?: string;
   timezone?: string;
   status?: EventStatus;
   transparency?: EventTransparency;
   visibility?: EventVisibility;
   recurrence?: Recurrence;
   masterEventId?: EventID;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
   attendees?: Attendee[];
   reminders?: Reminder[];
   categories?: string[];
@@ -258,23 +343,23 @@ export interface Event {
   updatedBy?: PersonSummary;
   updatedVia?: ActingVia;
   sequence: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Occurrence {
   event: Event;
-  start: Timestamp;
-  end: Timestamp;
-  recurrenceId?: Timestamp;
+  start: Date;
+  end: Date;
+  recurrenceId?: Date;
   access: AccessRole;
   busyOnly: boolean;
   invited: boolean;
 }
 
 export interface ListEventsRequest {
-  rangeStart: Timestamp;
-  rangeEnd: Timestamp;
+  rangeStart: Date;
+  rangeEnd: Date;
   calendarIds?: CalendarID[];
   includeInvitations?: boolean;
 }
@@ -287,13 +372,13 @@ export interface OccurrenceList {
 export interface UpdateEventRequest {
   event: Event;
   scope?: RecurrenceScope;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
 }
 
 export interface DeleteEventRequest {
   eventId: EventID;
   scope?: RecurrenceScope;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
 }
 
 export interface DeleteEventResponse {
@@ -310,12 +395,12 @@ export interface TrashEntry {
   calendarId: CalendarID;
   eventId: EventID;
   scope: RecurrenceScope;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
   event: Event;
   instance?: Event;
   deletedBy?: PersonSummary;
-  deletedAt: Timestamp;
-  expiresAt: Timestamp;
+  deletedAt: Date;
+  expiresAt: Date;
 }
 
 export interface ListTrashRequest {
@@ -334,7 +419,7 @@ export interface RestoreEventRequest {
 export interface ImportEventRequest {
   event: Event;
   createdBy: IdentityRef;
-  createdAt?: Timestamp;
+  createdAt?: Date;
 }
 
 export interface CreateEventOnceRequest {
@@ -353,7 +438,7 @@ export interface CreateEventReceipt {
   eventId: EventID;
   state: CreateReceiptState;
   created: boolean;
-  createdAt: Timestamp;
+  createdAt: Date;
   event?: Event;
   trashId?: TrashID;
 }
@@ -361,33 +446,38 @@ export interface CreateEventReceipt {
 export interface SplitSeriesOnceRequest {
   idempotencyKey: string;
   event: Event;
-  recurrenceId: Timestamp;
-  mapRecurrenceIds?: Timestamp[];
+  recurrenceId: Date;
+  mapRecurrenceIds?: Date[];
 }
 
 export interface SplitReceiptRequest {
   seriesId: EventID;
   idempotencyKey: string;
-  mapRecurrenceIds?: Timestamp[];
+  mapRecurrenceIds?: Date[];
 }
 
+export const SplitMapResult = {
+  ORIGINAL: "original",
+  SUCCESSOR: "successor",
+  NONE: "none",
+} as const;
 export type SplitMapResult = "original" | "successor" | "none";
 
 export interface SplitOccurrenceMapping {
-  recurrenceId: Timestamp;
+  recurrenceId: Date;
   result: SplitMapResult;
   eventId?: EventID;
-  mappedRecurrenceId?: Timestamp;
+  mappedRecurrenceId?: Date;
 }
 
 export interface SplitSeriesReceipt {
   seriesId: EventID;
   idempotencyKey: string;
   successorId: EventID;
-  splitAt: Timestamp;
+  splitAt: Date;
   inPlace: boolean;
   created: boolean;
-  createdAt: Timestamp;
+  createdAt: Date;
   calendarId: CalendarID;
   seriesState: CreateReceiptState;
   series?: Event;
@@ -400,13 +490,13 @@ export interface SplitSeriesReceipt {
 
 export interface GetOccurrenceRequest {
   eventId: EventID;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
 }
 
 export interface RespondRequest {
   eventId: EventID;
   status: ParticipationStatus;
-  recurrenceId?: Timestamp;
+  recurrenceId?: Date;
   comment?: string;
 }
 
@@ -420,15 +510,15 @@ export interface EventList {
 }
 
 export interface BusyInterval {
-  start: Timestamp;
-  end: Timestamp;
+  start: Date;
+  end: Date;
   tentative?: boolean;
 }
 
 export interface FreeBusyRequest {
   people: IdentityRef[];
-  rangeStart: Timestamp;
-  rangeEnd: Timestamp;
+  rangeStart: Date;
+  rangeEnd: Date;
 }
 
 export interface PersonFreeBusy {
@@ -470,7 +560,7 @@ export interface IcsDocument {
 
 export interface AuditEntry {
   auditId: AuditID;
-  at: Timestamp;
+  at: Date;
   actor: PersonSummary;
   principal: PersonSummary;
   via: ActingVia;
@@ -496,7 +586,7 @@ export interface CompleteRequest {
 
 export interface LoginResponse {
   token: string;
-  expiresAt: Timestamp;
+  expiresAt: Date;
   user: PersonSummary;
   actingAs?: PersonSummary;
   via: ActingVia;
@@ -538,7 +628,7 @@ export interface ApplicationPresentation {
   signerInstanceId: string;
   audience: ApplicationRef;
   requestDigest: Uint8Array;
-  presentedAt: Timestamp;
+  presentedAt: Date;
   nonce: Uint8Array;
 }
 
@@ -642,6 +732,12 @@ export function validateUpdateGroupRequest(value: UpdateGroupRequest): string[] 
 export function validateEvent(value: Event): string[] {
   const errors: string[] = [];
   if (value.title.length < 1 || value.title.length > 1024) errors.push("title: length must be between 1 and 1024");
+  if (value.startDate !== undefined) {
+    if (!isCalendarDate(value.startDate)) errors.push("startDate: expected YYYY-MM-DD");
+  }
+  if (value.endDate !== undefined) {
+    if (!isCalendarDate(value.endDate)) errors.push("endDate: expected YYYY-MM-DD");
+  }
   return errors;
 }
 

@@ -2,4 +2,22 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record AttendeeRole(Object value) {}
+public enum AttendeeRole {
+    CHAIR("chair"),
+    REQUIRED("required"),
+    OPTIONAL("optional"),
+    NON_PARTICIPANT("non_participant");
+
+    private final String value;
+
+    AttendeeRole(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static AttendeeRole fromWire(String value) {
+        for (AttendeeRole member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown AttendeeRole value: " + value);
+    }
+}

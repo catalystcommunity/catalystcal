@@ -2,13 +2,14 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record SplitSeriesOnceRequest(
     String idempotencyKey /* wire: "idempotency_key" */,
     Event event /* wire: "event" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
-    List<Timestamp> mapRecurrenceIds /* wire: "map_recurrence_ids" */
+    Instant recurrenceId /* wire: "recurrence_id" */,
+    List<Instant> mapRecurrenceIds /* wire: "map_recurrence_ids" */
 ) {
     public SplitSeriesOnceRequest {
         if (idempotencyKey.length() < 1) {

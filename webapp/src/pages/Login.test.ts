@@ -73,7 +73,7 @@ describe("LoginPage", () => {
 
   it("shows dev users and signs in as one", async () => {
     listDevUsers.mockResolvedValue({ users: [{ userId: "u1", handle: "alice", displayName: "Alice", domain: "dev.local" }] });
-    devLogin.mockResolvedValue({ token: "t", expiresAt: "2099-01-01T00:00:00Z", user: { userId: "u1", domain: "dev.local", subject: "alice" }, via: "self" });
+    devLogin.mockResolvedValue({ token: "t", expiresAt: new Date("2099-01-01T00:00:00Z"), user: { userId: "u1", domain: "dev.local", subject: "alice" }, via: "self" });
     await renderLogin();
     const btn = await screen.findByRole("button", { name: /Alice/ });
     fireEvent.click(btn);
@@ -82,7 +82,7 @@ describe("LoginPage", () => {
 
   it("signs in a new dev user by handle", async () => {
     listDevUsers.mockResolvedValue({ users: [] });
-    devLogin.mockResolvedValue({ token: "t", expiresAt: "2099-01-01T00:00:00Z", user: { userId: "u2", domain: "dev.local", subject: "bob" }, via: "self" });
+    devLogin.mockResolvedValue({ token: "t", expiresAt: new Date("2099-01-01T00:00:00Z"), user: { userId: "u2", domain: "dev.local", subject: "bob" }, via: "self" });
     await renderLogin();
     const input = await screen.findByLabelText("Handle");
     fireEvent.input(input, { target: { value: "bob" } });

@@ -78,7 +78,7 @@ func presentation(mod func(*csil.ApplicationPresentation)) csil.ApplicationPrese
 		SignerInstanceId: instance,
 		Audience:         own.CSIL(),
 		RequestDigest:    RequestDigest(),
-		PresentedAt:      csil.Timestamp(now.Add(-10 * time.Second).Format("2006-01-02T15:04:05Z")),
+		PresentedAt:      now.Add(-10 * time.Second).Truncate(time.Second),
 		Nonce:            []byte("0123456789abcdef"),
 	}
 	if mod != nil {
@@ -146,18 +146,18 @@ func TestVerifyRefuses(t *testing.T) {
 		{name: "too old", keys: usable, want: ErrRefused, reason: "too old",
 			signed: func() csil.SignedApplicationPresentation {
 				return sign(k, presentation(func(p *csil.ApplicationPresentation) {
-					p.PresentedAt = csil.Timestamp(now.Add(-361 * time.Second).Format("2006-01-02T15:04:05Z"))
+					p.PresentedAt = now.Add(-361 * time.Second).Truncate(time.Second)
 				}))
 			}},
 		{name: "in the future", keys: usable, want: ErrRefused, reason: "future",
 			signed: func() csil.SignedApplicationPresentation {
 				return sign(k, presentation(func(p *csil.ApplicationPresentation) {
-					p.PresentedAt = csil.Timestamp(now.Add(61 * time.Second).Format("2006-01-02T15:04:05Z"))
+					p.PresentedAt = now.Add(61 * time.Second).Truncate(time.Second)
 				}))
 			}},
-		{name: "bad time layout", keys: usable, want: ErrRefused, reason: "presented_at",
+		{name: "fractional presentation time", keys: usable, want: ErrRefused, reason: "presented_at",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) { p.PresentedAt = "2026-11-01T11:59:50+00:00" }))
+				return sign(k, presentation(func(p *csil.ApplicationPresentation) { p.PresentedAt = now.Add(time.Nanosecond) }))
 			}},
 		{name: "short nonce", keys: usable, want: ErrRefused, reason: "nonce",
 			signed: func() csil.SignedApplicationPresentation {

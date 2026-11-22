@@ -427,10 +427,10 @@ func (p *parser) event(c *goical.Component) (csil.Event, bool) {
 				ed = e2
 			}
 		}
-		ev.StartDate = ptr(csil.DateText(sd.Format(DateLayout)))
-		ev.EndDate = ptr(csil.DateText(ed.Format(DateLayout)))
-		ev.Start = ptr(csil.Timestamp(sd.Format(TimeLayout)))
-		ev.End = ptr(csil.Timestamp(ed.Format(TimeLayout)))
+		ev.StartDate = ptr(sd.Format(DateLayout))
+		ev.EndDate = ptr(ed.Format(DateLayout))
+		ev.Start = &sd
+		ev.End = &ed
 		tm = timing{allDay: true, loc: time.UTC, start: sd, end: ed}
 	} else {
 		st := start.t.Truncate(time.Second)
@@ -444,8 +444,8 @@ func (p *parser) event(c *goical.Component) (csil.Event, bool) {
 				en = st
 			}
 		}
-		ev.Start = ptr(csil.Timestamp(st.UTC().Format(TimeLayout)))
-		ev.End = ptr(csil.Timestamp(en.UTC().Format(TimeLayout)))
+		ev.Start = ptr(st.UTC())
+		ev.End = ptr(en.UTC().Truncate(time.Second))
 		if start.zone != "" {
 			ev.Timezone = ptr(start.zone)
 		}
@@ -464,8 +464,8 @@ func (p *parser) event(c *goical.Component) (csil.Event, bool) {
 		}
 		return v.t.UTC()
 	}
-	dateProps := func(name string) []csil.Timestamp {
-		var out []csil.Timestamp
+	dateProps := func(name string) []time.Time {
+		var out []time.Time
 		for _, pr := range c.Props.Values(name) {
 			for _, part := range strings.Split(pr.Value, ",") {
 				part = strings.TrimSpace(part)
@@ -484,7 +484,7 @@ func (p *parser) event(c *goical.Component) (csil.Event, bool) {
 					p.warn("VEVENT %q: ignored %s: %v", uid, name, err)
 					continue
 				}
-				out = append(out, csil.Timestamp(instant(v).Format(TimeLayout)))
+				out = append(out, instant(v).Truncate(time.Second))
 			}
 		}
 		return out
@@ -499,7 +499,7 @@ func (p *parser) event(c *goical.Component) (csil.Event, bool) {
 		if strings.EqualFold(rid.Params.Get("RANGE"), "THISANDFUTURE") {
 			p.warn("VEVENT %q: RECURRENCE-ID RANGE=THISANDFUTURE read as one instance", uid)
 		}
-		ev.RecurrenceId = ptr(csil.Timestamp(instant(v).Format(TimeLayout)))
+		ev.RecurrenceId = ptr(instant(v).Truncate(time.Second))
 	} else {
 		rules := c.Props.Values(goical.PropRecurrenceRule)
 		rdates := dateProps(goical.PropRecurrenceDates)

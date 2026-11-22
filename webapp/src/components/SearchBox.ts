@@ -6,7 +6,7 @@ import { displayZone } from "~/stores/prefs";
 import { goToDate } from "~/stores/nav";
 import { openDetail } from "~/stores/editor";
 import { eventDate, occurrenceOf } from "~/lib/eventRef";
-import { formatDate, formatTime, parseTimestamp } from "~/lib/tz";
+import { formatDate, formatTime } from "~/lib/tz";
 import { errorMessage } from "~/transport/csilrpc";
 import { navigate } from "~/app/router";
 import { CalElement, define } from "~/ui/element";
@@ -18,7 +18,7 @@ function whenText(e: Event): string {
   const d = eventDate(e, tz);
   if (!d) return "";
   const day = formatDate(d, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-  return e.allDay || !e.start ? day : `${day}, ${formatTime(parseTimestamp(e.start), tz)}`;
+  return e.allDay || !e.start ? day : `${day}, ${formatTime(e.start.getTime(), tz)}`;
 }
 
 export class SearchBox extends CalElement {

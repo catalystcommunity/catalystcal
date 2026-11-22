@@ -2,4 +2,21 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record SplitMapResult(Object value) {}
+public enum SplitMapResult {
+    ORIGINAL("original"),
+    SUCCESSOR("successor"),
+    NONE("none");
+
+    private final String value;
+
+    SplitMapResult(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static SplitMapResult fromWire(String value) {
+        for (SplitMapResult member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown SplitMapResult value: " + value);
+    }
+}

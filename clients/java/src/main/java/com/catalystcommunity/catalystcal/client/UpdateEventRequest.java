@@ -2,9 +2,11 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record UpdateEventRequest(
     Event event /* wire: "event" */,
     RecurrenceScope scope /* wire: "scope" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */
+    Instant recurrenceId /* wire: "recurrence_id" */
 ) {
 }

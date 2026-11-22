@@ -15,103 +15,103 @@ pub const CsilgenCodec = struct {
 
 /// AuthHandlers is the host's implementation of the AuthService service.
 pub const AuthHandlers = struct {
-    complete: *const fn (ctx: *anyopaque, req: *const types.CompleteRequest, resp: *types.LoginResponse) anyerror!void,
-    resume_session: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.LoginResponse) anyerror!void,
-    end_session: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.EmptyResponse) anyerror!void,
-    me: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.MeResponse) anyerror!void,
-    assume_principal: *const fn (ctx: *anyopaque, req: *const types.AssumePrincipalRequest, resp: *types.LoginResponse) anyerror!void,
-    release_principal: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.LoginResponse) anyerror!void,
-    exchange_act_as_credential: *const fn (ctx: *anyopaque, req: *const types.ExchangeActAsCredentialRequest, resp: *types.LoginResponse) anyerror!void,
-    get_act_as_scope_set: *const fn (ctx: *anyopaque, req: *const types.ScopeSetRequest, resp: *types.ScopeSetResponse) anyerror!void,
-    get_application_identity: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.ApplicationIdentityResponse) anyerror!void,
-    exchange_application_presentation: *const fn (ctx: *anyopaque, req: *const types.ExchangeApplicationPresentationRequest, resp: *types.LoginResponse) anyerror!void,
+    complete: *const fn (ctx: *anyopaque, req: *const types.CompleteRequest, resp: *types.AuthServiceCompleteReply) anyerror!void,
+    resume_session: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.AuthServiceResumeSessionReply) anyerror!void,
+    end_session: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.AuthServiceEndSessionReply) anyerror!void,
+    me: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.AuthServiceMeReply) anyerror!void,
+    assume_principal: *const fn (ctx: *anyopaque, req: *const types.AssumePrincipalRequest, resp: *types.AuthServiceAssumePrincipalReply) anyerror!void,
+    release_principal: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.AuthServiceReleasePrincipalReply) anyerror!void,
+    exchange_act_as_credential: *const fn (ctx: *anyopaque, req: *const types.ExchangeActAsCredentialRequest, resp: *types.AuthServiceExchangeActAsCredentialReply) anyerror!void,
+    get_act_as_scope_set: *const fn (ctx: *anyopaque, req: *const types.ScopeSetRequest, resp: *types.AuthServiceGetActAsScopeSetReply) anyerror!void,
+    get_application_identity: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.AuthServiceGetApplicationIdentityReply) anyerror!void,
+    exchange_application_presentation: *const fn (ctx: *anyopaque, req: *const types.ExchangeApplicationPresentationRequest, resp: *types.AuthServiceExchangeApplicationPresentationReply) anyerror!void,
 };
 
 /// DevAuthHandlers is the host's implementation of the DevAuthService service.
 pub const DevAuthHandlers = struct {
-    list_dev_users: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DevUsersResponse) anyerror!void,
-    dev_login: *const fn (ctx: *anyopaque, req: *const types.DevLoginRequest, resp: *types.LoginResponse) anyerror!void,
+    list_dev_users: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DevAuthServiceListDevUsersReply) anyerror!void,
+    dev_login: *const fn (ctx: *anyopaque, req: *const types.DevLoginRequest, resp: *types.DevAuthServiceDevLoginReply) anyerror!void,
 };
 
 /// UserHandlers is the host's implementation of the UserService service.
 pub const UserHandlers = struct {
-    get_profile: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.User) anyerror!void,
-    update_profile: *const fn (ctx: *anyopaque, req: *const types.UpdateProfileRequest, resp: *types.User) anyerror!void,
-    lookup_person: *const fn (ctx: *anyopaque, req: *const types.LookupPersonRequest, resp: *types.PersonSummary) anyerror!void,
+    get_profile: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.UserServiceGetProfileReply) anyerror!void,
+    update_profile: *const fn (ctx: *anyopaque, req: *const types.UpdateProfileRequest, resp: *types.UserServiceUpdateProfileReply) anyerror!void,
+    lookup_person: *const fn (ctx: *anyopaque, req: *const types.LookupPersonRequest, resp: *types.UserServiceLookupPersonReply) anyerror!void,
 };
 
 /// CalendarHandlers is the host's implementation of the CalendarService service.
 pub const CalendarHandlers = struct {
-    list_calendars: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.CalendarList) anyerror!void,
-    get_calendar: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.Calendar) anyerror!void,
-    create_calendar: *const fn (ctx: *anyopaque, req: *const types.CreateCalendarRequest, resp: *types.Calendar) anyerror!void,
-    update_calendar: *const fn (ctx: *anyopaque, req: *const types.UpdateCalendarRequest, resp: *types.Calendar) anyerror!void,
-    delete_calendar: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.EmptyResponse) anyerror!void,
-    subscribe_calendar: *const fn (ctx: *anyopaque, req: *const types.SubscribeCalendarRequest, resp: *types.Calendar) anyerror!void,
-    refresh_subscription: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.Calendar) anyerror!void,
-    set_feed: *const fn (ctx: *anyopaque, req: *const types.SetFeedRequest, resp: *types.Calendar) anyerror!void,
+    list_calendars: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.CalendarServiceListCalendarsReply) anyerror!void,
+    get_calendar: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.CalendarServiceGetCalendarReply) anyerror!void,
+    create_calendar: *const fn (ctx: *anyopaque, req: *const types.CreateCalendarRequest, resp: *types.CalendarServiceCreateCalendarReply) anyerror!void,
+    update_calendar: *const fn (ctx: *anyopaque, req: *const types.UpdateCalendarRequest, resp: *types.CalendarServiceUpdateCalendarReply) anyerror!void,
+    delete_calendar: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.CalendarServiceDeleteCalendarReply) anyerror!void,
+    subscribe_calendar: *const fn (ctx: *anyopaque, req: *const types.SubscribeCalendarRequest, resp: *types.CalendarServiceSubscribeCalendarReply) anyerror!void,
+    refresh_subscription: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.CalendarServiceRefreshSubscriptionReply) anyerror!void,
+    set_feed: *const fn (ctx: *anyopaque, req: *const types.SetFeedRequest, resp: *types.CalendarServiceSetFeedReply) anyerror!void,
 };
 
 /// ShareHandlers is the host's implementation of the ShareService service.
 pub const ShareHandlers = struct {
-    list_shares: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.ShareList) anyerror!void,
-    put_share: *const fn (ctx: *anyopaque, req: *const types.Share, resp: *types.Share) anyerror!void,
-    delete_share: *const fn (ctx: *anyopaque, req: *const types.ShareID, resp: *types.EmptyResponse) anyerror!void,
+    list_shares: *const fn (ctx: *anyopaque, req: *const types.CalendarID, resp: *types.ShareServiceListSharesReply) anyerror!void,
+    put_share: *const fn (ctx: *anyopaque, req: *const types.Share, resp: *types.ShareServicePutShareReply) anyerror!void,
+    delete_share: *const fn (ctx: *anyopaque, req: *const types.ShareID, resp: *types.ShareServiceDeleteShareReply) anyerror!void,
 };
 
 /// GroupHandlers is the host's implementation of the GroupService service.
 pub const GroupHandlers = struct {
-    list_groups: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.GroupList) anyerror!void,
-    get_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.Group) anyerror!void,
-    create_group: *const fn (ctx: *anyopaque, req: *const types.CreateGroupRequest, resp: *types.Group) anyerror!void,
-    update_group: *const fn (ctx: *anyopaque, req: *const types.UpdateGroupRequest, resp: *types.Group) anyerror!void,
-    set_members: *const fn (ctx: *anyopaque, req: *const types.SetGroupMembersRequest, resp: *types.Group) anyerror!void,
-    delete_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.EmptyResponse) anyerror!void,
+    list_groups: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.GroupServiceListGroupsReply) anyerror!void,
+    get_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.GroupServiceGetGroupReply) anyerror!void,
+    create_group: *const fn (ctx: *anyopaque, req: *const types.CreateGroupRequest, resp: *types.GroupServiceCreateGroupReply) anyerror!void,
+    update_group: *const fn (ctx: *anyopaque, req: *const types.UpdateGroupRequest, resp: *types.GroupServiceUpdateGroupReply) anyerror!void,
+    set_members: *const fn (ctx: *anyopaque, req: *const types.SetGroupMembersRequest, resp: *types.GroupServiceSetMembersReply) anyerror!void,
+    delete_group: *const fn (ctx: *anyopaque, req: *const types.GroupID, resp: *types.GroupServiceDeleteGroupReply) anyerror!void,
 };
 
 /// DelegationHandlers is the host's implementation of the DelegationService service.
 pub const DelegationHandlers = struct {
-    list_granted: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DelegationList) anyerror!void,
-    list_received: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DelegationList) anyerror!void,
-    create_delegation: *const fn (ctx: *anyopaque, req: *const types.Delegation, resp: *types.Delegation) anyerror!void,
-    update_delegation: *const fn (ctx: *anyopaque, req: *const types.Delegation, resp: *types.Delegation) anyerror!void,
-    revoke_delegation: *const fn (ctx: *anyopaque, req: *const types.DelegationID, resp: *types.EmptyResponse) anyerror!void,
+    list_granted: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DelegationServiceListGrantedReply) anyerror!void,
+    list_received: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.DelegationServiceListReceivedReply) anyerror!void,
+    create_delegation: *const fn (ctx: *anyopaque, req: *const types.Delegation, resp: *types.DelegationServiceCreateDelegationReply) anyerror!void,
+    update_delegation: *const fn (ctx: *anyopaque, req: *const types.Delegation, resp: *types.DelegationServiceUpdateDelegationReply) anyerror!void,
+    revoke_delegation: *const fn (ctx: *anyopaque, req: *const types.DelegationID, resp: *types.DelegationServiceRevokeDelegationReply) anyerror!void,
 };
 
 /// EventHandlers is the host's implementation of the EventService service.
 pub const EventHandlers = struct {
-    list_events: *const fn (ctx: *anyopaque, req: *const types.ListEventsRequest, resp: *types.OccurrenceList) anyerror!void,
-    get_event: *const fn (ctx: *anyopaque, req: *const types.EventID, resp: *types.Event) anyerror!void,
-    get_occurrence: *const fn (ctx: *anyopaque, req: *const types.GetOccurrenceRequest, resp: *types.Occurrence) anyerror!void,
-    create_event: *const fn (ctx: *anyopaque, req: *const types.Event, resp: *types.Event) anyerror!void,
-    update_event: *const fn (ctx: *anyopaque, req: *const types.UpdateEventRequest, resp: *types.Event) anyerror!void,
-    delete_event: *const fn (ctx: *anyopaque, req: *const types.DeleteEventRequest, resp: *types.DeleteEventResponse) anyerror!void,
-    move_event: *const fn (ctx: *anyopaque, req: *const types.MoveEventRequest, resp: *types.Event) anyerror!void,
-    respond: *const fn (ctx: *anyopaque, req: *const types.RespondRequest, resp: *types.Event) anyerror!void,
-    list_invitations: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.EventList) anyerror!void,
-    search_events: *const fn (ctx: *anyopaque, req: *const types.SearchEventsRequest, resp: *types.EventList) anyerror!void,
-    list_trash: *const fn (ctx: *anyopaque, req: *const types.ListTrashRequest, resp: *types.TrashList) anyerror!void,
-    restore_event: *const fn (ctx: *anyopaque, req: *const types.RestoreEventRequest, resp: *types.Event) anyerror!void,
-    import_event: *const fn (ctx: *anyopaque, req: *const types.ImportEventRequest, resp: *types.Event) anyerror!void,
-    create_event_once: *const fn (ctx: *anyopaque, req: *const types.CreateEventOnceRequest, resp: *types.CreateEventReceipt) anyerror!void,
-    get_create_receipt: *const fn (ctx: *anyopaque, req: *const types.CreateReceiptRequest, resp: *types.CreateEventReceipt) anyerror!void,
-    split_series_once: *const fn (ctx: *anyopaque, req: *const types.SplitSeriesOnceRequest, resp: *types.SplitSeriesReceipt) anyerror!void,
-    get_split_receipt: *const fn (ctx: *anyopaque, req: *const types.SplitReceiptRequest, resp: *types.SplitSeriesReceipt) anyerror!void,
+    list_events: *const fn (ctx: *anyopaque, req: *const types.ListEventsRequest, resp: *types.EventServiceListEventsReply) anyerror!void,
+    get_event: *const fn (ctx: *anyopaque, req: *const types.EventID, resp: *types.EventServiceGetEventReply) anyerror!void,
+    get_occurrence: *const fn (ctx: *anyopaque, req: *const types.GetOccurrenceRequest, resp: *types.EventServiceGetOccurrenceReply) anyerror!void,
+    create_event: *const fn (ctx: *anyopaque, req: *const types.Event, resp: *types.EventServiceCreateEventReply) anyerror!void,
+    update_event: *const fn (ctx: *anyopaque, req: *const types.UpdateEventRequest, resp: *types.EventServiceUpdateEventReply) anyerror!void,
+    delete_event: *const fn (ctx: *anyopaque, req: *const types.DeleteEventRequest, resp: *types.EventServiceDeleteEventReply) anyerror!void,
+    move_event: *const fn (ctx: *anyopaque, req: *const types.MoveEventRequest, resp: *types.EventServiceMoveEventReply) anyerror!void,
+    respond: *const fn (ctx: *anyopaque, req: *const types.RespondRequest, resp: *types.EventServiceRespondReply) anyerror!void,
+    list_invitations: *const fn (ctx: *anyopaque, req: *const types.EmptyRequest, resp: *types.EventServiceListInvitationsReply) anyerror!void,
+    search_events: *const fn (ctx: *anyopaque, req: *const types.SearchEventsRequest, resp: *types.EventServiceSearchEventsReply) anyerror!void,
+    list_trash: *const fn (ctx: *anyopaque, req: *const types.ListTrashRequest, resp: *types.EventServiceListTrashReply) anyerror!void,
+    restore_event: *const fn (ctx: *anyopaque, req: *const types.RestoreEventRequest, resp: *types.EventServiceRestoreEventReply) anyerror!void,
+    import_event: *const fn (ctx: *anyopaque, req: *const types.ImportEventRequest, resp: *types.EventServiceImportEventReply) anyerror!void,
+    create_event_once: *const fn (ctx: *anyopaque, req: *const types.CreateEventOnceRequest, resp: *types.EventServiceCreateEventOnceReply) anyerror!void,
+    get_create_receipt: *const fn (ctx: *anyopaque, req: *const types.CreateReceiptRequest, resp: *types.EventServiceGetCreateReceiptReply) anyerror!void,
+    split_series_once: *const fn (ctx: *anyopaque, req: *const types.SplitSeriesOnceRequest, resp: *types.EventServiceSplitSeriesOnceReply) anyerror!void,
+    get_split_receipt: *const fn (ctx: *anyopaque, req: *const types.SplitReceiptRequest, resp: *types.EventServiceGetSplitReceiptReply) anyerror!void,
 };
 
 /// FreeBusyHandlers is the host's implementation of the FreeBusyService service.
 pub const FreeBusyHandlers = struct {
-    query: *const fn (ctx: *anyopaque, req: *const types.FreeBusyRequest, resp: *types.FreeBusyResponse) anyerror!void,
+    query: *const fn (ctx: *anyopaque, req: *const types.FreeBusyRequest, resp: *types.FreeBusyServiceQueryReply) anyerror!void,
 };
 
 /// IcsHandlers is the host's implementation of the IcsService service.
 pub const IcsHandlers = struct {
-    import_ics: *const fn (ctx: *anyopaque, req: *const types.ImportIcsRequest, resp: *types.ImportResult) anyerror!void,
-    export_calendar: *const fn (ctx: *anyopaque, req: *const types.ExportCalendarRequest, resp: *types.IcsDocument) anyerror!void,
-    export_event: *const fn (ctx: *anyopaque, req: *const types.ExportEventRequest, resp: *types.IcsDocument) anyerror!void,
+    import_ics: *const fn (ctx: *anyopaque, req: *const types.ImportIcsRequest, resp: *types.IcsServiceImportIcsReply) anyerror!void,
+    export_calendar: *const fn (ctx: *anyopaque, req: *const types.ExportCalendarRequest, resp: *types.IcsServiceExportCalendarReply) anyerror!void,
+    export_event: *const fn (ctx: *anyopaque, req: *const types.ExportEventRequest, resp: *types.IcsServiceExportEventReply) anyerror!void,
 };
 
 /// AuditHandlers is the host's implementation of the AuditService service.
 pub const AuditHandlers = struct {
-    list_audit: *const fn (ctx: *anyopaque, req: *const types.AuditQuery, resp: *types.AuditList) anyerror!void,
+    list_audit: *const fn (ctx: *anyopaque, req: *const types.AuditQuery, resp: *types.AuditServiceListAuditReply) anyerror!void,
 };

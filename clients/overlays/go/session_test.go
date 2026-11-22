@@ -46,7 +46,7 @@ func TestAppSignerSigns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Audience != aud || p.SignerInstanceId != "i1" || p.PresentedAt != "2026-11-01T12:00:00Z" || len(p.Nonce) != 32 {
+	if p.Audience != aud || p.SignerInstanceId != "i1" || p.PresentedAt.Format(time.RFC3339) != "2026-11-01T12:00:00Z" || len(p.Nonce) != 32 {
 		t.Fatalf("presentation %+v", p)
 	}
 	if hex.EncodeToString(p.RequestDigest) != hex.EncodeToString(Digest(PresentationDigestInput)) {
@@ -94,7 +94,7 @@ func TestAppSessionExchangesAndRefreshes(t *testing.T) {
 			n := exchanges.Add(1)
 			return transport.NewRpcResponseOk("LoginResponse", EncodeLoginResponse(LoginResponse{
 				Token:     "bearer-" + string(rune('0'+n)),
-				ExpiresAt: Timestamp(clock.Add(15 * time.Minute).Format("2006-01-02T15:04:05Z")),
+				ExpiresAt: clock.Add(15 * time.Minute).Truncate(time.Second),
 				Via:       "self",
 			}))
 		case "me":

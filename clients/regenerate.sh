@@ -112,6 +112,20 @@ for entry in "${LANGS[@]}"; do
     fi
 done
 
+# csilgen 0.2.15 emits timestamp array elements as arrow-function blocks.
+# Return each CBOR tag as an object literal.
+sed -i 's/=> { tag: 0, value: csilTsToText(csilE) }/=> ({ tag: 0, value: csilTsToText(csilE) })/g' "$OUT/typescript/codec.gen.ts"
+
+# The Rust generator uses wire text as a variant name. Dots and the
+# reserved name Self prevent consumers from compiling the date types.
+sed -i -e 's/Calendars\.read/CalendarsRead/g' \
+    -e 's/Freebusy\.read/FreebusyRead/g' \
+    -e 's/Events\.write/EventsWrite/g' \
+    -e 's/Events\.respond/EventsRespond/g' \
+    -e 's/Calendars\.manage/CalendarsManage/g' \
+    -e 's/^    Self,$/    SelfActor,/' -e 's/ActingVia::Self\b/ActingVia::SelfActor/g' \
+    "$OUT/rust/src/types.rs" "$OUT/rust/src/codec.gen.rs"
+
 # Hand-written additions: clients/overlays/<lang>/ is copied over the
 # generated package (for Go: the HTTP carrier, application presentations,
 # and bearer sessions). Edit the overlay, never the copy.

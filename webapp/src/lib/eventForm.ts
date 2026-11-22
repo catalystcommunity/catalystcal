@@ -3,14 +3,14 @@
  *
  * The generated Event type marks receive-only fields (event_id, sequence,
  * created_at, updated_at) as required and the codec always writes them, so
- * a new event carries empty placeholders. Optional receive-only fields
+ * a new event uses the Unix epoch for its receive-only timestamps. Optional receive-only fields
  * (organizer, created_by, ...) are left out of every request.
  */
 import type { Attendee, Event, EventStatus, EventTransparency, EventVisibility, Occurrence, RecurrenceScope, Reminder, UpdateEventRequest, DeleteEventRequest } from "@catalystcal/client";
 import { DateText, addDays, daysBetween } from "~/lib/dates";
 import { RecurrenceForm, buildRRule, defaultRecurrenceForm, parseRRule } from "~/lib/rrule";
 import { allDayLength, allDayStart } from "~/lib/occurrence";
-import { civilDate, minutesIntoDay, parseTimestamp, toTimestamp, zonedToUtc } from "~/lib/tz";
+import { civilDate, minutesIntoDay, toTimestamp, zonedToUtc } from "~/lib/tz";
 
 export interface EventForm {
   title: string;
@@ -89,15 +89,15 @@ export function formFromOccurrence(o: Occurrence, viewerTz: string): EventForm {
     startDate = allDayStart(o, viewerTz);
     endDate = addDays(startDate, allDayLength(o) - 1);
   } else {
-    const s = parseTimestamp(o.start);
-    const e = parseTimestamp(o.end);
+    const s = o.start.getTime();
+    const e = o.end.getTime();
     startDate = civilDate(s, tz);
     startMin = minutesIntoDay(s, tz);
     endDate = civilDate(e, tz);
     endMin = minutesIntoDay(e, tz);
   }
   // The rule is anchored on the series start.
-  const seriesStart = ev.allDay ? (ev.startDate ?? startDate) : ev.start ? civilDate(parseTimestamp(ev.start), tz) : startDate;
+  const seriesStart = ev.allDay ? (ev.startDate ?? startDate) : ev.start ? civilDate(ev.start.getTime(), tz) : startDate;
   return {
     title: ev.title,
     calendarId: ev.calendarId,
@@ -172,8 +172,8 @@ export function formToEvent(f: EventForm, base?: Event, opts: { withRecurrence?:
     categories: f.categories.map((c) => c.trim()).filter(Boolean),
     color: clean(f.color),
     sequence: base?.sequence ?? 0,
-    createdAt: base?.createdAt ?? "",
-    updatedAt: base?.updatedAt ?? "",
+    createdAt: base?.createdAt ?? new Date(0),
+    updatedAt: base?.updatedAt ?? new Date(0),
   };
   if (f.allDay) {
     ev.startDate = f.startDate;
@@ -195,7 +195,7 @@ export function isSeriesOccurrence(o: Occurrence): boolean {
   return !!o.event.recurrence || !!o.recurrenceId || !!o.event.masterEventId;
 }
 
-export function instanceId(o: Occurrence): string {
+export function instanceId(o: Occurrence): Date {
   return o.recurrenceId ?? o.event.recurrenceId ?? o.start;
 }
 
@@ -231,8 +231,8 @@ function shiftToSeriesStart(ev: Event, f: EventForm, o: Occurrence): void {
   }
   if (!master.start || master.allDay) return;
   const { startMs, endMs } = formInstants(f);
-  const delta = startMs - parseTimestamp(o.start);
-  const newStart = parseTimestamp(master.start) + delta;
+  const delta = startMs - o.start.getTime();
+  const newStart = master.start.getTime() + delta;
   ev.start = toTimestamp(newStart);
   ev.end = toTimestamp(newStart + (endMs - startMs));
 }

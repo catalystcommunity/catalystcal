@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // SplitReceipt is one event_split_receipts row.
@@ -58,6 +59,22 @@ func (s *Store) SplitWithReceipt(ctx context.Context, writes []EventWrite, succe
 	})
 }
 
+// Old split receipts store the same event fields with untagged date text.
+// This decoder is used only for snapshots already in the database.
+var legacySnapshotDecoder, _ = (cbor.DecOptions{TagsMd: cbor.TagsForbidden}).DecMode()
+
+func decodeSnapshot(data []byte) (csil.Event, error) {
+	ev, err := csil.DecodeEvent(data)
+	if err == nil {
+		return ev, nil
+	}
+	var legacy csil.Event
+	if err := legacySnapshotDecoder.Unmarshal(data, &legacy); err != nil {
+		return csil.Event{}, err
+	}
+	return legacy, nil
+}
+
 // GetSplitReceipt reads one receipt.
 func (s *Store) GetSplitReceipt(ctx context.Context, seriesID, creatorID, binding, key string) (SplitReceipt, error) {
 	r := SplitReceipt{SeriesID: seriesID, CreatorID: creatorID, Binding: binding, Key: key}
@@ -75,10 +92,10 @@ func (s *Store) GetSplitReceipt(ctx context.Context, seriesID, creatorID, bindin
 	if err != nil {
 		return SplitReceipt{}, err
 	}
-	if r.Before, err = csil.DecodeEvent(before); err != nil {
+	if r.Before, err = decodeSnapshot(before); err != nil {
 		return SplitReceipt{}, err
 	}
-	if r.After, err = csil.DecodeEvent(after); err != nil {
+	if r.After, err = decodeSnapshot(after); err != nil {
 		return SplitReceipt{}, err
 	}
 	r.InPlace = inPlace != 0

@@ -2,4 +2,25 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record AccessRole(Object value) {}
+public enum AccessRole {
+    NONE("none"),
+    FREE_BUSY("free_busy"),
+    READ("read"),
+    CONTRIBUTE("contribute"),
+    WRITE("write"),
+    MANAGE("manage"),
+    OWNER("owner");
+
+    private final String value;
+
+    AccessRole(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static AccessRole fromWire(String value) {
+        for (AccessRole member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown AccessRole value: " + value);
+    }
+}

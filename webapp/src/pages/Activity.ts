@@ -2,7 +2,7 @@ import type { AuditEntry } from "@catalystcal/client";
 import { auditClient } from "~/data/clients";
 import { AUTH, session } from "~/stores/auth";
 import { displayZone } from "~/stores/prefs";
-import { civilDate, formatDate, formatTime, parseTimestamp } from "~/lib/tz";
+import { civilDate, formatDate, formatTime } from "~/lib/tz";
 import { personName, samePerson } from "~/lib/people";
 import { errorMessage } from "~/transport/csilrpc";
 import { CalElement, define } from "~/ui/element";
@@ -98,7 +98,7 @@ export class ActivityPage extends CalElement {
   #show(list: AuditEntry[], delegated: boolean): void {
     const tz = displayZone();
     const when = (e: AuditEntry) => {
-      const ms = parseTimestamp(e.at);
+      const ms = e.at.getTime();
       return `${formatDate(civilDate(ms, tz), { month: "short", day: "numeric", year: "numeric" })}, ${formatTime(ms, tz)}`;
     };
     fill(

@@ -69,9 +69,7 @@ public sealed class HttpRpcCarrier : ICsilTransport, IDisposable
             throw ex;
         // A typed application error rides as a status-0 "ServiceError" variant — distinct
         // from a transport failure. Surface it so the typed client decodes success only.
-        if (resp.Variant == "ServiceError")
-            throw new System.Exception($"csil-rpc {service}/{op}: ServiceError");
-        return resp.Payload;
+        return Codec.ResolveRpcReply(service, op, resp.Variant, resp.Payload);
     }
 
     public void Dispose() => _http.Dispose();

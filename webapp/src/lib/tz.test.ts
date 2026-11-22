@@ -12,21 +12,21 @@ describe("time zone helpers", () => {
   });
 
   it("maps wall-clock time to UTC", () => {
-    expect(toTimestamp(zonedToUtc("2026-10-15", 9 * 60, "America/Denver"))).toBe("2026-10-15T15:00:00Z");
-    expect(toTimestamp(zonedToUtc("2026-01-15", 9 * 60, "America/Denver"))).toBe("2026-01-15T16:00:00Z");
-    expect(toTimestamp(zonedToUtc("2026-10-15", 0, "Asia/Tokyo"))).toBe("2026-10-14T15:00:00Z");
+    expect(toTimestamp(zonedToUtc("2026-10-15", 9 * 60, "America/Denver"))).toEqual(new Date("2026-10-15T15:00:00Z"));
+    expect(toTimestamp(zonedToUtc("2026-01-15", 9 * 60, "America/Denver"))).toEqual(new Date("2026-01-15T16:00:00Z"));
+    expect(toTimestamp(zonedToUtc("2026-10-15", 0, "Asia/Tokyo"))).toEqual(new Date("2026-10-14T15:00:00Z"));
   });
 
   it("moves a time in the spring-forward gap forward", () => {
     // 2026-03-08 02:30 does not exist in Denver; it becomes 03:30 MDT.
-    expect(toTimestamp(zonedToUtc("2026-03-08", 150, "America/Denver"))).toBe("2026-03-08T09:30:00Z");
+    expect(toTimestamp(zonedToUtc("2026-03-08", 150, "America/Denver"))).toEqual(new Date("2026-03-08T09:30:00Z"));
   });
 
   it("picks the earlier instant in the fall-back overlap", () => {
     // 2026-11-01 01:30 happens twice in Denver; the first is MDT.
-    expect(toTimestamp(zonedToUtc("2026-11-01", 90, "America/Denver"))).toBe("2026-11-01T07:30:00Z");
+    expect(toTimestamp(zonedToUtc("2026-11-01", 90, "America/Denver"))).toEqual(new Date("2026-11-01T07:30:00Z"));
     // 2026-10-25 02:30 happens twice in Berlin; the first is CEST.
-    expect(toTimestamp(zonedToUtc("2026-10-25", 150, "Europe/Berlin"))).toBe("2026-10-25T00:30:00Z");
+    expect(toTimestamp(zonedToUtc("2026-10-25", 150, "Europe/Berlin"))).toEqual(new Date("2026-10-25T00:30:00Z"));
   });
 
   it("has 23- and 25-hour days at the DST changes", () => {
@@ -55,7 +55,7 @@ describe("time zone helpers", () => {
   });
 
   it("writes CSIL timestamps with whole seconds", () => {
-    expect(toTimestamp(Date.parse("2026-10-15T17:00:00.789Z"))).toBe("2026-10-15T17:00:00Z");
+    expect(toTimestamp(Date.parse("2026-10-15T17:00:00.789Z"))).toEqual(new Date("2026-10-15T17:00:00Z"));
   });
 
   it("puts the chosen zone first in the zone list", () => {

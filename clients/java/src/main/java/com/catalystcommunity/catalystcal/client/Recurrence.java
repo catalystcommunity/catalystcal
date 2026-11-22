@@ -2,11 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record Recurrence(
     String rrule /* wire: "rrule" */,
-    List<Timestamp> exdates /* wire: "exdates" */,
-    List<Timestamp> rdates /* wire: "rdates" */
+    List<Instant> exdates /* wire: "exdates" */,
+    List<Instant> rdates /* wire: "rdates" */
 ) {
 }

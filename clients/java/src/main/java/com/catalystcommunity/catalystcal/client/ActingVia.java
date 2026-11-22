@@ -2,4 +2,21 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record ActingVia(Object value) {}
+public enum ActingVia {
+    SELF("self"),
+    DELEGATION("delegation"),
+    ACT_AS_GRANT("act_as_grant");
+
+    private final String value;
+
+    ActingVia(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static ActingVia fromWire(String value) {
+        for (ActingVia member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown ActingVia value: " + value);
+    }
+}

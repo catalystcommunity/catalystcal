@@ -32,8 +32,8 @@ func richEvents() []csil.Event {
 		Timezone: ptr("America/Denver"), Status: status("confirmed"), Transparency: transp("opaque"), Visibility: vis("default"),
 		Recurrence: &csil.Recurrence{
 			Rrule:   "FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T235959Z",
-			Exdates: []csil.Timestamp{"2026-10-12T15:00:00Z", "2026-11-04T16:00:00Z"},
-			Rdates:  []csil.Timestamp{"2026-10-10T16:00:00Z"},
+			Exdates: []time.Time{instant("2026-10-12T15:00:00Z"), instant("2026-11-04T16:00:00Z")},
+			Rdates:  []time.Time{instant("2026-10-10T16:00:00Z")},
 		},
 		Attendees: []csil.Attendee{
 			{Email: ptr("alice@example.com"), Name: ptr("Alice \"Al\" Example"), Role: role("chair"), Status: part("accepted"), Rsvp: ptr(false)},
@@ -68,7 +68,7 @@ func richEvents() []csil.Event {
 		StartDate: dtp("2026-12-24"), EndDate: dtp("2026-12-26"),
 		Start: tsp("2026-12-24T00:00:00Z"), End: tsp("2026-12-26T00:00:00Z"),
 		Status: status("tentative"), Transparency: transp("transparent"), Visibility: vis("public"),
-		Recurrence: &csil.Recurrence{Rrule: "FREQ=YEARLY;UNTIL=20301224", Exdates: []csil.Timestamp{"2027-12-24T00:00:00Z"}},
+		Recurrence: &csil.Recurrence{Rrule: "FREQ=YEARLY;UNTIL=20301224", Exdates: []time.Time{instant("2027-12-24T00:00:00Z")}},
 	}
 	allDayOverride := csil.Event{
 		Uid: ptr("holiday-1@catalystcal"), Title: "Holiday (short)", AllDay: ptr(true), RecurrenceId: tsp("2028-12-24T00:00:00Z"),

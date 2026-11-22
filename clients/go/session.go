@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 )
@@ -102,7 +101,7 @@ func (s *AppSigner) Sign(audience ApplicationRef) (SignedApplicationPresentation
 		SignerInstanceId: s.InstanceID,
 		Audience:         audience,
 		RequestDigest:    Digest(PresentationDigestInput),
-		PresentedAt:      Timestamp(now().UTC().Format("2006-01-02T15:04:05Z")),
+		PresentedAt:      now().UTC().Truncate(time.Second),
 		Nonce:            nonce,
 	})
 	return SignedApplicationPresentation{
@@ -139,11 +138,7 @@ func (c *bearerCache) Token(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	exp, err := time.Parse(time.RFC3339, string(resp.ExpiresAt))
-	if err != nil {
-		return "", fmt.Errorf("catalystcal: bearer expires_at: %w", err)
-	}
-	c.token, c.expires = resp.Token, exp
+	c.token, c.expires = resp.Token, resp.ExpiresAt
 	return c.token, nil
 }
 

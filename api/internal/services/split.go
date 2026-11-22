@@ -2,8 +2,7 @@ package services
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+
 	"errors"
 	"time"
 
@@ -17,27 +16,13 @@ import (
 // maxSplitMappings limits map_recurrence_ids.
 const maxSplitMappings = 500
 
-// splitHash identifies the requested content of a split: the event as the
-// client sent it, without the receive-only fields, and the recurrence id.
-func splitHash(ev csil.Event, rid time.Time) string {
-	h := sha256.New()
-	h.Write(csil.EncodeEvent(ev))
-	h.Write([]byte{0})
-	h.Write([]byte(ts(rid)))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-func parseMapIDs(in []csil.Timestamp) ([]time.Time, error) {
+func parseMapIDs(in []time.Time) ([]time.Time, error) {
 	if len(in) > maxSplitMappings {
 		return nil, badReq("map_recurrence_ids has more than 500 values")
 	}
 	out := make([]time.Time, len(in))
 	for i, v := range in {
-		t, err := parseTS("map_recurrence_ids", v)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = t
+		out[i] = ts(v)
 	}
 	return out, nil
 }
@@ -56,17 +41,17 @@ func (s *EventService) SplitSeriesOnce(ctx context.Context, req csil.SplitSeries
 	if err != nil {
 		return csil.SplitSeriesReceipt{}, err
 	}
-	rid, err := parseTS("recurrence_id", req.RecurrenceId)
-	if err != nil {
-		return csil.SplitSeriesReceipt{}, err
-	}
+	rid := ts(req.RecurrenceId)
 	seriesID := string(req.Event.EventId)
 	if seriesID == "" {
 		return csil.SplitSeriesReceipt{}, badReq("event.event_id is required")
 	}
 	content := req.Event
 	clearReceiveOnly(&content)
-	hash := splitHash(content, rid)
+	hash, err := contentHash(content, &rid)
+	if err != nil {
+		return csil.SplitSeriesReceipt{}, internal(err, "hash split request")
+	}
 	known, err := s.Store.GetSplitReceipt(ctx, seriesID, id.EffectiveUserID(), receiptBinding(id), req.IdempotencyKey)
 	switch {
 	case err == nil:

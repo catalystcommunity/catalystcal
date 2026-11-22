@@ -2,9 +2,11 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record BusyInterval(
-    Timestamp start /* wire: "start" */,
-    Timestamp end /* wire: "end" */,
+    Instant start /* wire: "start" */,
+    Instant end /* wire: "end" */,
     Boolean tentative /* wire: "tentative" */
 ) {
 }

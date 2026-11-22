@@ -30,12 +30,6 @@ typealias TrashID = String
 /** Type alias for SessionID. */
 typealias SessionID = String
 
-/** Type alias for Timestamp. */
-typealias Timestamp = String
-
-/** Type alias for DateText. */
-typealias DateText = String
-
 /** ShareRole enum (bare-literal wire). */
 enum class ShareRole { FreeBusy, Read, Contribute, Write, Manage }
 
@@ -102,9 +96,9 @@ data class User(
     val email: String? = null,
     val timezone: String? = null,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: updated_at
-    val updatedAt: Timestamp
+    val updatedAt: java.time.Instant
 )
 
 /** PersonSummary record. */
@@ -133,7 +127,7 @@ data class Calendar(
     // wire key: source_url
     val sourceUrl: String? = null,
     // wire key: last_synced_at
-    val lastSyncedAt: Timestamp? = null,
+    val lastSyncedAt: java.time.Instant? = null,
     // wire key: sync_error
     val syncError: String? = null,
     // wire key: is_default
@@ -144,9 +138,9 @@ data class Calendar(
     // wire key: feed_path
     val feedPath: String? = null,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: updated_at
-    val updatedAt: Timestamp
+    val updatedAt: java.time.Instant
 )
 
 /** CreateCalendarRequest record. */
@@ -202,7 +196,7 @@ data class Share(
     // wire key: grantee_group_name
     val granteeGroupName: String? = null,
     // wire key: created_at
-    val createdAt: Timestamp
+    val createdAt: java.time.Instant
 )
 
 /** ShareList record. */
@@ -230,9 +224,9 @@ data class Group(
     val revision: ULong,
     val members: List<GroupMember>,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: updated_at
-    val updatedAt: Timestamp
+    val updatedAt: java.time.Instant
 )
 
 /** CreateGroupRequest record. */
@@ -277,11 +271,11 @@ data class Delegation(
     val calendarIds: List<CalendarID>? = null,
     val note: String? = null,
     // wire key: expires_at
-    val expiresAt: Timestamp? = null,
+    val expiresAt: java.time.Instant? = null,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: revoked_at
-    val revokedAt: Timestamp? = null
+    val revokedAt: java.time.Instant? = null
 )
 
 /** DelegationList record. */
@@ -298,8 +292,8 @@ data class AssumePrincipalRequest(
 /** Recurrence record. */
 data class Recurrence(
     val rrule: String,
-    val exdates: List<Timestamp>? = null,
-    val rdates: List<Timestamp>? = null
+    val exdates: List<java.time.Instant>? = null,
+    val rdates: List<java.time.Instant>? = null
 )
 
 /** Attendee record. */
@@ -335,14 +329,14 @@ data class Event(
     val url: String? = null,
     // wire key: conference_url
     val conferenceUrl: String? = null,
-    val start: Timestamp? = null,
-    val end: Timestamp? = null,
+    val start: java.time.Instant? = null,
+    val end: java.time.Instant? = null,
     // wire key: all_day
     val allDay: Boolean? = false,
     // wire key: start_date
-    val startDate: DateText? = null,
+    val startDate: java.time.LocalDate? = null,
     // wire key: end_date
-    val endDate: DateText? = null,
+    val endDate: java.time.LocalDate? = null,
     val timezone: String? = null,
     val status: EventStatus? = EventStatus.Confirmed,
     val transparency: EventTransparency? = EventTransparency.Opaque,
@@ -351,7 +345,7 @@ data class Event(
     // wire key: master_event_id
     val masterEventId: EventID? = null,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null,
+    val recurrenceId: java.time.Instant? = null,
     val attendees: List<Attendee>? = null,
     val reminders: List<Reminder>? = null,
     val categories: List<String>? = null,
@@ -365,18 +359,18 @@ data class Event(
     val updatedVia: ActingVia? = null,
     val sequence: Long,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: updated_at
-    val updatedAt: Timestamp
+    val updatedAt: java.time.Instant
 )
 
 /** Occurrence record. */
 data class Occurrence(
     val event: Event,
-    val start: Timestamp,
-    val end: Timestamp,
+    val start: java.time.Instant,
+    val end: java.time.Instant,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null,
+    val recurrenceId: java.time.Instant? = null,
     val access: AccessRole,
     // wire key: busy_only
     val busyOnly: Boolean,
@@ -386,9 +380,9 @@ data class Occurrence(
 /** ListEventsRequest record. */
 data class ListEventsRequest(
     // wire key: range_start
-    val rangeStart: Timestamp,
+    val rangeStart: java.time.Instant,
     // wire key: range_end
-    val rangeEnd: Timestamp,
+    val rangeEnd: java.time.Instant,
     // wire key: calendar_ids
     val calendarIds: List<CalendarID>? = null,
     // wire key: include_invitations
@@ -406,7 +400,7 @@ data class UpdateEventRequest(
     val event: Event,
     val scope: RecurrenceScope? = RecurrenceScope.All,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null
+    val recurrenceId: java.time.Instant? = null
 )
 
 /** DeleteEventRequest record. */
@@ -415,7 +409,7 @@ data class DeleteEventRequest(
     val eventId: EventID,
     val scope: RecurrenceScope? = RecurrenceScope.All,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null
+    val recurrenceId: java.time.Instant? = null
 )
 
 /** DeleteEventResponse record. */
@@ -442,15 +436,15 @@ data class TrashEntry(
     val eventId: EventID,
     val scope: RecurrenceScope,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null,
+    val recurrenceId: java.time.Instant? = null,
     val event: Event,
     val instance: Event? = null,
     // wire key: deleted_by
     val deletedBy: PersonSummary? = null,
     // wire key: deleted_at
-    val deletedAt: Timestamp,
+    val deletedAt: java.time.Instant,
     // wire key: expires_at
-    val expiresAt: Timestamp
+    val expiresAt: java.time.Instant
 )
 
 /** ListTrashRequest record. */
@@ -477,7 +471,7 @@ data class ImportEventRequest(
     // wire key: created_by
     val createdBy: IdentityRef,
     // wire key: created_at
-    val createdAt: Timestamp? = null
+    val createdAt: java.time.Instant? = null
 )
 
 /** CreateEventOnceRequest record. */
@@ -506,7 +500,7 @@ data class CreateEventReceipt(
     val state: CreateReceiptState,
     val created: Boolean,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     val event: Event? = null,
     // wire key: trash_id
     val trashId: TrashID? = null
@@ -518,9 +512,9 @@ data class SplitSeriesOnceRequest(
     val idempotencyKey: String,
     val event: Event,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp,
+    val recurrenceId: java.time.Instant,
     // wire key: map_recurrence_ids
-    val mapRecurrenceIds: List<Timestamp>? = null
+    val mapRecurrenceIds: List<java.time.Instant>? = null
 )
 
 /** SplitReceiptRequest record. */
@@ -530,7 +524,7 @@ data class SplitReceiptRequest(
     // wire key: idempotency_key
     val idempotencyKey: String,
     // wire key: map_recurrence_ids
-    val mapRecurrenceIds: List<Timestamp>? = null
+    val mapRecurrenceIds: List<java.time.Instant>? = null
 )
 
 /** SplitMapResult enum (bare-literal wire). */
@@ -539,12 +533,12 @@ enum class SplitMapResult { Original, Successor, None }
 /** SplitOccurrenceMapping record. */
 data class SplitOccurrenceMapping(
     // wire key: recurrence_id
-    val recurrenceId: Timestamp,
+    val recurrenceId: java.time.Instant,
     val result: SplitMapResult,
     // wire key: event_id
     val eventId: EventID? = null,
     // wire key: mapped_recurrence_id
-    val mappedRecurrenceId: Timestamp? = null
+    val mappedRecurrenceId: java.time.Instant? = null
 )
 
 /** SplitSeriesReceipt record. */
@@ -556,12 +550,12 @@ data class SplitSeriesReceipt(
     // wire key: successor_id
     val successorId: EventID,
     // wire key: split_at
-    val splitAt: Timestamp,
+    val splitAt: java.time.Instant,
     // wire key: in_place
     val inPlace: Boolean,
     val created: Boolean,
     // wire key: created_at
-    val createdAt: Timestamp,
+    val createdAt: java.time.Instant,
     // wire key: calendar_id
     val calendarId: CalendarID,
     // wire key: series_state
@@ -582,7 +576,7 @@ data class GetOccurrenceRequest(
     // wire key: event_id
     val eventId: EventID,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null
+    val recurrenceId: java.time.Instant? = null
 )
 
 /** RespondRequest record. */
@@ -591,7 +585,7 @@ data class RespondRequest(
     val eventId: EventID,
     val status: ParticipationStatus,
     // wire key: recurrence_id
-    val recurrenceId: Timestamp? = null,
+    val recurrenceId: java.time.Instant? = null,
     val comment: String? = null
 )
 
@@ -608,8 +602,8 @@ data class EventList(
 
 /** BusyInterval record. */
 data class BusyInterval(
-    val start: Timestamp,
-    val end: Timestamp,
+    val start: java.time.Instant,
+    val end: java.time.Instant,
     val tentative: Boolean? = null
 )
 
@@ -617,9 +611,9 @@ data class BusyInterval(
 data class FreeBusyRequest(
     val people: List<IdentityRef>,
     // wire key: range_start
-    val rangeStart: Timestamp,
+    val rangeStart: java.time.Instant,
     // wire key: range_end
-    val rangeEnd: Timestamp
+    val rangeEnd: java.time.Instant
 )
 
 /** PersonFreeBusy record. */
@@ -673,7 +667,7 @@ data class IcsDocument(
 data class AuditEntry(
     // wire key: audit_id
     val auditId: AuditID,
-    val at: Timestamp,
+    val at: java.time.Instant,
     val actor: PersonSummary,
     val principal: PersonSummary,
     val via: ActingVia,
@@ -706,7 +700,7 @@ data class CompleteRequest(
 data class LoginResponse(
     val token: String,
     // wire key: expires_at
-    val expiresAt: Timestamp,
+    val expiresAt: java.time.Instant,
     val user: PersonSummary,
     // wire key: acting_as
     val actingAs: PersonSummary? = null,
@@ -790,7 +784,7 @@ data class ApplicationPresentation(
     // wire key: request_digest
     val requestDigest: ByteArray,
     // wire key: presented_at
-    val presentedAt: Timestamp,
+    val presentedAt: java.time.Instant,
     val nonce: ByteArray
 ) {
     override fun equals(other: Any?): Boolean {

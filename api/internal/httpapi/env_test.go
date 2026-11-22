@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/config"
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
@@ -209,7 +210,14 @@ func (c *client) as(token string) *client {
 
 func sp(s string) *string { return &s }
 
-func tsp(s string) *csil.Timestamp { v := csil.Timestamp(s); return &v }
+func instant(s string) time.Time {
+	v, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+func tsp(s string) *time.Time { v := instant(s); return &v }
 
 func defaultCalendar(t *testing.T, c *client) csil.Calendar {
 	t.Helper()
@@ -232,6 +240,6 @@ func createEvent(c *client, ev csil.Event) reply[csil.Event] {
 }
 
 func listEvents(c *client, start, end string) reply[csil.OccurrenceList] {
-	return call(c, "EventService", "list-events", csil.ListEventsRequest{RangeStart: csil.Timestamp(start), RangeEnd: csil.Timestamp(end)},
+	return call(c, "EventService", "list-events", csil.ListEventsRequest{RangeStart: instant(start), RangeEnd: instant(end)},
 		csil.EncodeListEventsRequest, csil.DecodeOccurrenceList)
 }

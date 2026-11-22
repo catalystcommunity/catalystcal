@@ -1,3 +1,4 @@
+import type { DateTimePicker } from "@catalystcommunity/date-time-picker";
 import { DateText, WEEKDAY_CODES, WeekdayCode, dayOfWeek, nthWeekdayOfMonth, parseDate } from "~/lib/dates";
 import { RecurrenceForm, RecurrenceFreq, buildRRule, defaultRecurrenceForm, describeRecurrence, ordinalWord, weekdayName, weekdayShortName } from "~/lib/rrule";
 import { PREFS, weekStart } from "~/stores/prefs";
@@ -47,7 +48,7 @@ export class RecurrenceEditor extends CalElement {
   #customField!: HTMLElement;
   #ends!: HTMLElement;
   #endsGroup!: OptionControl;
-  #until!: ValueControl;
+  #until!: DateTimePicker;
   #count!: NumberControl;
   #summary!: HTMLElement;
 
@@ -87,7 +88,7 @@ export class RecurrenceEditor extends CalElement {
       ],
       onChange: () => this.#set({ ends: this.#endsGroup.value as RecurrenceForm["ends"] }),
     }) as OptionControl;
-    this.#until = h("date-time-picker", { mode: "date", label: "End date", onChange: () => this.#until.value && this.#set({ until: this.#until.value }) }) as ValueControl;
+    this.#until = h("date-time-picker", { mode: "date", label: "End date", onChange: () => this.#until.value && this.#set({ until: this.#until.value }) });
     this.#count = h("spin-box", {
       label: "Number of times",
       min: "1",
@@ -156,6 +157,7 @@ export class RecurrenceEditor extends CalElement {
 
     this.#ends.hidden = !repeating;
     if (this.#endsGroup.value !== f.ends) this.#endsGroup.value = f.ends;
+    if (this.#until.timeZone !== this.tz) this.#until.setAttribute("time-zone", this.tz);
     if (this.#until.value !== f.until) this.#until.value = f.until;
     this.#until.setAttribute("min", start);
     this.#until.disabled = f.ends !== "on";

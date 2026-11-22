@@ -271,6 +271,32 @@ public enum CsilCbor {
         throw CsilCborError.typeMismatch
     }
 
+    static func validDate(_ text: String) -> Bool {
+        let s = Array(text.utf8)
+        guard s.count == 10, s[4] == 45, s[7] == 45 else { return false }
+        for i in s.indices where i != 4 && i != 7 {
+            guard (48...57).contains(s[i]) else { return false }
+        }
+        func number(_ range: Range<Int>) -> Int {
+            s[range].reduce(0) { $0 * 10 + Int($1 - 48) }
+        }
+        let year = number(0..<4), month = number(5..<7), day = number(8..<10)
+        let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+        let days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        return (1...12).contains(month) && (1...days[month - 1]).contains(day)
+    }
+
+    public static func encodeDate(_ text: String) -> CsilCborValue {
+        precondition(validDate(text), "expected YYYY-MM-DD")
+        return .tag(1004, .text(text))
+    }
+
+    public static func decodeDate(_ value: CsilCborValue) throws -> String {
+        let text = try asTaggedText(value, 1004)
+        guard validDate(text) else { throw CsilCborError.typeMismatch }
+        return text
+    }
+
     public static func asTaggedText(_ v: CsilCborValue, _ num: UInt64) throws -> String {
         if case .tag(let t, let inner) = v, t == num { return try asText(inner) }
         throw CsilCborError.typeMismatch
@@ -580,8 +606,8 @@ public extension User {
         csilEntries.append((.text("subject"), .text(self.subject)))
         csilEntries.append((.text("user_id"), .text(self.userId)))
         if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
-        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
+        csilEntries.append((.text("updated_at"), .tag(0, .text(self.updatedAt))))
         if let csilV = self.displayName { csilEntries.append((.text("display_name"), .text(csilV))) }
         if let csilV = self.applicationId { csilEntries.append((.text("application_id"), .text(csilV))) }
         return .map(csilEntries)
@@ -597,8 +623,8 @@ public extension User {
         let displayName: String? = if let csilV = CsilCbor.mapGet(cborValue, "display_name") { try CsilCbor.asText(csilV) } else { nil }
         let email: String? = if let csilV = CsilCbor.mapGet(cborValue, "email") { try CsilCbor.asText(csilV) } else { nil }
         let timezone: String? = if let csilV = CsilCbor.mapGet(cborValue, "timezone") { try CsilCbor.asText(csilV) } else { nil }
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
-        let updatedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "updated_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
+        let updatedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "updated_at")), 0)
         self.init(userId: userId, domain: domain, subject: subject, applicationId: applicationId, handle: handle, displayName: displayName, email: email, timezone: timezone, createdAt: createdAt, updatedAt: updatedAt)
     }
 
@@ -651,15 +677,15 @@ public extension Calendar {
         csilEntries.append((.text("access"), self.access.toCborValue()))
         if let csilV = self.timezone { csilEntries.append((.text("timezone"), .text(csilV))) }
         if let csilV = self.feedPath { csilEntries.append((.text("feed_path"), .text(csilV))) }
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
         csilEntries.append((.text("is_default"), .bool(self.isDefault)))
         if let csilV = self.sourceUrl { csilEntries.append((.text("source_url"), .text(csilV))) }
         if let csilV = self.syncError { csilEntries.append((.text("sync_error"), .text(csilV))) }
-        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        csilEntries.append((.text("updated_at"), .tag(0, .text(self.updatedAt))))
         csilEntries.append((.text("access_path"), self.accessPath.toCborValue()))
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
-        if let csilV = self.lastSyncedAt { csilEntries.append((.text("last_synced_at"), .text(csilV))) }
+        if let csilV = self.lastSyncedAt { csilEntries.append((.text("last_synced_at"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
@@ -673,14 +699,14 @@ public extension Calendar {
         let timezone: String? = if let csilV = CsilCbor.mapGet(cborValue, "timezone") { try CsilCbor.asText(csilV) } else { nil }
         let kind = try CalendarKind(cborValue: (try CsilCbor.require(cborValue, "kind")))
         let sourceUrl: String? = if let csilV = CsilCbor.mapGet(cborValue, "source_url") { try CsilCbor.asText(csilV) } else { nil }
-        let lastSyncedAt: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "last_synced_at") { try CsilCbor.asText(csilV) } else { nil }
+        let lastSyncedAt: String? = if let csilV = CsilCbor.mapGet(cborValue, "last_synced_at") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let syncError: String? = if let csilV = CsilCbor.mapGet(cborValue, "sync_error") { try CsilCbor.asText(csilV) } else { nil }
         let isDefault = try CsilCbor.asBool((try CsilCbor.require(cborValue, "is_default")))
         let access = try AccessRole(cborValue: (try CsilCbor.require(cborValue, "access")))
         let accessPath = try AccessPath(cborValue: (try CsilCbor.require(cborValue, "access_path")))
         let feedPath: String? = if let csilV = CsilCbor.mapGet(cborValue, "feed_path") { try CsilCbor.asText(csilV) } else { nil }
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
-        let updatedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "updated_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
+        let updatedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "updated_at")), 0)
         self.init(calendarId: calendarId, owner: owner, name: name, description: description, color: color, timezone: timezone, kind: kind, sourceUrl: sourceUrl, lastSyncedAt: lastSyncedAt, syncError: syncError, isDefault: isDefault, access: access, accessPath: accessPath, feedPath: feedPath, createdAt: createdAt, updatedAt: updatedAt)
     }
 
@@ -823,7 +849,7 @@ public extension Share {
         csilEntries.append((.text("role"), self.role.toCborValue()))
         if let csilV = self.grantee { csilEntries.append((.text("grantee"), csilV.toCborValue())) }
         csilEntries.append((.text("share_id"), .text(self.shareId)))
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         if let csilV = self.granteePerson { csilEntries.append((.text("grantee_person"), csilV.toCborValue())) }
         if let csilV = self.granteeGroupId { csilEntries.append((.text("grantee_group_id"), .text(csilV))) }
@@ -840,7 +866,7 @@ public extension Share {
         let role = try ShareRole(cborValue: (try CsilCbor.require(cborValue, "role")))
         let granteePerson: PersonSummary? = if let csilV = CsilCbor.mapGet(cborValue, "grantee_person") { try PersonSummary(cborValue: csilV) } else { nil }
         let granteeGroupName: String? = if let csilV = CsilCbor.mapGet(cborValue, "grantee_group_name") { try CsilCbor.asText(csilV) } else { nil }
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
         self.init(shareId: shareId, calendarId: calendarId, grantee: grantee, granteeGroupId: granteeGroupId, role: role, granteePerson: granteePerson, granteeGroupName: granteeGroupName, createdAt: createdAt)
     }
 
@@ -908,8 +934,8 @@ public extension Group {
         csilEntries.append((.text("members"), CsilCborValue.array(self.members.map { $0.toCborValue() })))
         csilEntries.append((.text("group_id"), .text(self.groupId)))
         csilEntries.append((.text("revision"), .uint(self.revision)))
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
-        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
+        csilEntries.append((.text("updated_at"), .tag(0, .text(self.updatedAt))))
         if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
         return .map(csilEntries)
     }
@@ -922,8 +948,8 @@ public extension Group {
         let description: String? = if let csilV = CsilCbor.mapGet(cborValue, "description") { try CsilCbor.asText(csilV) } else { nil }
         let revision = try CsilCbor.asU64((try CsilCbor.require(cborValue, "revision")))
         let members = try CsilCbor.asArray((try CsilCbor.require(cborValue, "members"))).map { try GroupMember(cborValue: $0) }
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
-        let updatedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "updated_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
+        let updatedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "updated_at")), 0)
         self.init(groupId: groupId, owner: owner, name: name, description: description, revision: revision, members: members, createdAt: createdAt, updatedAt: updatedAt)
     }
 
@@ -1038,9 +1064,9 @@ public extension Delegation {
         csilEntries.append((.text("scopes"), CsilCborValue.array(self.scopes.map { $0.toCborValue() })))
         csilEntries.append((.text("delegate"), self.delegate.toCborValue()))
         csilEntries.append((.text("principal"), self.principal.toCborValue()))
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
-        if let csilV = self.expiresAt { csilEntries.append((.text("expires_at"), .text(csilV))) }
-        if let csilV = self.revokedAt { csilEntries.append((.text("revoked_at"), .text(csilV))) }
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
+        if let csilV = self.expiresAt { csilEntries.append((.text("expires_at"), .tag(0, .text(csilV)))) }
+        if let csilV = self.revokedAt { csilEntries.append((.text("revoked_at"), .tag(0, .text(csilV)))) }
         if let csilV = self.calendarIds { csilEntries.append((.text("calendar_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
         csilEntries.append((.text("delegation_id"), .text(self.delegationId)))
         if let csilV = self.delegatePerson { csilEntries.append((.text("delegate_person"), csilV.toCborValue())) }
@@ -1056,9 +1082,9 @@ public extension Delegation {
         let scopes = try CsilCbor.asArray((try CsilCbor.require(cborValue, "scopes"))).map { try Scope(cborValue: $0) }
         let calendarIds: [CalendarId]? = if let csilV = CsilCbor.mapGet(cborValue, "calendar_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
         let note: String? = if let csilV = CsilCbor.mapGet(cborValue, "note") { try CsilCbor.asText(csilV) } else { nil }
-        let expiresAt: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "expires_at") { try CsilCbor.asText(csilV) } else { nil }
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
-        let revokedAt: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "revoked_at") { try CsilCbor.asText(csilV) } else { nil }
+        let expiresAt: String? = if let csilV = CsilCbor.mapGet(cborValue, "expires_at") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
+        let revokedAt: String? = if let csilV = CsilCbor.mapGet(cborValue, "revoked_at") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(delegationId: delegationId, principal: principal, delegate: delegate, delegatePerson: delegatePerson, scopes: scopes, calendarIds: calendarIds, note: note, expiresAt: expiresAt, createdAt: createdAt, revokedAt: revokedAt)
     }
 
@@ -1116,16 +1142,16 @@ public extension Recurrence {
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("rrule"), .text(self.rrule)))
-        if let csilV = self.rdates { csilEntries.append((.text("rdates"), CsilCborValue.array(csilV.map { .text($0) }))) }
-        if let csilV = self.exdates { csilEntries.append((.text("exdates"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        if let csilV = self.rdates { csilEntries.append((.text("rdates"), CsilCborValue.array(csilV.map { .tag(0, .text($0)) }))) }
+        if let csilV = self.exdates { csilEntries.append((.text("exdates"), CsilCborValue.array(csilV.map { .tag(0, .text($0)) }))) }
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let rrule = try CsilCbor.asText((try CsilCbor.require(cborValue, "rrule")))
-        let exdates: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "exdates") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
-        let rdates: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "rdates") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        let exdates: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "exdates") { try CsilCbor.asArray(csilV).map { try CsilCbor.asTaggedText($0, 0) } } else { nil }
+        let rdates: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "rdates") { try CsilCbor.asArray(csilV).map { try CsilCbor.asTaggedText($0, 0) } } else { nil }
         self.init(rrule: rrule, exdates: exdates, rdates: rdates)
     }
 
@@ -1198,15 +1224,15 @@ public extension Event {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        if let csilV = self.end { csilEntries.append((.text("end"), .text(csilV))) }
+        if let csilV = self.end { csilEntries.append((.text("end"), .tag(0, .text(csilV)))) }
         if let csilV = self.uid { csilEntries.append((.text("uid"), .text(csilV))) }
         if let csilV = self.url { csilEntries.append((.text("url"), .text(csilV))) }
         if let csilV = self.color { csilEntries.append((.text("color"), .text(csilV))) }
-        if let csilV = self.start { csilEntries.append((.text("start"), .text(csilV))) }
+        if let csilV = self.start { csilEntries.append((.text("start"), .tag(0, .text(csilV)))) }
         csilEntries.append((.text("title"), .text(self.title)))
         if let csilV = self.status { csilEntries.append((.text("status"), csilV.toCborValue())) }
         if let csilV = self.allDay { csilEntries.append((.text("all_day"), .bool(csilV))) }
-        if let csilV = self.endDate { csilEntries.append((.text("end_date"), .text(csilV))) }
+        if let csilV = self.endDate { csilEntries.append((.text("end_date"), CsilCbor.encodeDate(csilV))) }
         csilEntries.append((.text("event_id"), .text(self.eventId)))
         if let csilV = self.location { csilEntries.append((.text("location"), .text(csilV))) }
         csilEntries.append((.text("sequence"), .int(self.sequence)))
@@ -1215,18 +1241,18 @@ public extension Event {
         if let csilV = self.organizer { csilEntries.append((.text("organizer"), csilV.toCborValue())) }
         if let csilV = self.reminders { csilEntries.append((.text("reminders"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
         if let csilV = self.categories { csilEntries.append((.text("categories"), CsilCborValue.array(csilV.map { .text($0) }))) }
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
         if let csilV = self.createdBy { csilEntries.append((.text("created_by"), csilV.toCborValue())) }
         if let csilV = self.recurrence { csilEntries.append((.text("recurrence"), csilV.toCborValue())) }
-        if let csilV = self.startDate { csilEntries.append((.text("start_date"), .text(csilV))) }
-        csilEntries.append((.text("updated_at"), .text(self.updatedAt)))
+        if let csilV = self.startDate { csilEntries.append((.text("start_date"), CsilCbor.encodeDate(csilV))) }
+        csilEntries.append((.text("updated_at"), .tag(0, .text(self.updatedAt))))
         if let csilV = self.updatedBy { csilEntries.append((.text("updated_by"), csilV.toCborValue())) }
         if let csilV = self.visibility { csilEntries.append((.text("visibility"), csilV.toCborValue())) }
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         if let csilV = self.description { csilEntries.append((.text("description"), .text(csilV))) }
         if let csilV = self.updatedVia { csilEntries.append((.text("updated_via"), csilV.toCborValue())) }
         if let csilV = self.transparency { csilEntries.append((.text("transparency"), csilV.toCborValue())) }
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         if let csilV = self.conferenceUrl { csilEntries.append((.text("conference_url"), .text(csilV))) }
         if let csilV = self.masterEventId { csilEntries.append((.text("master_event_id"), .text(csilV))) }
         return .map(csilEntries)
@@ -1242,18 +1268,18 @@ public extension Event {
         let location: String? = if let csilV = CsilCbor.mapGet(cborValue, "location") { try CsilCbor.asText(csilV) } else { nil }
         let url: String? = if let csilV = CsilCbor.mapGet(cborValue, "url") { try CsilCbor.asText(csilV) } else { nil }
         let conferenceUrl: String? = if let csilV = CsilCbor.mapGet(cborValue, "conference_url") { try CsilCbor.asText(csilV) } else { nil }
-        let start: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "start") { try CsilCbor.asText(csilV) } else { nil }
-        let end: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "end") { try CsilCbor.asText(csilV) } else { nil }
+        let start: String? = if let csilV = CsilCbor.mapGet(cborValue, "start") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
+        let end: String? = if let csilV = CsilCbor.mapGet(cborValue, "end") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let allDay: Bool? = if let csilV = CsilCbor.mapGet(cborValue, "all_day") { try CsilCbor.asBool(csilV) } else { nil }
-        let startDate: DateText? = if let csilV = CsilCbor.mapGet(cborValue, "start_date") { try CsilCbor.asText(csilV) } else { nil }
-        let endDate: DateText? = if let csilV = CsilCbor.mapGet(cborValue, "end_date") { try CsilCbor.asText(csilV) } else { nil }
+        let startDate: String? = if let csilV = CsilCbor.mapGet(cborValue, "start_date") { try CsilCbor.decodeDate(csilV) } else { nil }
+        let endDate: String? = if let csilV = CsilCbor.mapGet(cborValue, "end_date") { try CsilCbor.decodeDate(csilV) } else { nil }
         let timezone: String? = if let csilV = CsilCbor.mapGet(cborValue, "timezone") { try CsilCbor.asText(csilV) } else { nil }
         let status: EventStatus? = if let csilV = CsilCbor.mapGet(cborValue, "status") { try EventStatus(cborValue: csilV) } else { nil }
         let transparency: EventTransparency? = if let csilV = CsilCbor.mapGet(cborValue, "transparency") { try EventTransparency(cborValue: csilV) } else { nil }
         let visibility: EventVisibility? = if let csilV = CsilCbor.mapGet(cborValue, "visibility") { try EventVisibility(cborValue: csilV) } else { nil }
         let recurrence: Recurrence? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence") { try Recurrence(cborValue: csilV) } else { nil }
         let masterEventId: EventId? = if let csilV = CsilCbor.mapGet(cborValue, "master_event_id") { try CsilCbor.asText(csilV) } else { nil }
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let attendees: [Attendee]? = if let csilV = CsilCbor.mapGet(cborValue, "attendees") { try CsilCbor.asArray(csilV).map { try Attendee(cborValue: $0) } } else { nil }
         let reminders: [Reminder]? = if let csilV = CsilCbor.mapGet(cborValue, "reminders") { try CsilCbor.asArray(csilV).map { try Reminder(cborValue: $0) } } else { nil }
         let categories: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "categories") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
@@ -1263,8 +1289,8 @@ public extension Event {
         let updatedBy: PersonSummary? = if let csilV = CsilCbor.mapGet(cborValue, "updated_by") { try PersonSummary(cborValue: csilV) } else { nil }
         let updatedVia: ActingVia? = if let csilV = CsilCbor.mapGet(cborValue, "updated_via") { try ActingVia(cborValue: csilV) } else { nil }
         let sequence = try CsilCbor.asI64((try CsilCbor.require(cborValue, "sequence")))
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
-        let updatedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "updated_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
+        let updatedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "updated_at")), 0)
         self.init(eventId: eventId, calendarId: calendarId, uid: uid, title: title, description: description, location: location, url: url, conferenceUrl: conferenceUrl, start: start, end: end, allDay: allDay, startDate: startDate, endDate: endDate, timezone: timezone, status: status, transparency: transparency, visibility: visibility, recurrence: recurrence, masterEventId: masterEventId, recurrenceId: recurrenceId, attendees: attendees, reminders: reminders, categories: categories, color: color, organizer: organizer, createdBy: createdBy, updatedBy: updatedBy, updatedVia: updatedVia, sequence: sequence, createdAt: createdAt, updatedAt: updatedAt)
     }
 
@@ -1279,22 +1305,22 @@ public extension Occurrence {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append((.text("end"), .text(self.end)))
+        csilEntries.append((.text("end"), .tag(0, .text(self.end))))
         csilEntries.append((.text("event"), self.event.toCborValue()))
-        csilEntries.append((.text("start"), .text(self.start)))
+        csilEntries.append((.text("start"), .tag(0, .text(self.start))))
         csilEntries.append((.text("access"), self.access.toCborValue()))
         csilEntries.append((.text("invited"), .bool(self.invited)))
         csilEntries.append((.text("busy_only"), .bool(self.busyOnly)))
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
-        let start = try CsilCbor.asText((try CsilCbor.require(cborValue, "start")))
-        let end = try CsilCbor.asText((try CsilCbor.require(cborValue, "end")))
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let start = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "start")), 0)
+        let end = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "end")), 0)
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let access = try AccessRole(cborValue: (try CsilCbor.require(cborValue, "access")))
         let busyOnly = try CsilCbor.asBool((try CsilCbor.require(cborValue, "busy_only")))
         let invited = try CsilCbor.asBool((try CsilCbor.require(cborValue, "invited")))
@@ -1312,8 +1338,8 @@ public extension ListEventsRequest {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append((.text("range_end"), .text(self.rangeEnd)))
-        csilEntries.append((.text("range_start"), .text(self.rangeStart)))
+        csilEntries.append((.text("range_end"), .tag(0, .text(self.rangeEnd))))
+        csilEntries.append((.text("range_start"), .tag(0, .text(self.rangeStart))))
         if let csilV = self.calendarIds { csilEntries.append((.text("calendar_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
         if let csilV = self.includeInvitations { csilEntries.append((.text("include_invitations"), .bool(csilV))) }
         return .map(csilEntries)
@@ -1321,8 +1347,8 @@ public extension ListEventsRequest {
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
-        let rangeStart = try CsilCbor.asText((try CsilCbor.require(cborValue, "range_start")))
-        let rangeEnd = try CsilCbor.asText((try CsilCbor.require(cborValue, "range_end")))
+        let rangeStart = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "range_start")), 0)
+        let rangeEnd = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "range_end")), 0)
         let calendarIds: [CalendarId]? = if let csilV = CsilCbor.mapGet(cborValue, "calendar_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
         let includeInvitations: Bool? = if let csilV = CsilCbor.mapGet(cborValue, "include_invitations") { try CsilCbor.asBool(csilV) } else { nil }
         self.init(rangeStart: rangeStart, rangeEnd: rangeEnd, calendarIds: calendarIds, includeInvitations: includeInvitations)
@@ -1364,7 +1390,7 @@ public extension UpdateEventRequest {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("event"), self.event.toCborValue()))
         if let csilV = self.scope { csilEntries.append((.text("scope"), csilV.toCborValue())) }
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
@@ -1372,7 +1398,7 @@ public extension UpdateEventRequest {
     init(cborValue: CsilCborValue) throws {
         let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
         let scope: RecurrenceScope? = if let csilV = CsilCbor.mapGet(cborValue, "scope") { try RecurrenceScope(cborValue: csilV) } else { nil }
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(event: event, scope: scope, recurrenceId: recurrenceId)
     }
 
@@ -1389,7 +1415,7 @@ public extension DeleteEventRequest {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         if let csilV = self.scope { csilEntries.append((.text("scope"), csilV.toCborValue())) }
         csilEntries.append((.text("event_id"), .text(self.eventId)))
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
@@ -1397,7 +1423,7 @@ public extension DeleteEventRequest {
     init(cborValue: CsilCborValue) throws {
         let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
         let scope: RecurrenceScope? = if let csilV = CsilCbor.mapGet(cborValue, "scope") { try RecurrenceScope(cborValue: csilV) } else { nil }
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(eventId: eventId, scope: scope, recurrenceId: recurrenceId)
     }
 
@@ -1461,11 +1487,11 @@ public extension TrashEntry {
         csilEntries.append((.text("event_id"), .text(self.eventId)))
         if let csilV = self.instance { csilEntries.append((.text("instance"), csilV.toCborValue())) }
         csilEntries.append((.text("trash_id"), .text(self.trashId)))
-        csilEntries.append((.text("deleted_at"), .text(self.deletedAt)))
+        csilEntries.append((.text("deleted_at"), .tag(0, .text(self.deletedAt))))
         if let csilV = self.deletedBy { csilEntries.append((.text("deleted_by"), csilV.toCborValue())) }
-        csilEntries.append((.text("expires_at"), .text(self.expiresAt)))
+        csilEntries.append((.text("expires_at"), .tag(0, .text(self.expiresAt))))
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
@@ -1475,12 +1501,12 @@ public extension TrashEntry {
         let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
         let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
         let scope = try RecurrenceScope(cborValue: (try CsilCbor.require(cborValue, "scope")))
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
         let instance: Event? = if let csilV = CsilCbor.mapGet(cborValue, "instance") { try Event(cborValue: csilV) } else { nil }
         let deletedBy: PersonSummary? = if let csilV = CsilCbor.mapGet(cborValue, "deleted_by") { try PersonSummary(cborValue: csilV) } else { nil }
-        let deletedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "deleted_at")))
-        let expiresAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "expires_at")))
+        let deletedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "deleted_at")), 0)
+        let expiresAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "expires_at")), 0)
         self.init(trashId: trashId, calendarId: calendarId, eventId: eventId, scope: scope, recurrenceId: recurrenceId, event: event, instance: instance, deletedBy: deletedBy, deletedAt: deletedAt, expiresAt: expiresAt)
     }
 
@@ -1561,7 +1587,7 @@ public extension ImportEventRequest {
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("event"), self.event.toCborValue()))
-        if let csilV = self.createdAt { csilEntries.append((.text("created_at"), .text(csilV))) }
+        if let csilV = self.createdAt { csilEntries.append((.text("created_at"), .tag(0, .text(csilV)))) }
         csilEntries.append((.text("created_by"), self.createdBy.toCborValue()))
         return .map(csilEntries)
     }
@@ -1570,7 +1596,7 @@ public extension ImportEventRequest {
     init(cborValue: CsilCborValue) throws {
         let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
         let createdBy = try IdentityRef(cborValue: (try CsilCbor.require(cborValue, "created_by")))
-        let createdAt: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "created_at") { try CsilCbor.asText(csilV) } else { nil }
+        let createdAt: String? = if let csilV = CsilCbor.mapGet(cborValue, "created_at") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(event: event, createdBy: createdBy, createdAt: createdAt)
     }
 
@@ -1636,7 +1662,7 @@ public extension CreateEventReceipt {
         csilEntries.append((.text("created"), .bool(self.created)))
         csilEntries.append((.text("event_id"), .text(self.eventId)))
         if let csilV = self.trashId { csilEntries.append((.text("trash_id"), .text(csilV))) }
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
         return .map(csilEntries)
@@ -1649,7 +1675,7 @@ public extension CreateEventReceipt {
         let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
         let state = try CreateReceiptState(cborValue: (try CsilCbor.require(cborValue, "state")))
         let created = try CsilCbor.asBool((try CsilCbor.require(cborValue, "created")))
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
         let event: Event? = if let csilV = CsilCbor.mapGet(cborValue, "event") { try Event(cborValue: csilV) } else { nil }
         let trashId: TrashId? = if let csilV = CsilCbor.mapGet(cborValue, "trash_id") { try CsilCbor.asText(csilV) } else { nil }
         self.init(calendarId: calendarId, idempotencyKey: idempotencyKey, eventId: eventId, state: state, created: created, createdAt: createdAt, event: event, trashId: trashId)
@@ -1667,9 +1693,9 @@ public extension SplitSeriesOnceRequest {
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("event"), self.event.toCborValue()))
-        csilEntries.append((.text("recurrence_id"), .text(self.recurrenceId)))
+        csilEntries.append((.text("recurrence_id"), .tag(0, .text(self.recurrenceId))))
         csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
-        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .tag(0, .text($0)) }))) }
         return .map(csilEntries)
     }
 
@@ -1677,8 +1703,8 @@ public extension SplitSeriesOnceRequest {
     init(cborValue: CsilCborValue) throws {
         let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
         let event = try Event(cborValue: (try CsilCbor.require(cborValue, "event")))
-        let recurrenceId = try CsilCbor.asText((try CsilCbor.require(cborValue, "recurrence_id")))
-        let mapRecurrenceIds: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        let recurrenceId = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "recurrence_id")), 0)
+        let mapRecurrenceIds: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asTaggedText($0, 0) } } else { nil }
         self.init(idempotencyKey: idempotencyKey, event: event, recurrenceId: recurrenceId, mapRecurrenceIds: mapRecurrenceIds)
     }
 
@@ -1695,7 +1721,7 @@ public extension SplitReceiptRequest {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("series_id"), .text(self.seriesId)))
         csilEntries.append((.text("idempotency_key"), .text(self.idempotencyKey)))
-        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .text($0) }))) }
+        if let csilV = self.mapRecurrenceIds { csilEntries.append((.text("map_recurrence_ids"), CsilCborValue.array(csilV.map { .tag(0, .text($0)) }))) }
         return .map(csilEntries)
     }
 
@@ -1703,7 +1729,7 @@ public extension SplitReceiptRequest {
     init(cborValue: CsilCborValue) throws {
         let seriesId = try CsilCbor.asText((try CsilCbor.require(cborValue, "series_id")))
         let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
-        let mapRecurrenceIds: [Timestamp]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asText($0) } } else { nil }
+        let mapRecurrenceIds: [String]? = if let csilV = CsilCbor.mapGet(cborValue, "map_recurrence_ids") { try CsilCbor.asArray(csilV).map { try CsilCbor.asTaggedText($0, 0) } } else { nil }
         self.init(seriesId: seriesId, idempotencyKey: idempotencyKey, mapRecurrenceIds: mapRecurrenceIds)
     }
 
@@ -1739,17 +1765,17 @@ public extension SplitOccurrenceMapping {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("result"), self.result.toCborValue()))
         if let csilV = self.eventId { csilEntries.append((.text("event_id"), .text(csilV))) }
-        csilEntries.append((.text("recurrence_id"), .text(self.recurrenceId)))
-        if let csilV = self.mappedRecurrenceId { csilEntries.append((.text("mapped_recurrence_id"), .text(csilV))) }
+        csilEntries.append((.text("recurrence_id"), .tag(0, .text(self.recurrenceId))))
+        if let csilV = self.mappedRecurrenceId { csilEntries.append((.text("mapped_recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
-        let recurrenceId = try CsilCbor.asText((try CsilCbor.require(cborValue, "recurrence_id")))
+        let recurrenceId = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "recurrence_id")), 0)
         let result = try SplitMapResult(cborValue: (try CsilCbor.require(cborValue, "result")))
         let eventId: EventId? = if let csilV = CsilCbor.mapGet(cborValue, "event_id") { try CsilCbor.asText(csilV) } else { nil }
-        let mappedRecurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "mapped_recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let mappedRecurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "mapped_recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(recurrenceId: recurrenceId, result: result, eventId: eventId, mappedRecurrenceId: mappedRecurrenceId)
     }
 
@@ -1768,10 +1794,10 @@ public extension SplitSeriesReceipt {
         csilEntries.append((.text("created"), .bool(self.created)))
         csilEntries.append((.text("in_place"), .bool(self.inPlace)))
         csilEntries.append((.text("mappings"), CsilCborValue.array(self.mappings.map { $0.toCborValue() })))
-        csilEntries.append((.text("split_at"), .text(self.splitAt)))
+        csilEntries.append((.text("split_at"), .tag(0, .text(self.splitAt))))
         csilEntries.append((.text("series_id"), .text(self.seriesId)))
         if let csilV = self.successor { csilEntries.append((.text("successor"), csilV.toCborValue())) }
-        csilEntries.append((.text("created_at"), .text(self.createdAt)))
+        csilEntries.append((.text("created_at"), .tag(0, .text(self.createdAt))))
         csilEntries.append((.text("calendar_id"), .text(self.calendarId)))
         csilEntries.append((.text("series_state"), self.seriesState.toCborValue()))
         csilEntries.append((.text("successor_id"), .text(self.successorId)))
@@ -1787,10 +1813,10 @@ public extension SplitSeriesReceipt {
         let seriesId = try CsilCbor.asText((try CsilCbor.require(cborValue, "series_id")))
         let idempotencyKey = try CsilCbor.asText((try CsilCbor.require(cborValue, "idempotency_key")))
         let successorId = try CsilCbor.asText((try CsilCbor.require(cborValue, "successor_id")))
-        let splitAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "split_at")))
+        let splitAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "split_at")), 0)
         let inPlace = try CsilCbor.asBool((try CsilCbor.require(cborValue, "in_place")))
         let created = try CsilCbor.asBool((try CsilCbor.require(cborValue, "created")))
-        let createdAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "created_at")))
+        let createdAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "created_at")), 0)
         let calendarId = try CsilCbor.asText((try CsilCbor.require(cborValue, "calendar_id")))
         let seriesState = try CreateReceiptState(cborValue: (try CsilCbor.require(cborValue, "series_state")))
         let series: Event? = if let csilV = CsilCbor.mapGet(cborValue, "series") { try Event(cborValue: csilV) } else { nil }
@@ -1814,14 +1840,14 @@ public extension GetOccurrenceRequest {
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("event_id"), .text(self.eventId)))
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         self.init(eventId: eventId, recurrenceId: recurrenceId)
     }
 
@@ -1839,7 +1865,7 @@ public extension RespondRequest {
         csilEntries.append((.text("status"), self.status.toCborValue()))
         if let csilV = self.comment { csilEntries.append((.text("comment"), .text(csilV))) }
         csilEntries.append((.text("event_id"), .text(self.eventId)))
-        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .text(csilV))) }
+        if let csilV = self.recurrenceId { csilEntries.append((.text("recurrence_id"), .tag(0, .text(csilV)))) }
         return .map(csilEntries)
     }
 
@@ -1847,7 +1873,7 @@ public extension RespondRequest {
     init(cborValue: CsilCborValue) throws {
         let eventId = try CsilCbor.asText((try CsilCbor.require(cborValue, "event_id")))
         let status = try ParticipationStatus(cborValue: (try CsilCbor.require(cborValue, "status")))
-        let recurrenceId: Timestamp? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asText(csilV) } else { nil }
+        let recurrenceId: String? = if let csilV = CsilCbor.mapGet(cborValue, "recurrence_id") { try CsilCbor.asTaggedText(csilV, 0) } else { nil }
         let comment: String? = if let csilV = CsilCbor.mapGet(cborValue, "comment") { try CsilCbor.asText(csilV) } else { nil }
         self.init(eventId: eventId, status: status, recurrenceId: recurrenceId, comment: comment)
     }
@@ -1907,16 +1933,16 @@ public extension BusyInterval {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append((.text("end"), .text(self.end)))
-        csilEntries.append((.text("start"), .text(self.start)))
+        csilEntries.append((.text("end"), .tag(0, .text(self.end))))
+        csilEntries.append((.text("start"), .tag(0, .text(self.start))))
         if let csilV = self.tentative { csilEntries.append((.text("tentative"), .bool(csilV))) }
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
-        let start = try CsilCbor.asText((try CsilCbor.require(cborValue, "start")))
-        let end = try CsilCbor.asText((try CsilCbor.require(cborValue, "end")))
+        let start = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "start")), 0)
+        let end = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "end")), 0)
         let tentative: Bool? = if let csilV = CsilCbor.mapGet(cborValue, "tentative") { try CsilCbor.asBool(csilV) } else { nil }
         self.init(start: start, end: end, tentative: tentative)
     }
@@ -1933,16 +1959,16 @@ public extension FreeBusyRequest {
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
         csilEntries.append((.text("people"), CsilCborValue.array(self.people.map { $0.toCborValue() })))
-        csilEntries.append((.text("range_end"), .text(self.rangeEnd)))
-        csilEntries.append((.text("range_start"), .text(self.rangeStart)))
+        csilEntries.append((.text("range_end"), .tag(0, .text(self.rangeEnd))))
+        csilEntries.append((.text("range_start"), .tag(0, .text(self.rangeStart))))
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let people = try CsilCbor.asArray((try CsilCbor.require(cborValue, "people"))).map { try IdentityRef(cborValue: $0) }
-        let rangeStart = try CsilCbor.asText((try CsilCbor.require(cborValue, "range_start")))
-        let rangeEnd = try CsilCbor.asText((try CsilCbor.require(cborValue, "range_end")))
+        let rangeStart = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "range_start")), 0)
+        let rangeEnd = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "range_end")), 0)
         self.init(people: people, rangeStart: rangeStart, rangeEnd: rangeEnd)
     }
 
@@ -2122,7 +2148,7 @@ public extension AuditEntry {
     /// The CBOR value tree for this record (deep, canonical key order).
     func toCborValue() -> CsilCborValue {
         var csilEntries: [(CsilCborValue, CsilCborValue)] = []
-        csilEntries.append((.text("at"), .text(self.at)))
+        csilEntries.append((.text("at"), .tag(0, .text(self.at))))
         csilEntries.append((.text("via"), self.via.toCborValue()))
         csilEntries.append((.text("actor"), self.`actor`.toCborValue()))
         if let csilV = self.target { csilEntries.append((.text("target"), .text(csilV))) }
@@ -2137,7 +2163,7 @@ public extension AuditEntry {
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let auditId = try CsilCbor.asText((try CsilCbor.require(cborValue, "audit_id")))
-        let at = try CsilCbor.asText((try CsilCbor.require(cborValue, "at")))
+        let at = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "at")), 0)
         let `actor` = try PersonSummary(cborValue: (try CsilCbor.require(cborValue, "actor")))
         let principal = try PersonSummary(cborValue: (try CsilCbor.require(cborValue, "principal")))
         let via = try ActingVia(cborValue: (try CsilCbor.require(cborValue, "via")))
@@ -2231,14 +2257,14 @@ public extension LoginResponse {
         csilEntries.append((.text("token"), .text(self.token)))
         if let csilV = self.scopes { csilEntries.append((.text("scopes"), CsilCborValue.array(csilV.map { $0.toCborValue() }))) }
         if let csilV = self.actingAs { csilEntries.append((.text("acting_as"), csilV.toCborValue())) }
-        csilEntries.append((.text("expires_at"), .text(self.expiresAt)))
+        csilEntries.append((.text("expires_at"), .tag(0, .text(self.expiresAt))))
         return .map(csilEntries)
     }
 
     /// Reconstruct this record from a decoded CBOR value tree.
     init(cborValue: CsilCborValue) throws {
         let token = try CsilCbor.asText((try CsilCbor.require(cborValue, "token")))
-        let expiresAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "expires_at")))
+        let expiresAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "expires_at")), 0)
         let user = try PersonSummary(cborValue: (try CsilCbor.require(cborValue, "user")))
         let actingAs: PersonSummary? = if let csilV = CsilCbor.mapGet(cborValue, "acting_as") { try PersonSummary(cborValue: csilV) } else { nil }
         let via = try ActingVia(cborValue: (try CsilCbor.require(cborValue, "via")))
@@ -2385,7 +2411,7 @@ public extension ApplicationPresentation {
         csilEntries.append((.text("nonce"), .bytes(self.nonce)))
         csilEntries.append((.text("signer"), self.signer.toCborValue()))
         csilEntries.append((.text("audience"), self.audience.toCborValue()))
-        csilEntries.append((.text("presented_at"), .text(self.presentedAt)))
+        csilEntries.append((.text("presented_at"), .tag(0, .text(self.presentedAt))))
         csilEntries.append((.text("request_digest"), .bytes(self.requestDigest)))
         csilEntries.append((.text("signer_instance_id"), .text(self.signerInstanceId)))
         return .map(csilEntries)
@@ -2397,7 +2423,7 @@ public extension ApplicationPresentation {
         let signerInstanceId = try CsilCbor.asText((try CsilCbor.require(cborValue, "signer_instance_id")))
         let audience = try ApplicationRef(cborValue: (try CsilCbor.require(cborValue, "audience")))
         let requestDigest = try CsilCbor.asBytes((try CsilCbor.require(cborValue, "request_digest")))
-        let presentedAt = try CsilCbor.asText((try CsilCbor.require(cborValue, "presented_at")))
+        let presentedAt = try CsilCbor.asTaggedText((try CsilCbor.require(cborValue, "presented_at")), 0)
         let nonce = try CsilCbor.asBytes((try CsilCbor.require(cborValue, "nonce")))
         self.init(signer: signer, signerInstanceId: signerInstanceId, audience: audience, requestDigest: requestDigest, presentedAt: presentedAt, nonce: nonce)
     }
@@ -2753,3 +2779,955 @@ public func decodeEventGetEventRequest(_ bytes: [UInt8]) throws -> EventId {
     return try CsilCbor.asText(csilRoot)
 }
 
+public struct ServiceErrorRefusal: Error {
+    public let value: ServiceError
+    public init(value: ServiceError) { self.value = value }
+}
+
+public func encodeAuthCompleteReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthResumeSessionReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthEndSessionReply(_ handler: () throws -> EmptyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthMeReply(_ handler: () throws -> MeResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("MeResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthAssumePrincipalReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthReleasePrincipalReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthExchangeActAsCredentialReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthGetActAsScopeSetReply(_ handler: () throws -> ScopeSetResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("ScopeSetResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthGetApplicationIdentityReply(_ handler: () throws -> ApplicationIdentityResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("ApplicationIdentityResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuthExchangeApplicationPresentationReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDevAuthListDevUsersReply(_ handler: () throws -> DevUsersResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("DevUsersResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDevAuthDevLoginReply(_ handler: () throws -> LoginResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("LoginResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeUserGetProfileReply(_ handler: () throws -> User) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("User", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeUserUpdateProfileReply(_ handler: () throws -> User) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("User", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeUserLookupPersonReply(_ handler: () throws -> PersonSummary) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("PersonSummary", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarListCalendarsReply(_ handler: () throws -> CalendarList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("CalendarList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarGetCalendarReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarCreateCalendarReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarUpdateCalendarReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarDeleteCalendarReply(_ handler: () throws -> EmptyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarSubscribeCalendarReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarRefreshSubscriptionReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeCalendarSetFeedReply(_ handler: () throws -> Calendar) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Calendar", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeShareListSharesReply(_ handler: () throws -> ShareList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("ShareList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeSharePutShareReply(_ handler: () throws -> Share) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Share", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeShareDeleteShareReply(_ handler: () throws -> EmptyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupListGroupsReply(_ handler: () throws -> GroupList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("GroupList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupGetGroupReply(_ handler: () throws -> Group) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Group", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupCreateGroupReply(_ handler: () throws -> Group) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Group", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupUpdateGroupReply(_ handler: () throws -> Group) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Group", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupSetMembersReply(_ handler: () throws -> Group) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Group", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeGroupDeleteGroupReply(_ handler: () throws -> EmptyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDelegationListGrantedReply(_ handler: () throws -> DelegationList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("DelegationList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDelegationListReceivedReply(_ handler: () throws -> DelegationList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("DelegationList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDelegationCreateDelegationReply(_ handler: () throws -> Delegation) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Delegation", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDelegationUpdateDelegationReply(_ handler: () throws -> Delegation) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Delegation", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeDelegationRevokeDelegationReply(_ handler: () throws -> EmptyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EmptyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventListEventsReply(_ handler: () throws -> OccurrenceList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("OccurrenceList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventGetEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventGetOccurrenceReply(_ handler: () throws -> Occurrence) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Occurrence", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventCreateEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventUpdateEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventDeleteEventReply(_ handler: () throws -> DeleteEventResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("DeleteEventResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventMoveEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventRespondReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventListInvitationsReply(_ handler: () throws -> EventList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EventList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventSearchEventsReply(_ handler: () throws -> EventList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("EventList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventListTrashReply(_ handler: () throws -> TrashList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("TrashList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventRestoreEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventImportEventReply(_ handler: () throws -> Event) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("Event", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventCreateEventOnceReply(_ handler: () throws -> CreateEventReceipt) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("CreateEventReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventGetCreateReceiptReply(_ handler: () throws -> CreateEventReceipt) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("CreateEventReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventSplitSeriesOnceReply(_ handler: () throws -> SplitSeriesReceipt) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("SplitSeriesReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeEventGetSplitReceiptReply(_ handler: () throws -> SplitSeriesReceipt) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("SplitSeriesReceipt", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeFreeBusyQueryReply(_ handler: () throws -> FreeBusyResponse) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("FreeBusyResponse", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeIcsImportIcsReply(_ handler: () throws -> ImportResult) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("ImportResult", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeIcsExportCalendarReply(_ handler: () throws -> IcsDocument) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("IcsDocument", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeIcsExportEventReply(_ handler: () throws -> IcsDocument) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("IcsDocument", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func encodeAuditListAuditReply(_ handler: () throws -> AuditList) throws -> (variant: String, payload: [UInt8]) {
+    do {
+        let value = try handler()
+        return ("AuditList", CsilCbor.encode(value.toCborValue()))
+    } catch let refusal as ServiceErrorRefusal {
+        return ("ServiceError", CsilCbor.encode(refusal.value.toCborValue()))
+    }
+}
+
+public func resolveRpcReply(service: String, op: String, variant: String?, payload: [UInt8]) throws -> [UInt8] {
+    if service == "AuthService" && op == "complete" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "resume-session" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "end-session" {
+        switch variant {
+        case "EmptyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "me" {
+        switch variant {
+        case "MeResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "assume-principal" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "release-principal" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "exchange-act-as-credential" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "get-act-as-scope-set" {
+        switch variant {
+        case "ScopeSetResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "get-application-identity" {
+        switch variant {
+        case "ApplicationIdentityResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuthService" && op == "exchange-application-presentation" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DevAuthService" && op == "list-dev-users" {
+        switch variant {
+        case "DevUsersResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DevAuthService" && op == "dev-login" {
+        switch variant {
+        case "LoginResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "UserService" && op == "get-profile" {
+        switch variant {
+        case "User": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "UserService" && op == "update-profile" {
+        switch variant {
+        case "User": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "UserService" && op == "lookup-person" {
+        switch variant {
+        case "PersonSummary": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "list-calendars" {
+        switch variant {
+        case "CalendarList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "get-calendar" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "create-calendar" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "update-calendar" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "delete-calendar" {
+        switch variant {
+        case "EmptyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "subscribe-calendar" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "refresh-subscription" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "CalendarService" && op == "set-feed" {
+        switch variant {
+        case "Calendar": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "ShareService" && op == "list-shares" {
+        switch variant {
+        case "ShareList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "ShareService" && op == "put-share" {
+        switch variant {
+        case "Share": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "ShareService" && op == "delete-share" {
+        switch variant {
+        case "EmptyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "list-groups" {
+        switch variant {
+        case "GroupList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "get-group" {
+        switch variant {
+        case "Group": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "create-group" {
+        switch variant {
+        case "Group": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "update-group" {
+        switch variant {
+        case "Group": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "set-members" {
+        switch variant {
+        case "Group": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "GroupService" && op == "delete-group" {
+        switch variant {
+        case "EmptyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DelegationService" && op == "list-granted" {
+        switch variant {
+        case "DelegationList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DelegationService" && op == "list-received" {
+        switch variant {
+        case "DelegationList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DelegationService" && op == "create-delegation" {
+        switch variant {
+        case "Delegation": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DelegationService" && op == "update-delegation" {
+        switch variant {
+        case "Delegation": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "DelegationService" && op == "revoke-delegation" {
+        switch variant {
+        case "EmptyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "list-events" {
+        switch variant {
+        case "OccurrenceList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "get-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "get-occurrence" {
+        switch variant {
+        case "Occurrence": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "create-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "update-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "delete-event" {
+        switch variant {
+        case "DeleteEventResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "move-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "respond" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "list-invitations" {
+        switch variant {
+        case "EventList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "search-events" {
+        switch variant {
+        case "EventList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "list-trash" {
+        switch variant {
+        case "TrashList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "restore-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "import-event" {
+        switch variant {
+        case "Event": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "create-event-once" {
+        switch variant {
+        case "CreateEventReceipt": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "get-create-receipt" {
+        switch variant {
+        case "CreateEventReceipt": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "split-series-once" {
+        switch variant {
+        case "SplitSeriesReceipt": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "EventService" && op == "get-split-receipt" {
+        switch variant {
+        case "SplitSeriesReceipt": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "FreeBusyService" && op == "query" {
+        switch variant {
+        case "FreeBusyResponse": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "IcsService" && op == "import-ics" {
+        switch variant {
+        case "ImportResult": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "IcsService" && op == "export-calendar" {
+        switch variant {
+        case "IcsDocument": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "IcsService" && op == "export-event" {
+        switch variant {
+        case "IcsDocument": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    if service == "AuditService" && op == "list-audit" {
+        switch variant {
+        case "AuditList": return payload
+        case "ServiceError": throw ServiceErrorRefusal(value: try ServiceError(cborValue: CsilCbor.decode(payload)))
+        default: throw CsilCborError.typeMismatch
+        }
+    }
+    return payload
+}

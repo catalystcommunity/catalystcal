@@ -5,12 +5,12 @@ package com.catalystcommunity.catalystcal.client;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -440,6 +440,20 @@ public final class CsilCbor {
         return out;
     }
 
+    public static CborValue encDate(LocalDate date) {
+        String text = date.toString();
+        if (text.length() != 10) throw new CsilCborException("date requires a four-digit year");
+        return new CborTag(1004, new CborText(text));
+    }
+
+    public static LocalDate asDate(CborValue value) {
+        if (value instanceof CborTag tag && tag.num() == 1004 && tag.inner() instanceof CborText text
+                && text.value().length() == 10) {
+            return LocalDate.parse(text.value());
+        }
+        throw new CsilCborException("expected tag 1004 with YYYY-MM-DD text");
+    }
+
     public static CborValue encTimestamp(Instant t) {
         return new CborTag(0, new CborText(t.toString()));
     }
@@ -508,8 +522,8 @@ public final class CsilCbor {
         if (v.timezone() != null) {
             csilEntries.add(new CborEntry(new CborText("timezone"), new CborText(v.timezone())));
         }
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
-        csilEntries.add(new CborEntry(new CborText("updated_at"), new CborText((v.updatedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
+        csilEntries.add(new CborEntry(new CborText("updated_at"), encTimestamp(v.updatedAt())));
         if (v.displayName() != null) {
             csilEntries.add(new CborEntry(new CborText("display_name"), new CborText(v.displayName())));
         }
@@ -548,8 +562,8 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "timezone");
             timezone = csilField != null ? asText(csilField) : null;
         }
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
+        Instant updatedAt = asTimestamp(require(csilRoot, "updated_at"));
         return new User(userId, domain, subject, applicationId, handle, displayName, email, timezone, createdAt, updatedAt);
     }
 
@@ -623,7 +637,7 @@ public final class CsilCbor {
         if (v.feedPath() != null) {
             csilEntries.add(new CborEntry(new CborText("feed_path"), new CborText(v.feedPath())));
         }
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         csilEntries.add(new CborEntry(new CborText("is_default"), new CborBool(v.isDefault())));
         if (v.sourceUrl() != null) {
             csilEntries.add(new CborEntry(new CborText("source_url"), new CborText(v.sourceUrl())));
@@ -631,14 +645,14 @@ public final class CsilCbor {
         if (v.syncError() != null) {
             csilEntries.add(new CborEntry(new CborText("sync_error"), new CborText(v.syncError())));
         }
-        csilEntries.add(new CborEntry(new CborText("updated_at"), new CborText((v.updatedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("updated_at"), encTimestamp(v.updatedAt())));
         csilEntries.add(new CborEntry(new CborText("access_path"), encAccessPath(v.accessPath())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         if (v.description() != null) {
             csilEntries.add(new CborEntry(new CborText("description"), new CborText(v.description())));
         }
         if (v.lastSyncedAt() != null) {
-            csilEntries.add(new CborEntry(new CborText("last_synced_at"), new CborText((v.lastSyncedAt()).value())));
+            csilEntries.add(new CborEntry(new CborText("last_synced_at"), encTimestamp(v.lastSyncedAt())));
         }
         return new CborMap(csilEntries);
     }
@@ -668,10 +682,10 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "source_url");
             sourceUrl = csilField != null ? asText(csilField) : null;
         }
-        Timestamp lastSyncedAt;
+        Instant lastSyncedAt;
         {
             CborValue csilField = mapGet(csilRoot, "last_synced_at");
-            lastSyncedAt = csilField != null ? new Timestamp(asText(csilField)) : null;
+            lastSyncedAt = csilField != null ? asTimestamp(csilField) : null;
         }
         String syncError;
         {
@@ -686,8 +700,8 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "feed_path");
             feedPath = csilField != null ? asText(csilField) : null;
         }
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
+        Instant updatedAt = asTimestamp(require(csilRoot, "updated_at"));
         return new Calendar(calendarId, owner, name, description, color, timezone, kind, sourceUrl, lastSyncedAt, syncError, isDefault, access, accessPath, feedPath, createdAt, updatedAt);
     }
 
@@ -869,7 +883,7 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("grantee"), encIdentityRef(v.grantee())));
         }
         csilEntries.add(new CborEntry(new CborText("share_id"), new CborText((v.shareId()).value())));
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         if (v.granteePerson() != null) {
             csilEntries.add(new CborEntry(new CborText("grantee_person"), encPersonSummary(v.granteePerson())));
@@ -907,7 +921,7 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "grantee_group_name");
             granteeGroupName = csilField != null ? asText(csilField) : null;
         }
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
         return new Share(shareId, calendarId, grantee, granteeGroupId, role, granteePerson, granteeGroupName, createdAt);
     }
 
@@ -994,8 +1008,8 @@ public final class CsilCbor {
         csilEntries.add(new CborEntry(new CborText("members"), encArray(v.members(), csilElem0 -> encGroupMember(csilElem0))));
         csilEntries.add(new CborEntry(new CborText("group_id"), new CborText((v.groupId()).value())));
         csilEntries.add(new CborEntry(new CborText("revision"), new CborUint(v.revision())));
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
-        csilEntries.add(new CborEntry(new CborText("updated_at"), new CborText((v.updatedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
+        csilEntries.add(new CborEntry(new CborText("updated_at"), encTimestamp(v.updatedAt())));
         if (v.description() != null) {
             csilEntries.add(new CborEntry(new CborText("description"), new CborText(v.description())));
         }
@@ -1013,8 +1027,8 @@ public final class CsilCbor {
         }
         long revision = asU64(require(csilRoot, "revision"));
         List<GroupMember> members = decArray(require(csilRoot, "members"), csilE0 -> decGroupMember(csilE0));
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
+        Instant updatedAt = asTimestamp(require(csilRoot, "updated_at"));
         return new Group(groupId, owner, name, description, revision, members, createdAt, updatedAt);
     }
 
@@ -1152,12 +1166,12 @@ public final class CsilCbor {
         csilEntries.add(new CborEntry(new CborText("scopes"), encArray(v.scopes(), csilElem0 -> encScope(csilElem0))));
         csilEntries.add(new CborEntry(new CborText("delegate"), encIdentityRef(v.delegate())));
         csilEntries.add(new CborEntry(new CborText("principal"), encPersonSummary(v.principal())));
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         if (v.expiresAt() != null) {
-            csilEntries.add(new CborEntry(new CborText("expires_at"), new CborText((v.expiresAt()).value())));
+            csilEntries.add(new CborEntry(new CborText("expires_at"), encTimestamp(v.expiresAt())));
         }
         if (v.revokedAt() != null) {
-            csilEntries.add(new CborEntry(new CborText("revoked_at"), new CborText((v.revokedAt()).value())));
+            csilEntries.add(new CborEntry(new CborText("revoked_at"), encTimestamp(v.revokedAt())));
         }
         if (v.calendarIds() != null) {
             csilEntries.add(new CborEntry(new CborText("calendar_ids"), encArray(v.calendarIds(), csilElem0 -> new CborText((csilElem0).value()))));
@@ -1189,16 +1203,16 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "note");
             note = csilField != null ? asText(csilField) : null;
         }
-        Timestamp expiresAt;
+        Instant expiresAt;
         {
             CborValue csilField = mapGet(csilRoot, "expires_at");
-            expiresAt = csilField != null ? new Timestamp(asText(csilField)) : null;
+            expiresAt = csilField != null ? asTimestamp(csilField) : null;
         }
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        Timestamp revokedAt;
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
+        Instant revokedAt;
         {
             CborValue csilField = mapGet(csilRoot, "revoked_at");
-            revokedAt = csilField != null ? new Timestamp(asText(csilField)) : null;
+            revokedAt = csilField != null ? asTimestamp(csilField) : null;
         }
         return new Delegation(delegationId, principal, delegate, delegatePerson, scopes, calendarIds, note, expiresAt, createdAt, revokedAt);
     }
@@ -1253,25 +1267,25 @@ public final class CsilCbor {
         List<CborEntry> csilEntries = new ArrayList<>(3);
         csilEntries.add(new CborEntry(new CborText("rrule"), new CborText(v.rrule())));
         if (v.rdates() != null) {
-            csilEntries.add(new CborEntry(new CborText("rdates"), encArray(v.rdates(), csilElem0 -> new CborText((csilElem0).value()))));
+            csilEntries.add(new CborEntry(new CborText("rdates"), encArray(v.rdates(), csilElem0 -> encTimestamp(csilElem0))));
         }
         if (v.exdates() != null) {
-            csilEntries.add(new CborEntry(new CborText("exdates"), encArray(v.exdates(), csilElem0 -> new CborText((csilElem0).value()))));
+            csilEntries.add(new CborEntry(new CborText("exdates"), encArray(v.exdates(), csilElem0 -> encTimestamp(csilElem0))));
         }
         return new CborMap(csilEntries);
     }
 
     static Recurrence decRecurrence(CborValue csilRoot) {
         String rrule = asText(require(csilRoot, "rrule"));
-        List<Timestamp> exdates;
+        List<Instant> exdates;
         {
             CborValue csilField = mapGet(csilRoot, "exdates");
-            exdates = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+            exdates = csilField != null ? decArray(csilField, csilE0 -> asTimestamp(csilE0)) : null;
         }
-        List<Timestamp> rdates;
+        List<Instant> rdates;
         {
             CborValue csilField = mapGet(csilRoot, "rdates");
-            rdates = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+            rdates = csilField != null ? decArray(csilField, csilE0 -> asTimestamp(csilE0)) : null;
         }
         return new Recurrence(rrule, exdates, rdates);
     }
@@ -1395,7 +1409,7 @@ public final class CsilCbor {
     static CborValue encEvent(Event v) {
         List<CborEntry> csilEntries = new ArrayList<>(31);
         if (v.end() != null) {
-            csilEntries.add(new CborEntry(new CborText("end"), new CborText((v.end()).value())));
+            csilEntries.add(new CborEntry(new CborText("end"), encTimestamp(v.end())));
         }
         if (v.uid() != null) {
             csilEntries.add(new CborEntry(new CborText("uid"), new CborText(v.uid())));
@@ -1407,7 +1421,7 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("color"), new CborText(v.color())));
         }
         if (v.start() != null) {
-            csilEntries.add(new CborEntry(new CborText("start"), new CborText((v.start()).value())));
+            csilEntries.add(new CborEntry(new CborText("start"), encTimestamp(v.start())));
         }
         csilEntries.add(new CborEntry(new CborText("title"), new CborText(v.title())));
         if (v.status() != null) {
@@ -1417,7 +1431,7 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("all_day"), new CborBool(v.allDay())));
         }
         if (v.endDate() != null) {
-            csilEntries.add(new CborEntry(new CborText("end_date"), new CborText((v.endDate()).value())));
+            csilEntries.add(new CborEntry(new CborText("end_date"), encDate(v.endDate())));
         }
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
         if (v.location() != null) {
@@ -1439,7 +1453,7 @@ public final class CsilCbor {
         if (v.categories() != null) {
             csilEntries.add(new CborEntry(new CborText("categories"), encArray(v.categories(), csilElem0 -> new CborText(csilElem0))));
         }
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         if (v.createdBy() != null) {
             csilEntries.add(new CborEntry(new CborText("created_by"), encPersonSummary(v.createdBy())));
         }
@@ -1447,9 +1461,9 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("recurrence"), encRecurrence(v.recurrence())));
         }
         if (v.startDate() != null) {
-            csilEntries.add(new CborEntry(new CborText("start_date"), new CborText((v.startDate()).value())));
+            csilEntries.add(new CborEntry(new CborText("start_date"), encDate(v.startDate())));
         }
-        csilEntries.add(new CborEntry(new CborText("updated_at"), new CborText((v.updatedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("updated_at"), encTimestamp(v.updatedAt())));
         if (v.updatedBy() != null) {
             csilEntries.add(new CborEntry(new CborText("updated_by"), encPersonSummary(v.updatedBy())));
         }
@@ -1467,7 +1481,7 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("transparency"), encEventTransparency(v.transparency())));
         }
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         if (v.conferenceUrl() != null) {
             csilEntries.add(new CborEntry(new CborText("conference_url"), new CborText(v.conferenceUrl())));
@@ -1507,30 +1521,30 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "conference_url");
             conferenceUrl = csilField != null ? asText(csilField) : null;
         }
-        Timestamp start;
+        Instant start;
         {
             CborValue csilField = mapGet(csilRoot, "start");
-            start = csilField != null ? new Timestamp(asText(csilField)) : null;
+            start = csilField != null ? asTimestamp(csilField) : null;
         }
-        Timestamp end;
+        Instant end;
         {
             CborValue csilField = mapGet(csilRoot, "end");
-            end = csilField != null ? new Timestamp(asText(csilField)) : null;
+            end = csilField != null ? asTimestamp(csilField) : null;
         }
         Boolean allDay;
         {
             CborValue csilField = mapGet(csilRoot, "all_day");
             allDay = csilField != null ? asBool(csilField) : null;
         }
-        DateText startDate;
+        LocalDate startDate;
         {
             CborValue csilField = mapGet(csilRoot, "start_date");
-            startDate = csilField != null ? new DateText(asText(csilField)) : null;
+            startDate = csilField != null ? asDate(csilField) : null;
         }
-        DateText endDate;
+        LocalDate endDate;
         {
             CborValue csilField = mapGet(csilRoot, "end_date");
-            endDate = csilField != null ? new DateText(asText(csilField)) : null;
+            endDate = csilField != null ? asDate(csilField) : null;
         }
         String timezone;
         {
@@ -1562,10 +1576,10 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "master_event_id");
             masterEventId = csilField != null ? new EventId(asText(csilField)) : null;
         }
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         List<Attendee> attendees;
         {
@@ -1608,8 +1622,8 @@ public final class CsilCbor {
             updatedVia = csilField != null ? decActingVia(csilField) : null;
         }
         long sequence = asI64(require(csilRoot, "sequence"));
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
-        Timestamp updatedAt = new Timestamp(asText(require(csilRoot, "updated_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
+        Instant updatedAt = asTimestamp(require(csilRoot, "updated_at"));
         return new Event(eventId, calendarId, uid, title, description, location, url, conferenceUrl, start, end, allDay, startDate, endDate, timezone, status, transparency, visibility, recurrence, masterEventId, recurrenceId, attendees, reminders, categories, color, organizer, createdBy, updatedBy, updatedVia, sequence, createdAt, updatedAt);
     }
 
@@ -1623,26 +1637,26 @@ public final class CsilCbor {
 
     static CborValue encOccurrence(Occurrence v) {
         List<CborEntry> csilEntries = new ArrayList<>(7);
-        csilEntries.add(new CborEntry(new CborText("end"), new CborText((v.end()).value())));
+        csilEntries.add(new CborEntry(new CborText("end"), encTimestamp(v.end())));
         csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
-        csilEntries.add(new CborEntry(new CborText("start"), new CborText((v.start()).value())));
+        csilEntries.add(new CborEntry(new CborText("start"), encTimestamp(v.start())));
         csilEntries.add(new CborEntry(new CborText("access"), encAccessRole(v.access())));
         csilEntries.add(new CborEntry(new CborText("invited"), new CborBool(v.invited())));
         csilEntries.add(new CborEntry(new CborText("busy_only"), new CborBool(v.busyOnly())));
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
 
     static Occurrence decOccurrence(CborValue csilRoot) {
         Event event = decEvent(require(csilRoot, "event"));
-        Timestamp start = new Timestamp(asText(require(csilRoot, "start")));
-        Timestamp end = new Timestamp(asText(require(csilRoot, "end")));
-        Timestamp recurrenceId;
+        Instant start = asTimestamp(require(csilRoot, "start"));
+        Instant end = asTimestamp(require(csilRoot, "end"));
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         AccessRole access = decAccessRole(require(csilRoot, "access"));
         boolean busyOnly = asBool(require(csilRoot, "busy_only"));
@@ -1660,8 +1674,8 @@ public final class CsilCbor {
 
     static CborValue encListEventsRequest(ListEventsRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(4);
-        csilEntries.add(new CborEntry(new CborText("range_end"), new CborText((v.rangeEnd()).value())));
-        csilEntries.add(new CborEntry(new CborText("range_start"), new CborText((v.rangeStart()).value())));
+        csilEntries.add(new CborEntry(new CborText("range_end"), encTimestamp(v.rangeEnd())));
+        csilEntries.add(new CborEntry(new CborText("range_start"), encTimestamp(v.rangeStart())));
         if (v.calendarIds() != null) {
             csilEntries.add(new CborEntry(new CborText("calendar_ids"), encArray(v.calendarIds(), csilElem0 -> new CborText((csilElem0).value()))));
         }
@@ -1672,8 +1686,8 @@ public final class CsilCbor {
     }
 
     static ListEventsRequest decListEventsRequest(CborValue csilRoot) {
-        Timestamp rangeStart = new Timestamp(asText(require(csilRoot, "range_start")));
-        Timestamp rangeEnd = new Timestamp(asText(require(csilRoot, "range_end")));
+        Instant rangeStart = asTimestamp(require(csilRoot, "range_start"));
+        Instant rangeEnd = asTimestamp(require(csilRoot, "range_end"));
         List<CalendarId> calendarIds;
         {
             CborValue csilField = mapGet(csilRoot, "calendar_ids");
@@ -1723,7 +1737,7 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("scope"), encRecurrenceScope(v.scope())));
         }
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
@@ -1735,10 +1749,10 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "scope");
             scope = csilField != null ? decRecurrenceScope(csilField) : null;
         }
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         return new UpdateEventRequest(event, scope, recurrenceId);
     }
@@ -1758,7 +1772,7 @@ public final class CsilCbor {
         }
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
@@ -1770,10 +1784,10 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "scope");
             scope = csilField != null ? decRecurrenceScope(csilField) : null;
         }
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         return new DeleteEventRequest(eventId, scope, recurrenceId);
     }
@@ -1841,14 +1855,14 @@ public final class CsilCbor {
             csilEntries.add(new CborEntry(new CborText("instance"), encEvent(v.instance())));
         }
         csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
-        csilEntries.add(new CborEntry(new CborText("deleted_at"), new CborText((v.deletedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("deleted_at"), encTimestamp(v.deletedAt())));
         if (v.deletedBy() != null) {
             csilEntries.add(new CborEntry(new CborText("deleted_by"), encPersonSummary(v.deletedBy())));
         }
-        csilEntries.add(new CborEntry(new CborText("expires_at"), new CborText((v.expiresAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("expires_at"), encTimestamp(v.expiresAt())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
@@ -1858,10 +1872,10 @@ public final class CsilCbor {
         CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
         EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
         RecurrenceScope scope = decRecurrenceScope(require(csilRoot, "scope"));
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         Event event = decEvent(require(csilRoot, "event"));
         Event instance;
@@ -1874,8 +1888,8 @@ public final class CsilCbor {
             CborValue csilField = mapGet(csilRoot, "deleted_by");
             deletedBy = csilField != null ? decPersonSummary(csilField) : null;
         }
-        Timestamp deletedAt = new Timestamp(asText(require(csilRoot, "deleted_at")));
-        Timestamp expiresAt = new Timestamp(asText(require(csilRoot, "expires_at")));
+        Instant deletedAt = asTimestamp(require(csilRoot, "deleted_at"));
+        Instant expiresAt = asTimestamp(require(csilRoot, "expires_at"));
         return new TrashEntry(trashId, calendarId, eventId, scope, recurrenceId, event, instance, deletedBy, deletedAt, expiresAt);
     }
 
@@ -1956,7 +1970,7 @@ public final class CsilCbor {
         List<CborEntry> csilEntries = new ArrayList<>(3);
         csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
         if (v.createdAt() != null) {
-            csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+            csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         }
         csilEntries.add(new CborEntry(new CborText("created_by"), encIdentityRef(v.createdBy())));
         return new CborMap(csilEntries);
@@ -1965,10 +1979,10 @@ public final class CsilCbor {
     static ImportEventRequest decImportEventRequest(CborValue csilRoot) {
         Event event = decEvent(require(csilRoot, "event"));
         IdentityRef createdBy = decIdentityRef(require(csilRoot, "created_by"));
-        Timestamp createdAt;
+        Instant createdAt;
         {
             CborValue csilField = mapGet(csilRoot, "created_at");
-            createdAt = csilField != null ? new Timestamp(asText(csilField)) : null;
+            createdAt = csilField != null ? asTimestamp(csilField) : null;
         }
         return new ImportEventRequest(event, createdBy, createdAt);
     }
@@ -2034,7 +2048,7 @@ public final class CsilCbor {
         if (v.trashId() != null) {
             csilEntries.add(new CborEntry(new CborText("trash_id"), new CborText((v.trashId()).value())));
         }
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
         return new CborMap(csilEntries);
@@ -2046,7 +2060,7 @@ public final class CsilCbor {
         EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
         CreateReceiptState state = decCreateReceiptState(require(csilRoot, "state"));
         boolean created = asBool(require(csilRoot, "created"));
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
         Event event;
         {
             CborValue csilField = mapGet(csilRoot, "event");
@@ -2071,10 +2085,10 @@ public final class CsilCbor {
     static CborValue encSplitSeriesOnceRequest(SplitSeriesOnceRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(4);
         csilEntries.add(new CborEntry(new CborText("event"), encEvent(v.event())));
-        csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
         if (v.mapRecurrenceIds() != null) {
-            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> new CborText((csilElem0).value()))));
+            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> encTimestamp(csilElem0))));
         }
         return new CborMap(csilEntries);
     }
@@ -2082,11 +2096,11 @@ public final class CsilCbor {
     static SplitSeriesOnceRequest decSplitSeriesOnceRequest(CborValue csilRoot) {
         String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
         Event event = decEvent(require(csilRoot, "event"));
-        Timestamp recurrenceId = new Timestamp(asText(require(csilRoot, "recurrence_id")));
-        List<Timestamp> mapRecurrenceIds;
+        Instant recurrenceId = asTimestamp(require(csilRoot, "recurrence_id"));
+        List<Instant> mapRecurrenceIds;
         {
             CborValue csilField = mapGet(csilRoot, "map_recurrence_ids");
-            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> asTimestamp(csilE0)) : null;
         }
         return new SplitSeriesOnceRequest(idempotencyKey, event, recurrenceId, mapRecurrenceIds);
     }
@@ -2104,7 +2118,7 @@ public final class CsilCbor {
         csilEntries.add(new CborEntry(new CborText("series_id"), new CborText((v.seriesId()).value())));
         csilEntries.add(new CborEntry(new CborText("idempotency_key"), new CborText(v.idempotencyKey())));
         if (v.mapRecurrenceIds() != null) {
-            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> new CborText((csilElem0).value()))));
+            csilEntries.add(new CborEntry(new CborText("map_recurrence_ids"), encArray(v.mapRecurrenceIds(), csilElem0 -> encTimestamp(csilElem0))));
         }
         return new CborMap(csilEntries);
     }
@@ -2112,10 +2126,10 @@ public final class CsilCbor {
     static SplitReceiptRequest decSplitReceiptRequest(CborValue csilRoot) {
         EventId seriesId = new EventId(asText(require(csilRoot, "series_id")));
         String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
-        List<Timestamp> mapRecurrenceIds;
+        List<Instant> mapRecurrenceIds;
         {
             CborValue csilField = mapGet(csilRoot, "map_recurrence_ids");
-            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> new Timestamp(asText(csilE0))) : null;
+            mapRecurrenceIds = csilField != null ? decArray(csilField, csilE0 -> asTimestamp(csilE0)) : null;
         }
         return new SplitReceiptRequest(seriesId, idempotencyKey, mapRecurrenceIds);
     }
@@ -2134,25 +2148,25 @@ public final class CsilCbor {
         if (v.eventId() != null) {
             csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
         }
-        csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+        csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         if (v.mappedRecurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("mapped_recurrence_id"), new CborText((v.mappedRecurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("mapped_recurrence_id"), encTimestamp(v.mappedRecurrenceId())));
         }
         return new CborMap(csilEntries);
     }
 
     static SplitOccurrenceMapping decSplitOccurrenceMapping(CborValue csilRoot) {
-        Timestamp recurrenceId = new Timestamp(asText(require(csilRoot, "recurrence_id")));
+        Instant recurrenceId = asTimestamp(require(csilRoot, "recurrence_id"));
         SplitMapResult result = decSplitMapResult(require(csilRoot, "result"));
         EventId eventId;
         {
             CborValue csilField = mapGet(csilRoot, "event_id");
             eventId = csilField != null ? new EventId(asText(csilField)) : null;
         }
-        Timestamp mappedRecurrenceId;
+        Instant mappedRecurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "mapped_recurrence_id");
-            mappedRecurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            mappedRecurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         return new SplitOccurrenceMapping(recurrenceId, result, eventId, mappedRecurrenceId);
     }
@@ -2173,12 +2187,12 @@ public final class CsilCbor {
         csilEntries.add(new CborEntry(new CborText("created"), new CborBool(v.created())));
         csilEntries.add(new CborEntry(new CborText("in_place"), new CborBool(v.inPlace())));
         csilEntries.add(new CborEntry(new CborText("mappings"), encArray(v.mappings(), csilElem0 -> encSplitOccurrenceMapping(csilElem0))));
-        csilEntries.add(new CborEntry(new CborText("split_at"), new CborText((v.splitAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("split_at"), encTimestamp(v.splitAt())));
         csilEntries.add(new CborEntry(new CborText("series_id"), new CborText((v.seriesId()).value())));
         if (v.successor() != null) {
             csilEntries.add(new CborEntry(new CborText("successor"), encEvent(v.successor())));
         }
-        csilEntries.add(new CborEntry(new CborText("created_at"), new CborText((v.createdAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("created_at"), encTimestamp(v.createdAt())));
         csilEntries.add(new CborEntry(new CborText("calendar_id"), new CborText((v.calendarId()).value())));
         csilEntries.add(new CborEntry(new CborText("series_state"), encCreateReceiptState(v.seriesState())));
         csilEntries.add(new CborEntry(new CborText("successor_id"), new CborText((v.successorId()).value())));
@@ -2197,10 +2211,10 @@ public final class CsilCbor {
         EventId seriesId = new EventId(asText(require(csilRoot, "series_id")));
         String idempotencyKey = asText(require(csilRoot, "idempotency_key"));
         EventId successorId = new EventId(asText(require(csilRoot, "successor_id")));
-        Timestamp splitAt = new Timestamp(asText(require(csilRoot, "split_at")));
+        Instant splitAt = asTimestamp(require(csilRoot, "split_at"));
         boolean inPlace = asBool(require(csilRoot, "in_place"));
         boolean created = asBool(require(csilRoot, "created"));
-        Timestamp createdAt = new Timestamp(asText(require(csilRoot, "created_at")));
+        Instant createdAt = asTimestamp(require(csilRoot, "created_at"));
         CalendarId calendarId = new CalendarId(asText(require(csilRoot, "calendar_id")));
         CreateReceiptState seriesState = decCreateReceiptState(require(csilRoot, "series_state"));
         Event series;
@@ -2240,17 +2254,17 @@ public final class CsilCbor {
         List<CborEntry> csilEntries = new ArrayList<>(2);
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
 
     static GetOccurrenceRequest decGetOccurrenceRequest(CborValue csilRoot) {
         EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         return new GetOccurrenceRequest(eventId, recurrenceId);
     }
@@ -2271,7 +2285,7 @@ public final class CsilCbor {
         }
         csilEntries.add(new CborEntry(new CborText("event_id"), new CborText((v.eventId()).value())));
         if (v.recurrenceId() != null) {
-            csilEntries.add(new CborEntry(new CborText("recurrence_id"), new CborText((v.recurrenceId()).value())));
+            csilEntries.add(new CborEntry(new CborText("recurrence_id"), encTimestamp(v.recurrenceId())));
         }
         return new CborMap(csilEntries);
     }
@@ -2279,10 +2293,10 @@ public final class CsilCbor {
     static RespondRequest decRespondRequest(CborValue csilRoot) {
         EventId eventId = new EventId(asText(require(csilRoot, "event_id")));
         ParticipationStatus status = decParticipationStatus(require(csilRoot, "status"));
-        Timestamp recurrenceId;
+        Instant recurrenceId;
         {
             CborValue csilField = mapGet(csilRoot, "recurrence_id");
-            recurrenceId = csilField != null ? new Timestamp(asText(csilField)) : null;
+            recurrenceId = csilField != null ? asTimestamp(csilField) : null;
         }
         String comment;
         {
@@ -2348,8 +2362,8 @@ public final class CsilCbor {
 
     static CborValue encBusyInterval(BusyInterval v) {
         List<CborEntry> csilEntries = new ArrayList<>(3);
-        csilEntries.add(new CborEntry(new CborText("end"), new CborText((v.end()).value())));
-        csilEntries.add(new CborEntry(new CborText("start"), new CborText((v.start()).value())));
+        csilEntries.add(new CborEntry(new CborText("end"), encTimestamp(v.end())));
+        csilEntries.add(new CborEntry(new CborText("start"), encTimestamp(v.start())));
         if (v.tentative() != null) {
             csilEntries.add(new CborEntry(new CborText("tentative"), new CborBool(v.tentative())));
         }
@@ -2357,8 +2371,8 @@ public final class CsilCbor {
     }
 
     static BusyInterval decBusyInterval(CborValue csilRoot) {
-        Timestamp start = new Timestamp(asText(require(csilRoot, "start")));
-        Timestamp end = new Timestamp(asText(require(csilRoot, "end")));
+        Instant start = asTimestamp(require(csilRoot, "start"));
+        Instant end = asTimestamp(require(csilRoot, "end"));
         Boolean tentative;
         {
             CborValue csilField = mapGet(csilRoot, "tentative");
@@ -2378,15 +2392,15 @@ public final class CsilCbor {
     static CborValue encFreeBusyRequest(FreeBusyRequest v) {
         List<CborEntry> csilEntries = new ArrayList<>(3);
         csilEntries.add(new CborEntry(new CborText("people"), encArray(v.people(), csilElem0 -> encIdentityRef(csilElem0))));
-        csilEntries.add(new CborEntry(new CborText("range_end"), new CborText((v.rangeEnd()).value())));
-        csilEntries.add(new CborEntry(new CborText("range_start"), new CborText((v.rangeStart()).value())));
+        csilEntries.add(new CborEntry(new CborText("range_end"), encTimestamp(v.rangeEnd())));
+        csilEntries.add(new CborEntry(new CborText("range_start"), encTimestamp(v.rangeStart())));
         return new CborMap(csilEntries);
     }
 
     static FreeBusyRequest decFreeBusyRequest(CborValue csilRoot) {
         List<IdentityRef> people = decArray(require(csilRoot, "people"), csilE0 -> decIdentityRef(csilE0));
-        Timestamp rangeStart = new Timestamp(asText(require(csilRoot, "range_start")));
-        Timestamp rangeEnd = new Timestamp(asText(require(csilRoot, "range_end")));
+        Instant rangeStart = asTimestamp(require(csilRoot, "range_start"));
+        Instant rangeEnd = asTimestamp(require(csilRoot, "range_end"));
         return new FreeBusyRequest(people, rangeStart, rangeEnd);
     }
 
@@ -2569,7 +2583,7 @@ public final class CsilCbor {
 
     static CborValue encAuditEntry(AuditEntry v) {
         List<CborEntry> csilEntries = new ArrayList<>(9);
-        csilEntries.add(new CborEntry(new CborText("at"), new CborText((v.at()).value())));
+        csilEntries.add(new CborEntry(new CborText("at"), encTimestamp(v.at())));
         csilEntries.add(new CborEntry(new CborText("via"), encActingVia(v.via())));
         csilEntries.add(new CborEntry(new CborText("actor"), encPersonSummary(v.actor())));
         if (v.target() != null) {
@@ -2587,7 +2601,7 @@ public final class CsilCbor {
 
     static AuditEntry decAuditEntry(CborValue csilRoot) {
         AuditId auditId = new AuditId(asText(require(csilRoot, "audit_id")));
-        Timestamp at = new Timestamp(asText(require(csilRoot, "at")));
+        Instant at = asTimestamp(require(csilRoot, "at"));
         PersonSummary actor = decPersonSummary(require(csilRoot, "actor"));
         PersonSummary principal = decPersonSummary(require(csilRoot, "principal"));
         ActingVia via = decActingVia(require(csilRoot, "via"));
@@ -2704,13 +2718,13 @@ public final class CsilCbor {
         if (v.actingAs() != null) {
             csilEntries.add(new CborEntry(new CborText("acting_as"), encPersonSummary(v.actingAs())));
         }
-        csilEntries.add(new CborEntry(new CborText("expires_at"), new CborText((v.expiresAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("expires_at"), encTimestamp(v.expiresAt())));
         return new CborMap(csilEntries);
     }
 
     static LoginResponse decLoginResponse(CborValue csilRoot) {
         String token = asText(require(csilRoot, "token"));
-        Timestamp expiresAt = new Timestamp(asText(require(csilRoot, "expires_at")));
+        Instant expiresAt = asTimestamp(require(csilRoot, "expires_at"));
         PersonSummary user = decPersonSummary(require(csilRoot, "user"));
         PersonSummary actingAs;
         {
@@ -2878,7 +2892,7 @@ public final class CsilCbor {
         csilEntries.add(new CborEntry(new CborText("nonce"), new CborBytes(v.nonce())));
         csilEntries.add(new CborEntry(new CborText("signer"), encApplicationRef(v.signer())));
         csilEntries.add(new CborEntry(new CborText("audience"), encApplicationRef(v.audience())));
-        csilEntries.add(new CborEntry(new CborText("presented_at"), new CborText((v.presentedAt()).value())));
+        csilEntries.add(new CborEntry(new CborText("presented_at"), encTimestamp(v.presentedAt())));
         csilEntries.add(new CborEntry(new CborText("request_digest"), new CborBytes(v.requestDigest())));
         csilEntries.add(new CborEntry(new CborText("signer_instance_id"), new CborText(v.signerInstanceId())));
         return new CborMap(csilEntries);
@@ -2889,7 +2903,7 @@ public final class CsilCbor {
         String signerInstanceId = asText(require(csilRoot, "signer_instance_id"));
         ApplicationRef audience = decApplicationRef(require(csilRoot, "audience"));
         byte[] requestDigest = asBytes(require(csilRoot, "request_digest"));
-        Timestamp presentedAt = new Timestamp(asText(require(csilRoot, "presented_at")));
+        Instant presentedAt = asTimestamp(require(csilRoot, "presented_at"));
         byte[] nonce = asBytes(require(csilRoot, "nonce"));
         return new ApplicationPresentation(signer, signerInstanceId, audience, requestDigest, presentedAt, nonce);
     }
@@ -3168,183 +3182,183 @@ public final class CsilCbor {
     }
 
     static CborValue encShareRole(ShareRole v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static ShareRole decShareRole(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "contribute") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage"))) {
-            throw new CsilCborException("csil cbor: ShareRole value " + csilVal + " is not a member of the declared enum");
+    static ShareRole decShareRole(CborValue root) {
+        try {
+            return ShareRole.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new ShareRole(csilVal);
     }
 
     static CborValue encAccessRole(AccessRole v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static AccessRole decAccessRole(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "none") || Objects.equals(csilVal, "free_busy") || Objects.equals(csilVal, "read") || Objects.equals(csilVal, "contribute") || Objects.equals(csilVal, "write") || Objects.equals(csilVal, "manage") || Objects.equals(csilVal, "owner"))) {
-            throw new CsilCborException("csil cbor: AccessRole value " + csilVal + " is not a member of the declared enum");
+    static AccessRole decAccessRole(CborValue root) {
+        try {
+            return AccessRole.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new AccessRole(csilVal);
     }
 
     static CborValue encAccessPath(AccessPath v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static AccessPath decAccessPath(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "owner") || Objects.equals(csilVal, "share") || Objects.equals(csilVal, "delegation") || Objects.equals(csilVal, "attendee"))) {
-            throw new CsilCborException("csil cbor: AccessPath value " + csilVal + " is not a member of the declared enum");
+    static AccessPath decAccessPath(CborValue root) {
+        try {
+            return AccessPath.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new AccessPath(csilVal);
     }
 
     static CborValue encScope(Scope v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static Scope decScope(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "calendars.read") || Objects.equals(csilVal, "freebusy.read") || Objects.equals(csilVal, "events.write") || Objects.equals(csilVal, "events.respond") || Objects.equals(csilVal, "calendars.manage"))) {
-            throw new CsilCborException("csil cbor: Scope value " + csilVal + " is not a member of the declared enum");
+    static Scope decScope(CborValue root) {
+        try {
+            return Scope.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new Scope(csilVal);
     }
 
     static CborValue encCalendarKind(CalendarKind v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static CalendarKind decCalendarKind(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "local") || Objects.equals(csilVal, "subscription"))) {
-            throw new CsilCborException("csil cbor: CalendarKind value " + csilVal + " is not a member of the declared enum");
+    static CalendarKind decCalendarKind(CborValue root) {
+        try {
+            return CalendarKind.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new CalendarKind(csilVal);
     }
 
     static CborValue encEventStatus(EventStatus v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static EventStatus decEventStatus(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "confirmed") || Objects.equals(csilVal, "tentative") || Objects.equals(csilVal, "cancelled"))) {
-            throw new CsilCborException("csil cbor: EventStatus value " + csilVal + " is not a member of the declared enum");
+    static EventStatus decEventStatus(CborValue root) {
+        try {
+            return EventStatus.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new EventStatus(csilVal);
     }
 
     static CborValue encEventTransparency(EventTransparency v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static EventTransparency decEventTransparency(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "opaque") || Objects.equals(csilVal, "transparent"))) {
-            throw new CsilCborException("csil cbor: EventTransparency value " + csilVal + " is not a member of the declared enum");
+    static EventTransparency decEventTransparency(CborValue root) {
+        try {
+            return EventTransparency.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new EventTransparency(csilVal);
     }
 
     static CborValue encEventVisibility(EventVisibility v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static EventVisibility decEventVisibility(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "default") || Objects.equals(csilVal, "public") || Objects.equals(csilVal, "private") || Objects.equals(csilVal, "confidential"))) {
-            throw new CsilCborException("csil cbor: EventVisibility value " + csilVal + " is not a member of the declared enum");
+    static EventVisibility decEventVisibility(CborValue root) {
+        try {
+            return EventVisibility.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new EventVisibility(csilVal);
     }
 
     static CborValue encParticipationStatus(ParticipationStatus v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static ParticipationStatus decParticipationStatus(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "needs_action") || Objects.equals(csilVal, "accepted") || Objects.equals(csilVal, "declined") || Objects.equals(csilVal, "tentative") || Objects.equals(csilVal, "delegated"))) {
-            throw new CsilCborException("csil cbor: ParticipationStatus value " + csilVal + " is not a member of the declared enum");
+    static ParticipationStatus decParticipationStatus(CborValue root) {
+        try {
+            return ParticipationStatus.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new ParticipationStatus(csilVal);
     }
 
     static CborValue encAttendeeRole(AttendeeRole v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static AttendeeRole decAttendeeRole(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "chair") || Objects.equals(csilVal, "required") || Objects.equals(csilVal, "optional") || Objects.equals(csilVal, "non_participant"))) {
-            throw new CsilCborException("csil cbor: AttendeeRole value " + csilVal + " is not a member of the declared enum");
+    static AttendeeRole decAttendeeRole(CborValue root) {
+        try {
+            return AttendeeRole.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new AttendeeRole(csilVal);
     }
 
     static CborValue encReminderMethod(ReminderMethod v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static ReminderMethod decReminderMethod(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "display") || Objects.equals(csilVal, "email"))) {
-            throw new CsilCborException("csil cbor: ReminderMethod value " + csilVal + " is not a member of the declared enum");
+    static ReminderMethod decReminderMethod(CborValue root) {
+        try {
+            return ReminderMethod.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new ReminderMethod(csilVal);
     }
 
     static CborValue encRecurrenceScope(RecurrenceScope v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static RecurrenceScope decRecurrenceScope(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "all") || Objects.equals(csilVal, "this") || Objects.equals(csilVal, "this_and_future"))) {
-            throw new CsilCborException("csil cbor: RecurrenceScope value " + csilVal + " is not a member of the declared enum");
+    static RecurrenceScope decRecurrenceScope(CborValue root) {
+        try {
+            return RecurrenceScope.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new RecurrenceScope(csilVal);
     }
 
     static CborValue encActingVia(ActingVia v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static ActingVia decActingVia(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "self") || Objects.equals(csilVal, "delegation") || Objects.equals(csilVal, "act_as_grant"))) {
-            throw new CsilCborException("csil cbor: ActingVia value " + csilVal + " is not a member of the declared enum");
+    static ActingVia decActingVia(CborValue root) {
+        try {
+            return ActingVia.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new ActingVia(csilVal);
     }
 
     static CborValue encCreateReceiptState(CreateReceiptState v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static CreateReceiptState decCreateReceiptState(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "live") || Objects.equals(csilVal, "trashed") || Objects.equals(csilVal, "deleted") || Objects.equals(csilVal, "hidden"))) {
-            throw new CsilCborException("csil cbor: CreateReceiptState value " + csilVal + " is not a member of the declared enum");
+    static CreateReceiptState decCreateReceiptState(CborValue root) {
+        try {
+            return CreateReceiptState.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new CreateReceiptState(csilVal);
     }
 
     static CborValue encSplitMapResult(SplitMapResult v) {
-        return new CborText((String) v.value());
+        return new CborText(v.value());
     }
 
-    static SplitMapResult decSplitMapResult(CborValue csilRoot) {
-        var csilVal = asText(csilRoot);
-        if (!(Objects.equals(csilVal, "original") || Objects.equals(csilVal, "successor") || Objects.equals(csilVal, "none"))) {
-            throw new CsilCborException("csil cbor: SplitMapResult value " + csilVal + " is not a member of the declared enum");
+    static SplitMapResult decSplitMapResult(CborValue root) {
+        try {
+            return SplitMapResult.fromWire(asText(root));
+        } catch (IllegalArgumentException e) {
+            throw new CsilCborException(e.getMessage());
         }
-        return new SplitMapResult(csilVal);
     }
 
     public static byte[] encodeCalendarGetCalendarRequest(CalendarId csilV) {
@@ -3417,5 +3431,847 @@ public final class CsilCbor {
 
     public static EventId decodeEventGetEventRequest(byte[] csilData) {
         return new EventId(asText(decode(csilData)));
+    }
+
+    public record RpcReply(String variant, byte[] payload) {}
+
+    public static final class ServiceErrorRefusal extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        public final ServiceError value;
+
+        public ServiceErrorRefusal(ServiceError value) {
+            super("ServiceError");
+            this.value = value;
+        }
+    }
+
+    public static RpcReply encodeAuthCompleteReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthResumeSessionReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthEndSessionReply(java.util.function.Supplier<EmptyResponse> handler) {
+        try {
+            EmptyResponse value = handler.get();
+            return new RpcReply("EmptyResponse", encode(encEmptyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthMeReply(java.util.function.Supplier<MeResponse> handler) {
+        try {
+            MeResponse value = handler.get();
+            return new RpcReply("MeResponse", encode(encMeResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthAssumePrincipalReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthReleasePrincipalReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthExchangeActAsCredentialReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthGetActAsScopeSetReply(java.util.function.Supplier<ScopeSetResponse> handler) {
+        try {
+            ScopeSetResponse value = handler.get();
+            return new RpcReply("ScopeSetResponse", encode(encScopeSetResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthGetApplicationIdentityReply(java.util.function.Supplier<ApplicationIdentityResponse> handler) {
+        try {
+            ApplicationIdentityResponse value = handler.get();
+            return new RpcReply("ApplicationIdentityResponse", encode(encApplicationIdentityResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuthExchangeApplicationPresentationReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDevAuthListDevUsersReply(java.util.function.Supplier<DevUsersResponse> handler) {
+        try {
+            DevUsersResponse value = handler.get();
+            return new RpcReply("DevUsersResponse", encode(encDevUsersResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDevAuthDevLoginReply(java.util.function.Supplier<LoginResponse> handler) {
+        try {
+            LoginResponse value = handler.get();
+            return new RpcReply("LoginResponse", encode(encLoginResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeUserGetProfileReply(java.util.function.Supplier<User> handler) {
+        try {
+            User value = handler.get();
+            return new RpcReply("User", encode(encUser(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeUserUpdateProfileReply(java.util.function.Supplier<User> handler) {
+        try {
+            User value = handler.get();
+            return new RpcReply("User", encode(encUser(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeUserLookupPersonReply(java.util.function.Supplier<PersonSummary> handler) {
+        try {
+            PersonSummary value = handler.get();
+            return new RpcReply("PersonSummary", encode(encPersonSummary(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarListCalendarsReply(java.util.function.Supplier<CalendarList> handler) {
+        try {
+            CalendarList value = handler.get();
+            return new RpcReply("CalendarList", encode(encCalendarList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarGetCalendarReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarCreateCalendarReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarUpdateCalendarReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarDeleteCalendarReply(java.util.function.Supplier<EmptyResponse> handler) {
+        try {
+            EmptyResponse value = handler.get();
+            return new RpcReply("EmptyResponse", encode(encEmptyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarSubscribeCalendarReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarRefreshSubscriptionReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeCalendarSetFeedReply(java.util.function.Supplier<Calendar> handler) {
+        try {
+            Calendar value = handler.get();
+            return new RpcReply("Calendar", encode(encCalendar(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeShareListSharesReply(java.util.function.Supplier<ShareList> handler) {
+        try {
+            ShareList value = handler.get();
+            return new RpcReply("ShareList", encode(encShareList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeSharePutShareReply(java.util.function.Supplier<Share> handler) {
+        try {
+            Share value = handler.get();
+            return new RpcReply("Share", encode(encShare(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeShareDeleteShareReply(java.util.function.Supplier<EmptyResponse> handler) {
+        try {
+            EmptyResponse value = handler.get();
+            return new RpcReply("EmptyResponse", encode(encEmptyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupListGroupsReply(java.util.function.Supplier<GroupList> handler) {
+        try {
+            GroupList value = handler.get();
+            return new RpcReply("GroupList", encode(encGroupList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupGetGroupReply(java.util.function.Supplier<Group> handler) {
+        try {
+            Group value = handler.get();
+            return new RpcReply("Group", encode(encGroup(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupCreateGroupReply(java.util.function.Supplier<Group> handler) {
+        try {
+            Group value = handler.get();
+            return new RpcReply("Group", encode(encGroup(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupUpdateGroupReply(java.util.function.Supplier<Group> handler) {
+        try {
+            Group value = handler.get();
+            return new RpcReply("Group", encode(encGroup(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupSetMembersReply(java.util.function.Supplier<Group> handler) {
+        try {
+            Group value = handler.get();
+            return new RpcReply("Group", encode(encGroup(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeGroupDeleteGroupReply(java.util.function.Supplier<EmptyResponse> handler) {
+        try {
+            EmptyResponse value = handler.get();
+            return new RpcReply("EmptyResponse", encode(encEmptyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDelegationListGrantedReply(java.util.function.Supplier<DelegationList> handler) {
+        try {
+            DelegationList value = handler.get();
+            return new RpcReply("DelegationList", encode(encDelegationList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDelegationListReceivedReply(java.util.function.Supplier<DelegationList> handler) {
+        try {
+            DelegationList value = handler.get();
+            return new RpcReply("DelegationList", encode(encDelegationList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDelegationCreateDelegationReply(java.util.function.Supplier<Delegation> handler) {
+        try {
+            Delegation value = handler.get();
+            return new RpcReply("Delegation", encode(encDelegation(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDelegationUpdateDelegationReply(java.util.function.Supplier<Delegation> handler) {
+        try {
+            Delegation value = handler.get();
+            return new RpcReply("Delegation", encode(encDelegation(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeDelegationRevokeDelegationReply(java.util.function.Supplier<EmptyResponse> handler) {
+        try {
+            EmptyResponse value = handler.get();
+            return new RpcReply("EmptyResponse", encode(encEmptyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventListEventsReply(java.util.function.Supplier<OccurrenceList> handler) {
+        try {
+            OccurrenceList value = handler.get();
+            return new RpcReply("OccurrenceList", encode(encOccurrenceList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventGetEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventGetOccurrenceReply(java.util.function.Supplier<Occurrence> handler) {
+        try {
+            Occurrence value = handler.get();
+            return new RpcReply("Occurrence", encode(encOccurrence(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventCreateEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventUpdateEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventDeleteEventReply(java.util.function.Supplier<DeleteEventResponse> handler) {
+        try {
+            DeleteEventResponse value = handler.get();
+            return new RpcReply("DeleteEventResponse", encode(encDeleteEventResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventMoveEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventRespondReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventListInvitationsReply(java.util.function.Supplier<EventList> handler) {
+        try {
+            EventList value = handler.get();
+            return new RpcReply("EventList", encode(encEventList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventSearchEventsReply(java.util.function.Supplier<EventList> handler) {
+        try {
+            EventList value = handler.get();
+            return new RpcReply("EventList", encode(encEventList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventListTrashReply(java.util.function.Supplier<TrashList> handler) {
+        try {
+            TrashList value = handler.get();
+            return new RpcReply("TrashList", encode(encTrashList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventRestoreEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventImportEventReply(java.util.function.Supplier<Event> handler) {
+        try {
+            Event value = handler.get();
+            return new RpcReply("Event", encode(encEvent(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventCreateEventOnceReply(java.util.function.Supplier<CreateEventReceipt> handler) {
+        try {
+            CreateEventReceipt value = handler.get();
+            return new RpcReply("CreateEventReceipt", encode(encCreateEventReceipt(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventGetCreateReceiptReply(java.util.function.Supplier<CreateEventReceipt> handler) {
+        try {
+            CreateEventReceipt value = handler.get();
+            return new RpcReply("CreateEventReceipt", encode(encCreateEventReceipt(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventSplitSeriesOnceReply(java.util.function.Supplier<SplitSeriesReceipt> handler) {
+        try {
+            SplitSeriesReceipt value = handler.get();
+            return new RpcReply("SplitSeriesReceipt", encode(encSplitSeriesReceipt(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeEventGetSplitReceiptReply(java.util.function.Supplier<SplitSeriesReceipt> handler) {
+        try {
+            SplitSeriesReceipt value = handler.get();
+            return new RpcReply("SplitSeriesReceipt", encode(encSplitSeriesReceipt(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeFreeBusyQueryReply(java.util.function.Supplier<FreeBusyResponse> handler) {
+        try {
+            FreeBusyResponse value = handler.get();
+            return new RpcReply("FreeBusyResponse", encode(encFreeBusyResponse(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeIcsImportIcsReply(java.util.function.Supplier<ImportResult> handler) {
+        try {
+            ImportResult value = handler.get();
+            return new RpcReply("ImportResult", encode(encImportResult(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeIcsExportCalendarReply(java.util.function.Supplier<IcsDocument> handler) {
+        try {
+            IcsDocument value = handler.get();
+            return new RpcReply("IcsDocument", encode(encIcsDocument(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeIcsExportEventReply(java.util.function.Supplier<IcsDocument> handler) {
+        try {
+            IcsDocument value = handler.get();
+            return new RpcReply("IcsDocument", encode(encIcsDocument(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static RpcReply encodeAuditListAuditReply(java.util.function.Supplier<AuditList> handler) {
+        try {
+            AuditList value = handler.get();
+            return new RpcReply("AuditList", encode(encAuditList(value)));
+        } catch (ServiceErrorRefusal refusal) {
+            return new RpcReply("ServiceError", encode(encServiceError(refusal.value)));
+        }
+    }
+
+    public static byte[] resolveRpcReply(String service, String op, String variant, byte[] payload) {
+        if ("AuthService".equals(service) && "complete".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "resume-session".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "end-session".equals(op)) {
+            if ("EmptyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "me".equals(op)) {
+            if ("MeResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "assume-principal".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "release-principal".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "exchange-act-as-credential".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "get-act-as-scope-set".equals(op)) {
+            if ("ScopeSetResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "get-application-identity".equals(op)) {
+            if ("ApplicationIdentityResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuthService".equals(service) && "exchange-application-presentation".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DevAuthService".equals(service) && "list-dev-users".equals(op)) {
+            if ("DevUsersResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DevAuthService".equals(service) && "dev-login".equals(op)) {
+            if ("LoginResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("UserService".equals(service) && "get-profile".equals(op)) {
+            if ("User".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("UserService".equals(service) && "update-profile".equals(op)) {
+            if ("User".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("UserService".equals(service) && "lookup-person".equals(op)) {
+            if ("PersonSummary".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "list-calendars".equals(op)) {
+            if ("CalendarList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "get-calendar".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "create-calendar".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "update-calendar".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "delete-calendar".equals(op)) {
+            if ("EmptyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "subscribe-calendar".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "refresh-subscription".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("CalendarService".equals(service) && "set-feed".equals(op)) {
+            if ("Calendar".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("ShareService".equals(service) && "list-shares".equals(op)) {
+            if ("ShareList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("ShareService".equals(service) && "put-share".equals(op)) {
+            if ("Share".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("ShareService".equals(service) && "delete-share".equals(op)) {
+            if ("EmptyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "list-groups".equals(op)) {
+            if ("GroupList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "get-group".equals(op)) {
+            if ("Group".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "create-group".equals(op)) {
+            if ("Group".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "update-group".equals(op)) {
+            if ("Group".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "set-members".equals(op)) {
+            if ("Group".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("GroupService".equals(service) && "delete-group".equals(op)) {
+            if ("EmptyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DelegationService".equals(service) && "list-granted".equals(op)) {
+            if ("DelegationList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DelegationService".equals(service) && "list-received".equals(op)) {
+            if ("DelegationList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DelegationService".equals(service) && "create-delegation".equals(op)) {
+            if ("Delegation".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DelegationService".equals(service) && "update-delegation".equals(op)) {
+            if ("Delegation".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("DelegationService".equals(service) && "revoke-delegation".equals(op)) {
+            if ("EmptyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "list-events".equals(op)) {
+            if ("OccurrenceList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "get-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "get-occurrence".equals(op)) {
+            if ("Occurrence".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "create-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "update-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "delete-event".equals(op)) {
+            if ("DeleteEventResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "move-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "respond".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "list-invitations".equals(op)) {
+            if ("EventList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "search-events".equals(op)) {
+            if ("EventList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "list-trash".equals(op)) {
+            if ("TrashList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "restore-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "import-event".equals(op)) {
+            if ("Event".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "create-event-once".equals(op)) {
+            if ("CreateEventReceipt".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "get-create-receipt".equals(op)) {
+            if ("CreateEventReceipt".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "split-series-once".equals(op)) {
+            if ("SplitSeriesReceipt".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("EventService".equals(service) && "get-split-receipt".equals(op)) {
+            if ("SplitSeriesReceipt".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("FreeBusyService".equals(service) && "query".equals(op)) {
+            if ("FreeBusyResponse".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("IcsService".equals(service) && "import-ics".equals(op)) {
+            if ("ImportResult".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("IcsService".equals(service) && "export-calendar".equals(op)) {
+            if ("IcsDocument".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("IcsService".equals(service) && "export-event".equals(op)) {
+            if ("IcsDocument".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        if ("AuditService".equals(service) && "list-audit".equals(op)) {
+            if ("AuditList".equals(variant)) return payload;
+            if ("ServiceError".equals(variant)) throw new ServiceErrorRefusal(decServiceError(decode(payload)));
+            throw new CsilCborException("invalid RPC reply variant: " + variant);
+        }
+        return payload;
     }
 }

@@ -10,12 +10,16 @@ use super::types::*;
 pub enum ClientError {
     Service { code: i64, message: String },
     Transport(String),
+    ApplicationServiceError(Box<ServiceError>),
+    Decode(String),
 }
 
 impl std::fmt::Display for ClientError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ClientError::Service { code, message } => write!(f, "service error {code}: {message}"),
+            Self::ApplicationServiceError(e) => write!(f, "application error: {e:?}"),
+            Self::Decode(msg) => write!(f, "invalid reply: {msg}"),
             ClientError::Transport(msg) => write!(f, "transport error: {msg}"),
         }
     }
@@ -29,6 +33,613 @@ impl std::error::Error for ClientError {}
 /// only moves bytes, so it can be HTTP, a queue, or an in-process loop.
 pub trait Transport {
     fn call(&self, service: &str, op: &str, req: &[u8]) -> Result<Vec<u8>, ClientError>;
+}
+impl From<CsilCborError> for ClientError {
+    fn from(error: CsilCborError) -> Self {
+        Self::Decode(error.0)
+    }
+}
+
+/// Resolve a status-zero RPC reply before returning its payload to the client.
+pub fn resolve_rpc_reply(
+    service: &str,
+    op: &str,
+    variant: Option<&str>,
+    payload: Vec<u8>,
+) -> Result<Vec<u8>, ClientError> {
+    match (service, op) {
+        ("AuthService", "complete") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "resume-session") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "end-session") => match variant {
+            Some("EmptyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "me") => match variant {
+            Some("MeResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "assume-principal") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "release-principal") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "exchange-act-as-credential") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "get-act-as-scope-set") => match variant {
+            Some("ScopeSetResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "get-application-identity") => match variant {
+            Some("ApplicationIdentityResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuthService", "exchange-application-presentation") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DevAuthService", "list-dev-users") => match variant {
+            Some("DevUsersResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DevAuthService", "dev-login") => match variant {
+            Some("LoginResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("UserService", "get-profile") => match variant {
+            Some("User") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("UserService", "update-profile") => match variant {
+            Some("User") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("UserService", "lookup-person") => match variant {
+            Some("PersonSummary") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "list-calendars") => match variant {
+            Some("CalendarList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "get-calendar") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "create-calendar") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "update-calendar") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "delete-calendar") => match variant {
+            Some("EmptyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "subscribe-calendar") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "refresh-subscription") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("CalendarService", "set-feed") => match variant {
+            Some("Calendar") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("ShareService", "list-shares") => match variant {
+            Some("ShareList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("ShareService", "put-share") => match variant {
+            Some("Share") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("ShareService", "delete-share") => match variant {
+            Some("EmptyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "list-groups") => match variant {
+            Some("GroupList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "get-group") => match variant {
+            Some("Group") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "create-group") => match variant {
+            Some("Group") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "update-group") => match variant {
+            Some("Group") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "set-members") => match variant {
+            Some("Group") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("GroupService", "delete-group") => match variant {
+            Some("EmptyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DelegationService", "list-granted") => match variant {
+            Some("DelegationList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DelegationService", "list-received") => match variant {
+            Some("DelegationList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DelegationService", "create-delegation") => match variant {
+            Some("Delegation") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DelegationService", "update-delegation") => match variant {
+            Some("Delegation") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("DelegationService", "revoke-delegation") => match variant {
+            Some("EmptyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "list-events") => match variant {
+            Some("OccurrenceList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "get-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "get-occurrence") => match variant {
+            Some("Occurrence") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "create-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "update-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "delete-event") => match variant {
+            Some("DeleteEventResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "move-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "respond") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "list-invitations") => match variant {
+            Some("EventList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "search-events") => match variant {
+            Some("EventList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "list-trash") => match variant {
+            Some("TrashList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "restore-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "import-event") => match variant {
+            Some("Event") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "create-event-once") => match variant {
+            Some("CreateEventReceipt") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "get-create-receipt") => match variant {
+            Some("CreateEventReceipt") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "split-series-once") => match variant {
+            Some("SplitSeriesReceipt") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("EventService", "get-split-receipt") => match variant {
+            Some("SplitSeriesReceipt") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("FreeBusyService", "query") => match variant {
+            Some("FreeBusyResponse") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("IcsService", "import-ics") => match variant {
+            Some("ImportResult") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("IcsService", "export-calendar") => match variant {
+            Some("IcsDocument") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("IcsService", "export-event") => match variant {
+            Some("IcsDocument") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        ("AuditService", "list-audit") => match variant {
+            Some("AuditList") => Ok(payload),
+            Some("ServiceError") => {
+                let value = decode_service_error(&payload)?;
+                Err(ClientError::ApplicationServiceError(Box::new(value)))
+            }
+            _ => Err(ClientError::Decode(format!(
+                "invalid reply variant {variant:?}"
+            ))),
+        },
+        _ => Ok(payload),
+    }
 }
 
 /// Typed client for the AuthService service.
@@ -47,7 +658,7 @@ impl<T: Transport> AuthClient<T> {
         let csil_resp =
             self.transport
                 .call("AuthService", "complete", &encode_complete_request(&req))?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// resume-session (request/response).
@@ -55,7 +666,7 @@ impl<T: Transport> AuthClient<T> {
         let csil_resp =
             self.transport
                 .call("AuthService", "resume-session", &encode_empty_request(&req))?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// end-session (request/response).
@@ -63,7 +674,7 @@ impl<T: Transport> AuthClient<T> {
         let csil_resp =
             self.transport
                 .call("AuthService", "end-session", &encode_empty_request(&req))?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// me (request/response).
@@ -71,7 +682,7 @@ impl<T: Transport> AuthClient<T> {
         let csil_resp = self
             .transport
             .call("AuthService", "me", &encode_empty_request(&req))?;
-        decode_me_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_me_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// assume-principal (request/response).
@@ -84,7 +695,7 @@ impl<T: Transport> AuthClient<T> {
             "assume-principal",
             &encode_assume_principal_request(&req),
         )?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// release-principal (request/response).
@@ -94,7 +705,7 @@ impl<T: Transport> AuthClient<T> {
             "release-principal",
             &encode_empty_request(&req),
         )?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// exchange-act-as-credential (request/response).
@@ -107,7 +718,7 @@ impl<T: Transport> AuthClient<T> {
             "exchange-act-as-credential",
             &encode_exchange_act_as_credential_request(&req),
         )?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-act-as-scope-set (request/response).
@@ -120,7 +731,7 @@ impl<T: Transport> AuthClient<T> {
             "get-act-as-scope-set",
             &encode_scope_set_request(&req),
         )?;
-        decode_scope_set_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_scope_set_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-application-identity (request/response).
@@ -134,7 +745,7 @@ impl<T: Transport> AuthClient<T> {
             &encode_empty_request(&req),
         )?;
         decode_application_identity_response(&csil_resp)
-            .map_err(|e| ClientError::Transport(e.to_string()))
+            .map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// exchange-application-presentation (request/response).
@@ -147,7 +758,7 @@ impl<T: Transport> AuthClient<T> {
             "exchange-application-presentation",
             &encode_exchange_application_presentation_request(&req),
         )?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -169,7 +780,7 @@ impl<T: Transport> DevAuthClient<T> {
             "list-dev-users",
             &encode_empty_request(&req),
         )?;
-        decode_dev_users_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_dev_users_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// dev-login (request/response).
@@ -179,7 +790,7 @@ impl<T: Transport> DevAuthClient<T> {
             "dev-login",
             &encode_dev_login_request(&req),
         )?;
-        decode_login_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_login_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -199,7 +810,7 @@ impl<T: Transport> UserClient<T> {
         let csil_resp =
             self.transport
                 .call("UserService", "get-profile", &encode_empty_request(&req))?;
-        decode_user(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_user(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-profile (request/response).
@@ -209,7 +820,7 @@ impl<T: Transport> UserClient<T> {
             "update-profile",
             &encode_update_profile_request(&req),
         )?;
-        decode_user(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_user(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// lookup-person (request/response).
@@ -219,7 +830,7 @@ impl<T: Transport> UserClient<T> {
             "lookup-person",
             &encode_lookup_person_request(&req),
         )?;
-        decode_person_summary(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_person_summary(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -241,7 +852,7 @@ impl<T: Transport> CalendarClient<T> {
             "list-calendars",
             &encode_empty_request(&req),
         )?;
-        decode_calendar_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-calendar (request/response).
@@ -251,7 +862,7 @@ impl<T: Transport> CalendarClient<T> {
             "get-calendar",
             &encode_calendar_get_calendar_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-calendar (request/response).
@@ -261,7 +872,7 @@ impl<T: Transport> CalendarClient<T> {
             "create-calendar",
             &encode_create_calendar_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-calendar (request/response).
@@ -271,7 +882,7 @@ impl<T: Transport> CalendarClient<T> {
             "update-calendar",
             &encode_update_calendar_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-calendar (request/response).
@@ -281,7 +892,7 @@ impl<T: Transport> CalendarClient<T> {
             "delete-calendar",
             &encode_calendar_delete_calendar_request(&req),
         )?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// subscribe-calendar (request/response).
@@ -294,7 +905,7 @@ impl<T: Transport> CalendarClient<T> {
             "subscribe-calendar",
             &encode_subscribe_calendar_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// refresh-subscription (request/response).
@@ -304,7 +915,7 @@ impl<T: Transport> CalendarClient<T> {
             "refresh-subscription",
             &encode_calendar_refresh_subscription_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// set-feed (request/response).
@@ -314,7 +925,7 @@ impl<T: Transport> CalendarClient<T> {
             "set-feed",
             &encode_set_feed_request(&req),
         )?;
-        decode_calendar(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_calendar(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -336,7 +947,7 @@ impl<T: Transport> ShareClient<T> {
             "list-shares",
             &encode_share_list_shares_request(&req),
         )?;
-        decode_share_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_share_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// put-share (request/response).
@@ -344,7 +955,7 @@ impl<T: Transport> ShareClient<T> {
         let csil_resp = self
             .transport
             .call("ShareService", "put-share", &encode_share(&req))?;
-        decode_share(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_share(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-share (request/response).
@@ -354,7 +965,7 @@ impl<T: Transport> ShareClient<T> {
             "delete-share",
             &encode_share_delete_share_request(&req),
         )?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -374,7 +985,7 @@ impl<T: Transport> GroupClient<T> {
         let csil_resp =
             self.transport
                 .call("GroupService", "list-groups", &encode_empty_request(&req))?;
-        decode_group_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-group (request/response).
@@ -384,7 +995,7 @@ impl<T: Transport> GroupClient<T> {
             "get-group",
             &encode_group_get_group_request(&req),
         )?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-group (request/response).
@@ -394,7 +1005,7 @@ impl<T: Transport> GroupClient<T> {
             "create-group",
             &encode_create_group_request(&req),
         )?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-group (request/response).
@@ -404,7 +1015,7 @@ impl<T: Transport> GroupClient<T> {
             "update-group",
             &encode_update_group_request(&req),
         )?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// set-members (request/response).
@@ -414,7 +1025,7 @@ impl<T: Transport> GroupClient<T> {
             "set-members",
             &encode_set_group_members_request(&req),
         )?;
-        decode_group(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_group(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-group (request/response).
@@ -424,7 +1035,7 @@ impl<T: Transport> GroupClient<T> {
             "delete-group",
             &encode_group_delete_group_request(&req),
         )?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -446,7 +1057,7 @@ impl<T: Transport> DelegationClient<T> {
             "list-granted",
             &encode_empty_request(&req),
         )?;
-        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-received (request/response).
@@ -456,7 +1067,7 @@ impl<T: Transport> DelegationClient<T> {
             "list-received",
             &encode_empty_request(&req),
         )?;
-        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-delegation (request/response).
@@ -466,7 +1077,7 @@ impl<T: Transport> DelegationClient<T> {
             "create-delegation",
             &encode_delegation(&req),
         )?;
-        decode_delegation(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-delegation (request/response).
@@ -476,7 +1087,7 @@ impl<T: Transport> DelegationClient<T> {
             "update-delegation",
             &encode_delegation(&req),
         )?;
-        decode_delegation(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delegation(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// revoke-delegation (request/response).
@@ -486,7 +1097,7 @@ impl<T: Transport> DelegationClient<T> {
             "revoke-delegation",
             &encode_delegation_revoke_delegation_request(&req),
         )?;
-        decode_empty_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_empty_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -508,7 +1119,7 @@ impl<T: Transport> EventClient<T> {
             "list-events",
             &encode_list_events_request(&req),
         )?;
-        decode_occurrence_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_occurrence_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-event (request/response).
@@ -518,7 +1129,7 @@ impl<T: Transport> EventClient<T> {
             "get-event",
             &encode_event_get_event_request(&req),
         )?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-occurrence (request/response).
@@ -528,7 +1139,7 @@ impl<T: Transport> EventClient<T> {
             "get-occurrence",
             &encode_get_occurrence_request(&req),
         )?;
-        decode_occurrence(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_occurrence(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-event (request/response).
@@ -536,7 +1147,7 @@ impl<T: Transport> EventClient<T> {
         let csil_resp = self
             .transport
             .call("EventService", "create-event", &encode_event(&req))?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// update-event (request/response).
@@ -546,7 +1157,7 @@ impl<T: Transport> EventClient<T> {
             "update-event",
             &encode_update_event_request(&req),
         )?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// delete-event (request/response).
@@ -559,7 +1170,7 @@ impl<T: Transport> EventClient<T> {
             "delete-event",
             &encode_delete_event_request(&req),
         )?;
-        decode_delete_event_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_delete_event_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// move-event (request/response).
@@ -569,7 +1180,7 @@ impl<T: Transport> EventClient<T> {
             "move-event",
             &encode_move_event_request(&req),
         )?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// respond (request/response).
@@ -577,7 +1188,7 @@ impl<T: Transport> EventClient<T> {
         let csil_resp =
             self.transport
                 .call("EventService", "respond", &encode_respond_request(&req))?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-invitations (request/response).
@@ -587,7 +1198,7 @@ impl<T: Transport> EventClient<T> {
             "list-invitations",
             &encode_empty_request(&req),
         )?;
-        decode_event_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// search-events (request/response).
@@ -597,7 +1208,7 @@ impl<T: Transport> EventClient<T> {
             "search-events",
             &encode_search_events_request(&req),
         )?;
-        decode_event_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// list-trash (request/response).
@@ -607,7 +1218,7 @@ impl<T: Transport> EventClient<T> {
             "list-trash",
             &encode_list_trash_request(&req),
         )?;
-        decode_trash_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_trash_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// restore-event (request/response).
@@ -617,7 +1228,7 @@ impl<T: Transport> EventClient<T> {
             "restore-event",
             &encode_restore_event_request(&req),
         )?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// import-event (request/response).
@@ -627,7 +1238,7 @@ impl<T: Transport> EventClient<T> {
             "import-event",
             &encode_import_event_request(&req),
         )?;
-        decode_event(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_event(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// create-event-once (request/response).
@@ -640,7 +1251,7 @@ impl<T: Transport> EventClient<T> {
             "create-event-once",
             &encode_create_event_once_request(&req),
         )?;
-        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-create-receipt (request/response).
@@ -653,7 +1264,7 @@ impl<T: Transport> EventClient<T> {
             "get-create-receipt",
             &encode_create_receipt_request(&req),
         )?;
-        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_create_event_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// split-series-once (request/response).
@@ -666,7 +1277,7 @@ impl<T: Transport> EventClient<T> {
             "split-series-once",
             &encode_split_series_once_request(&req),
         )?;
-        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// get-split-receipt (request/response).
@@ -679,7 +1290,7 @@ impl<T: Transport> EventClient<T> {
             "get-split-receipt",
             &encode_split_receipt_request(&req),
         )?;
-        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_split_series_receipt(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -699,7 +1310,7 @@ impl<T: Transport> FreeBusyClient<T> {
         let csil_resp =
             self.transport
                 .call("FreeBusyService", "query", &encode_free_busy_request(&req))?;
-        decode_free_busy_response(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_free_busy_response(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -719,7 +1330,7 @@ impl<T: Transport> IcsClient<T> {
         let csil_resp =
             self.transport
                 .call("IcsService", "import-ics", &encode_import_ics_request(&req))?;
-        decode_import_result(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_import_result(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// export-calendar (request/response).
@@ -729,7 +1340,7 @@ impl<T: Transport> IcsClient<T> {
             "export-calendar",
             &encode_export_calendar_request(&req),
         )?;
-        decode_ics_document(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_ics_document(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 
     /// export-event (request/response).
@@ -739,7 +1350,7 @@ impl<T: Transport> IcsClient<T> {
             "export-event",
             &encode_export_event_request(&req),
         )?;
-        decode_ics_document(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_ics_document(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }
 
@@ -759,6 +1370,6 @@ impl<T: Transport> AuditClient<T> {
         let csil_resp =
             self.transport
                 .call("AuditService", "list-audit", &encode_audit_query(&req))?;
-        decode_audit_list(&csil_resp).map_err(|e| ClientError::Transport(e.to_string()))
+        decode_audit_list(&csil_resp).map_err(|e| ClientError::Decode(e.to_string()))
     }
 }

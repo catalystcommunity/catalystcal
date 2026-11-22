@@ -1,3 +1,4 @@
+import type { DateTimePicker } from "@catalystcommunity/date-time-picker";
 import type { Calendar } from "@catalystcal/client";
 import { openImportDialog, openNewCalendarDialog, openSubscribeDialog } from "~/components/CalendarDialogs";
 import { AUTH, effectivePerson, hasScope, isActing } from "~/stores/auth";
@@ -9,7 +10,6 @@ import { ROUTE, currentRoute, navigate } from "~/app/router";
 import { CalElement, define } from "~/ui/element";
 import { h, setAttr, setText, syncKeyed } from "~/ui/dom";
 import { icon, type IconName } from "~/ui/icons";
-import type { ValueControl } from "~/ui/controls";
 
 export const NAV_LINKS: { href: string; label: string; icon: IconName }[] = [
   { href: "/", label: "Calendar", icon: "calendar" },
@@ -21,7 +21,7 @@ export const NAV_LINKS: { href: string; label: string; icon: IconName }[] = [
 export class Sidebar extends CalElement {
   static watches = [AUTH, CALENDARS, NAV, PREFS, ROUTE];
   #links: HTMLAnchorElement[] = [];
-  #picker!: ValueControl;
+  #picker!: DateTimePicker;
   #error!: HTMLElement;
   #groups!: HTMLElement;
   #newButton!: HTMLButtonElement;
@@ -37,9 +37,9 @@ export class Sidebar extends CalElement {
       clearable: "false",
       "show-now": "false",
       class: "side-picker",
-    }) as ValueControl;
-    this.#picker.addEventListener("date-changed", () => {
-      const d = this.#picker.value;
+    });
+    this.#picker.addEventListener("date-changed", (event) => {
+      const d = event.detail.value;
       if (!d) return;
       goToDate(d);
       setSidebarOpen(false);

@@ -33,7 +33,7 @@ describe("ActingBanner", () => {
 
   it("appears while acting, and Stop acting returns to a self bearer", async () => {
     signIn({ token: "t2", expiresAt: "2099-01-01T00:00:00Z", user: delegate, actingAs: boss, via: "delegation", scopes: ["calendars.read"] });
-    releasePrincipal.mockResolvedValue({ token: "t3", expiresAt: "2099-01-01T00:00:00Z", user: delegate, via: "self" });
+    releasePrincipal.mockResolvedValue({ token: "t3", expiresAt: new Date("2099-01-01T00:00:00Z"), user: delegate, via: "self" });
     await mount(new ActingBanner());
     const banner = screen.getByRole("region", { name: /Acting as/ });
     expect(banner).toHaveTextContent("Acting as Pat Boss");

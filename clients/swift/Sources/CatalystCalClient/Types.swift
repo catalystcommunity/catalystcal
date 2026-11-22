@@ -25,10 +25,6 @@ public typealias TrashId = String
 
 public typealias SessionId = String
 
-public typealias Timestamp = String
-
-public typealias DateText = String
-
 /// ShareRole is a generated CSIL string enum (a closed set of wire values).
 public enum ShareRole: String, Equatable, Sendable, CaseIterable {
     case freeBusy = "free_busy"
@@ -177,11 +173,11 @@ public struct User: Equatable, Sendable {
     public let email: String?
     public let timezone: String?
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: updated_at
-    public let updatedAt: Timestamp
+    public let updatedAt: String
 
-    public init(userId: UserId, domain: String, subject: String, applicationId: String? = nil, handle: String? = nil, displayName: String? = nil, email: String? = nil, timezone: String? = nil, createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(userId: UserId, domain: String, subject: String, applicationId: String? = nil, handle: String? = nil, displayName: String? = nil, email: String? = nil, timezone: String? = nil, createdAt: String, updatedAt: String) {
         self.userId = userId
         self.domain = domain
         self.subject = subject
@@ -254,7 +250,7 @@ public struct Calendar: Equatable, Sendable {
     /// wire key: source_url
     public let sourceUrl: String?
     /// wire key: last_synced_at
-    public let lastSyncedAt: Timestamp?
+    public let lastSyncedAt: String?
     /// wire key: sync_error
     public let syncError: String?
     /// wire key: is_default
@@ -265,11 +261,11 @@ public struct Calendar: Equatable, Sendable {
     /// wire key: feed_path
     public let feedPath: String?
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: updated_at
-    public let updatedAt: Timestamp
+    public let updatedAt: String
 
-    public init(calendarId: CalendarId, owner: PersonSummary, name: String, description: String? = nil, color: String? = nil, timezone: String? = nil, kind: CalendarKind, sourceUrl: String? = nil, lastSyncedAt: Timestamp? = nil, syncError: String? = nil, isDefault: Bool, access: AccessRole, accessPath: AccessPath, feedPath: String? = nil, createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(calendarId: CalendarId, owner: PersonSummary, name: String, description: String? = nil, color: String? = nil, timezone: String? = nil, kind: CalendarKind, sourceUrl: String? = nil, lastSyncedAt: String? = nil, syncError: String? = nil, isDefault: Bool, access: AccessRole, accessPath: AccessPath, feedPath: String? = nil, createdAt: String, updatedAt: String) {
         self.calendarId = calendarId
         self.owner = owner
         self.name = name
@@ -467,9 +463,9 @@ public struct Share: Equatable, Sendable {
     /// wire key: grantee_group_name
     public let granteeGroupName: String?
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
 
-    public init(shareId: ShareId, calendarId: CalendarId, grantee: IdentityRef? = nil, granteeGroupId: GroupId? = nil, role: ShareRole, granteePerson: PersonSummary? = nil, granteeGroupName: String? = nil, createdAt: Timestamp) {
+    public init(shareId: ShareId, calendarId: CalendarId, grantee: IdentityRef? = nil, granteeGroupId: GroupId? = nil, role: ShareRole, granteePerson: PersonSummary? = nil, granteeGroupName: String? = nil, createdAt: String) {
         self.shareId = shareId
         self.calendarId = calendarId
         self.grantee = grantee
@@ -542,11 +538,11 @@ public struct Group: Equatable, Sendable {
     public let revision: UInt64
     public let members: [GroupMember]
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: updated_at
-    public let updatedAt: Timestamp
+    public let updatedAt: String
 
-    public init(groupId: GroupId, owner: PersonSummary, name: String, description: String? = nil, revision: UInt64, members: [GroupMember], createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(groupId: GroupId, owner: PersonSummary, name: String, description: String? = nil, revision: UInt64, members: [GroupMember], createdAt: String, updatedAt: String) {
         self.groupId = groupId
         self.owner = owner
         self.name = name
@@ -690,13 +686,13 @@ public struct Delegation: Equatable, Sendable {
     public let calendarIds: [CalendarId]?
     public let note: String?
     /// wire key: expires_at
-    public let expiresAt: Timestamp?
+    public let expiresAt: String?
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: revoked_at
-    public let revokedAt: Timestamp?
+    public let revokedAt: String?
 
-    public init(delegationId: DelegationId, principal: PersonSummary, delegate: IdentityRef, delegatePerson: PersonSummary? = nil, scopes: [Scope], calendarIds: [CalendarId]? = nil, note: String? = nil, expiresAt: Timestamp? = nil, createdAt: Timestamp, revokedAt: Timestamp? = nil) {
+    public init(delegationId: DelegationId, principal: PersonSummary, delegate: IdentityRef, delegatePerson: PersonSummary? = nil, scopes: [Scope], calendarIds: [CalendarId]? = nil, note: String? = nil, expiresAt: String? = nil, createdAt: String, revokedAt: String? = nil) {
         self.delegationId = delegationId
         self.principal = principal
         self.delegate = delegate
@@ -756,10 +752,10 @@ public struct AssumePrincipalRequest: Equatable, Sendable {
 /// Recurrence is a generated CSIL record type.
 public struct Recurrence: Equatable, Sendable {
     public let rrule: String
-    public let exdates: [Timestamp]?
-    public let rdates: [Timestamp]?
+    public let exdates: [String]?
+    public let rdates: [String]?
 
-    public init(rrule: String, exdates: [Timestamp]? = nil, rdates: [Timestamp]? = nil) {
+    public init(rrule: String, exdates: [String]? = nil, rdates: [String]? = nil) {
         self.rrule = rrule
         self.exdates = exdates
         self.rdates = rdates
@@ -840,14 +836,14 @@ public struct Event: Equatable, Sendable {
     public let url: String?
     /// wire key: conference_url
     public let conferenceUrl: String?
-    public let start: Timestamp?
-    public let end: Timestamp?
+    public let start: String?
+    public let end: String?
     /// wire key: all_day
     public let allDay: Bool?
     /// wire key: start_date
-    public let startDate: DateText?
+    public let startDate: String?
     /// wire key: end_date
-    public let endDate: DateText?
+    public let endDate: String?
     public let timezone: String?
     public let status: EventStatus?
     public let transparency: EventTransparency?
@@ -856,7 +852,7 @@ public struct Event: Equatable, Sendable {
     /// wire key: master_event_id
     public let masterEventId: EventId?
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
     public let attendees: [Attendee]?
     public let reminders: [Reminder]?
     public let categories: [String]?
@@ -870,11 +866,11 @@ public struct Event: Equatable, Sendable {
     public let updatedVia: ActingVia?
     public let sequence: Int64
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: updated_at
-    public let updatedAt: Timestamp
+    public let updatedAt: String
 
-    public init(eventId: EventId, calendarId: CalendarId, uid: String? = nil, title: String, description: String? = nil, location: String? = nil, url: String? = nil, conferenceUrl: String? = nil, start: Timestamp? = nil, end: Timestamp? = nil, allDay: Bool? = false, startDate: DateText? = nil, endDate: DateText? = nil, timezone: String? = nil, status: EventStatus? = .confirmed, transparency: EventTransparency? = .opaque, visibility: EventVisibility? = .`default`, recurrence: Recurrence? = nil, masterEventId: EventId? = nil, recurrenceId: Timestamp? = nil, attendees: [Attendee]? = nil, reminders: [Reminder]? = nil, categories: [String]? = nil, color: String? = nil, organizer: PersonSummary? = nil, createdBy: PersonSummary? = nil, updatedBy: PersonSummary? = nil, updatedVia: ActingVia? = nil, sequence: Int64, createdAt: Timestamp, updatedAt: Timestamp) {
+    public init(eventId: EventId, calendarId: CalendarId, uid: String? = nil, title: String, description: String? = nil, location: String? = nil, url: String? = nil, conferenceUrl: String? = nil, start: String? = nil, end: String? = nil, allDay: Bool? = false, startDate: String? = nil, endDate: String? = nil, timezone: String? = nil, status: EventStatus? = .confirmed, transparency: EventTransparency? = .opaque, visibility: EventVisibility? = .`default`, recurrence: Recurrence? = nil, masterEventId: EventId? = nil, recurrenceId: String? = nil, attendees: [Attendee]? = nil, reminders: [Reminder]? = nil, categories: [String]? = nil, color: String? = nil, organizer: PersonSummary? = nil, createdBy: PersonSummary? = nil, updatedBy: PersonSummary? = nil, updatedVia: ActingVia? = nil, sequence: Int64, createdAt: String, updatedAt: String) {
         self.eventId = eventId
         self.calendarId = calendarId
         self.uid = uid
@@ -957,16 +953,16 @@ public struct Event: Equatable, Sendable {
 /// Occurrence is a generated CSIL record type.
 public struct Occurrence: Equatable, Sendable {
     public let event: Event
-    public let start: Timestamp
-    public let end: Timestamp
+    public let start: String
+    public let end: String
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
     public let access: AccessRole
     /// wire key: busy_only
     public let busyOnly: Bool
     public let invited: Bool
 
-    public init(event: Event, start: Timestamp, end: Timestamp, recurrenceId: Timestamp? = nil, access: AccessRole, busyOnly: Bool, invited: Bool) {
+    public init(event: Event, start: String, end: String, recurrenceId: String? = nil, access: AccessRole, busyOnly: Bool, invited: Bool) {
         self.event = event
         self.start = start
         self.end = end
@@ -991,15 +987,15 @@ public struct Occurrence: Equatable, Sendable {
 /// ListEventsRequest is a generated CSIL record type.
 public struct ListEventsRequest: Equatable, Sendable {
     /// wire key: range_start
-    public let rangeStart: Timestamp
+    public let rangeStart: String
     /// wire key: range_end
-    public let rangeEnd: Timestamp
+    public let rangeEnd: String
     /// wire key: calendar_ids
     public let calendarIds: [CalendarId]?
     /// wire key: include_invitations
     public let includeInvitations: Bool?
 
-    public init(rangeStart: Timestamp, rangeEnd: Timestamp, calendarIds: [CalendarId]? = nil, includeInvitations: Bool? = true) {
+    public init(rangeStart: String, rangeEnd: String, calendarIds: [CalendarId]? = nil, includeInvitations: Bool? = true) {
         self.rangeStart = rangeStart
         self.rangeEnd = rangeEnd
         self.calendarIds = calendarIds
@@ -1037,9 +1033,9 @@ public struct UpdateEventRequest: Equatable, Sendable {
     public let event: Event
     public let scope: RecurrenceScope?
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
 
-    public init(event: Event, scope: RecurrenceScope? = .all, recurrenceId: Timestamp? = nil) {
+    public init(event: Event, scope: RecurrenceScope? = .all, recurrenceId: String? = nil) {
         self.event = event
         self.scope = scope
         self.recurrenceId = recurrenceId
@@ -1059,9 +1055,9 @@ public struct DeleteEventRequest: Equatable, Sendable {
     public let eventId: EventId
     public let scope: RecurrenceScope?
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
 
-    public init(eventId: EventId, scope: RecurrenceScope? = .all, recurrenceId: Timestamp? = nil) {
+    public init(eventId: EventId, scope: RecurrenceScope? = .all, recurrenceId: String? = nil) {
         self.eventId = eventId
         self.scope = scope
         self.recurrenceId = recurrenceId
@@ -1119,17 +1115,17 @@ public struct TrashEntry: Equatable, Sendable {
     public let eventId: EventId
     public let scope: RecurrenceScope
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
     public let event: Event
     public let instance: Event?
     /// wire key: deleted_by
     public let deletedBy: PersonSummary?
     /// wire key: deleted_at
-    public let deletedAt: Timestamp
+    public let deletedAt: String
     /// wire key: expires_at
-    public let expiresAt: Timestamp
+    public let expiresAt: String
 
-    public init(trashId: TrashId, calendarId: CalendarId, eventId: EventId, scope: RecurrenceScope, recurrenceId: Timestamp? = nil, event: Event, instance: Event? = nil, deletedBy: PersonSummary? = nil, deletedAt: Timestamp, expiresAt: Timestamp) {
+    public init(trashId: TrashId, calendarId: CalendarId, eventId: EventId, scope: RecurrenceScope, recurrenceId: String? = nil, event: Event, instance: Event? = nil, deletedBy: PersonSummary? = nil, deletedAt: String, expiresAt: String) {
         self.trashId = trashId
         self.calendarId = calendarId
         self.eventId = eventId
@@ -1210,9 +1206,9 @@ public struct ImportEventRequest: Equatable, Sendable {
     /// wire key: created_by
     public let createdBy: IdentityRef
     /// wire key: created_at
-    public let createdAt: Timestamp?
+    public let createdAt: String?
 
-    public init(event: Event, createdBy: IdentityRef, createdAt: Timestamp? = nil) {
+    public init(event: Event, createdBy: IdentityRef, createdAt: String? = nil) {
         self.event = event
         self.createdBy = createdBy
         self.createdAt = createdAt
@@ -1294,12 +1290,12 @@ public struct CreateEventReceipt: Equatable, Sendable {
     public let state: CreateReceiptState
     public let created: Bool
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     public let event: Event?
     /// wire key: trash_id
     public let trashId: TrashId?
 
-    public init(calendarId: CalendarId, idempotencyKey: String, eventId: EventId, state: CreateReceiptState, created: Bool, createdAt: Timestamp, event: Event? = nil, trashId: TrashId? = nil) {
+    public init(calendarId: CalendarId, idempotencyKey: String, eventId: EventId, state: CreateReceiptState, created: Bool, createdAt: String, event: Event? = nil, trashId: TrashId? = nil) {
         self.calendarId = calendarId
         self.idempotencyKey = idempotencyKey
         self.eventId = eventId
@@ -1329,11 +1325,11 @@ public struct SplitSeriesOnceRequest: Equatable, Sendable {
     public let idempotencyKey: String
     public let event: Event
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp
+    public let recurrenceId: String
     /// wire key: map_recurrence_ids
-    public let mapRecurrenceIds: [Timestamp]?
+    public let mapRecurrenceIds: [String]?
 
-    public init(idempotencyKey: String, event: Event, recurrenceId: Timestamp, mapRecurrenceIds: [Timestamp]? = nil) {
+    public init(idempotencyKey: String, event: Event, recurrenceId: String, mapRecurrenceIds: [String]? = nil) {
         self.idempotencyKey = idempotencyKey
         self.event = event
         self.recurrenceId = recurrenceId
@@ -1366,9 +1362,9 @@ public struct SplitReceiptRequest: Equatable, Sendable {
     /// wire key: idempotency_key
     public let idempotencyKey: String
     /// wire key: map_recurrence_ids
-    public let mapRecurrenceIds: [Timestamp]?
+    public let mapRecurrenceIds: [String]?
 
-    public init(seriesId: EventId, idempotencyKey: String, mapRecurrenceIds: [Timestamp]? = nil) {
+    public init(seriesId: EventId, idempotencyKey: String, mapRecurrenceIds: [String]? = nil) {
         self.seriesId = seriesId
         self.idempotencyKey = idempotencyKey
         self.mapRecurrenceIds = mapRecurrenceIds
@@ -1402,14 +1398,14 @@ public enum SplitMapResult: String, Equatable, Sendable, CaseIterable {
 /// SplitOccurrenceMapping is a generated CSIL record type.
 public struct SplitOccurrenceMapping: Equatable, Sendable {
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp
+    public let recurrenceId: String
     public let result: SplitMapResult
     /// wire key: event_id
     public let eventId: EventId?
     /// wire key: mapped_recurrence_id
-    public let mappedRecurrenceId: Timestamp?
+    public let mappedRecurrenceId: String?
 
-    public init(recurrenceId: Timestamp, result: SplitMapResult, eventId: EventId? = nil, mappedRecurrenceId: Timestamp? = nil) {
+    public init(recurrenceId: String, result: SplitMapResult, eventId: EventId? = nil, mappedRecurrenceId: String? = nil) {
         self.recurrenceId = recurrenceId
         self.result = result
         self.eventId = eventId
@@ -1434,12 +1430,12 @@ public struct SplitSeriesReceipt: Equatable, Sendable {
     /// wire key: successor_id
     public let successorId: EventId
     /// wire key: split_at
-    public let splitAt: Timestamp
+    public let splitAt: String
     /// wire key: in_place
     public let inPlace: Bool
     public let created: Bool
     /// wire key: created_at
-    public let createdAt: Timestamp
+    public let createdAt: String
     /// wire key: calendar_id
     public let calendarId: CalendarId
     /// wire key: series_state
@@ -1454,7 +1450,7 @@ public struct SplitSeriesReceipt: Equatable, Sendable {
     public let successorTrashId: TrashId?
     public let mappings: [SplitOccurrenceMapping]
 
-    public init(seriesId: EventId, idempotencyKey: String, successorId: EventId, splitAt: Timestamp, inPlace: Bool, created: Bool, createdAt: Timestamp, calendarId: CalendarId, seriesState: CreateReceiptState, series: Event? = nil, seriesTrashId: TrashId? = nil, successorState: CreateReceiptState, successor: Event? = nil, successorTrashId: TrashId? = nil, mappings: [SplitOccurrenceMapping]) {
+    public init(seriesId: EventId, idempotencyKey: String, successorId: EventId, splitAt: String, inPlace: Bool, created: Bool, createdAt: String, calendarId: CalendarId, seriesState: CreateReceiptState, series: Event? = nil, seriesTrashId: TrashId? = nil, successorState: CreateReceiptState, successor: Event? = nil, successorTrashId: TrashId? = nil, mappings: [SplitOccurrenceMapping]) {
         self.seriesId = seriesId
         self.idempotencyKey = idempotencyKey
         self.successorId = successorId
@@ -1497,9 +1493,9 @@ public struct GetOccurrenceRequest: Equatable, Sendable {
     /// wire key: event_id
     public let eventId: EventId
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
 
-    public init(eventId: EventId, recurrenceId: Timestamp? = nil) {
+    public init(eventId: EventId, recurrenceId: String? = nil) {
         self.eventId = eventId
         self.recurrenceId = recurrenceId
     }
@@ -1517,10 +1513,10 @@ public struct RespondRequest: Equatable, Sendable {
     public let eventId: EventId
     public let status: ParticipationStatus
     /// wire key: recurrence_id
-    public let recurrenceId: Timestamp?
+    public let recurrenceId: String?
     public let comment: String?
 
-    public init(eventId: EventId, status: ParticipationStatus, recurrenceId: Timestamp? = nil, comment: String? = nil) {
+    public init(eventId: EventId, status: ParticipationStatus, recurrenceId: String? = nil, comment: String? = nil) {
         self.eventId = eventId
         self.status = status
         self.recurrenceId = recurrenceId
@@ -1579,11 +1575,11 @@ public struct EventList: Equatable, Sendable {
 
 /// BusyInterval is a generated CSIL record type.
 public struct BusyInterval: Equatable, Sendable {
-    public let start: Timestamp
-    public let end: Timestamp
+    public let start: String
+    public let end: String
     public let tentative: Bool?
 
-    public init(start: Timestamp, end: Timestamp, tentative: Bool? = nil) {
+    public init(start: String, end: String, tentative: Bool? = nil) {
         self.start = start
         self.end = end
         self.tentative = tentative
@@ -1601,11 +1597,11 @@ public struct BusyInterval: Equatable, Sendable {
 public struct FreeBusyRequest: Equatable, Sendable {
     public let people: [IdentityRef]
     /// wire key: range_start
-    public let rangeStart: Timestamp
+    public let rangeStart: String
     /// wire key: range_end
-    public let rangeEnd: Timestamp
+    public let rangeEnd: String
 
-    public init(people: [IdentityRef], rangeStart: Timestamp, rangeEnd: Timestamp) {
+    public init(people: [IdentityRef], rangeStart: String, rangeEnd: String) {
         self.people = people
         self.rangeStart = rangeStart
         self.rangeEnd = rangeEnd
@@ -1751,7 +1747,7 @@ public struct IcsDocument: Equatable, Sendable {
 public struct AuditEntry: Equatable, Sendable {
     /// wire key: audit_id
     public let auditId: AuditId
-    public let at: Timestamp
+    public let at: String
     /// wire key: actor
     public let `actor`: PersonSummary
     public let principal: PersonSummary
@@ -1761,7 +1757,7 @@ public struct AuditEntry: Equatable, Sendable {
     public let target: String?
     public let outcome: String
 
-    public init(auditId: AuditId, at: Timestamp, `actor`: PersonSummary, principal: PersonSummary, via: ActingVia, application: String? = nil, operation: String, target: String? = nil, outcome: String) {
+    public init(auditId: AuditId, at: String, `actor`: PersonSummary, principal: PersonSummary, via: ActingVia, application: String? = nil, operation: String, target: String? = nil, outcome: String) {
         self.auditId = auditId
         self.at = at
         self.`actor` = `actor`
@@ -1841,14 +1837,14 @@ public struct CompleteRequest: Equatable, Sendable {
 public struct LoginResponse: Equatable, Sendable {
     public let token: String
     /// wire key: expires_at
-    public let expiresAt: Timestamp
+    public let expiresAt: String
     public let user: PersonSummary
     /// wire key: acting_as
     public let actingAs: PersonSummary?
     public let via: ActingVia
     public let scopes: [Scope]?
 
-    public init(token: String, expiresAt: Timestamp, user: PersonSummary, actingAs: PersonSummary? = nil, via: ActingVia, scopes: [Scope]? = nil) {
+    public init(token: String, expiresAt: String, user: PersonSummary, actingAs: PersonSummary? = nil, via: ActingVia, scopes: [Scope]? = nil) {
         self.token = token
         self.expiresAt = expiresAt
         self.user = user
@@ -1985,10 +1981,10 @@ public struct ApplicationPresentation: Equatable, Sendable {
     /// wire key: request_digest
     public let requestDigest: [UInt8]
     /// wire key: presented_at
-    public let presentedAt: Timestamp
+    public let presentedAt: String
     public let nonce: [UInt8]
 
-    public init(signer: ApplicationRef, signerInstanceId: String, audience: ApplicationRef, requestDigest: [UInt8], presentedAt: Timestamp, nonce: [UInt8]) {
+    public init(signer: ApplicationRef, signerInstanceId: String, audience: ApplicationRef, requestDigest: [UInt8], presentedAt: String, nonce: [UInt8]) {
         self.signer = signer
         self.signerInstanceId = signerInstanceId
         self.audience = audience

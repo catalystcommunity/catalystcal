@@ -2,4 +2,23 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record Scope(Object value) {}
+public enum Scope {
+    CALENDARS_READ("calendars.read"),
+    FREEBUSY_READ("freebusy.read"),
+    EVENTS_WRITE("events.write"),
+    EVENTS_RESPOND("events.respond"),
+    CALENDARS_MANAGE("calendars.manage");
+
+    private final String value;
+
+    Scope(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static Scope fromWire(String value) {
+        for (Scope member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown Scope value: " + value);
+    }
+}

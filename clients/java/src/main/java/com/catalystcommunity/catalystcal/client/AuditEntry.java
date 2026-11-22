@@ -2,9 +2,11 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record AuditEntry(
     AuditId auditId /* wire: "audit_id" */,
-    Timestamp at /* wire: "at" */,
+    Instant at /* wire: "at" */,
     PersonSummary actor /* wire: "actor" */,
     PersonSummary principal /* wire: "principal" */,
     ActingVia via /* wire: "via" */,

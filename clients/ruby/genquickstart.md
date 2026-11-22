@@ -59,10 +59,7 @@ class HttpRpcTransport
 
     # The library parses the envelope and raises StatusError on a non-zero transport status.
     reply = RPC::RpcResponse.decode((res.body || "").b).into_transport_error
-    # A typed ServiceError arm rides as a status-0 variant, distinct from a transport
-    # failure; surface it so the typed client decodes a success payload only.
-    raise "csil-rpc #{service}/#{op}: ServiceError" if reply.variant == "ServiceError"
-    reply.payload
+    CsilCbor.resolve_rpc_reply(service, op, reply.variant, reply.payload)
   end
 end
 

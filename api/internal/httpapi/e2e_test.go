@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
@@ -209,7 +210,7 @@ func TestSharesFreeBusyAndPrivacy(t *testing.T) {
 	wantCode(t, r, 403)
 
 	// Free/busy: opaque, non-cancelled instances merged; transparent left out.
-	q := csil.FreeBusyRequest{People: []csil.IdentityRef{devRef("alice")}, RangeStart: "2026-11-02T00:00:00Z", RangeEnd: "2026-11-03T00:00:00Z"}
+	q := csil.FreeBusyRequest{People: []csil.IdentityRef{devRef("alice")}, RangeStart: instant("2026-11-02T00:00:00Z"), RangeEnd: instant("2026-11-03T00:00:00Z")}
 	fb := must(t, call(dave, "FreeBusyService", "query", q, csil.EncodeFreeBusyRequest, csil.DecodeFreeBusyResponse))
 	p := fb.People[0]
 	if !p.Visible || p.Person == nil || p.Person.UserId != aliceLogin.User.UserId {
@@ -220,7 +221,7 @@ func TestSharesFreeBusyAndPrivacy(t *testing.T) {
 		t.Fatalf("busy = %+v", p.Busy)
 	}
 	for i, w := range want {
-		if string(p.Busy[i].Start) != w[0] || string(p.Busy[i].End) != w[1] {
+		if p.Busy[i].Start.Format(time.RFC3339) != w[0] || p.Busy[i].End.Format(time.RFC3339) != w[1] {
 			t.Fatalf("busy[%d] = %+v, want %v", i, p.Busy[i], w)
 		}
 	}

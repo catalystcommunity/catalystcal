@@ -2,4 +2,22 @@
 
 package com.catalystcommunity.catalystcal.client;
 
-public record AccessPath(Object value) {}
+public enum AccessPath {
+    OWNER("owner"),
+    SHARE("share"),
+    DELEGATION("delegation"),
+    ATTENDEE("attendee");
+
+    private final String value;
+
+    AccessPath(String value) { this.value = value; }
+
+    public String value() { return value; }
+
+    public static AccessPath fromWire(String value) {
+        for (AccessPath member : values()) {
+            if (member.value.equals(value)) return member;
+        }
+        throw new IllegalArgumentException("unknown AccessPath value: " + value);
+    }
+}

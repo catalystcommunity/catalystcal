@@ -2,16 +2,17 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
 import java.util.List;
 
 public record SplitSeriesReceipt(
     EventId seriesId /* wire: "series_id" */,
     String idempotencyKey /* wire: "idempotency_key" */,
     EventId successorId /* wire: "successor_id" */,
-    Timestamp splitAt /* wire: "split_at" */,
+    Instant splitAt /* wire: "split_at" */,
     boolean inPlace /* wire: "in_place" */,
     boolean created /* wire: "created" */,
-    Timestamp createdAt /* wire: "created_at" */,
+    Instant createdAt /* wire: "created_at" */,
     CalendarId calendarId /* wire: "calendar_id" */,
     CreateReceiptState seriesState /* wire: "series_state" */,
     Event series /* wire: "series" */,

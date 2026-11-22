@@ -2,10 +2,12 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record RespondRequest(
     EventId eventId /* wire: "event_id" */,
     ParticipationStatus status /* wire: "status" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */,
+    Instant recurrenceId /* wire: "recurrence_id" */,
     String comment /* wire: "comment" */
 ) {
 }

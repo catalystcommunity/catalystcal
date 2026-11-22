@@ -8,8 +8,15 @@ import (
 	"github.com/catalystcommunity/catalystcal/api/internal/csil"
 )
 
-func tsp(s string) *csil.Timestamp { t := csil.Timestamp(s); return &t }
-func dtp(s string) *csil.DateText  { d := csil.DateText(s); return &d }
+func instant(s string) time.Time {
+	v, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+func tsp(s string) *time.Time { v := instant(s); return &v }
+func dtp(s string) *string    { return &s }
 
 func mustTime(t *testing.T, s string) time.Time {
 	t.Helper()
@@ -54,11 +61,11 @@ func startsOf(in []Instance) []string {
 
 func TestExpand(t *testing.T) {
 	withEx := timedEvent("2026-01-05T10:00:00Z", "2026-01-05T11:00:00Z", "", "FREQ=DAILY;COUNT=5")
-	withEx.Recurrence.Exdates = []csil.Timestamp{"2026-01-06T10:00:00Z", "2026-01-08T10:00:00Z"}
+	withEx.Recurrence.Exdates = []time.Time{instant("2026-01-06T10:00:00Z"), instant("2026-01-08T10:00:00Z")}
 	withRd := timedEvent("2026-01-05T10:00:00Z", "2026-01-05T11:00:00Z", "", "FREQ=DAILY;COUNT=2")
-	withRd.Recurrence.Rdates = []csil.Timestamp{"2026-01-20T15:00:00Z", "2026-01-06T10:00:00Z"}
+	withRd.Recurrence.Rdates = []time.Time{instant("2026-01-20T15:00:00Z"), instant("2026-01-06T10:00:00Z")}
 	onlyRd := timedEvent("2026-01-05T10:00:00Z", "2026-01-05T11:00:00Z", "", "")
-	onlyRd.Recurrence = &csil.Recurrence{Rdates: []csil.Timestamp{"2026-01-07T10:00:00Z"}}
+	onlyRd.Recurrence = &csil.Recurrence{Rdates: []time.Time{instant("2026-01-07T10:00:00Z")}}
 
 	tests := []struct {
 		name      string
@@ -232,7 +239,7 @@ func TestExpandDetails(t *testing.T) {
 			if in.End.Sub(in.Start) != time.Hour {
 				t.Errorf("%v: length %v", in.Start, in.End.Sub(in.Start))
 			}
-			if string(*in.Event.Start) != in.Start.Format(TimeLayout) {
+			if in.Event.Start.Format(time.RFC3339) != in.Start.Format(TimeLayout) {
 				t.Errorf("event start %s != %s", *in.Event.Start, in.Start.Format(TimeLayout))
 			}
 			if in.RecurrenceID == nil || !in.RecurrenceID.Equal(in.Start) {
@@ -258,7 +265,7 @@ func TestExpandDetails(t *testing.T) {
 			if in.Start.Format(DateLayout) != want[i][0] || in.End.Format(DateLayout) != want[i][1] || in.Start.Hour() != 0 {
 				t.Errorf("%d: instance %v..%v", i, in.Start, in.End)
 			}
-			if string(*in.Event.Start) != want[i][0]+"T00:00:00Z" {
+			if in.Event.Start.Format(time.RFC3339) != want[i][0]+"T00:00:00Z" {
 				t.Errorf("%d: start %s", i, *in.Event.Start)
 			}
 		}
@@ -328,7 +335,7 @@ func TestExpandLongSeriesIsFast(t *testing.T) {
 
 func TestSeriesUntil(t *testing.T) {
 	withRd := timedEvent("2026-01-05T10:00:00Z", "2026-01-05T11:00:00Z", "", "FREQ=DAILY;COUNT=2")
-	withRd.Recurrence.Rdates = []csil.Timestamp{"2026-03-01T10:00:00Z"}
+	withRd.Recurrence.Rdates = []time.Time{instant("2026-03-01T10:00:00Z")}
 	tests := []struct {
 		name string
 		ev   csil.Event

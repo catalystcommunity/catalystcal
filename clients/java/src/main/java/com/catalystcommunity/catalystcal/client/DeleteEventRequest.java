@@ -2,9 +2,11 @@
 
 package com.catalystcommunity.catalystcal.client;
 
+import java.time.Instant;
+
 public record DeleteEventRequest(
     EventId eventId /* wire: "event_id" */,
     RecurrenceScope scope /* wire: "scope" */,
-    Timestamp recurrenceId /* wire: "recurrence_id" */
+    Instant recurrenceId /* wire: "recurrence_id" */
 ) {
 }

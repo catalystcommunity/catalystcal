@@ -5,7 +5,7 @@ import { groupCalendars } from "./calendarGroups";
 const me: PersonSummary = { userId: "me", domain: "x.com", subject: "me", displayName: "Me" };
 const pat: PersonSummary = { userId: "pat", domain: "x.com", subject: "pat", displayName: "Pat" };
 const c = (id: string, owner: PersonSummary, extra: Partial<Calendar> = {}): Calendar =>
-  ({ calendarId: id, name: id, owner, kind: "local", isDefault: false, access: "owner", accessPath: "owner", createdAt: "", updatedAt: "", ...extra }) as Calendar;
+  ({ calendarId: id, name: id, owner, kind: "local", isDefault: false, access: "owner", accessPath: "owner", createdAt: new Date(0), updatedAt: new Date(0), ...extra }) as Calendar;
 
 describe("groupCalendars", () => {
   it("groups mine, shared, subscriptions, and delegated calendars", () => {

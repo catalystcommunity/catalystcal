@@ -19,105 +19,105 @@ typedef struct CsilgenCodec {
 
 /* AuthHandlers is the host's implementation of the AuthService service. */
 typedef struct AuthHandlers {
-    int (*complete)(void *ctx, const CompleteRequest *req, LoginResponse *resp);
-    int (*resume_session)(void *ctx, const EmptyRequest *req, LoginResponse *resp);
-    int (*end_session)(void *ctx, const EmptyRequest *req, EmptyResponse *resp);
-    int (*me)(void *ctx, const EmptyRequest *req, MeResponse *resp);
-    int (*assume_principal)(void *ctx, const AssumePrincipalRequest *req, LoginResponse *resp);
-    int (*release_principal)(void *ctx, const EmptyRequest *req, LoginResponse *resp);
-    int (*exchange_act_as_credential)(void *ctx, const ExchangeActAsCredentialRequest *req, LoginResponse *resp);
-    int (*get_act_as_scope_set)(void *ctx, const ScopeSetRequest *req, ScopeSetResponse *resp);
-    int (*get_application_identity)(void *ctx, const EmptyRequest *req, ApplicationIdentityResponse *resp);
-    int (*exchange_application_presentation)(void *ctx, const ExchangeApplicationPresentationRequest *req, LoginResponse *resp);
+    int (*complete)(void *ctx, const CompleteRequest *req, AuthServiceCompleteReply *resp);
+    int (*resume_session)(void *ctx, const EmptyRequest *req, AuthServiceResumeSessionReply *resp);
+    int (*end_session)(void *ctx, const EmptyRequest *req, AuthServiceEndSessionReply *resp);
+    int (*me)(void *ctx, const EmptyRequest *req, AuthServiceMeReply *resp);
+    int (*assume_principal)(void *ctx, const AssumePrincipalRequest *req, AuthServiceAssumePrincipalReply *resp);
+    int (*release_principal)(void *ctx, const EmptyRequest *req, AuthServiceReleasePrincipalReply *resp);
+    int (*exchange_act_as_credential)(void *ctx, const ExchangeActAsCredentialRequest *req, AuthServiceExchangeActAsCredentialReply *resp);
+    int (*get_act_as_scope_set)(void *ctx, const ScopeSetRequest *req, AuthServiceGetActAsScopeSetReply *resp);
+    int (*get_application_identity)(void *ctx, const EmptyRequest *req, AuthServiceGetApplicationIdentityReply *resp);
+    int (*exchange_application_presentation)(void *ctx, const ExchangeApplicationPresentationRequest *req, AuthServiceExchangeApplicationPresentationReply *resp);
 } AuthHandlers;
 
 /* DevAuthHandlers is the host's implementation of the DevAuthService service. */
 typedef struct DevAuthHandlers {
-    int (*list_dev_users)(void *ctx, const EmptyRequest *req, DevUsersResponse *resp);
-    int (*dev_login)(void *ctx, const DevLoginRequest *req, LoginResponse *resp);
+    int (*list_dev_users)(void *ctx, const EmptyRequest *req, DevAuthServiceListDevUsersReply *resp);
+    int (*dev_login)(void *ctx, const DevLoginRequest *req, DevAuthServiceDevLoginReply *resp);
 } DevAuthHandlers;
 
 /* UserHandlers is the host's implementation of the UserService service. */
 typedef struct UserHandlers {
-    int (*get_profile)(void *ctx, const EmptyRequest *req, User *resp);
-    int (*update_profile)(void *ctx, const UpdateProfileRequest *req, User *resp);
-    int (*lookup_person)(void *ctx, const LookupPersonRequest *req, PersonSummary *resp);
+    int (*get_profile)(void *ctx, const EmptyRequest *req, UserServiceGetProfileReply *resp);
+    int (*update_profile)(void *ctx, const UpdateProfileRequest *req, UserServiceUpdateProfileReply *resp);
+    int (*lookup_person)(void *ctx, const LookupPersonRequest *req, UserServiceLookupPersonReply *resp);
 } UserHandlers;
 
 /* CalendarHandlers is the host's implementation of the CalendarService service. */
 typedef struct CalendarHandlers {
-    int (*list_calendars)(void *ctx, const EmptyRequest *req, CalendarList *resp);
-    int (*get_calendar)(void *ctx, const CalendarID *req, Calendar *resp);
-    int (*create_calendar)(void *ctx, const CreateCalendarRequest *req, Calendar *resp);
-    int (*update_calendar)(void *ctx, const UpdateCalendarRequest *req, Calendar *resp);
-    int (*delete_calendar)(void *ctx, const CalendarID *req, EmptyResponse *resp);
-    int (*subscribe_calendar)(void *ctx, const SubscribeCalendarRequest *req, Calendar *resp);
-    int (*refresh_subscription)(void *ctx, const CalendarID *req, Calendar *resp);
-    int (*set_feed)(void *ctx, const SetFeedRequest *req, Calendar *resp);
+    int (*list_calendars)(void *ctx, const EmptyRequest *req, CalendarServiceListCalendarsReply *resp);
+    int (*get_calendar)(void *ctx, const CalendarID *req, CalendarServiceGetCalendarReply *resp);
+    int (*create_calendar)(void *ctx, const CreateCalendarRequest *req, CalendarServiceCreateCalendarReply *resp);
+    int (*update_calendar)(void *ctx, const UpdateCalendarRequest *req, CalendarServiceUpdateCalendarReply *resp);
+    int (*delete_calendar)(void *ctx, const CalendarID *req, CalendarServiceDeleteCalendarReply *resp);
+    int (*subscribe_calendar)(void *ctx, const SubscribeCalendarRequest *req, CalendarServiceSubscribeCalendarReply *resp);
+    int (*refresh_subscription)(void *ctx, const CalendarID *req, CalendarServiceRefreshSubscriptionReply *resp);
+    int (*set_feed)(void *ctx, const SetFeedRequest *req, CalendarServiceSetFeedReply *resp);
 } CalendarHandlers;
 
 /* ShareHandlers is the host's implementation of the ShareService service. */
 typedef struct ShareHandlers {
-    int (*list_shares)(void *ctx, const CalendarID *req, ShareList *resp);
-    int (*put_share)(void *ctx, const Share *req, Share *resp);
-    int (*delete_share)(void *ctx, const ShareID *req, EmptyResponse *resp);
+    int (*list_shares)(void *ctx, const CalendarID *req, ShareServiceListSharesReply *resp);
+    int (*put_share)(void *ctx, const Share *req, ShareServicePutShareReply *resp);
+    int (*delete_share)(void *ctx, const ShareID *req, ShareServiceDeleteShareReply *resp);
 } ShareHandlers;
 
 /* GroupHandlers is the host's implementation of the GroupService service. */
 typedef struct GroupHandlers {
-    int (*list_groups)(void *ctx, const EmptyRequest *req, GroupList *resp);
-    int (*get_group)(void *ctx, const GroupID *req, Group *resp);
-    int (*create_group)(void *ctx, const CreateGroupRequest *req, Group *resp);
-    int (*update_group)(void *ctx, const UpdateGroupRequest *req, Group *resp);
-    int (*set_members)(void *ctx, const SetGroupMembersRequest *req, Group *resp);
-    int (*delete_group)(void *ctx, const GroupID *req, EmptyResponse *resp);
+    int (*list_groups)(void *ctx, const EmptyRequest *req, GroupServiceListGroupsReply *resp);
+    int (*get_group)(void *ctx, const GroupID *req, GroupServiceGetGroupReply *resp);
+    int (*create_group)(void *ctx, const CreateGroupRequest *req, GroupServiceCreateGroupReply *resp);
+    int (*update_group)(void *ctx, const UpdateGroupRequest *req, GroupServiceUpdateGroupReply *resp);
+    int (*set_members)(void *ctx, const SetGroupMembersRequest *req, GroupServiceSetMembersReply *resp);
+    int (*delete_group)(void *ctx, const GroupID *req, GroupServiceDeleteGroupReply *resp);
 } GroupHandlers;
 
 /* DelegationHandlers is the host's implementation of the DelegationService service. */
 typedef struct DelegationHandlers {
-    int (*list_granted)(void *ctx, const EmptyRequest *req, DelegationList *resp);
-    int (*list_received)(void *ctx, const EmptyRequest *req, DelegationList *resp);
-    int (*create_delegation)(void *ctx, const Delegation *req, Delegation *resp);
-    int (*update_delegation)(void *ctx, const Delegation *req, Delegation *resp);
-    int (*revoke_delegation)(void *ctx, const DelegationID *req, EmptyResponse *resp);
+    int (*list_granted)(void *ctx, const EmptyRequest *req, DelegationServiceListGrantedReply *resp);
+    int (*list_received)(void *ctx, const EmptyRequest *req, DelegationServiceListReceivedReply *resp);
+    int (*create_delegation)(void *ctx, const Delegation *req, DelegationServiceCreateDelegationReply *resp);
+    int (*update_delegation)(void *ctx, const Delegation *req, DelegationServiceUpdateDelegationReply *resp);
+    int (*revoke_delegation)(void *ctx, const DelegationID *req, DelegationServiceRevokeDelegationReply *resp);
 } DelegationHandlers;
 
 /* EventHandlers is the host's implementation of the EventService service. */
 typedef struct EventHandlers {
-    int (*list_events)(void *ctx, const ListEventsRequest *req, OccurrenceList *resp);
-    int (*get_event)(void *ctx, const EventID *req, Event *resp);
-    int (*get_occurrence)(void *ctx, const GetOccurrenceRequest *req, Occurrence *resp);
-    int (*create_event)(void *ctx, const Event *req, Event *resp);
-    int (*update_event)(void *ctx, const UpdateEventRequest *req, Event *resp);
-    int (*delete_event)(void *ctx, const DeleteEventRequest *req, DeleteEventResponse *resp);
-    int (*move_event)(void *ctx, const MoveEventRequest *req, Event *resp);
-    int (*respond)(void *ctx, const RespondRequest *req, Event *resp);
-    int (*list_invitations)(void *ctx, const EmptyRequest *req, EventList *resp);
-    int (*search_events)(void *ctx, const SearchEventsRequest *req, EventList *resp);
-    int (*list_trash)(void *ctx, const ListTrashRequest *req, TrashList *resp);
-    int (*restore_event)(void *ctx, const RestoreEventRequest *req, Event *resp);
-    int (*import_event)(void *ctx, const ImportEventRequest *req, Event *resp);
-    int (*create_event_once)(void *ctx, const CreateEventOnceRequest *req, CreateEventReceipt *resp);
-    int (*get_create_receipt)(void *ctx, const CreateReceiptRequest *req, CreateEventReceipt *resp);
-    int (*split_series_once)(void *ctx, const SplitSeriesOnceRequest *req, SplitSeriesReceipt *resp);
-    int (*get_split_receipt)(void *ctx, const SplitReceiptRequest *req, SplitSeriesReceipt *resp);
+    int (*list_events)(void *ctx, const ListEventsRequest *req, EventServiceListEventsReply *resp);
+    int (*get_event)(void *ctx, const EventID *req, EventServiceGetEventReply *resp);
+    int (*get_occurrence)(void *ctx, const GetOccurrenceRequest *req, EventServiceGetOccurrenceReply *resp);
+    int (*create_event)(void *ctx, const Event *req, EventServiceCreateEventReply *resp);
+    int (*update_event)(void *ctx, const UpdateEventRequest *req, EventServiceUpdateEventReply *resp);
+    int (*delete_event)(void *ctx, const DeleteEventRequest *req, EventServiceDeleteEventReply *resp);
+    int (*move_event)(void *ctx, const MoveEventRequest *req, EventServiceMoveEventReply *resp);
+    int (*respond)(void *ctx, const RespondRequest *req, EventServiceRespondReply *resp);
+    int (*list_invitations)(void *ctx, const EmptyRequest *req, EventServiceListInvitationsReply *resp);
+    int (*search_events)(void *ctx, const SearchEventsRequest *req, EventServiceSearchEventsReply *resp);
+    int (*list_trash)(void *ctx, const ListTrashRequest *req, EventServiceListTrashReply *resp);
+    int (*restore_event)(void *ctx, const RestoreEventRequest *req, EventServiceRestoreEventReply *resp);
+    int (*import_event)(void *ctx, const ImportEventRequest *req, EventServiceImportEventReply *resp);
+    int (*create_event_once)(void *ctx, const CreateEventOnceRequest *req, EventServiceCreateEventOnceReply *resp);
+    int (*get_create_receipt)(void *ctx, const CreateReceiptRequest *req, EventServiceGetCreateReceiptReply *resp);
+    int (*split_series_once)(void *ctx, const SplitSeriesOnceRequest *req, EventServiceSplitSeriesOnceReply *resp);
+    int (*get_split_receipt)(void *ctx, const SplitReceiptRequest *req, EventServiceGetSplitReceiptReply *resp);
 } EventHandlers;
 
 /* FreeBusyHandlers is the host's implementation of the FreeBusyService service. */
 typedef struct FreeBusyHandlers {
-    int (*query)(void *ctx, const FreeBusyRequest *req, FreeBusyResponse *resp);
+    int (*query)(void *ctx, const FreeBusyRequest *req, FreeBusyServiceQueryReply *resp);
 } FreeBusyHandlers;
 
 /* IcsHandlers is the host's implementation of the IcsService service. */
 typedef struct IcsHandlers {
-    int (*import_ics)(void *ctx, const ImportIcsRequest *req, ImportResult *resp);
-    int (*export_calendar)(void *ctx, const ExportCalendarRequest *req, IcsDocument *resp);
-    int (*export_event)(void *ctx, const ExportEventRequest *req, IcsDocument *resp);
+    int (*import_ics)(void *ctx, const ImportIcsRequest *req, IcsServiceImportIcsReply *resp);
+    int (*export_calendar)(void *ctx, const ExportCalendarRequest *req, IcsServiceExportCalendarReply *resp);
+    int (*export_event)(void *ctx, const ExportEventRequest *req, IcsServiceExportEventReply *resp);
 } IcsHandlers;
 
 /* AuditHandlers is the host's implementation of the AuditService service. */
 typedef struct AuditHandlers {
-    int (*list_audit)(void *ctx, const AuditQuery *req, AuditList *resp);
+    int (*list_audit)(void *ctx, const AuditQuery *req, AuditServiceListAuditReply *resp);
 } AuditHandlers;
 
 #endif /* CSILGEN_SERVER_GEN_H */
