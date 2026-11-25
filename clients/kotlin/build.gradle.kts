@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.catalystcommunity.catalystcal.client"
-version = "0.3.2"
+version = "0.3.3"
 
 repositories {
     mavenCentral()
