@@ -53,9 +53,8 @@ type Config struct {
 	LinkkeysTCPAddr          string
 	LinkkeysTCPFingerprints  []string
 	LinkkeysTCPAllowInsecure bool
-	// LinkkeysApplicationID names catalystcal in each sign-in request. The
-	// IDP keeps standing consent per application. Default: the application
-	// ID of the act-as key file, else the RP account username.
+	// LinkkeysApplicationID is the expected ID in a verified assertion.
+	// It defaults to the ID in the act-as key file when available.
 	LinkkeysApplicationID string
 
 	SubscriptionRefresh      time.Duration

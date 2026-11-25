@@ -263,10 +263,7 @@ func buildPKI(cfg *config.Config) services.PKIClient {
 	return c
 }
 
-// signInApplicationID is the application that sign-in requests name:
-// CATALYSTCAL_LINKKEYS_APPLICATION_ID, else the application ID that the
-// act-as keys enrolled with, else empty (the RP uses the account username).
-// LinkKeys asks that an application with act-as grants use one ID for both.
+// signInApplicationID selects the application ID to check after RP verification.
 func signInApplicationID(cfg *config.Config) string {
 	if cfg.LinkkeysApplicationID != "" || cfg.ActAsAppKeysFile == "" {
 		return cfg.LinkkeysApplicationID

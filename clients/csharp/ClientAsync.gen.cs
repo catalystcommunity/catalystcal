@@ -12,189 +12,371 @@ namespace CatalystCal.Client;
 public interface ICsilAsyncTransport
 {
     System.Threading.Tasks.Task<byte[]> Call(string service, string op, byte[] request);
+
+    /// <summary>Performs a call to an op with several reply arms and returns the reply
+    /// variant with the payload bytes. The client selects the arm from the variant, so
+    /// the carrier must not drop it.</summary>
+    System.Threading.Tasks.Task<CsilWireReply> CallReply(string service, string op, byte[] request);
 }
 
 /// <summary>Typed RPC client for the AuthService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class AuthAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<LoginResponse> CompleteAsync(CompleteRequest completeRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "complete", Codec.Encode(completeRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> ResumeSessionAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "resume-session", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<EmptyResponse> EndSessionAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("AuthService", "end-session", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<MeResponse> MeAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<MeResponse>(await transport.Call("AuthService", "me", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> AssumePrincipalAsync(AssumePrincipalRequest assumePrincipalRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "assume-principal", Codec.Encode(assumePrincipalRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> ReleasePrincipalAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "release-principal", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> ExchangeActAsCredentialAsync(ExchangeActAsCredentialRequest exchangeActAsCredentialRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest)));
-    public async System.Threading.Tasks.Task<ScopeSetResponse> GetActAsScopeSetAsync(ScopeSetRequest scopeSetRequest) =>
-        Codec.Decode<ScopeSetResponse>(await transport.Call("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest)));
-    public async System.Threading.Tasks.Task<ApplicationIdentityResponse> GetApplicationIdentityAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<ApplicationIdentityResponse>(await transport.Call("AuthService", "get-application-identity", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> ExchangeApplicationPresentationAsync(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest)));
+    public async System.Threading.Tasks.Task<LoginResponse> CompleteAsync(CompleteRequest completeRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "complete", Codec.Encode(completeRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "complete", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> ResumeSessionAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "resume-session", Codec.Encode(emptyRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "resume-session", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EmptyResponse> EndSessionAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "end-session", Codec.Encode(emptyRequest));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("AuthService", "end-session", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<MeResponse> MeAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "me", Codec.Encode(emptyRequest));
+        return Codec.Decode<MeResponse>(Codec.ResolveRpcReply("AuthService", "me", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> AssumePrincipalAsync(AssumePrincipalRequest assumePrincipalRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "assume-principal", Codec.Encode(assumePrincipalRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "assume-principal", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> ReleasePrincipalAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "release-principal", Codec.Encode(emptyRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "release-principal", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> ExchangeActAsCredentialAsync(ExchangeActAsCredentialRequest exchangeActAsCredentialRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "exchange-act-as-credential", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<ScopeSetResponse> GetActAsScopeSetAsync(ScopeSetRequest scopeSetRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest));
+        return Codec.Decode<ScopeSetResponse>(Codec.ResolveRpcReply("AuthService", "get-act-as-scope-set", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<ApplicationIdentityResponse> GetApplicationIdentityAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "get-application-identity", Codec.Encode(emptyRequest));
+        return Codec.Decode<ApplicationIdentityResponse>(Codec.ResolveRpcReply("AuthService", "get-application-identity", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> ExchangeApplicationPresentationAsync(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest)
+    {
+        var reply = await transport.CallReply("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "exchange-application-presentation", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the DevAuthService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class DevAuthAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<DevUsersResponse> ListDevUsersAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<DevUsersResponse>(await transport.Call("DevAuthService", "list-dev-users", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<LoginResponse> DevLoginAsync(DevLoginRequest devLoginRequest) =>
-        Codec.Decode<LoginResponse>(await transport.Call("DevAuthService", "dev-login", Codec.Encode(devLoginRequest)));
+    public async System.Threading.Tasks.Task<DevUsersResponse> ListDevUsersAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("DevAuthService", "list-dev-users", Codec.Encode(emptyRequest));
+        return Codec.Decode<DevUsersResponse>(Codec.ResolveRpcReply("DevAuthService", "list-dev-users", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<LoginResponse> DevLoginAsync(DevLoginRequest devLoginRequest)
+    {
+        var reply = await transport.CallReply("DevAuthService", "dev-login", Codec.Encode(devLoginRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("DevAuthService", "dev-login", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the UserService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class UserAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<User> GetProfileAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<User>(await transport.Call("UserService", "get-profile", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<User> UpdateProfileAsync(UpdateProfileRequest updateProfileRequest) =>
-        Codec.Decode<User>(await transport.Call("UserService", "update-profile", Codec.Encode(updateProfileRequest)));
-    public async System.Threading.Tasks.Task<PersonSummary> LookupPersonAsync(LookupPersonRequest lookupPersonRequest) =>
-        Codec.Decode<PersonSummary>(await transport.Call("UserService", "lookup-person", Codec.Encode(lookupPersonRequest)));
+    public async System.Threading.Tasks.Task<User> GetProfileAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("UserService", "get-profile", Codec.Encode(emptyRequest));
+        return Codec.Decode<User>(Codec.ResolveRpcReply("UserService", "get-profile", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<User> UpdateProfileAsync(UpdateProfileRequest updateProfileRequest)
+    {
+        var reply = await transport.CallReply("UserService", "update-profile", Codec.Encode(updateProfileRequest));
+        return Codec.Decode<User>(Codec.ResolveRpcReply("UserService", "update-profile", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<PersonSummary> LookupPersonAsync(LookupPersonRequest lookupPersonRequest)
+    {
+        var reply = await transport.CallReply("UserService", "lookup-person", Codec.Encode(lookupPersonRequest));
+        return Codec.Decode<PersonSummary>(Codec.ResolveRpcReply("UserService", "lookup-person", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the CalendarService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class CalendarAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<CalendarList> ListCalendarsAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<CalendarList>(await transport.Call("CalendarService", "list-calendars", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<Calendar> GetCalendarAsync(CalendarID calendarID) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "get-calendar", Codec.EncodeCalendarGetCalendarRequest(calendarID)));
-    public async System.Threading.Tasks.Task<Calendar> CreateCalendarAsync(CreateCalendarRequest createCalendarRequest) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "create-calendar", Codec.Encode(createCalendarRequest)));
-    public async System.Threading.Tasks.Task<Calendar> UpdateCalendarAsync(UpdateCalendarRequest updateCalendarRequest) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "update-calendar", Codec.Encode(updateCalendarRequest)));
-    public async System.Threading.Tasks.Task<EmptyResponse> DeleteCalendarAsync(CalendarID calendarID) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("CalendarService", "delete-calendar", Codec.EncodeCalendarDeleteCalendarRequest(calendarID)));
-    public async System.Threading.Tasks.Task<Calendar> SubscribeCalendarAsync(SubscribeCalendarRequest subscribeCalendarRequest) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "subscribe-calendar", Codec.Encode(subscribeCalendarRequest)));
-    public async System.Threading.Tasks.Task<Calendar> RefreshSubscriptionAsync(CalendarID calendarID) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "refresh-subscription", Codec.EncodeCalendarRefreshSubscriptionRequest(calendarID)));
-    public async System.Threading.Tasks.Task<Calendar> SetFeedAsync(SetFeedRequest setFeedRequest) =>
-        Codec.Decode<Calendar>(await transport.Call("CalendarService", "set-feed", Codec.Encode(setFeedRequest)));
+    public async System.Threading.Tasks.Task<CalendarList> ListCalendarsAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("CalendarService", "list-calendars", Codec.Encode(emptyRequest));
+        return Codec.Decode<CalendarList>(Codec.ResolveRpcReply("CalendarService", "list-calendars", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> GetCalendarAsync(CalendarID calendarID)
+    {
+        var reply = await transport.CallReply("CalendarService", "get-calendar", Codec.EncodeCalendarGetCalendarRequest(calendarID));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "get-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> CreateCalendarAsync(CreateCalendarRequest createCalendarRequest)
+    {
+        var reply = await transport.CallReply("CalendarService", "create-calendar", Codec.Encode(createCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "create-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> UpdateCalendarAsync(UpdateCalendarRequest updateCalendarRequest)
+    {
+        var reply = await transport.CallReply("CalendarService", "update-calendar", Codec.Encode(updateCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "update-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EmptyResponse> DeleteCalendarAsync(CalendarID calendarID)
+    {
+        var reply = await transport.CallReply("CalendarService", "delete-calendar", Codec.EncodeCalendarDeleteCalendarRequest(calendarID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("CalendarService", "delete-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> SubscribeCalendarAsync(SubscribeCalendarRequest subscribeCalendarRequest)
+    {
+        var reply = await transport.CallReply("CalendarService", "subscribe-calendar", Codec.Encode(subscribeCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "subscribe-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> RefreshSubscriptionAsync(CalendarID calendarID)
+    {
+        var reply = await transport.CallReply("CalendarService", "refresh-subscription", Codec.EncodeCalendarRefreshSubscriptionRequest(calendarID));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "refresh-subscription", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Calendar> SetFeedAsync(SetFeedRequest setFeedRequest)
+    {
+        var reply = await transport.CallReply("CalendarService", "set-feed", Codec.Encode(setFeedRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "set-feed", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the ShareService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class ShareAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<ShareList> ListSharesAsync(CalendarID calendarID) =>
-        Codec.Decode<ShareList>(await transport.Call("ShareService", "list-shares", Codec.EncodeShareListSharesRequest(calendarID)));
-    public async System.Threading.Tasks.Task<Share> PutShareAsync(Share share) =>
-        Codec.Decode<Share>(await transport.Call("ShareService", "put-share", Codec.Encode(share)));
-    public async System.Threading.Tasks.Task<EmptyResponse> DeleteShareAsync(ShareID shareID) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID)));
+    public async System.Threading.Tasks.Task<ShareList> ListSharesAsync(CalendarID calendarID)
+    {
+        var reply = await transport.CallReply("ShareService", "list-shares", Codec.EncodeShareListSharesRequest(calendarID));
+        return Codec.Decode<ShareList>(Codec.ResolveRpcReply("ShareService", "list-shares", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Share> PutShareAsync(Share share)
+    {
+        var reply = await transport.CallReply("ShareService", "put-share", Codec.Encode(share));
+        return Codec.Decode<Share>(Codec.ResolveRpcReply("ShareService", "put-share", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EmptyResponse> DeleteShareAsync(ShareID shareID)
+    {
+        var reply = await transport.CallReply("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("ShareService", "delete-share", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the GroupService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class GroupAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<GroupList> ListGroupsAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<GroupList>(await transport.Call("GroupService", "list-groups", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<Group> GetGroupAsync(GroupID groupID) =>
-        Codec.Decode<Group>(await transport.Call("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID)));
-    public async System.Threading.Tasks.Task<Group> CreateGroupAsync(CreateGroupRequest createGroupRequest) =>
-        Codec.Decode<Group>(await transport.Call("GroupService", "create-group", Codec.Encode(createGroupRequest)));
-    public async System.Threading.Tasks.Task<Group> UpdateGroupAsync(UpdateGroupRequest updateGroupRequest) =>
-        Codec.Decode<Group>(await transport.Call("GroupService", "update-group", Codec.Encode(updateGroupRequest)));
-    public async System.Threading.Tasks.Task<Group> SetMembersAsync(SetGroupMembersRequest setGroupMembersRequest) =>
-        Codec.Decode<Group>(await transport.Call("GroupService", "set-members", Codec.Encode(setGroupMembersRequest)));
-    public async System.Threading.Tasks.Task<EmptyResponse> DeleteGroupAsync(GroupID groupID) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID)));
+    public async System.Threading.Tasks.Task<GroupList> ListGroupsAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("GroupService", "list-groups", Codec.Encode(emptyRequest));
+        return Codec.Decode<GroupList>(Codec.ResolveRpcReply("GroupService", "list-groups", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Group> GetGroupAsync(GroupID groupID)
+    {
+        var reply = await transport.CallReply("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "get-group", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Group> CreateGroupAsync(CreateGroupRequest createGroupRequest)
+    {
+        var reply = await transport.CallReply("GroupService", "create-group", Codec.Encode(createGroupRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "create-group", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Group> UpdateGroupAsync(UpdateGroupRequest updateGroupRequest)
+    {
+        var reply = await transport.CallReply("GroupService", "update-group", Codec.Encode(updateGroupRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "update-group", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Group> SetMembersAsync(SetGroupMembersRequest setGroupMembersRequest)
+    {
+        var reply = await transport.CallReply("GroupService", "set-members", Codec.Encode(setGroupMembersRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "set-members", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EmptyResponse> DeleteGroupAsync(GroupID groupID)
+    {
+        var reply = await transport.CallReply("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("GroupService", "delete-group", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the DelegationService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class DelegationAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<DelegationList> ListGrantedAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<DelegationList>(await transport.Call("DelegationService", "list-granted", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<DelegationList> ListReceivedAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<DelegationList>(await transport.Call("DelegationService", "list-received", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<Delegation> CreateDelegationAsync(Delegation delegation) =>
-        Codec.Decode<Delegation>(await transport.Call("DelegationService", "create-delegation", Codec.Encode(delegation)));
-    public async System.Threading.Tasks.Task<Delegation> UpdateDelegationAsync(Delegation delegation) =>
-        Codec.Decode<Delegation>(await transport.Call("DelegationService", "update-delegation", Codec.Encode(delegation)));
-    public async System.Threading.Tasks.Task<EmptyResponse> RevokeDelegationAsync(DelegationID delegationID) =>
-        Codec.Decode<EmptyResponse>(await transport.Call("DelegationService", "revoke-delegation", Codec.EncodeDelegationRevokeDelegationRequest(delegationID)));
+    public async System.Threading.Tasks.Task<DelegationList> ListGrantedAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("DelegationService", "list-granted", Codec.Encode(emptyRequest));
+        return Codec.Decode<DelegationList>(Codec.ResolveRpcReply("DelegationService", "list-granted", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<DelegationList> ListReceivedAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("DelegationService", "list-received", Codec.Encode(emptyRequest));
+        return Codec.Decode<DelegationList>(Codec.ResolveRpcReply("DelegationService", "list-received", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Delegation> CreateDelegationAsync(Delegation delegation)
+    {
+        var reply = await transport.CallReply("DelegationService", "create-delegation", Codec.Encode(delegation));
+        return Codec.Decode<Delegation>(Codec.ResolveRpcReply("DelegationService", "create-delegation", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Delegation> UpdateDelegationAsync(Delegation delegation)
+    {
+        var reply = await transport.CallReply("DelegationService", "update-delegation", Codec.Encode(delegation));
+        return Codec.Decode<Delegation>(Codec.ResolveRpcReply("DelegationService", "update-delegation", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EmptyResponse> RevokeDelegationAsync(DelegationID delegationID)
+    {
+        var reply = await transport.CallReply("DelegationService", "revoke-delegation", Codec.EncodeDelegationRevokeDelegationRequest(delegationID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("DelegationService", "revoke-delegation", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the EventService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class EventAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<OccurrenceList> ListEventsAsync(ListEventsRequest listEventsRequest) =>
-        Codec.Decode<OccurrenceList>(await transport.Call("EventService", "list-events", Codec.Encode(listEventsRequest)));
-    public async System.Threading.Tasks.Task<Event> GetEventAsync(EventID eventID) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID)));
-    public async System.Threading.Tasks.Task<Occurrence> GetOccurrenceAsync(GetOccurrenceRequest getOccurrenceRequest) =>
-        Codec.Decode<Occurrence>(await transport.Call("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest)));
-    public async System.Threading.Tasks.Task<Event> CreateEventAsync(Event @event) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "create-event", Codec.Encode(@event)));
-    public async System.Threading.Tasks.Task<Event> UpdateEventAsync(UpdateEventRequest updateEventRequest) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "update-event", Codec.Encode(updateEventRequest)));
-    public async System.Threading.Tasks.Task<DeleteEventResponse> DeleteEventAsync(DeleteEventRequest deleteEventRequest) =>
-        Codec.Decode<DeleteEventResponse>(await transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
-    public async System.Threading.Tasks.Task<Event> MoveEventAsync(MoveEventRequest moveEventRequest) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "move-event", Codec.Encode(moveEventRequest)));
-    public async System.Threading.Tasks.Task<Event> RespondAsync(RespondRequest respondRequest) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "respond", Codec.Encode(respondRequest)));
-    public async System.Threading.Tasks.Task<EventList> ListInvitationsAsync(EmptyRequest emptyRequest) =>
-        Codec.Decode<EventList>(await transport.Call("EventService", "list-invitations", Codec.Encode(emptyRequest)));
-    public async System.Threading.Tasks.Task<EventList> SearchEventsAsync(SearchEventsRequest searchEventsRequest) =>
-        Codec.Decode<EventList>(await transport.Call("EventService", "search-events", Codec.Encode(searchEventsRequest)));
-    public async System.Threading.Tasks.Task<TrashList> ListTrashAsync(ListTrashRequest listTrashRequest) =>
-        Codec.Decode<TrashList>(await transport.Call("EventService", "list-trash", Codec.Encode(listTrashRequest)));
-    public async System.Threading.Tasks.Task<Event> RestoreEventAsync(RestoreEventRequest restoreEventRequest) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
-    public async System.Threading.Tasks.Task<Event> ImportEventAsync(ImportEventRequest importEventRequest) =>
-        Codec.Decode<Event>(await transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
-    public async System.Threading.Tasks.Task<CreateEventReceipt> CreateEventOnceAsync(CreateEventOnceRequest createEventOnceRequest) =>
-        Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
-    public async System.Threading.Tasks.Task<CreateEventReceipt> GetCreateReceiptAsync(CreateReceiptRequest createReceiptRequest) =>
-        Codec.Decode<CreateEventReceipt>(await transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
-    public async System.Threading.Tasks.Task<SplitSeriesReceipt> SplitSeriesOnceAsync(SplitSeriesOnceRequest splitSeriesOnceRequest) =>
-        Codec.Decode<SplitSeriesReceipt>(await transport.Call("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest)));
-    public async System.Threading.Tasks.Task<SplitSeriesReceipt> GetSplitReceiptAsync(SplitReceiptRequest splitReceiptRequest) =>
-        Codec.Decode<SplitSeriesReceipt>(await transport.Call("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest)));
+    public async System.Threading.Tasks.Task<OccurrenceList> ListEventsAsync(ListEventsRequest listEventsRequest)
+    {
+        var reply = await transport.CallReply("EventService", "list-events", Codec.Encode(listEventsRequest));
+        return Codec.Decode<OccurrenceList>(Codec.ResolveRpcReply("EventService", "list-events", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> GetEventAsync(EventID eventID)
+    {
+        var reply = await transport.CallReply("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "get-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Occurrence> GetOccurrenceAsync(GetOccurrenceRequest getOccurrenceRequest)
+    {
+        var reply = await transport.CallReply("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest));
+        return Codec.Decode<Occurrence>(Codec.ResolveRpcReply("EventService", "get-occurrence", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> CreateEventAsync(Event @event)
+    {
+        var reply = await transport.CallReply("EventService", "create-event", Codec.Encode(@event));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "create-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> UpdateEventAsync(UpdateEventRequest updateEventRequest)
+    {
+        var reply = await transport.CallReply("EventService", "update-event", Codec.Encode(updateEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "update-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<DeleteEventResponse> DeleteEventAsync(DeleteEventRequest deleteEventRequest)
+    {
+        var reply = await transport.CallReply("EventService", "delete-event", Codec.Encode(deleteEventRequest));
+        return Codec.Decode<DeleteEventResponse>(Codec.ResolveRpcReply("EventService", "delete-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> MoveEventAsync(MoveEventRequest moveEventRequest)
+    {
+        var reply = await transport.CallReply("EventService", "move-event", Codec.Encode(moveEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "move-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> RespondAsync(RespondRequest respondRequest)
+    {
+        var reply = await transport.CallReply("EventService", "respond", Codec.Encode(respondRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "respond", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EventList> ListInvitationsAsync(EmptyRequest emptyRequest)
+    {
+        var reply = await transport.CallReply("EventService", "list-invitations", Codec.Encode(emptyRequest));
+        return Codec.Decode<EventList>(Codec.ResolveRpcReply("EventService", "list-invitations", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<EventList> SearchEventsAsync(SearchEventsRequest searchEventsRequest)
+    {
+        var reply = await transport.CallReply("EventService", "search-events", Codec.Encode(searchEventsRequest));
+        return Codec.Decode<EventList>(Codec.ResolveRpcReply("EventService", "search-events", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<TrashList> ListTrashAsync(ListTrashRequest listTrashRequest)
+    {
+        var reply = await transport.CallReply("EventService", "list-trash", Codec.Encode(listTrashRequest));
+        return Codec.Decode<TrashList>(Codec.ResolveRpcReply("EventService", "list-trash", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> RestoreEventAsync(RestoreEventRequest restoreEventRequest)
+    {
+        var reply = await transport.CallReply("EventService", "restore-event", Codec.Encode(restoreEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "restore-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<Event> ImportEventAsync(ImportEventRequest importEventRequest)
+    {
+        var reply = await transport.CallReply("EventService", "import-event", Codec.Encode(importEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "import-event", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<CreateEventReceipt> CreateEventOnceAsync(CreateEventOnceRequest createEventOnceRequest)
+    {
+        var reply = await transport.CallReply("EventService", "create-event-once", Codec.Encode(createEventOnceRequest));
+        return Codec.Decode<CreateEventReceipt>(Codec.ResolveRpcReply("EventService", "create-event-once", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<CreateEventReceipt> GetCreateReceiptAsync(CreateReceiptRequest createReceiptRequest)
+    {
+        var reply = await transport.CallReply("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest));
+        return Codec.Decode<CreateEventReceipt>(Codec.ResolveRpcReply("EventService", "get-create-receipt", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<SplitSeriesReceipt> SplitSeriesOnceAsync(SplitSeriesOnceRequest splitSeriesOnceRequest)
+    {
+        var reply = await transport.CallReply("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest));
+        return Codec.Decode<SplitSeriesReceipt>(Codec.ResolveRpcReply("EventService", "split-series-once", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<SplitSeriesReceipt> GetSplitReceiptAsync(SplitReceiptRequest splitReceiptRequest)
+    {
+        var reply = await transport.CallReply("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest));
+        return Codec.Decode<SplitSeriesReceipt>(Codec.ResolveRpcReply("EventService", "get-split-receipt", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class FreeBusyAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<FreeBusyResponse> QueryAsync(FreeBusyRequest freeBusyRequest) =>
-        Codec.Decode<FreeBusyResponse>(await transport.Call("FreeBusyService", "query", Codec.Encode(freeBusyRequest)));
+    public async System.Threading.Tasks.Task<FreeBusyResponse> QueryAsync(FreeBusyRequest freeBusyRequest)
+    {
+        var reply = await transport.CallReply("FreeBusyService", "query", Codec.Encode(freeBusyRequest));
+        return Codec.Decode<FreeBusyResponse>(Codec.ResolveRpcReply("FreeBusyService", "query", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the IcsService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class IcsAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<ImportResult> ImportIcsAsync(ImportIcsRequest importIcsRequest) =>
-        Codec.Decode<ImportResult>(await transport.Call("IcsService", "import-ics", Codec.Encode(importIcsRequest)));
-    public async System.Threading.Tasks.Task<IcsDocument> ExportCalendarAsync(ExportCalendarRequest exportCalendarRequest) =>
-        Codec.Decode<IcsDocument>(await transport.Call("IcsService", "export-calendar", Codec.Encode(exportCalendarRequest)));
-    public async System.Threading.Tasks.Task<IcsDocument> ExportEventAsync(ExportEventRequest exportEventRequest) =>
-        Codec.Decode<IcsDocument>(await transport.Call("IcsService", "export-event", Codec.Encode(exportEventRequest)));
+    public async System.Threading.Tasks.Task<ImportResult> ImportIcsAsync(ImportIcsRequest importIcsRequest)
+    {
+        var reply = await transport.CallReply("IcsService", "import-ics", Codec.Encode(importIcsRequest));
+        return Codec.Decode<ImportResult>(Codec.ResolveRpcReply("IcsService", "import-ics", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<IcsDocument> ExportCalendarAsync(ExportCalendarRequest exportCalendarRequest)
+    {
+        var reply = await transport.CallReply("IcsService", "export-calendar", Codec.Encode(exportCalendarRequest));
+        return Codec.Decode<IcsDocument>(Codec.ResolveRpcReply("IcsService", "export-calendar", reply.Variant, reply.Payload));
+    }
+    public async System.Threading.Tasks.Task<IcsDocument> ExportEventAsync(ExportEventRequest exportEventRequest)
+    {
+        var reply = await transport.CallReply("IcsService", "export-event", Codec.Encode(exportEventRequest));
+        return Codec.Decode<IcsDocument>(Codec.ResolveRpcReply("IcsService", "export-event", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the AuditService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class AuditAsyncClient(ICsilAsyncTransport transport)
 {
-    public async System.Threading.Tasks.Task<AuditList> ListAuditAsync(AuditQuery auditQuery) =>
-        Codec.Decode<AuditList>(await transport.Call("AuditService", "list-audit", Codec.Encode(auditQuery)));
+    public async System.Threading.Tasks.Task<AuditList> ListAuditAsync(AuditQuery auditQuery)
+    {
+        var reply = await transport.CallReply("AuditService", "list-audit", Codec.Encode(auditQuery));
+        return Codec.Decode<AuditList>(Codec.ResolveRpcReply("AuditService", "list-audit", reply.Variant, reply.Payload));
+    }
 }
 

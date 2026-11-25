@@ -47,8 +47,12 @@ var receiptDecoder, _ = (cbor.DecOptions{
 var receiptEncoder, _ = cbor.CanonicalEncOptions().EncMode()
 
 func contentHash(ev csil.Event, splitAt *time.Time) (string, error) {
+	encoded, err := csil.EncodeEvent(ev)
+	if err != nil {
+		return "", err
+	}
 	var fields map[string]any
-	if err := receiptDecoder.Unmarshal(csil.EncodeEvent(ev), &fields); err != nil {
+	if err := receiptDecoder.Unmarshal(encoded, &fields); err != nil {
 		return "", err
 	}
 	// The old encoder wrote empty strings for the two receive-only times.

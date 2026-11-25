@@ -14,10 +14,12 @@ public final class DevAuthClient {
     }
 
     public DevUsersResponse listDevUsers(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeDevUsersResponse(transport.call("DevAuthService", "list-dev-users", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("DevAuthService", "list-dev-users", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeDevUsersResponse(CsilCbor.resolveRpcReply("DevAuthService", "list-dev-users", reply.variant(), reply.payload()));
     }
 
     public LoginResponse devLogin(DevLoginRequest req) throws ClientException {
-        return CsilCbor.decodeLoginResponse(transport.call("DevAuthService", "dev-login", CsilCbor.encodeDevLoginRequest(req)));
+        WireReply reply = transport.callReply("DevAuthService", "dev-login", CsilCbor.encodeDevLoginRequest(req));
+        return CsilCbor.decodeLoginResponse(CsilCbor.resolveRpcReply("DevAuthService", "dev-login", reply.variant(), reply.payload()));
     }
 }

@@ -8,7 +8,7 @@
 #   clients/<lang>/    one publishable client package per language
 #
 # csilgen is treated as an ordinary system tool (like docker/gofmt): it must be
-# on PATH. Install it from the repo if missing — see the error below.
+# on PATH. See docs/development.md for the required release.
 #
 # Coordinates (package name, module path, version) are per-language because each
 # ecosystem has its own name grammar; we splice a language-specific options block
@@ -23,19 +23,9 @@ OUT="$REPO/clients"
 VERSION="$(tr -d '[:space:]' < "$REPO/version/VERSION.txt")"
 GO_MODULE_BASE="github.com/catalystcommunity/catalystcal/clients"
 
-# csilgen is installed via `cargo install` and usually lives in ~/.cargo/bin,
-# which isn't always on a non-interactive PATH. Add it before looking.
-if [ -d "$HOME/.cargo/bin" ]; then
-    export PATH="$HOME/.cargo/bin:$PATH"
-fi
-
-if ! command -v csilgen >/dev/null; then
-    echo "ERROR: csilgen not on PATH (looked in \$PATH and ~/.cargo/bin)" >&2
-    echo "       install it from the repo:" >&2
-    echo "         cargo install --git https://github.com/catalystcommunity/csilgen" >&2
-    echo "       (then: cargo run -p xtask install-wasm, per its README)" >&2
-    exit 1
-fi
+# Check the same pin when this script is run on its own.
+export PATH="$PATH:$HOME/.cargo/bin"
+"$REPO/csil/regenerate.sh" --check-version
 
 csilgen validate --input "$SPEC"
 
@@ -111,20 +101,6 @@ for entry in "${LANGS[@]}"; do
         sed 's/^/      /' "$TMPDIR/$lang.err" >&2
     fi
 done
-
-# csilgen 0.2.15 emits timestamp array elements as arrow-function blocks.
-# Return each CBOR tag as an object literal.
-sed -i 's/=> { tag: 0, value: csilTsToText(csilE) }/=> ({ tag: 0, value: csilTsToText(csilE) })/g' "$OUT/typescript/codec.gen.ts"
-
-# The Rust generator uses wire text as a variant name. Dots and the
-# reserved name Self prevent consumers from compiling the date types.
-sed -i -e 's/Calendars\.read/CalendarsRead/g' \
-    -e 's/Freebusy\.read/FreebusyRead/g' \
-    -e 's/Events\.write/EventsWrite/g' \
-    -e 's/Events\.respond/EventsRespond/g' \
-    -e 's/Calendars\.manage/CalendarsManage/g' \
-    -e 's/^    Self,$/    SelfActor,/' -e 's/ActingVia::Self\b/ActingVia::SelfActor/g' \
-    "$OUT/rust/src/types.rs" "$OUT/rust/src/codec.gen.rs"
 
 # Hand-written additions: clients/overlays/<lang>/ is copied over the
 # generated package (for Go: the HTTP carrier, application presentations,

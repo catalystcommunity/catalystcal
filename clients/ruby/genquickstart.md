@@ -28,6 +28,10 @@ Request/response. The library owns the envelope (`RpcRequest`/`RpcResponse`); yo
 bring a carrier that moves bytes. The HTTP carrier below is just one example — swap
 `net/http` for any client (it implements the generated `call` byte seam).
 
+Some operations here have more than one reply arm, so the carrier also implements
+`call_reply`, which returns the envelope `variant` with the payload. The generated
+client uses it to return the success value or raise the typed error arm.
+
 ```ruby
 require "csilgen/transport"
 require "net/http"
@@ -45,6 +49,19 @@ class HttpRpcTransport
 
   # The generated client calls this seam with the already-encoded request bytes.
   def call(service, op, req_bytes)
+    exchange(service, op, req_bytes).payload
+  end
+
+  # Multi-arm operations call this seam instead: the client needs the reply variant
+  # to pick the success value or the typed error arm.
+  def call_reply(service, op, req_bytes)
+    reply = exchange(service, op, req_bytes)
+    [reply.variant, reply.payload]
+  end
+
+  private
+
+  def exchange(service, op, req_bytes)
     # The library builds the envelope from the already-encoded request bytes; we never
     # hand-roll the wire form.
     envelope = RPC::RpcRequest.new(service: service, op: op, payload: req_bytes.b).encode
@@ -58,8 +75,7 @@ class HttpRpcTransport
     raise "csil-rpc #{service}/#{op}: http #{res.code}" unless res.code.to_i.between?(200, 299)
 
     # The library parses the envelope and raises StatusError on a non-zero transport status.
-    reply = RPC::RpcResponse.decode((res.body || "").b).into_transport_error
-    CsilCbor.resolve_rpc_reply(service, op, reply.variant, reply.payload)
+    RPC::RpcResponse.decode((res.body || "").b).into_transport_error
   end
 end
 

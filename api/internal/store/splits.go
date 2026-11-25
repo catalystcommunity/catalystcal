@@ -46,11 +46,19 @@ func (s *Store) SplitWithReceipt(ctx context.Context, writes []EventWrite, succe
 		if r.InPlace {
 			inPlace = 1
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO event_split_receipts (series_id, creator_id, binding,
+		before, err := csil.EncodeEvent(r.Before)
+		if err != nil {
+			return err
+		}
+		after, err := csil.EncodeEvent(r.After)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO event_split_receipts (series_id, creator_id, binding,
 			idempotency_key, calendar_id, content_hash, series_creator, successor_id, split_at, in_place,
 			series_before, successor_after, created_at) VALUES (`+placeholders(13)+`)`,
 			r.SeriesID, r.CreatorID, r.Binding, r.Key, r.CalendarID, r.ContentHash, r.SeriesCreator,
-			r.SuccessorID, FormatTime(r.SplitAt), inPlace, csil.EncodeEvent(r.Before), csil.EncodeEvent(r.After),
+			r.SuccessorID, FormatTime(r.SplitAt), inPlace, before, after,
 			FormatTime(r.CreatedAt))
 		if isUnique(err) {
 			return ErrReceiptTaken

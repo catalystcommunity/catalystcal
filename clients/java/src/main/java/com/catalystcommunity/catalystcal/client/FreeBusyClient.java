@@ -14,6 +14,7 @@ public final class FreeBusyClient {
     }
 
     public FreeBusyResponse query(FreeBusyRequest req) throws ClientException {
-        return CsilCbor.decodeFreeBusyResponse(transport.call("FreeBusyService", "query", CsilCbor.encodeFreeBusyRequest(req)));
+        WireReply reply = transport.callReply("FreeBusyService", "query", CsilCbor.encodeFreeBusyRequest(req));
+        return CsilCbor.decodeFreeBusyResponse(CsilCbor.resolveRpcReply("FreeBusyService", "query", reply.variant(), reply.payload()));
     }
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -80,6 +81,31 @@ func fakeServer(t *testing.T, handler func(service, op, auth string) transport.R
 	return srv
 }
 
+func TestHTTPTransportPreservesCancellation(t *testing.T) {
+	srv := fakeServer(t, func(service, op, auth string) transport.RpcResponse {
+		t.Error("received a canceled request")
+		return transport.NewRpcResponseTransportError(transport.StatusInternal, "unexpected call")
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := NewAuthClient(NewHTTPTransport(srv.URL, nil))
+	_, err := client.Me(ctx, EmptyRequest{})
+	var ce *ClientError
+	if !errors.As(err, &ce) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("want ClientError with context.Canceled, got %v", err)
+	}
+}
+
+func encodedReply[T any](t *testing.T, variant string, encode func(T) ([]byte, error), value T) transport.RpcResponse {
+	t.Helper()
+	payload, err := encode(value)
+	if err != nil {
+		t.Errorf("encode %s: %v", variant, err)
+		return transport.NewRpcResponseTransportError(transport.StatusInternal, "fixture encode failed")
+	}
+	return transport.NewRpcResponseOk(variant, payload)
+}
+
 func TestAppSessionExchangesAndRefreshes(t *testing.T) {
 	var exchanges, refusals atomic.Int32
 	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
@@ -87,24 +113,24 @@ func TestAppSessionExchangesAndRefreshes(t *testing.T) {
 	srv := fakeServer(t, func(service, op, auth string) transport.RpcResponse {
 		switch op {
 		case "get-application-identity":
-			return transport.NewRpcResponseOk("ApplicationIdentityResponse", EncodeApplicationIdentityResponse(ApplicationIdentityResponse{
+			return encodedReply(t, "ApplicationIdentityResponse", EncodeApplicationIdentityResponse, ApplicationIdentityResponse{
 				Audience: ApplicationRef{SubjectUserId: "c", SubjectDomain: "cal.example", ApplicationId: "catalystcal"},
-			}))
+			})
 		case "exchange-application-presentation":
 			n := exchanges.Add(1)
-			return transport.NewRpcResponseOk("LoginResponse", EncodeLoginResponse(LoginResponse{
+			return encodedReply(t, "LoginResponse", EncodeLoginResponse, LoginResponse{
 				Token:     "bearer-" + string(rune('0'+n)),
 				ExpiresAt: clock.Add(15 * time.Minute).Truncate(time.Second),
 				Via:       "self",
-			}))
+			})
 		case "me":
 			if auth == "Bearer bearer-2" && refusals.Load() == 0 {
 				refusals.Add(1)
 				return transport.NewRpcResponseTransportError(transport.StatusUnauthenticated, "bearer refused")
 			}
-			return transport.NewRpcResponseOk("MeResponse", EncodeMeResponse(MeResponse{User: User{UserId: UserID(auth)}, Via: "self", Principals: []PersonSummary{}}))
+			return encodedReply(t, "MeResponse", EncodeMeResponse, MeResponse{User: User{UserId: UserID(auth)}, Via: "self", Principals: []PersonSummary{}})
 		}
-		return transport.NewRpcResponseOk("ServiceError", EncodeServiceError(ServiceError{Code: 404, Message: "no " + op}))
+		return encodedReply(t, "ServiceError", EncodeServiceError, ServiceError{Code: 404, Message: "no " + op})
 	})
 	signer := &AppSigner{
 		Application: ApplicationRef{SubjectUserId: "u", SubjectDomain: "d.example", ApplicationId: "longhouse"},
@@ -129,10 +155,10 @@ func TestAppSessionExchangesAndRefreshes(t *testing.T) {
 	if err != nil || exchanges.Load() != 3 || refusals.Load() != 1 || me.User.UserId != "Bearer bearer-3" {
 		t.Fatalf("refresh: exchanges %d refusals %d me %q %v", exchanges.Load(), refusals.Load(), me.User.UserId, err)
 	}
-	// A ServiceError is a *ClientError with the code.
+	// The generated client returns the declared ServiceError.
 	_, err = NewCalendarClient(NewHTTPTransport(srv.URL, session)).ListCalendars(ctx, EmptyRequest{})
-	ce, ok := err.(*ClientError)
-	if !ok || ce.Code != 404 {
+	ce, ok := err.(*RPCApplicationError[ServiceError])
+	if !ok || ce.Value.Code != 404 {
 		t.Fatalf("service error: %v", err)
 	}
 }

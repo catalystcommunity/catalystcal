@@ -215,7 +215,7 @@ func (v *Verifier) Verify(ctx context.Context, signed csil.SignedApplicationPres
 	if res.Freshness == regularrp.FreshnessStale {
 		return Verified{}, ErrStale
 	}
-	key, err := res.Keys.KeyForUse(signed.SignedByKeyId, regularrp.KeyUsageSign, "ed25519")
+	key, err := res.Keys.KeyForUse(signed.SignedByKeyId, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519)
 	if err != nil {
 		return Verified{}, refused("signing key is not usable: " + err.Error())
 	}

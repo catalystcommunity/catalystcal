@@ -144,9 +144,13 @@ func (r result) res() result      { return r }
 func (r reply[Resp]) res() result { return r.r }
 
 // call runs one op through the real HTTP carrier with the generated codecs.
-func call[Req, Resp any](c *client, service, op string, req Req, enc func(Req) []byte, dec func([]byte) (Resp, error)) reply[Resp] {
+func call[Req, Resp any](c *client, service, op string, req Req, enc func(Req) ([]byte, error), dec func([]byte) (Resp, error)) reply[Resp] {
 	c.e.t.Helper()
-	r := c.raw(service, op, enc(req))
+	payload, err := enc(req)
+	if err != nil {
+		c.e.t.Fatalf("%s/%s encode: %v", service, op, err)
+	}
+	r := c.raw(service, op, payload)
 	if !r.status.IsOk() || r.svcErr != nil {
 		return reply[Resp]{r: r}
 	}

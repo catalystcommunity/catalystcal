@@ -96,7 +96,7 @@ func (s *AppSigner) Sign(audience ApplicationRef) (SignedApplicationPresentation
 	if s.Now != nil {
 		now = s.Now
 	}
-	raw := EncodeApplicationPresentation(ApplicationPresentation{
+	raw, err := EncodeApplicationPresentation(ApplicationPresentation{
 		Signer:           s.Application,
 		SignerInstanceId: s.InstanceID,
 		Audience:         audience,
@@ -104,6 +104,9 @@ func (s *AppSigner) Sign(audience ApplicationRef) (SignedApplicationPresentation
 		PresentedAt:      now().UTC().Truncate(time.Second),
 		Nonce:            nonce,
 	})
+	if err != nil {
+		return SignedApplicationPresentation{}, err
+	}
 	return SignedApplicationPresentation{
 		Presentation:  raw,
 		SignedByKeyId: s.KeyID,

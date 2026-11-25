@@ -3,11 +3,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcRequest, RpcResponse } from "./csil/rpc";
 import { Status } from "./csil/conventions";
-import { toServiceErrorCbor } from "@catalystcal/client";
+import { CalendarAsyncClient, ServiceErrorRefusal, toCalendarListCbor, toServiceErrorCbor } from "@catalystcal/client";
 
 vi.mock("~/stores/auth", () => ({ currentToken: () => "test-token" }));
 
-import { ServiceError, cborTransport, methodToOp, setUnauthenticatedHandler, transportStatusToCode } from "./csilrpc";
+import { ServiceError, cborTransport, errorMessage, methodToOp, setUnauthenticatedHandler, transportStatusToCode } from "./csilrpc";
 
 let requests: RpcRequest[] = [];
 let authHeaders: (string | undefined)[] = [];
@@ -57,6 +57,28 @@ describe("cborTransport", () => {
     const err = await cborTransport.call("CalendarService", "update-calendar", new Uint8Array()).catch((e) => e);
     expect(err).toBeInstanceOf(ServiceError);
     expect(err).toMatchObject({ code: 403, message: "you cannot change this calendar" });
+  });
+
+  it("passes declared refusals and unknown variants to the generated client", async () => {
+    const client = new CalendarAsyncClient(cborTransport);
+    const refusal = { code: 403, message: "calendar access denied" };
+    mockFetch(RpcResponse.ok("ServiceError", toServiceErrorCbor(refusal)), RpcResponse.ok("EventList", toCalendarListCbor({ calendars: [] })));
+    const error = await client.listCalendars({}).catch(e => e);
+    expect(error).toBeInstanceOf(ServiceErrorRefusal);
+    expect(error.value).toEqual(refusal);
+    expect(errorMessage(error)).toBe(refusal.message);
+    await expect(client.listCalendars({})).rejects.toThrow(/invalid RPC reply variant/);
+  });
+
+  it("retries a declared 401 once through the generated client", async () => {
+    const calendars = { calendars: [] };
+    mockFetch(RpcResponse.ok("ServiceError", toServiceErrorCbor({ code: 401, message: "expired" })),
+      RpcResponse.ok("CalendarList", toCalendarListCbor(calendars)));
+    const resume = vi.fn(async () => true);
+    setUnauthenticatedHandler(resume);
+    await expect(new CalendarAsyncClient(cborTransport).listCalendars({})).resolves.toEqual(calendars);
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(2);
   });
 
   it("maps transport statuses to HTTP-shaped codes", async () => {

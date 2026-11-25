@@ -9,6 +9,9 @@ import (
 
 // ValidateCalendar validates the Calendar struct
 func (v *Calendar) Validate() error {
+	if v == nil {
+		return fmt.Errorf("Calendar is nil")
+	}
 	if len(v.Name) < 1 {
 		return fmt.Errorf("field 'Name' must have at least 1 elements")
 	}
@@ -20,6 +23,9 @@ func (v *Calendar) Validate() error {
 
 // ValidateCreateCalendarRequest validates the CreateCalendarRequest struct
 func (v *CreateCalendarRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("CreateCalendarRequest is nil")
+	}
 	if len(v.Name) < 1 {
 		return fmt.Errorf("field 'Name' must have at least 1 elements")
 	}
@@ -31,6 +37,9 @@ func (v *CreateCalendarRequest) Validate() error {
 
 // ValidateUpdateCalendarRequest validates the UpdateCalendarRequest struct
 func (v *UpdateCalendarRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("UpdateCalendarRequest is nil")
+	}
 	if v.Name != nil {
 		if len((*v.Name)) < 1 {
 			return fmt.Errorf("field 'Name' must have at least 1 elements")
@@ -46,6 +55,9 @@ func (v *UpdateCalendarRequest) Validate() error {
 
 // ValidateSubscribeCalendarRequest validates the SubscribeCalendarRequest struct
 func (v *SubscribeCalendarRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("SubscribeCalendarRequest is nil")
+	}
 	if len(v.Name) < 1 {
 		return fmt.Errorf("field 'Name' must have at least 1 elements")
 	}
@@ -57,6 +69,9 @@ func (v *SubscribeCalendarRequest) Validate() error {
 
 // ValidateGroup validates the Group struct
 func (v *Group) Validate() error {
+	if v == nil {
+		return fmt.Errorf("Group is nil")
+	}
 	if len(v.Name) < 1 {
 		return fmt.Errorf("field 'Name' must have at least 1 elements")
 	}
@@ -68,6 +83,9 @@ func (v *Group) Validate() error {
 
 // ValidateCreateGroupRequest validates the CreateGroupRequest struct
 func (v *CreateGroupRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("CreateGroupRequest is nil")
+	}
 	if len(v.Name) < 1 {
 		return fmt.Errorf("field 'Name' must have at least 1 elements")
 	}
@@ -79,6 +97,9 @@ func (v *CreateGroupRequest) Validate() error {
 
 // ValidateUpdateGroupRequest validates the UpdateGroupRequest struct
 func (v *UpdateGroupRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("UpdateGroupRequest is nil")
+	}
 	if v.Name != nil {
 		if len((*v.Name)) < 1 {
 			return fmt.Errorf("field 'Name' must have at least 1 elements")
@@ -94,6 +115,9 @@ func (v *UpdateGroupRequest) Validate() error {
 
 // ValidateEvent validates the Event struct
 func (v *Event) Validate() error {
+	if v == nil {
+		return fmt.Errorf("Event is nil")
+	}
 	if len(v.Title) < 1 {
 		return fmt.Errorf("field 'Title' must have at least 1 elements")
 	}
@@ -105,6 +129,9 @@ func (v *Event) Validate() error {
 
 // ValidateCreateEventOnceRequest validates the CreateEventOnceRequest struct
 func (v *CreateEventOnceRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("CreateEventOnceRequest is nil")
+	}
 	if len(v.IdempotencyKey) < 1 {
 		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
 	}
@@ -116,6 +143,9 @@ func (v *CreateEventOnceRequest) Validate() error {
 
 // ValidateCreateReceiptRequest validates the CreateReceiptRequest struct
 func (v *CreateReceiptRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("CreateReceiptRequest is nil")
+	}
 	if len(v.IdempotencyKey) < 1 {
 		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
 	}
@@ -127,6 +157,9 @@ func (v *CreateReceiptRequest) Validate() error {
 
 // ValidateSplitSeriesOnceRequest validates the SplitSeriesOnceRequest struct
 func (v *SplitSeriesOnceRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("SplitSeriesOnceRequest is nil")
+	}
 	if len(v.IdempotencyKey) < 1 {
 		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
 	}
@@ -138,6 +171,9 @@ func (v *SplitSeriesOnceRequest) Validate() error {
 
 // ValidateSplitReceiptRequest validates the SplitReceiptRequest struct
 func (v *SplitReceiptRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("SplitReceiptRequest is nil")
+	}
 	if len(v.IdempotencyKey) < 1 {
 		return fmt.Errorf("field 'IdempotencyKey' must have at least 1 elements")
 	}
@@ -149,6 +185,9 @@ func (v *SplitReceiptRequest) Validate() error {
 
 // ValidateSearchEventsRequest validates the SearchEventsRequest struct
 func (v *SearchEventsRequest) Validate() error {
+	if v == nil {
+		return fmt.Errorf("SearchEventsRequest is nil")
+	}
 	if len(v.Query) < 1 {
 		return fmt.Errorf("field 'Query' must have at least 1 elements")
 	}

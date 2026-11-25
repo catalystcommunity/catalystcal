@@ -3,10 +3,16 @@
 // Target: typescript-client
 
 import type { ApplicationIdentityResponse, AssumePrincipalRequest, AuditList, AuditQuery, Calendar, CalendarID, CalendarList, CompleteRequest, CreateCalendarRequest, CreateEventOnceRequest, CreateEventReceipt, CreateGroupRequest, CreateReceiptRequest, Delegation, DelegationID, DelegationList, DeleteEventRequest, DeleteEventResponse, DevLoginRequest, DevUsersResponse, EmptyRequest, EmptyResponse, Event, EventID, EventList, ExchangeActAsCredentialRequest, ExchangeApplicationPresentationRequest, ExportCalendarRequest, ExportEventRequest, FreeBusyRequest, FreeBusyResponse, GetOccurrenceRequest, Group, GroupID, GroupList, IcsDocument, ImportEventRequest, ImportIcsRequest, ImportResult, ListEventsRequest, ListTrashRequest, LoginResponse, LookupPersonRequest, MeResponse, MoveEventRequest, Occurrence, OccurrenceList, PersonSummary, RespondRequest, RestoreEventRequest, ScopeSetRequest, ScopeSetResponse, SearchEventsRequest, SetFeedRequest, SetGroupMembersRequest, Share, ShareID, ShareList, SplitReceiptRequest, SplitSeriesOnceRequest, SplitSeriesReceipt, SubscribeCalendarRequest, TrashList, UpdateCalendarRequest, UpdateEventRequest, UpdateGroupRequest, UpdateProfileRequest, User } from "./types.gen";
-import { encodeValue, fromApplicationIdentityResponseCbor, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromCreateEventReceiptCbor, fromDelegationCbor, fromDelegationListCbor, fromDeleteEventResponseCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromGroupCbor, fromGroupListCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromSplitSeriesReceiptCbor, fromTrashListCbor, fromUserCbor, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toCreateEventOnceRequestCbor, toCreateGroupRequestCbor, toCreateReceiptRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExchangeApplicationPresentationRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toGetOccurrenceRequestCbor, toImportEventRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toListTrashRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toRestoreEventRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toSetGroupMembersRequestCbor, toShareCbor, toSplitReceiptRequestCbor, toSplitSeriesOnceRequestCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateGroupRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
+import { encodeValue, fromApplicationIdentityResponseCbor, fromAuditListCbor, fromCalendarCbor, fromCalendarListCbor, fromCreateEventReceiptCbor, fromDelegationCbor, fromDelegationListCbor, fromDeleteEventResponseCbor, fromDevUsersResponseCbor, fromEmptyResponseCbor, fromEventCbor, fromEventListCbor, fromFreeBusyResponseCbor, fromGroupCbor, fromGroupListCbor, fromIcsDocumentCbor, fromImportResultCbor, fromLoginResponseCbor, fromMeResponseCbor, fromOccurrenceCbor, fromOccurrenceListCbor, fromPersonSummaryCbor, fromScopeSetResponseCbor, fromShareCbor, fromShareListCbor, fromSplitSeriesReceiptCbor, fromTrashListCbor, fromUserCbor, resolveRpcReply, toAssumePrincipalRequestCbor, toAuditQueryCbor, toCompleteRequestCbor, toCreateCalendarRequestCbor, toCreateEventOnceRequestCbor, toCreateGroupRequestCbor, toCreateReceiptRequestCbor, toDelegationCbor, toDeleteEventRequestCbor, toDevLoginRequestCbor, toEmptyRequestCbor, toEventCbor, toExchangeActAsCredentialRequestCbor, toExchangeApplicationPresentationRequestCbor, toExportCalendarRequestCbor, toExportEventRequestCbor, toFreeBusyRequestCbor, toGetOccurrenceRequestCbor, toImportEventRequestCbor, toImportIcsRequestCbor, toListEventsRequestCbor, toListTrashRequestCbor, toLookupPersonRequestCbor, toMoveEventRequestCbor, toRespondRequestCbor, toRestoreEventRequestCbor, toScopeSetRequestCbor, toSearchEventsRequestCbor, toSetFeedRequestCbor, toSetGroupMembersRequestCbor, toShareCbor, toSplitReceiptRequestCbor, toSplitSeriesOnceRequestCbor, toSubscribeCalendarRequestCbor, toUpdateCalendarRequestCbor, toUpdateEventRequestCbor, toUpdateGroupRequestCbor, toUpdateProfileRequestCbor } from "./codec.gen";
 
 export interface AsyncServiceTransport {
   call(service: string, op: string, req: Uint8Array): Promise<Uint8Array>;
+  /**
+   * Perform an operation that declares more than one reply arm. Return the
+   * CSIL-RPC response `variant` (the CSIL name of the arm) with its payload
+   * bytes; the client decodes the arm that the variant names.
+   */
+  callReply(service: string, op: string, req: Uint8Array): Promise<{ readonly variant?: string | null; readonly payload: Uint8Array }>;
 }
 
 export class AuditAsyncClient {
@@ -21,7 +27,8 @@ export class AuditAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listAudit(req: AuditQuery): Promise<AuditList> {
-    const csilResp = await this.t.call("AuditService", "list-audit", toAuditQueryCbor(req));
+    const csilReply = await this.t.callReply("AuditService", "list-audit", toAuditQueryCbor(req));
+    const csilResp = resolveRpcReply("AuditService", "list-audit", csilReply.variant, csilReply.payload);
     return fromAuditListCbor(csilResp);
   }
 }
@@ -38,7 +45,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async complete(req: CompleteRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "complete", toCompleteRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "complete", toCompleteRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "complete", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 
@@ -47,7 +55,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async resumeSession(req: EmptyRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "resume-session", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "resume-session", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "resume-session", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 
@@ -56,7 +65,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async endSession(req: EmptyRequest): Promise<EmptyResponse> {
-    const csilResp = await this.t.call("AuthService", "end-session", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "end-session", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "end-session", csilReply.variant, csilReply.payload);
     return fromEmptyResponseCbor(csilResp);
   }
 
@@ -65,7 +75,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async me(req: EmptyRequest): Promise<MeResponse> {
-    const csilResp = await this.t.call("AuthService", "me", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "me", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "me", csilReply.variant, csilReply.payload);
     return fromMeResponseCbor(csilResp);
   }
 
@@ -74,7 +85,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async assumePrincipal(req: AssumePrincipalRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "assume-principal", toAssumePrincipalRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "assume-principal", toAssumePrincipalRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "assume-principal", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 
@@ -83,7 +95,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async releasePrincipal(req: EmptyRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "release-principal", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "release-principal", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "release-principal", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 
@@ -92,7 +105,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async exchangeActAsCredential(req: ExchangeActAsCredentialRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "exchange-act-as-credential", toExchangeActAsCredentialRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "exchange-act-as-credential", toExchangeActAsCredentialRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "exchange-act-as-credential", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 
@@ -101,7 +115,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getActAsScopeSet(req: ScopeSetRequest): Promise<ScopeSetResponse> {
-    const csilResp = await this.t.call("AuthService", "get-act-as-scope-set", toScopeSetRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "get-act-as-scope-set", toScopeSetRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "get-act-as-scope-set", csilReply.variant, csilReply.payload);
     return fromScopeSetResponseCbor(csilResp);
   }
 
@@ -110,7 +125,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getApplicationIdentity(req: EmptyRequest): Promise<ApplicationIdentityResponse> {
-    const csilResp = await this.t.call("AuthService", "get-application-identity", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "get-application-identity", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "get-application-identity", csilReply.variant, csilReply.payload);
     return fromApplicationIdentityResponseCbor(csilResp);
   }
 
@@ -119,7 +135,8 @@ export class AuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async exchangeApplicationPresentation(req: ExchangeApplicationPresentationRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("AuthService", "exchange-application-presentation", toExchangeApplicationPresentationRequestCbor(req));
+    const csilReply = await this.t.callReply("AuthService", "exchange-application-presentation", toExchangeApplicationPresentationRequestCbor(req));
+    const csilResp = resolveRpcReply("AuthService", "exchange-application-presentation", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 }
@@ -136,7 +153,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listCalendars(req: EmptyRequest): Promise<CalendarList> {
-    const csilResp = await this.t.call("CalendarService", "list-calendars", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("CalendarService", "list-calendars", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("CalendarService", "list-calendars", csilReply.variant, csilReply.payload);
     return fromCalendarListCbor(csilResp);
   }
 
@@ -145,7 +163,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getCalendar(req: CalendarID): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "get-calendar", encodeValue(req));
+    const csilReply = await this.t.callReply("CalendarService", "get-calendar", encodeValue(req));
+    const csilResp = resolveRpcReply("CalendarService", "get-calendar", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 
@@ -154,7 +173,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async createCalendar(req: CreateCalendarRequest): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "create-calendar", toCreateCalendarRequestCbor(req));
+    const csilReply = await this.t.callReply("CalendarService", "create-calendar", toCreateCalendarRequestCbor(req));
+    const csilResp = resolveRpcReply("CalendarService", "create-calendar", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 
@@ -163,7 +183,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async updateCalendar(req: UpdateCalendarRequest): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "update-calendar", toUpdateCalendarRequestCbor(req));
+    const csilReply = await this.t.callReply("CalendarService", "update-calendar", toUpdateCalendarRequestCbor(req));
+    const csilResp = resolveRpcReply("CalendarService", "update-calendar", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 
@@ -172,7 +193,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async deleteCalendar(req: CalendarID): Promise<EmptyResponse> {
-    const csilResp = await this.t.call("CalendarService", "delete-calendar", encodeValue(req));
+    const csilReply = await this.t.callReply("CalendarService", "delete-calendar", encodeValue(req));
+    const csilResp = resolveRpcReply("CalendarService", "delete-calendar", csilReply.variant, csilReply.payload);
     return fromEmptyResponseCbor(csilResp);
   }
 
@@ -181,7 +203,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async subscribeCalendar(req: SubscribeCalendarRequest): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "subscribe-calendar", toSubscribeCalendarRequestCbor(req));
+    const csilReply = await this.t.callReply("CalendarService", "subscribe-calendar", toSubscribeCalendarRequestCbor(req));
+    const csilResp = resolveRpcReply("CalendarService", "subscribe-calendar", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 
@@ -190,7 +213,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async refreshSubscription(req: CalendarID): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "refresh-subscription", encodeValue(req));
+    const csilReply = await this.t.callReply("CalendarService", "refresh-subscription", encodeValue(req));
+    const csilResp = resolveRpcReply("CalendarService", "refresh-subscription", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 
@@ -199,7 +223,8 @@ export class CalendarAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async setFeed(req: SetFeedRequest): Promise<Calendar> {
-    const csilResp = await this.t.call("CalendarService", "set-feed", toSetFeedRequestCbor(req));
+    const csilReply = await this.t.callReply("CalendarService", "set-feed", toSetFeedRequestCbor(req));
+    const csilResp = resolveRpcReply("CalendarService", "set-feed", csilReply.variant, csilReply.payload);
     return fromCalendarCbor(csilResp);
   }
 }
@@ -216,7 +241,8 @@ export class DelegationAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listGranted(req: EmptyRequest): Promise<DelegationList> {
-    const csilResp = await this.t.call("DelegationService", "list-granted", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("DelegationService", "list-granted", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("DelegationService", "list-granted", csilReply.variant, csilReply.payload);
     return fromDelegationListCbor(csilResp);
   }
 
@@ -225,7 +251,8 @@ export class DelegationAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listReceived(req: EmptyRequest): Promise<DelegationList> {
-    const csilResp = await this.t.call("DelegationService", "list-received", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("DelegationService", "list-received", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("DelegationService", "list-received", csilReply.variant, csilReply.payload);
     return fromDelegationListCbor(csilResp);
   }
 
@@ -234,7 +261,8 @@ export class DelegationAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async createDelegation(req: Delegation): Promise<Delegation> {
-    const csilResp = await this.t.call("DelegationService", "create-delegation", toDelegationCbor(req));
+    const csilReply = await this.t.callReply("DelegationService", "create-delegation", toDelegationCbor(req));
+    const csilResp = resolveRpcReply("DelegationService", "create-delegation", csilReply.variant, csilReply.payload);
     return fromDelegationCbor(csilResp);
   }
 
@@ -243,7 +271,8 @@ export class DelegationAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async updateDelegation(req: Delegation): Promise<Delegation> {
-    const csilResp = await this.t.call("DelegationService", "update-delegation", toDelegationCbor(req));
+    const csilReply = await this.t.callReply("DelegationService", "update-delegation", toDelegationCbor(req));
+    const csilResp = resolveRpcReply("DelegationService", "update-delegation", csilReply.variant, csilReply.payload);
     return fromDelegationCbor(csilResp);
   }
 
@@ -252,7 +281,8 @@ export class DelegationAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async revokeDelegation(req: DelegationID): Promise<EmptyResponse> {
-    const csilResp = await this.t.call("DelegationService", "revoke-delegation", encodeValue(req));
+    const csilReply = await this.t.callReply("DelegationService", "revoke-delegation", encodeValue(req));
+    const csilResp = resolveRpcReply("DelegationService", "revoke-delegation", csilReply.variant, csilReply.payload);
     return fromEmptyResponseCbor(csilResp);
   }
 }
@@ -269,7 +299,8 @@ export class DevAuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listDevUsers(req: EmptyRequest): Promise<DevUsersResponse> {
-    const csilResp = await this.t.call("DevAuthService", "list-dev-users", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("DevAuthService", "list-dev-users", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("DevAuthService", "list-dev-users", csilReply.variant, csilReply.payload);
     return fromDevUsersResponseCbor(csilResp);
   }
 
@@ -278,7 +309,8 @@ export class DevAuthAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async devLogin(req: DevLoginRequest): Promise<LoginResponse> {
-    const csilResp = await this.t.call("DevAuthService", "dev-login", toDevLoginRequestCbor(req));
+    const csilReply = await this.t.callReply("DevAuthService", "dev-login", toDevLoginRequestCbor(req));
+    const csilResp = resolveRpcReply("DevAuthService", "dev-login", csilReply.variant, csilReply.payload);
     return fromLoginResponseCbor(csilResp);
   }
 }
@@ -295,7 +327,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listEvents(req: ListEventsRequest): Promise<OccurrenceList> {
-    const csilResp = await this.t.call("EventService", "list-events", toListEventsRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "list-events", toListEventsRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "list-events", csilReply.variant, csilReply.payload);
     return fromOccurrenceListCbor(csilResp);
   }
 
@@ -304,7 +337,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getEvent(req: EventID): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "get-event", encodeValue(req));
+    const csilReply = await this.t.callReply("EventService", "get-event", encodeValue(req));
+    const csilResp = resolveRpcReply("EventService", "get-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -313,7 +347,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getOccurrence(req: GetOccurrenceRequest): Promise<Occurrence> {
-    const csilResp = await this.t.call("EventService", "get-occurrence", toGetOccurrenceRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "get-occurrence", toGetOccurrenceRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "get-occurrence", csilReply.variant, csilReply.payload);
     return fromOccurrenceCbor(csilResp);
   }
 
@@ -322,7 +357,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async createEvent(req: Event): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "create-event", toEventCbor(req));
+    const csilReply = await this.t.callReply("EventService", "create-event", toEventCbor(req));
+    const csilResp = resolveRpcReply("EventService", "create-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -331,7 +367,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async updateEvent(req: UpdateEventRequest): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "update-event", toUpdateEventRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "update-event", toUpdateEventRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "update-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -340,7 +377,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async deleteEvent(req: DeleteEventRequest): Promise<DeleteEventResponse> {
-    const csilResp = await this.t.call("EventService", "delete-event", toDeleteEventRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "delete-event", toDeleteEventRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "delete-event", csilReply.variant, csilReply.payload);
     return fromDeleteEventResponseCbor(csilResp);
   }
 
@@ -349,7 +387,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async moveEvent(req: MoveEventRequest): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "move-event", toMoveEventRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "move-event", toMoveEventRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "move-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -358,7 +397,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async respond(req: RespondRequest): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "respond", toRespondRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "respond", toRespondRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "respond", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -367,7 +407,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listInvitations(req: EmptyRequest): Promise<EventList> {
-    const csilResp = await this.t.call("EventService", "list-invitations", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "list-invitations", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "list-invitations", csilReply.variant, csilReply.payload);
     return fromEventListCbor(csilResp);
   }
 
@@ -376,7 +417,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async searchEvents(req: SearchEventsRequest): Promise<EventList> {
-    const csilResp = await this.t.call("EventService", "search-events", toSearchEventsRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "search-events", toSearchEventsRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "search-events", csilReply.variant, csilReply.payload);
     return fromEventListCbor(csilResp);
   }
 
@@ -385,7 +427,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listTrash(req: ListTrashRequest): Promise<TrashList> {
-    const csilResp = await this.t.call("EventService", "list-trash", toListTrashRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "list-trash", toListTrashRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "list-trash", csilReply.variant, csilReply.payload);
     return fromTrashListCbor(csilResp);
   }
 
@@ -394,7 +437,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async restoreEvent(req: RestoreEventRequest): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "restore-event", toRestoreEventRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "restore-event", toRestoreEventRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "restore-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -403,7 +447,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async importEvent(req: ImportEventRequest): Promise<Event> {
-    const csilResp = await this.t.call("EventService", "import-event", toImportEventRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "import-event", toImportEventRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "import-event", csilReply.variant, csilReply.payload);
     return fromEventCbor(csilResp);
   }
 
@@ -412,7 +457,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async createEventOnce(req: CreateEventOnceRequest): Promise<CreateEventReceipt> {
-    const csilResp = await this.t.call("EventService", "create-event-once", toCreateEventOnceRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "create-event-once", toCreateEventOnceRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "create-event-once", csilReply.variant, csilReply.payload);
     return fromCreateEventReceiptCbor(csilResp);
   }
 
@@ -421,7 +467,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getCreateReceipt(req: CreateReceiptRequest): Promise<CreateEventReceipt> {
-    const csilResp = await this.t.call("EventService", "get-create-receipt", toCreateReceiptRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "get-create-receipt", toCreateReceiptRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "get-create-receipt", csilReply.variant, csilReply.payload);
     return fromCreateEventReceiptCbor(csilResp);
   }
 
@@ -430,7 +477,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async splitSeriesOnce(req: SplitSeriesOnceRequest): Promise<SplitSeriesReceipt> {
-    const csilResp = await this.t.call("EventService", "split-series-once", toSplitSeriesOnceRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "split-series-once", toSplitSeriesOnceRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "split-series-once", csilReply.variant, csilReply.payload);
     return fromSplitSeriesReceiptCbor(csilResp);
   }
 
@@ -439,7 +487,8 @@ export class EventAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getSplitReceipt(req: SplitReceiptRequest): Promise<SplitSeriesReceipt> {
-    const csilResp = await this.t.call("EventService", "get-split-receipt", toSplitReceiptRequestCbor(req));
+    const csilReply = await this.t.callReply("EventService", "get-split-receipt", toSplitReceiptRequestCbor(req));
+    const csilResp = resolveRpcReply("EventService", "get-split-receipt", csilReply.variant, csilReply.payload);
     return fromSplitSeriesReceiptCbor(csilResp);
   }
 }
@@ -456,7 +505,8 @@ export class FreeBusyAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async query(req: FreeBusyRequest): Promise<FreeBusyResponse> {
-    const csilResp = await this.t.call("FreeBusyService", "query", toFreeBusyRequestCbor(req));
+    const csilReply = await this.t.callReply("FreeBusyService", "query", toFreeBusyRequestCbor(req));
+    const csilResp = resolveRpcReply("FreeBusyService", "query", csilReply.variant, csilReply.payload);
     return fromFreeBusyResponseCbor(csilResp);
   }
 }
@@ -473,7 +523,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listGroups(req: EmptyRequest): Promise<GroupList> {
-    const csilResp = await this.t.call("GroupService", "list-groups", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("GroupService", "list-groups", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("GroupService", "list-groups", csilReply.variant, csilReply.payload);
     return fromGroupListCbor(csilResp);
   }
 
@@ -482,7 +533,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getGroup(req: GroupID): Promise<Group> {
-    const csilResp = await this.t.call("GroupService", "get-group", encodeValue(req));
+    const csilReply = await this.t.callReply("GroupService", "get-group", encodeValue(req));
+    const csilResp = resolveRpcReply("GroupService", "get-group", csilReply.variant, csilReply.payload);
     return fromGroupCbor(csilResp);
   }
 
@@ -491,7 +543,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async createGroup(req: CreateGroupRequest): Promise<Group> {
-    const csilResp = await this.t.call("GroupService", "create-group", toCreateGroupRequestCbor(req));
+    const csilReply = await this.t.callReply("GroupService", "create-group", toCreateGroupRequestCbor(req));
+    const csilResp = resolveRpcReply("GroupService", "create-group", csilReply.variant, csilReply.payload);
     return fromGroupCbor(csilResp);
   }
 
@@ -500,7 +553,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async updateGroup(req: UpdateGroupRequest): Promise<Group> {
-    const csilResp = await this.t.call("GroupService", "update-group", toUpdateGroupRequestCbor(req));
+    const csilReply = await this.t.callReply("GroupService", "update-group", toUpdateGroupRequestCbor(req));
+    const csilResp = resolveRpcReply("GroupService", "update-group", csilReply.variant, csilReply.payload);
     return fromGroupCbor(csilResp);
   }
 
@@ -509,7 +563,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async setMembers(req: SetGroupMembersRequest): Promise<Group> {
-    const csilResp = await this.t.call("GroupService", "set-members", toSetGroupMembersRequestCbor(req));
+    const csilReply = await this.t.callReply("GroupService", "set-members", toSetGroupMembersRequestCbor(req));
+    const csilResp = resolveRpcReply("GroupService", "set-members", csilReply.variant, csilReply.payload);
     return fromGroupCbor(csilResp);
   }
 
@@ -518,7 +573,8 @@ export class GroupAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async deleteGroup(req: GroupID): Promise<EmptyResponse> {
-    const csilResp = await this.t.call("GroupService", "delete-group", encodeValue(req));
+    const csilReply = await this.t.callReply("GroupService", "delete-group", encodeValue(req));
+    const csilResp = resolveRpcReply("GroupService", "delete-group", csilReply.variant, csilReply.payload);
     return fromEmptyResponseCbor(csilResp);
   }
 }
@@ -535,7 +591,8 @@ export class IcsAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async importIcs(req: ImportIcsRequest): Promise<ImportResult> {
-    const csilResp = await this.t.call("IcsService", "import-ics", toImportIcsRequestCbor(req));
+    const csilReply = await this.t.callReply("IcsService", "import-ics", toImportIcsRequestCbor(req));
+    const csilResp = resolveRpcReply("IcsService", "import-ics", csilReply.variant, csilReply.payload);
     return fromImportResultCbor(csilResp);
   }
 
@@ -544,7 +601,8 @@ export class IcsAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async exportCalendar(req: ExportCalendarRequest): Promise<IcsDocument> {
-    const csilResp = await this.t.call("IcsService", "export-calendar", toExportCalendarRequestCbor(req));
+    const csilReply = await this.t.callReply("IcsService", "export-calendar", toExportCalendarRequestCbor(req));
+    const csilResp = resolveRpcReply("IcsService", "export-calendar", csilReply.variant, csilReply.payload);
     return fromIcsDocumentCbor(csilResp);
   }
 
@@ -553,7 +611,8 @@ export class IcsAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async exportEvent(req: ExportEventRequest): Promise<IcsDocument> {
-    const csilResp = await this.t.call("IcsService", "export-event", toExportEventRequestCbor(req));
+    const csilReply = await this.t.callReply("IcsService", "export-event", toExportEventRequestCbor(req));
+    const csilResp = resolveRpcReply("IcsService", "export-event", csilReply.variant, csilReply.payload);
     return fromIcsDocumentCbor(csilResp);
   }
 }
@@ -570,7 +629,8 @@ export class ShareAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async listShares(req: CalendarID): Promise<ShareList> {
-    const csilResp = await this.t.call("ShareService", "list-shares", encodeValue(req));
+    const csilReply = await this.t.callReply("ShareService", "list-shares", encodeValue(req));
+    const csilResp = resolveRpcReply("ShareService", "list-shares", csilReply.variant, csilReply.payload);
     return fromShareListCbor(csilResp);
   }
 
@@ -579,7 +639,8 @@ export class ShareAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async putShare(req: Share): Promise<Share> {
-    const csilResp = await this.t.call("ShareService", "put-share", toShareCbor(req));
+    const csilReply = await this.t.callReply("ShareService", "put-share", toShareCbor(req));
+    const csilResp = resolveRpcReply("ShareService", "put-share", csilReply.variant, csilReply.payload);
     return fromShareCbor(csilResp);
   }
 
@@ -588,7 +649,8 @@ export class ShareAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async deleteShare(req: ShareID): Promise<EmptyResponse> {
-    const csilResp = await this.t.call("ShareService", "delete-share", encodeValue(req));
+    const csilReply = await this.t.callReply("ShareService", "delete-share", encodeValue(req));
+    const csilResp = resolveRpcReply("ShareService", "delete-share", csilReply.variant, csilReply.payload);
     return fromEmptyResponseCbor(csilResp);
   }
 }
@@ -605,7 +667,8 @@ export class UserAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async getProfile(req: EmptyRequest): Promise<User> {
-    const csilResp = await this.t.call("UserService", "get-profile", toEmptyRequestCbor(req));
+    const csilReply = await this.t.callReply("UserService", "get-profile", toEmptyRequestCbor(req));
+    const csilResp = resolveRpcReply("UserService", "get-profile", csilReply.variant, csilReply.payload);
     return fromUserCbor(csilResp);
   }
 
@@ -614,7 +677,8 @@ export class UserAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async updateProfile(req: UpdateProfileRequest): Promise<User> {
-    const csilResp = await this.t.call("UserService", "update-profile", toUpdateProfileRequestCbor(req));
+    const csilReply = await this.t.callReply("UserService", "update-profile", toUpdateProfileRequestCbor(req));
+    const csilResp = resolveRpcReply("UserService", "update-profile", csilReply.variant, csilReply.payload);
     return fromUserCbor(csilResp);
   }
 
@@ -623,7 +687,8 @@ export class UserAsyncClient {
    * @throws transport errors (network, timeout) raised by the transport
    */
   async lookupPerson(req: LookupPersonRequest): Promise<PersonSummary> {
-    const csilResp = await this.t.call("UserService", "lookup-person", toLookupPersonRequestCbor(req));
+    const csilReply = await this.t.callReply("UserService", "lookup-person", toLookupPersonRequestCbor(req));
+    const csilResp = resolveRpcReply("UserService", "lookup-person", csilReply.variant, csilReply.payload);
     return fromPersonSummaryCbor(csilResp);
   }
 }

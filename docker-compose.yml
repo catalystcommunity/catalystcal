@@ -52,7 +52,7 @@ services:
       # LinkKeys sign-in. Empty in the try-out: use the dev sign-in page.
       # To use a real LinkKeys relying party (RP), set these in .env:
       #   CATALYSTCAL_LINKKEYS_PKI_API_KEY is an API key from
-      #     `linkkeys user create <name> "<label>" --api-key` on a LinkKeys
+      #     `linkkeys user create <name> "<label>" --application-id <id>` on a LinkKeys
       #     instance with ENABLE_RP_ENDPOINTS=true.
       #   CATALYSTCAL_LINKKEYS_TCP_ADDR (or DNS discovery) and the pinned
       #     CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS select its CSIL-RPC/TCP endpoint.
@@ -98,7 +98,7 @@ services:
   # Optional: a LinkKeys relying-party (RP) container for local tests of the
   # real sign-in flow. It is not part of the default try-out. Start it with
   #   docker compose --profile linkkeys up
-  # Then run `linkkeys domain init` and `linkkeys user create ... --api-key`
+  # Then run `linkkeys domain init` and `linkkeys user create ... --application-id catalystcal`
   # in it (see docs/deploy.md), and set CATALYSTCAL_LINKKEYS_PKI_API_KEY,
   # CATALYSTCAL_LINKKEYS_TCP_ADDR=linkkeys-rp:4987, and
   # CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS in .env. To use an RP that already runs
@@ -106,7 +106,7 @@ services:
   # values in .env to point at that RP.
   linkkeys-rp:
     profiles: ["linkkeys"]
-    image: containers.catalystsquad.com/public/catalystcommunity/linkkeys:0.16.7
+    image: containers.catalystsquad.com/public/catalystcommunity/linkkeys:0.16.11
     environment:
       ENABLE_RP_ENDPOINTS: "true"
       DISABLE_PASSWORD_AUTH: "true"

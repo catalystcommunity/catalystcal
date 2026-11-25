@@ -14,70 +14,87 @@ public final class EventClient {
     }
 
     public OccurrenceList listEvents(ListEventsRequest req) throws ClientException {
-        return CsilCbor.decodeOccurrenceList(transport.call("EventService", "list-events", CsilCbor.encodeListEventsRequest(req)));
+        WireReply reply = transport.callReply("EventService", "list-events", CsilCbor.encodeListEventsRequest(req));
+        return CsilCbor.decodeOccurrenceList(CsilCbor.resolveRpcReply("EventService", "list-events", reply.variant(), reply.payload()));
     }
 
     public Event getEvent(EventId req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "get-event", CsilCbor.encodeEventGetEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "get-event", CsilCbor.encodeEventGetEventRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "get-event", reply.variant(), reply.payload()));
     }
 
     public Occurrence getOccurrence(GetOccurrenceRequest req) throws ClientException {
-        return CsilCbor.decodeOccurrence(transport.call("EventService", "get-occurrence", CsilCbor.encodeGetOccurrenceRequest(req)));
+        WireReply reply = transport.callReply("EventService", "get-occurrence", CsilCbor.encodeGetOccurrenceRequest(req));
+        return CsilCbor.decodeOccurrence(CsilCbor.resolveRpcReply("EventService", "get-occurrence", reply.variant(), reply.payload()));
     }
 
     public Event createEvent(Event req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "create-event", CsilCbor.encodeEvent(req)));
+        WireReply reply = transport.callReply("EventService", "create-event", CsilCbor.encodeEvent(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "create-event", reply.variant(), reply.payload()));
     }
 
     public Event updateEvent(UpdateEventRequest req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "update-event", CsilCbor.encodeUpdateEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "update-event", CsilCbor.encodeUpdateEventRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "update-event", reply.variant(), reply.payload()));
     }
 
     public DeleteEventResponse deleteEvent(DeleteEventRequest req) throws ClientException {
-        return CsilCbor.decodeDeleteEventResponse(transport.call("EventService", "delete-event", CsilCbor.encodeDeleteEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "delete-event", CsilCbor.encodeDeleteEventRequest(req));
+        return CsilCbor.decodeDeleteEventResponse(CsilCbor.resolveRpcReply("EventService", "delete-event", reply.variant(), reply.payload()));
     }
 
     public Event moveEvent(MoveEventRequest req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "move-event", CsilCbor.encodeMoveEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "move-event", CsilCbor.encodeMoveEventRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "move-event", reply.variant(), reply.payload()));
     }
 
     public Event respond(RespondRequest req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "respond", CsilCbor.encodeRespondRequest(req)));
+        WireReply reply = transport.callReply("EventService", "respond", CsilCbor.encodeRespondRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "respond", reply.variant(), reply.payload()));
     }
 
     public EventList listInvitations(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeEventList(transport.call("EventService", "list-invitations", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("EventService", "list-invitations", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeEventList(CsilCbor.resolveRpcReply("EventService", "list-invitations", reply.variant(), reply.payload()));
     }
 
     public EventList searchEvents(SearchEventsRequest req) throws ClientException {
-        return CsilCbor.decodeEventList(transport.call("EventService", "search-events", CsilCbor.encodeSearchEventsRequest(req)));
+        WireReply reply = transport.callReply("EventService", "search-events", CsilCbor.encodeSearchEventsRequest(req));
+        return CsilCbor.decodeEventList(CsilCbor.resolveRpcReply("EventService", "search-events", reply.variant(), reply.payload()));
     }
 
     public TrashList listTrash(ListTrashRequest req) throws ClientException {
-        return CsilCbor.decodeTrashList(transport.call("EventService", "list-trash", CsilCbor.encodeListTrashRequest(req)));
+        WireReply reply = transport.callReply("EventService", "list-trash", CsilCbor.encodeListTrashRequest(req));
+        return CsilCbor.decodeTrashList(CsilCbor.resolveRpcReply("EventService", "list-trash", reply.variant(), reply.payload()));
     }
 
     public Event restoreEvent(RestoreEventRequest req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "restore-event", CsilCbor.encodeRestoreEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "restore-event", CsilCbor.encodeRestoreEventRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "restore-event", reply.variant(), reply.payload()));
     }
 
     public Event importEvent(ImportEventRequest req) throws ClientException {
-        return CsilCbor.decodeEvent(transport.call("EventService", "import-event", CsilCbor.encodeImportEventRequest(req)));
+        WireReply reply = transport.callReply("EventService", "import-event", CsilCbor.encodeImportEventRequest(req));
+        return CsilCbor.decodeEvent(CsilCbor.resolveRpcReply("EventService", "import-event", reply.variant(), reply.payload()));
     }
 
     public CreateEventReceipt createEventOnce(CreateEventOnceRequest req) throws ClientException {
-        return CsilCbor.decodeCreateEventReceipt(transport.call("EventService", "create-event-once", CsilCbor.encodeCreateEventOnceRequest(req)));
+        WireReply reply = transport.callReply("EventService", "create-event-once", CsilCbor.encodeCreateEventOnceRequest(req));
+        return CsilCbor.decodeCreateEventReceipt(CsilCbor.resolveRpcReply("EventService", "create-event-once", reply.variant(), reply.payload()));
     }
 
     public CreateEventReceipt getCreateReceipt(CreateReceiptRequest req) throws ClientException {
-        return CsilCbor.decodeCreateEventReceipt(transport.call("EventService", "get-create-receipt", CsilCbor.encodeCreateReceiptRequest(req)));
+        WireReply reply = transport.callReply("EventService", "get-create-receipt", CsilCbor.encodeCreateReceiptRequest(req));
+        return CsilCbor.decodeCreateEventReceipt(CsilCbor.resolveRpcReply("EventService", "get-create-receipt", reply.variant(), reply.payload()));
     }
 
     public SplitSeriesReceipt splitSeriesOnce(SplitSeriesOnceRequest req) throws ClientException {
-        return CsilCbor.decodeSplitSeriesReceipt(transport.call("EventService", "split-series-once", CsilCbor.encodeSplitSeriesOnceRequest(req)));
+        WireReply reply = transport.callReply("EventService", "split-series-once", CsilCbor.encodeSplitSeriesOnceRequest(req));
+        return CsilCbor.decodeSplitSeriesReceipt(CsilCbor.resolveRpcReply("EventService", "split-series-once", reply.variant(), reply.payload()));
     }
 
     public SplitSeriesReceipt getSplitReceipt(SplitReceiptRequest req) throws ClientException {
-        return CsilCbor.decodeSplitSeriesReceipt(transport.call("EventService", "get-split-receipt", CsilCbor.encodeSplitReceiptRequest(req)));
+        WireReply reply = transport.callReply("EventService", "get-split-receipt", CsilCbor.encodeSplitReceiptRequest(req));
+        return CsilCbor.decodeSplitSeriesReceipt(CsilCbor.resolveRpcReply("EventService", "get-split-receipt", reply.variant(), reply.payload()));
     }
 }

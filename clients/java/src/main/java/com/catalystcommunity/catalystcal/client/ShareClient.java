@@ -14,14 +14,17 @@ public final class ShareClient {
     }
 
     public ShareList listShares(CalendarId req) throws ClientException {
-        return CsilCbor.decodeShareList(transport.call("ShareService", "list-shares", CsilCbor.encodeShareListSharesRequest(req)));
+        WireReply reply = transport.callReply("ShareService", "list-shares", CsilCbor.encodeShareListSharesRequest(req));
+        return CsilCbor.decodeShareList(CsilCbor.resolveRpcReply("ShareService", "list-shares", reply.variant(), reply.payload()));
     }
 
     public Share putShare(Share req) throws ClientException {
-        return CsilCbor.decodeShare(transport.call("ShareService", "put-share", CsilCbor.encodeShare(req)));
+        WireReply reply = transport.callReply("ShareService", "put-share", CsilCbor.encodeShare(req));
+        return CsilCbor.decodeShare(CsilCbor.resolveRpcReply("ShareService", "put-share", reply.variant(), reply.payload()));
     }
 
     public EmptyResponse deleteShare(ShareId req) throws ClientException {
-        return CsilCbor.decodeEmptyResponse(transport.call("ShareService", "delete-share", CsilCbor.encodeShareDeleteShareRequest(req)));
+        WireReply reply = transport.callReply("ShareService", "delete-share", CsilCbor.encodeShareDeleteShareRequest(req));
+        return CsilCbor.decodeEmptyResponse(CsilCbor.resolveRpcReply("ShareService", "delete-share", reply.variant(), reply.payload()));
     }
 }

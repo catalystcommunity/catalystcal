@@ -6,411 +6,1076 @@
 /// throws. Asynchronous — the seam suspends on the I/O round-trip. The generated
 /// client owns (de)serialization; the carrier only moves bytes.
 public protocol AsyncCsilTransport {
-    func call(service: String, op: String, request: [UInt8]) async throws -> [UInt8]
+  func call(service: String, op: String, request: [UInt8]) async throws -> [UInt8]
+  /// Performs a call for an operation with more than one reply arm and returns
+  /// the reply variant (nil when absent) with the payload bytes.
+  func callReply(
+    service: String,
+    op: String,
+    request: [UInt8]
+  ) async throws -> (variant: String?, payload: [UInt8])
 }
 
 /// AuthAsyncClient is a typed client for the AuthService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct AuthAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func complete(_ request: CompleteRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "complete", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func complete(_ request: CompleteRequest) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "complete",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "complete",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
-    public func resumeSession(_ request: EmptyRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "resume-session", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func resumeSession(_ request: EmptyRequest) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "resume-session",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "resume-session",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
-    public func endSession(_ request: EmptyRequest) async throws -> EmptyResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "end-session", request: request.toCbor())
-        return try EmptyResponse.fromCbor(csilResp)
-    }
+  public func endSession(_ request: EmptyRequest) async throws -> EmptyResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "end-session",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "end-session",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EmptyResponse.fromCbor(csilResp)
+  }
 
-    public func me(_ request: EmptyRequest) async throws -> MeResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "me", request: request.toCbor())
-        return try MeResponse.fromCbor(csilResp)
-    }
+  public func me(_ request: EmptyRequest) async throws -> MeResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "me",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "me",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try MeResponse.fromCbor(csilResp)
+  }
 
-    public func assumePrincipal(_ request: AssumePrincipalRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "assume-principal", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func assumePrincipal(_ request: AssumePrincipalRequest) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "assume-principal",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "assume-principal",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
-    public func releasePrincipal(_ request: EmptyRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "release-principal", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func releasePrincipal(_ request: EmptyRequest) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "release-principal",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "release-principal",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
-    public func exchangeActAsCredential(_ request: ExchangeActAsCredentialRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "exchange-act-as-credential", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func exchangeActAsCredential(
+    _ request: ExchangeActAsCredentialRequest
+  ) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "exchange-act-as-credential",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "exchange-act-as-credential",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
-    public func getActAsScopeSet(_ request: ScopeSetRequest) async throws -> ScopeSetResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "get-act-as-scope-set", request: request.toCbor())
-        return try ScopeSetResponse.fromCbor(csilResp)
-    }
+  public func getActAsScopeSet(_ request: ScopeSetRequest) async throws -> ScopeSetResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "get-act-as-scope-set",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "get-act-as-scope-set",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try ScopeSetResponse.fromCbor(csilResp)
+  }
 
-    public func getApplicationIdentity(_ request: EmptyRequest) async throws -> ApplicationIdentityResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "get-application-identity", request: request.toCbor())
-        return try ApplicationIdentityResponse.fromCbor(csilResp)
-    }
+  public func getApplicationIdentity(
+    _ request: EmptyRequest
+  ) async throws -> ApplicationIdentityResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "get-application-identity",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "get-application-identity",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try ApplicationIdentityResponse.fromCbor(csilResp)
+  }
 
-    public func exchangeApplicationPresentation(_ request: ExchangeApplicationPresentationRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "AuthService", op: "exchange-application-presentation", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func exchangeApplicationPresentation(
+    _ request: ExchangeApplicationPresentationRequest
+  ) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuthService",
+      op: "exchange-application-presentation",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuthService",
+      op: "exchange-application-presentation",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// DevAuthAsyncClient is a typed client for the DevAuthService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct DevAuthAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listDevUsers(_ request: EmptyRequest) async throws -> DevUsersResponse {
-        let csilResp = try await transport.call(service: "DevAuthService", op: "list-dev-users", request: request.toCbor())
-        return try DevUsersResponse.fromCbor(csilResp)
-    }
+  public func listDevUsers(_ request: EmptyRequest) async throws -> DevUsersResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DevAuthService",
+      op: "list-dev-users",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DevAuthService",
+      op: "list-dev-users",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try DevUsersResponse.fromCbor(csilResp)
+  }
 
-    public func devLogin(_ request: DevLoginRequest) async throws -> LoginResponse {
-        let csilResp = try await transport.call(service: "DevAuthService", op: "dev-login", request: request.toCbor())
-        return try LoginResponse.fromCbor(csilResp)
-    }
+  public func devLogin(_ request: DevLoginRequest) async throws -> LoginResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DevAuthService",
+      op: "dev-login",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DevAuthService",
+      op: "dev-login",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try LoginResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// UserAsyncClient is a typed client for the UserService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct UserAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func getProfile(_ request: EmptyRequest) async throws -> User {
-        let csilResp = try await transport.call(service: "UserService", op: "get-profile", request: request.toCbor())
-        return try User.fromCbor(csilResp)
-    }
+  public func getProfile(_ request: EmptyRequest) async throws -> User {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "UserService",
+      op: "get-profile",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "UserService",
+      op: "get-profile",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try User.fromCbor(csilResp)
+  }
 
-    public func updateProfile(_ request: UpdateProfileRequest) async throws -> User {
-        let csilResp = try await transport.call(service: "UserService", op: "update-profile", request: request.toCbor())
-        return try User.fromCbor(csilResp)
-    }
+  public func updateProfile(_ request: UpdateProfileRequest) async throws -> User {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "UserService",
+      op: "update-profile",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "UserService",
+      op: "update-profile",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try User.fromCbor(csilResp)
+  }
 
-    public func lookupPerson(_ request: LookupPersonRequest) async throws -> PersonSummary {
-        let csilResp = try await transport.call(service: "UserService", op: "lookup-person", request: request.toCbor())
-        return try PersonSummary.fromCbor(csilResp)
-    }
+  public func lookupPerson(_ request: LookupPersonRequest) async throws -> PersonSummary {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "UserService",
+      op: "lookup-person",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "UserService",
+      op: "lookup-person",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try PersonSummary.fromCbor(csilResp)
+  }
 
 }
 
 /// CalendarAsyncClient is a typed client for the CalendarService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct CalendarAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listCalendars(_ request: EmptyRequest) async throws -> CalendarList {
-        let csilResp = try await transport.call(service: "CalendarService", op: "list-calendars", request: request.toCbor())
-        return try CalendarList.fromCbor(csilResp)
-    }
+  public func listCalendars(_ request: EmptyRequest) async throws -> CalendarList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "list-calendars",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "list-calendars",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try CalendarList.fromCbor(csilResp)
+  }
 
-    public func getCalendar(_ request: CalendarId) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "get-calendar", request: encodeCalendarGetCalendarRequest(request))
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func getCalendar(_ request: CalendarId) async throws -> Calendar {
+    let csilRequest = try encodeCalendarGetCalendarRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "get-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "get-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
-    public func createCalendar(_ request: CreateCalendarRequest) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "create-calendar", request: request.toCbor())
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func createCalendar(_ request: CreateCalendarRequest) async throws -> Calendar {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "create-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "create-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
-    public func updateCalendar(_ request: UpdateCalendarRequest) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "update-calendar", request: request.toCbor())
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func updateCalendar(_ request: UpdateCalendarRequest) async throws -> Calendar {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "update-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "update-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
-    public func deleteCalendar(_ request: CalendarId) async throws -> EmptyResponse {
-        let csilResp = try await transport.call(service: "CalendarService", op: "delete-calendar", request: encodeCalendarDeleteCalendarRequest(request))
-        return try EmptyResponse.fromCbor(csilResp)
-    }
+  public func deleteCalendar(_ request: CalendarId) async throws -> EmptyResponse {
+    let csilRequest = try encodeCalendarDeleteCalendarRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "delete-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "delete-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EmptyResponse.fromCbor(csilResp)
+  }
 
-    public func subscribeCalendar(_ request: SubscribeCalendarRequest) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "subscribe-calendar", request: request.toCbor())
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func subscribeCalendar(_ request: SubscribeCalendarRequest) async throws -> Calendar {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "subscribe-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "subscribe-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
-    public func refreshSubscription(_ request: CalendarId) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "refresh-subscription", request: encodeCalendarRefreshSubscriptionRequest(request))
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func refreshSubscription(_ request: CalendarId) async throws -> Calendar {
+    let csilRequest = try encodeCalendarRefreshSubscriptionRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "refresh-subscription",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "refresh-subscription",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
-    public func setFeed(_ request: SetFeedRequest) async throws -> Calendar {
-        let csilResp = try await transport.call(service: "CalendarService", op: "set-feed", request: request.toCbor())
-        return try Calendar.fromCbor(csilResp)
-    }
+  public func setFeed(_ request: SetFeedRequest) async throws -> Calendar {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "CalendarService",
+      op: "set-feed",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "CalendarService",
+      op: "set-feed",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Calendar.fromCbor(csilResp)
+  }
 
 }
 
 /// ShareAsyncClient is a typed client for the ShareService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct ShareAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listShares(_ request: CalendarId) async throws -> ShareList {
-        let csilResp = try await transport.call(service: "ShareService", op: "list-shares", request: encodeShareListSharesRequest(request))
-        return try ShareList.fromCbor(csilResp)
-    }
+  public func listShares(_ request: CalendarId) async throws -> ShareList {
+    let csilRequest = try encodeShareListSharesRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "ShareService",
+      op: "list-shares",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "ShareService",
+      op: "list-shares",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try ShareList.fromCbor(csilResp)
+  }
 
-    public func putShare(_ request: Share) async throws -> Share {
-        let csilResp = try await transport.call(service: "ShareService", op: "put-share", request: request.toCbor())
-        return try Share.fromCbor(csilResp)
-    }
+  public func putShare(_ request: Share) async throws -> Share {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "ShareService",
+      op: "put-share",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "ShareService",
+      op: "put-share",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Share.fromCbor(csilResp)
+  }
 
-    public func deleteShare(_ request: ShareId) async throws -> EmptyResponse {
-        let csilResp = try await transport.call(service: "ShareService", op: "delete-share", request: encodeShareDeleteShareRequest(request))
-        return try EmptyResponse.fromCbor(csilResp)
-    }
+  public func deleteShare(_ request: ShareId) async throws -> EmptyResponse {
+    let csilRequest = try encodeShareDeleteShareRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "ShareService",
+      op: "delete-share",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "ShareService",
+      op: "delete-share",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EmptyResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// GroupAsyncClient is a typed client for the GroupService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct GroupAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listGroups(_ request: EmptyRequest) async throws -> GroupList {
-        let csilResp = try await transport.call(service: "GroupService", op: "list-groups", request: request.toCbor())
-        return try GroupList.fromCbor(csilResp)
-    }
+  public func listGroups(_ request: EmptyRequest) async throws -> GroupList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "list-groups",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "list-groups",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try GroupList.fromCbor(csilResp)
+  }
 
-    public func getGroup(_ request: GroupId) async throws -> Group {
-        let csilResp = try await transport.call(service: "GroupService", op: "get-group", request: encodeGroupGetGroupRequest(request))
-        return try Group.fromCbor(csilResp)
-    }
+  public func getGroup(_ request: GroupId) async throws -> Group {
+    let csilRequest = try encodeGroupGetGroupRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "get-group",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "get-group",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Group.fromCbor(csilResp)
+  }
 
-    public func createGroup(_ request: CreateGroupRequest) async throws -> Group {
-        let csilResp = try await transport.call(service: "GroupService", op: "create-group", request: request.toCbor())
-        return try Group.fromCbor(csilResp)
-    }
+  public func createGroup(_ request: CreateGroupRequest) async throws -> Group {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "create-group",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "create-group",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Group.fromCbor(csilResp)
+  }
 
-    public func updateGroup(_ request: UpdateGroupRequest) async throws -> Group {
-        let csilResp = try await transport.call(service: "GroupService", op: "update-group", request: request.toCbor())
-        return try Group.fromCbor(csilResp)
-    }
+  public func updateGroup(_ request: UpdateGroupRequest) async throws -> Group {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "update-group",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "update-group",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Group.fromCbor(csilResp)
+  }
 
-    public func setMembers(_ request: SetGroupMembersRequest) async throws -> Group {
-        let csilResp = try await transport.call(service: "GroupService", op: "set-members", request: request.toCbor())
-        return try Group.fromCbor(csilResp)
-    }
+  public func setMembers(_ request: SetGroupMembersRequest) async throws -> Group {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "set-members",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "set-members",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Group.fromCbor(csilResp)
+  }
 
-    public func deleteGroup(_ request: GroupId) async throws -> EmptyResponse {
-        let csilResp = try await transport.call(service: "GroupService", op: "delete-group", request: encodeGroupDeleteGroupRequest(request))
-        return try EmptyResponse.fromCbor(csilResp)
-    }
+  public func deleteGroup(_ request: GroupId) async throws -> EmptyResponse {
+    let csilRequest = try encodeGroupDeleteGroupRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "GroupService",
+      op: "delete-group",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "GroupService",
+      op: "delete-group",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EmptyResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// DelegationAsyncClient is a typed client for the DelegationService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct DelegationAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listGranted(_ request: EmptyRequest) async throws -> DelegationList {
-        let csilResp = try await transport.call(service: "DelegationService", op: "list-granted", request: request.toCbor())
-        return try DelegationList.fromCbor(csilResp)
-    }
+  public func listGranted(_ request: EmptyRequest) async throws -> DelegationList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DelegationService",
+      op: "list-granted",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DelegationService",
+      op: "list-granted",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try DelegationList.fromCbor(csilResp)
+  }
 
-    public func listReceived(_ request: EmptyRequest) async throws -> DelegationList {
-        let csilResp = try await transport.call(service: "DelegationService", op: "list-received", request: request.toCbor())
-        return try DelegationList.fromCbor(csilResp)
-    }
+  public func listReceived(_ request: EmptyRequest) async throws -> DelegationList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DelegationService",
+      op: "list-received",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DelegationService",
+      op: "list-received",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try DelegationList.fromCbor(csilResp)
+  }
 
-    public func createDelegation(_ request: Delegation) async throws -> Delegation {
-        let csilResp = try await transport.call(service: "DelegationService", op: "create-delegation", request: request.toCbor())
-        return try Delegation.fromCbor(csilResp)
-    }
+  public func createDelegation(_ request: Delegation) async throws -> Delegation {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DelegationService",
+      op: "create-delegation",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DelegationService",
+      op: "create-delegation",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Delegation.fromCbor(csilResp)
+  }
 
-    public func updateDelegation(_ request: Delegation) async throws -> Delegation {
-        let csilResp = try await transport.call(service: "DelegationService", op: "update-delegation", request: request.toCbor())
-        return try Delegation.fromCbor(csilResp)
-    }
+  public func updateDelegation(_ request: Delegation) async throws -> Delegation {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "DelegationService",
+      op: "update-delegation",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DelegationService",
+      op: "update-delegation",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Delegation.fromCbor(csilResp)
+  }
 
-    public func revokeDelegation(_ request: DelegationId) async throws -> EmptyResponse {
-        let csilResp = try await transport.call(service: "DelegationService", op: "revoke-delegation", request: encodeDelegationRevokeDelegationRequest(request))
-        return try EmptyResponse.fromCbor(csilResp)
-    }
+  public func revokeDelegation(_ request: DelegationId) async throws -> EmptyResponse {
+    let csilRequest = try encodeDelegationRevokeDelegationRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "DelegationService",
+      op: "revoke-delegation",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "DelegationService",
+      op: "revoke-delegation",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EmptyResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// EventAsyncClient is a typed client for the EventService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct EventAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listEvents(_ request: ListEventsRequest) async throws -> OccurrenceList {
-        let csilResp = try await transport.call(service: "EventService", op: "list-events", request: request.toCbor())
-        return try OccurrenceList.fromCbor(csilResp)
-    }
+  public func listEvents(_ request: ListEventsRequest) async throws -> OccurrenceList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "list-events",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "list-events",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try OccurrenceList.fromCbor(csilResp)
+  }
 
-    public func getEvent(_ request: EventId) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "get-event", request: encodeEventGetEventRequest(request))
-        return try Event.fromCbor(csilResp)
-    }
+  public func getEvent(_ request: EventId) async throws -> Event {
+    let csilRequest = try encodeEventGetEventRequest(request)
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "get-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "get-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func getOccurrence(_ request: GetOccurrenceRequest) async throws -> Occurrence {
-        let csilResp = try await transport.call(service: "EventService", op: "get-occurrence", request: request.toCbor())
-        return try Occurrence.fromCbor(csilResp)
-    }
+  public func getOccurrence(_ request: GetOccurrenceRequest) async throws -> Occurrence {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "get-occurrence",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "get-occurrence",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Occurrence.fromCbor(csilResp)
+  }
 
-    public func createEvent(_ request: Event) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "create-event", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func createEvent(_ request: Event) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "create-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "create-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func updateEvent(_ request: UpdateEventRequest) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "update-event", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func updateEvent(_ request: UpdateEventRequest) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "update-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "update-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func deleteEvent(_ request: DeleteEventRequest) async throws -> DeleteEventResponse {
-        let csilResp = try await transport.call(service: "EventService", op: "delete-event", request: request.toCbor())
-        return try DeleteEventResponse.fromCbor(csilResp)
-    }
+  public func deleteEvent(_ request: DeleteEventRequest) async throws -> DeleteEventResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "delete-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "delete-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try DeleteEventResponse.fromCbor(csilResp)
+  }
 
-    public func moveEvent(_ request: MoveEventRequest) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "move-event", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func moveEvent(_ request: MoveEventRequest) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "move-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "move-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func respond(_ request: RespondRequest) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "respond", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func respond(_ request: RespondRequest) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "respond",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "respond",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func listInvitations(_ request: EmptyRequest) async throws -> EventList {
-        let csilResp = try await transport.call(service: "EventService", op: "list-invitations", request: request.toCbor())
-        return try EventList.fromCbor(csilResp)
-    }
+  public func listInvitations(_ request: EmptyRequest) async throws -> EventList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "list-invitations",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "list-invitations",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EventList.fromCbor(csilResp)
+  }
 
-    public func searchEvents(_ request: SearchEventsRequest) async throws -> EventList {
-        let csilResp = try await transport.call(service: "EventService", op: "search-events", request: request.toCbor())
-        return try EventList.fromCbor(csilResp)
-    }
+  public func searchEvents(_ request: SearchEventsRequest) async throws -> EventList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "search-events",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "search-events",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try EventList.fromCbor(csilResp)
+  }
 
-    public func listTrash(_ request: ListTrashRequest) async throws -> TrashList {
-        let csilResp = try await transport.call(service: "EventService", op: "list-trash", request: request.toCbor())
-        return try TrashList.fromCbor(csilResp)
-    }
+  public func listTrash(_ request: ListTrashRequest) async throws -> TrashList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "list-trash",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "list-trash",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try TrashList.fromCbor(csilResp)
+  }
 
-    public func restoreEvent(_ request: RestoreEventRequest) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "restore-event", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func restoreEvent(_ request: RestoreEventRequest) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "restore-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "restore-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func importEvent(_ request: ImportEventRequest) async throws -> Event {
-        let csilResp = try await transport.call(service: "EventService", op: "import-event", request: request.toCbor())
-        return try Event.fromCbor(csilResp)
-    }
+  public func importEvent(_ request: ImportEventRequest) async throws -> Event {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "import-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "import-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try Event.fromCbor(csilResp)
+  }
 
-    public func createEventOnce(_ request: CreateEventOnceRequest) async throws -> CreateEventReceipt {
-        let csilResp = try await transport.call(service: "EventService", op: "create-event-once", request: request.toCbor())
-        return try CreateEventReceipt.fromCbor(csilResp)
-    }
+  public func createEventOnce(
+    _ request: CreateEventOnceRequest
+  ) async throws -> CreateEventReceipt {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "create-event-once",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "create-event-once",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try CreateEventReceipt.fromCbor(csilResp)
+  }
 
-    public func getCreateReceipt(_ request: CreateReceiptRequest) async throws -> CreateEventReceipt {
-        let csilResp = try await transport.call(service: "EventService", op: "get-create-receipt", request: request.toCbor())
-        return try CreateEventReceipt.fromCbor(csilResp)
-    }
+  public func getCreateReceipt(_ request: CreateReceiptRequest) async throws -> CreateEventReceipt {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "get-create-receipt",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "get-create-receipt",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try CreateEventReceipt.fromCbor(csilResp)
+  }
 
-    public func splitSeriesOnce(_ request: SplitSeriesOnceRequest) async throws -> SplitSeriesReceipt {
-        let csilResp = try await transport.call(service: "EventService", op: "split-series-once", request: request.toCbor())
-        return try SplitSeriesReceipt.fromCbor(csilResp)
-    }
+  public func splitSeriesOnce(
+    _ request: SplitSeriesOnceRequest
+  ) async throws -> SplitSeriesReceipt {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "split-series-once",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "split-series-once",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try SplitSeriesReceipt.fromCbor(csilResp)
+  }
 
-    public func getSplitReceipt(_ request: SplitReceiptRequest) async throws -> SplitSeriesReceipt {
-        let csilResp = try await transport.call(service: "EventService", op: "get-split-receipt", request: request.toCbor())
-        return try SplitSeriesReceipt.fromCbor(csilResp)
-    }
+  public func getSplitReceipt(_ request: SplitReceiptRequest) async throws -> SplitSeriesReceipt {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "EventService",
+      op: "get-split-receipt",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "EventService",
+      op: "get-split-receipt",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try SplitSeriesReceipt.fromCbor(csilResp)
+  }
 
 }
 
 /// FreeBusyAsyncClient is a typed client for the FreeBusyService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct FreeBusyAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func query(_ request: FreeBusyRequest) async throws -> FreeBusyResponse {
-        let csilResp = try await transport.call(service: "FreeBusyService", op: "query", request: request.toCbor())
-        return try FreeBusyResponse.fromCbor(csilResp)
-    }
+  public func query(_ request: FreeBusyRequest) async throws -> FreeBusyResponse {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "FreeBusyService",
+      op: "query",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "FreeBusyService",
+      op: "query",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try FreeBusyResponse.fromCbor(csilResp)
+  }
 
 }
 
 /// IcsAsyncClient is a typed client for the IcsService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct IcsAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func importIcs(_ request: ImportIcsRequest) async throws -> ImportResult {
-        let csilResp = try await transport.call(service: "IcsService", op: "import-ics", request: request.toCbor())
-        return try ImportResult.fromCbor(csilResp)
-    }
+  public func importIcs(_ request: ImportIcsRequest) async throws -> ImportResult {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "IcsService",
+      op: "import-ics",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "IcsService",
+      op: "import-ics",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try ImportResult.fromCbor(csilResp)
+  }
 
-    public func exportCalendar(_ request: ExportCalendarRequest) async throws -> IcsDocument {
-        let csilResp = try await transport.call(service: "IcsService", op: "export-calendar", request: request.toCbor())
-        return try IcsDocument.fromCbor(csilResp)
-    }
+  public func exportCalendar(_ request: ExportCalendarRequest) async throws -> IcsDocument {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "IcsService",
+      op: "export-calendar",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "IcsService",
+      op: "export-calendar",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try IcsDocument.fromCbor(csilResp)
+  }
 
-    public func exportEvent(_ request: ExportEventRequest) async throws -> IcsDocument {
-        let csilResp = try await transport.call(service: "IcsService", op: "export-event", request: request.toCbor())
-        return try IcsDocument.fromCbor(csilResp)
-    }
+  public func exportEvent(_ request: ExportEventRequest) async throws -> IcsDocument {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "IcsService",
+      op: "export-event",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "IcsService",
+      op: "export-event",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try IcsDocument.fromCbor(csilResp)
+  }
 
 }
 
 /// AuditAsyncClient is a typed client for the AuditService service. The client owns
 /// (de)serialization; the carrier only moves bytes.
 public struct AuditAsyncClient {
-    public let transport: AsyncCsilTransport
-    public init(transport: AsyncCsilTransport) {
-        self.transport = transport
-    }
+  public let transport: AsyncCsilTransport
+  public init(transport: AsyncCsilTransport) {
+    self.transport = transport
+  }
 
-    public func listAudit(_ request: AuditQuery) async throws -> AuditList {
-        let csilResp = try await transport.call(service: "AuditService", op: "list-audit", request: request.toCbor())
-        return try AuditList.fromCbor(csilResp)
-    }
+  public func listAudit(_ request: AuditQuery) async throws -> AuditList {
+    let csilRequest = try request.toCbor()
+    let csilReply = try await transport.callReply(
+      service: "AuditService",
+      op: "list-audit",
+      request: csilRequest
+    )
+    let csilResp = try resolveRpcReply(
+      service: "AuditService",
+      op: "list-audit",
+      variant: csilReply.variant,
+      payload: csilReply.payload
+    )
+    return try AuditList.fromCbor(csilResp)
+  }
 
 }
-

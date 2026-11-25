@@ -2,7 +2,7 @@
  * CSIL-RPC carrier for the generated async clients (@catalystcal/client).
  *
  * The generated client owns (de)serialization. This carrier is the byte seam
- * it calls: `call(service, op, reqBytes) -> Promise<respBytes>`. Each call
+ * it calls with the service, operation, and encoded request. Each call
  * wraps the encoded request in a CSIL-RPC envelope and POSTs it:
  *
  *   POST /api/csil/v1/rpc
@@ -18,10 +18,10 @@
  * Two failure channels, never mixed up:
  *   - a non-zero transport `status` (unauthenticated, unknown op, ...)
  *   - status 0 with `variant === "ServiceError"`: the declared error arm.
- * Both reach callers as a thrown {@link ServiceError}.
+ * Generated clients decode the declared arm and throw ServiceErrorRefusal.
  */
 
-import { fromServiceErrorCbor } from "@catalystcal/client";
+import { type AsyncServiceTransport, ServiceErrorRefusal, fromServiceErrorCbor } from "@catalystcal/client";
 import { currentToken } from "~/stores/auth";
 import { RpcRequest, RpcResponse, Status, statusName } from "~/transport/csil";
 
@@ -33,10 +33,6 @@ export class ServiceError extends Error {
     super(message);
     this.name = "ServiceError";
   }
-}
-
-export interface ServiceTransport {
-  call(service: string, op: string, req: Uint8Array): Promise<Uint8Array>;
 }
 
 const CONTENT_TYPE = "application/cbor";
@@ -53,20 +49,34 @@ export function setUnauthenticatedHandler(fn: (() => Promise<boolean>) | null): 
 // Ops that must not trigger a resume-and-retry.
 const NO_RETRY_OPS = new Set(["resume-session", "end-session", "complete", "dev-login"]);
 
-export const cborTransport: ServiceTransport = {
-  async call(service: string, op: string, req: Uint8Array): Promise<Uint8Array> {
-    const kebab = methodToOp(op);
-    try {
-      return await send(service, kebab, req);
-    } catch (e) {
-      if (!(e instanceof ServiceError) || e.code !== 401 || !onUnauthenticated || NO_RETRY_OPS.has(kebab)) throw e;
-      if (!(await onUnauthenticated())) throw e;
-      return send(service, kebab, req);
+export const cborTransport: AsyncServiceTransport = {
+  async call(service, op, req) {
+    const reply = await callReply(service, op, req);
+    if (reply.variant === "ServiceError") {
+      const { code, message } = fromServiceErrorCbor(reply.payload);
+      throw new ServiceError(message, code);
     }
+    return reply.payload;
   },
+  callReply,
 };
 
-async function send(service: string, op: string, req: Uint8Array): Promise<Uint8Array> {
+async function callReply(service: string, op: string, req: Uint8Array): Promise<RpcResponse> {
+  const kebab = methodToOp(op);
+  let reply: RpcResponse;
+  try {
+    reply = await send(service, kebab, req);
+  } catch (e) {
+    if (!(e instanceof ServiceError) || e.code !== 401 || !onUnauthenticated || NO_RETRY_OPS.has(kebab)) throw e;
+    if (!(await onUnauthenticated())) throw e;
+    return send(service, kebab, req);
+  }
+  if (reply.variant !== "ServiceError" || !onUnauthenticated || NO_RETRY_OPS.has(kebab)) return reply;
+  if (fromServiceErrorCbor(reply.payload).code !== 401 || !(await onUnauthenticated())) return reply;
+  return send(service, kebab, req);
+}
+
+async function send(service: string, op: string, req: Uint8Array): Promise<RpcResponse> {
   const headers: Record<string, string> = { "Content-Type": CONTENT_TYPE, Accept: CONTENT_TYPE };
   const tok = currentToken();
   if (tok) headers["Authorization"] = `Bearer ${tok}`;
@@ -94,12 +104,7 @@ async function send(service: string, op: string, req: Uint8Array): Promise<Uint8
     throw new ServiceError(resp.error ?? statusName(resp.status), transportStatusToCode(resp.status));
   }
 
-  if (resp.variant === "ServiceError") {
-    const e = fromServiceErrorCbor(resp.payload) as { code?: number; message?: string };
-    throw new ServiceError(e?.message ?? "request failed", e?.code ?? 500);
-  }
-
-  return resp.payload;
+  return resp;
 }
 
 /** "ListEvents" -> "list-events"; "list-events" stays as it is. */
@@ -129,6 +134,7 @@ export function transportStatusToCode(status: number): number {
 
 /** A message for the UI from any thrown value. */
 export function errorMessage(e: unknown): string {
+  if (e instanceof ServiceErrorRefusal) return e.value.message;
   if (e instanceof Error) return e.message;
   return String(e);
 }

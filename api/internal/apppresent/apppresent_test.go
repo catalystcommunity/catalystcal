@@ -61,7 +61,7 @@ func newKey(t *testing.T, id string, seedByte byte) testKey {
 	return testKey{id: id, priv: ed25519.NewKeyFromSeed(seed)}
 }
 
-func attested(k testKey, usage, alg string, kind regularrp.KeyStatusKind) regularrp.VerifiedApplicationKey {
+func attested(k testKey, usage api.KeyUsage, alg api.KeyAlgorithm, kind regularrp.KeyStatusKind) regularrp.VerifiedApplicationKey {
 	return regularrp.VerifiedApplicationKey{
 		Attestation: api.ApplicationKeyAttestation{
 			SubjectUserId: signer.SubjectUserID, SubjectDomain: signer.SubjectDomain, ApplicationId: signer.ApplicationID,
@@ -87,8 +87,18 @@ func presentation(mod func(*csil.ApplicationPresentation)) csil.ApplicationPrese
 	return p
 }
 
-func sign(k testKey, p csil.ApplicationPresentation) csil.SignedApplicationPresentation {
-	raw := csil.EncodeApplicationPresentation(p)
+func encodePresentation(t *testing.T, p csil.ApplicationPresentation) []byte {
+	t.Helper()
+	raw, err := csil.EncodeApplicationPresentation(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func sign(t *testing.T, k testKey, p csil.ApplicationPresentation) csil.SignedApplicationPresentation {
+	t.Helper()
+	raw := encodePresentation(t, p)
 	return csil.SignedApplicationPresentation{
 		Presentation:  raw,
 		SignedByKeyId: k.id,
@@ -103,8 +113,8 @@ func verifier(r KeyResolver) *Verifier {
 
 func TestVerifyAccepts(t *testing.T) {
 	k := newKey(t, "k1", 1)
-	r := &fakeResolver{keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusUsable)}}
-	got, err := verifier(r).Verify(context.Background(), sign(k, presentation(nil)))
+	r := &fakeResolver{keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusUsable)}}
+	got, err := verifier(r).Verify(context.Background(), sign(t, k, presentation(nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +133,7 @@ func TestVerifyAccepts(t *testing.T) {
 func TestVerifyRefuses(t *testing.T) {
 	k := newKey(t, "k1", 1)
 	other := newKey(t, "k2", 2)
-	usable := []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusUsable)}
+	usable := []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusUsable)}
 
 	cases := []struct {
 		name   string
@@ -135,37 +145,37 @@ func TestVerifyRefuses(t *testing.T) {
 	}{
 		{name: "wrong audience", keys: usable, want: ErrRefused, reason: "audience",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) {
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) {
 					p.Audience = Ref{SubjectUserID: "cal-uuid", SubjectDomain: "cal.example", ApplicationID: "other"}.CSIL()
 				}))
 			}},
 		{name: "wrong digest", keys: usable, want: ErrRefused, reason: "request_digest",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) { p.RequestDigest = []byte("x") }))
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) { p.RequestDigest = []byte("x") }))
 			}},
 		{name: "too old", keys: usable, want: ErrRefused, reason: "too old",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) {
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) {
 					p.PresentedAt = now.Add(-361 * time.Second).Truncate(time.Second)
 				}))
 			}},
 		{name: "in the future", keys: usable, want: ErrRefused, reason: "future",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) {
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) {
 					p.PresentedAt = now.Add(61 * time.Second).Truncate(time.Second)
 				}))
 			}},
 		{name: "fractional presentation time", keys: usable, want: ErrRefused, reason: "presented_at",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) { p.PresentedAt = now.Add(time.Nanosecond) }))
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) { p.PresentedAt = now.Add(time.Nanosecond) }))
 			}},
 		{name: "short nonce", keys: usable, want: ErrRefused, reason: "nonce",
 			signed: func() csil.SignedApplicationPresentation {
-				return sign(k, presentation(func(p *csil.ApplicationPresentation) { p.Nonce = []byte("short") }))
+				return sign(t, k, presentation(func(p *csil.ApplicationPresentation) { p.Nonce = []byte("short") }))
 			}},
 		{name: "act-as tag", keys: usable, want: ErrRefused, reason: "signature",
 			signed: func() csil.SignedApplicationPresentation {
-				s := sign(k, presentation(nil))
+				s := sign(t, k, presentation(nil))
 				in := []byte{0x82, 0x78, byte(len("linkkeys-act-as-presentation-v1alpha"))}
 				in = append(in, "linkkeys-act-as-presentation-v1alpha"...)
 				in = append(in, cborHead(2, uint64(len(s.Presentation)))...)
@@ -175,46 +185,46 @@ func TestVerifyRefuses(t *testing.T) {
 			}},
 		{name: "unsigned payload", keys: usable, want: ErrRefused, reason: "signature",
 			signed: func() csil.SignedApplicationPresentation {
-				s := sign(k, presentation(nil))
+				s := sign(t, k, presentation(nil))
 				s.Signature = ed25519.Sign(k.priv, s.Presentation)
 				return s
 			}},
 		{name: "tampered bytes", keys: usable, want: ErrRefused, reason: "signature",
 			signed: func() csil.SignedApplicationPresentation {
-				s := sign(k, presentation(nil))
-				s.Presentation = csil.EncodeApplicationPresentation(presentation(func(p *csil.ApplicationPresentation) {
+				s := sign(t, k, presentation(nil))
+				s.Presentation = encodePresentation(t, presentation(func(p *csil.ApplicationPresentation) {
 					p.Nonce = []byte("fedcba9876543210")
 				}))
 				return s
 			}},
 		{name: "bad signature", keys: usable, want: ErrRefused, reason: "signature",
 			signed: func() csil.SignedApplicationPresentation {
-				s := sign(other, presentation(nil))
+				s := sign(t, other, presentation(nil))
 				s.SignedByKeyId = "k1"
 				return s
 			}},
 		{name: "unknown key", keys: usable, want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(other, presentation(nil)) }},
-		{name: "agree key", keys: []regularrp.VerifiedApplicationKey{attested(k, "agree", "x25519", regularrp.KeyStatusUsable)},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, other, presentation(nil)) }},
+		{name: "agree key", keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageAgree, regularrp.AlgorithmX25519, regularrp.KeyStatusUsable)},
 			want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
-		{name: "wrong algorithm", keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed448", regularrp.KeyStatusUsable)},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
+		{name: "wrong algorithm", keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmX25519, regularrp.KeyStatusUsable)},
 			want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
-		{name: "revoked key", keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusRevoked)},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
+		{name: "revoked key", keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusRevoked)},
 			want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
 		{name: "revocation list", keys: usable, revoke: map[string]bool{"k1": true}, want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
-		{name: "expired attestation", keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusAttestationExpired)},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
+		{name: "expired attestation", keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusAttestationExpired)},
 			want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
-		{name: "expired key", keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusKeyExpired)},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
+		{name: "expired key", keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusKeyExpired)},
 			want: ErrRefused, reason: "not usable",
-			signed: func() csil.SignedApplicationPresentation { return sign(k, presentation(nil)) }},
+			signed: func() csil.SignedApplicationPresentation { return sign(t, k, presentation(nil)) }},
 		{name: "not decodable", keys: usable, want: ErrRefused, reason: "decode",
 			signed: func() csil.SignedApplicationPresentation {
-				s := sign(k, presentation(nil))
+				s := sign(t, k, presentation(nil))
 				s.Presentation = []byte{0xff}
 				return s
 			}},
@@ -235,16 +245,16 @@ func TestVerifyRefuses(t *testing.T) {
 
 func TestVerifyStaleAndUnresolved(t *testing.T) {
 	k := newKey(t, "k1", 1)
-	usable := []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusUsable)}
+	usable := []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusUsable)}
 	r := &fakeResolver{keys: usable, freshness: regularrp.FreshnessStale}
-	if _, err := verifier(r).Verify(context.Background(), sign(k, presentation(nil))); !errors.Is(err, ErrStale) {
+	if _, err := verifier(r).Verify(context.Background(), sign(t, k, presentation(nil))); !errors.Is(err, ErrStale) {
 		t.Fatalf("stale: %v", err)
 	}
 	r = &fakeResolver{err: errors.New("rp down")}
-	if _, err := verifier(r).Verify(context.Background(), sign(k, presentation(nil))); !errors.Is(err, ErrRefused) {
+	if _, err := verifier(r).Verify(context.Background(), sign(t, k, presentation(nil))); !errors.Is(err, ErrRefused) {
 		t.Fatalf("unresolved: %v", err)
 	}
-	if _, err := verifier(nil).Verify(context.Background(), sign(k, presentation(nil))); !errors.Is(err, ErrStale) {
+	if _, err := verifier(nil).Verify(context.Background(), sign(t, k, presentation(nil))); !errors.Is(err, ErrStale) {
 		t.Fatalf("no resolver: %v", err)
 	}
 }
@@ -253,10 +263,10 @@ func TestVerifyStaleAndUnresolved(t *testing.T) {
 // another account is refused.
 func TestVerifyNotAllowed(t *testing.T) {
 	k := newKey(t, "k1", 1)
-	r := &fakeResolver{keys: []regularrp.VerifiedApplicationKey{attested(k, "sign", "ed25519", regularrp.KeyStatusUsable)}}
+	r := &fakeResolver{keys: []regularrp.VerifiedApplicationKey{attested(k, regularrp.KeyUsageSign, regularrp.AlgorithmEd25519, regularrp.KeyStatusUsable)}}
 	v := verifier(r)
 	v.Allowed = []Ref{{SubjectUserID: "someone-else", SubjectDomain: "longhouse.example", ApplicationID: "longhouse"}}
-	if _, err := v.Verify(context.Background(), sign(k, presentation(nil))); !errors.Is(err, ErrNotAllowed) {
+	if _, err := v.Verify(context.Background(), sign(t, k, presentation(nil))); !errors.Is(err, ErrNotAllowed) {
 		t.Fatalf("err %v", err)
 	}
 	// The refusal comes before the key lookup.

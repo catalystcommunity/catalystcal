@@ -41,7 +41,7 @@ pub type TrashID = String;
 pub type SessionID = String;
 
 /// ShareRole variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ShareRole {
     FreeBusy,
     Read,
@@ -51,7 +51,7 @@ pub enum ShareRole {
 }
 
 /// AccessRole variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AccessRole {
     None,
     FreeBusy,
@@ -63,7 +63,7 @@ pub enum AccessRole {
 }
 
 /// AccessPath variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AccessPath {
     Owner,
     Share,
@@ -72,7 +72,7 @@ pub enum AccessPath {
 }
 
 /// Scope variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Scope {
     CalendarsRead,
     FreebusyRead,
@@ -82,14 +82,14 @@ pub enum Scope {
 }
 
 /// CalendarKind variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CalendarKind {
     Local,
     Subscription,
 }
 
 /// EventStatus variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventStatus {
     Confirmed,
     Tentative,
@@ -97,14 +97,14 @@ pub enum EventStatus {
 }
 
 /// EventTransparency variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventTransparency {
     Opaque,
     Transparent,
 }
 
 /// EventVisibility variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EventVisibility {
     Default,
     Public,
@@ -113,7 +113,7 @@ pub enum EventVisibility {
 }
 
 /// ParticipationStatus variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ParticipationStatus {
     NeedsAction,
     Accepted,
@@ -123,7 +123,7 @@ pub enum ParticipationStatus {
 }
 
 /// AttendeeRole variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AttendeeRole {
     Chair,
     Required,
@@ -132,14 +132,14 @@ pub enum AttendeeRole {
 }
 
 /// ReminderMethod variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ReminderMethod {
     Display,
     Email,
 }
 
 /// RecurrenceScope variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RecurrenceScope {
     All,
     This,
@@ -147,15 +147,15 @@ pub enum RecurrenceScope {
 }
 
 /// ActingVia variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ActingVia {
-    SelfActor,
+    VSelf,
     Delegation,
     ActAsGrant,
 }
 
 /// CreateReceiptState variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CreateReceiptState {
     Live,
     Trashed,
@@ -738,7 +738,7 @@ impl SplitReceiptRequest {
 }
 
 /// SplitMapResult variants
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SplitMapResult {
     Original,
     Successor,

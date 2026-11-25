@@ -22,7 +22,7 @@ type TypedHandler func(ctx context.Context, payload []byte) (variant string, out
 func Route[Req any, Resp any](
 	fn func(context.Context, Req) (Resp, error),
 	decode func([]byte) (Req, error),
-	encode func(Resp) []byte,
+	encode func(Resp) ([]byte, error),
 ) TypedHandler {
 	return func(ctx context.Context, payload []byte) (string, []byte, error) {
 		req, err := decode(payload)
@@ -33,6 +33,7 @@ func Route[Req any, Resp any](
 		if err != nil {
 			return "", nil, err
 		}
-		return successVariant(resp), encode(resp), nil
+		out, err := encode(resp)
+		return successVariant(resp), out, err
 	}
 }

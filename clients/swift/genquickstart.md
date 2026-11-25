@@ -38,6 +38,15 @@ struct HttpRpcCarrier: CsilTransport {
     let baseURL: String
 
     func call(service: String, op: String, request: [UInt8]) throws -> [UInt8] {
+        try roundTrip(service: service, op: op, request: request).payload
+    }
+
+    func callReply(service: String, op: String, request: [UInt8]) throws -> (variant: String?, payload: [UInt8]) {
+        let resp = try roundTrip(service: service, op: op, request: request)
+        return (resp.variant, resp.payload)
+    }
+
+    private func roundTrip(service: String, op: String, request: [UInt8]) throws -> RpcResponse {
         // The library builds the envelope (tag-24 payload, canonical CBOR); never hand-roll it.
         let envelope = RpcRequest(service: service, op: op, payload: request).encode()
         let mount = baseURL.hasSuffix("/") ? baseURL + "csil/v1/rpc" : baseURL + "/csil/v1/rpc"
@@ -68,7 +77,7 @@ struct HttpRpcCarrier: CsilTransport {
         // transport status (distinct from a typed application error).
         let resp = try RpcResponse.decode(try outcome.get())
         if let err = resp.asTransportError() { throw err }
-        return try resolveRpcReply(service: service, op: op, variant: resp.variant, payload: resp.payload)
+        return resp
     }
 }
 
@@ -237,7 +246,8 @@ func main() throws {
     // Fire-and-forget: encode the `->` request and send it. seq 0 marks an unsequenced
     // datagram.
     let req: CompleteRequest = CompleteRequest(encryptedToken: "example")
-    try carrier.sendDatagram(Datagram(opOrd: opOrd, seq: 0, payload: req.toCbor()).encode())
+    let payload = try req.toCbor()
+    try carrier.sendDatagram(Datagram(opOrd: opOrd, seq: 0, payload: payload).encode())
 
     // Recv path: a datagram of the RESPONSE type MAY arrive later — or never. There is NO
     // synchronous response; the caller must tolerate loss and reordering and handle a reply

@@ -14,22 +14,27 @@ public final class DelegationClient {
     }
 
     public DelegationList listGranted(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeDelegationList(transport.call("DelegationService", "list-granted", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("DelegationService", "list-granted", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeDelegationList(CsilCbor.resolveRpcReply("DelegationService", "list-granted", reply.variant(), reply.payload()));
     }
 
     public DelegationList listReceived(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeDelegationList(transport.call("DelegationService", "list-received", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("DelegationService", "list-received", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeDelegationList(CsilCbor.resolveRpcReply("DelegationService", "list-received", reply.variant(), reply.payload()));
     }
 
     public Delegation createDelegation(Delegation req) throws ClientException {
-        return CsilCbor.decodeDelegation(transport.call("DelegationService", "create-delegation", CsilCbor.encodeDelegation(req)));
+        WireReply reply = transport.callReply("DelegationService", "create-delegation", CsilCbor.encodeDelegation(req));
+        return CsilCbor.decodeDelegation(CsilCbor.resolveRpcReply("DelegationService", "create-delegation", reply.variant(), reply.payload()));
     }
 
     public Delegation updateDelegation(Delegation req) throws ClientException {
-        return CsilCbor.decodeDelegation(transport.call("DelegationService", "update-delegation", CsilCbor.encodeDelegation(req)));
+        WireReply reply = transport.callReply("DelegationService", "update-delegation", CsilCbor.encodeDelegation(req));
+        return CsilCbor.decodeDelegation(CsilCbor.resolveRpcReply("DelegationService", "update-delegation", reply.variant(), reply.payload()));
     }
 
     public EmptyResponse revokeDelegation(DelegationId req) throws ClientException {
-        return CsilCbor.decodeEmptyResponse(transport.call("DelegationService", "revoke-delegation", CsilCbor.encodeDelegationRevokeDelegationRequest(req)));
+        WireReply reply = transport.callReply("DelegationService", "revoke-delegation", CsilCbor.encodeDelegationRevokeDelegationRequest(req));
+        return CsilCbor.decodeEmptyResponse(CsilCbor.resolveRpcReply("DelegationService", "revoke-delegation", reply.variant(), reply.payload()));
     }
 }

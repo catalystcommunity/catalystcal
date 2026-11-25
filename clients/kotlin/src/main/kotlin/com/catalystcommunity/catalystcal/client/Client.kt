@@ -21,40 +21,57 @@ class ClientError(
  */
 interface Transport {
     fun call(service: String, op: String, request: ByteArray): ByteArray
+
+    /**
+     * Performs a call to an op with several reply arms and returns the reply variant
+     * with the payload bytes. The client selects the arm from the variant, so the
+     * carrier must not drop it.
+     */
+    fun callReply(service: String, op: String, request: ByteArray): WireReply
 }
 
 /** Typed client for the AuthService service. The client owns (de)serialization;
  * the carrier only moves bytes. */
 class AuthClient(private val transport: Transport) {
     fun complete(request: CompleteRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "complete", encode(request)))
+        val reply = transport.callReply("AuthService", "complete", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "complete", reply.variant, reply.payload))
     }
     fun resumeSession(request: EmptyRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "resume-session", encode(request)))
+        val reply = transport.callReply("AuthService", "resume-session", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "resume-session", reply.variant, reply.payload))
     }
     fun endSession(request: EmptyRequest): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("AuthService", "end-session", encode(request)))
+        val reply = transport.callReply("AuthService", "end-session", encode(request))
+        return decode<EmptyResponse>(resolveRpcReply("AuthService", "end-session", reply.variant, reply.payload))
     }
     fun me(request: EmptyRequest): MeResponse {
-        return decode<MeResponse>(transport.call("AuthService", "me", encode(request)))
+        val reply = transport.callReply("AuthService", "me", encode(request))
+        return decode<MeResponse>(resolveRpcReply("AuthService", "me", reply.variant, reply.payload))
     }
     fun assumePrincipal(request: AssumePrincipalRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "assume-principal", encode(request)))
+        val reply = transport.callReply("AuthService", "assume-principal", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "assume-principal", reply.variant, reply.payload))
     }
     fun releasePrincipal(request: EmptyRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "release-principal", encode(request)))
+        val reply = transport.callReply("AuthService", "release-principal", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "release-principal", reply.variant, reply.payload))
     }
     fun exchangeActAsCredential(request: ExchangeActAsCredentialRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "exchange-act-as-credential", encode(request)))
+        val reply = transport.callReply("AuthService", "exchange-act-as-credential", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "exchange-act-as-credential", reply.variant, reply.payload))
     }
     fun getActAsScopeSet(request: ScopeSetRequest): ScopeSetResponse {
-        return decode<ScopeSetResponse>(transport.call("AuthService", "get-act-as-scope-set", encode(request)))
+        val reply = transport.callReply("AuthService", "get-act-as-scope-set", encode(request))
+        return decode<ScopeSetResponse>(resolveRpcReply("AuthService", "get-act-as-scope-set", reply.variant, reply.payload))
     }
     fun getApplicationIdentity(request: EmptyRequest): ApplicationIdentityResponse {
-        return decode<ApplicationIdentityResponse>(transport.call("AuthService", "get-application-identity", encode(request)))
+        val reply = transport.callReply("AuthService", "get-application-identity", encode(request))
+        return decode<ApplicationIdentityResponse>(resolveRpcReply("AuthService", "get-application-identity", reply.variant, reply.payload))
     }
     fun exchangeApplicationPresentation(request: ExchangeApplicationPresentationRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("AuthService", "exchange-application-presentation", encode(request)))
+        val reply = transport.callReply("AuthService", "exchange-application-presentation", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("AuthService", "exchange-application-presentation", reply.variant, reply.payload))
     }
 }
 
@@ -62,10 +79,12 @@ class AuthClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class DevAuthClient(private val transport: Transport) {
     fun listDevUsers(request: EmptyRequest): DevUsersResponse {
-        return decode<DevUsersResponse>(transport.call("DevAuthService", "list-dev-users", encode(request)))
+        val reply = transport.callReply("DevAuthService", "list-dev-users", encode(request))
+        return decode<DevUsersResponse>(resolveRpcReply("DevAuthService", "list-dev-users", reply.variant, reply.payload))
     }
     fun devLogin(request: DevLoginRequest): LoginResponse {
-        return decode<LoginResponse>(transport.call("DevAuthService", "dev-login", encode(request)))
+        val reply = transport.callReply("DevAuthService", "dev-login", encode(request))
+        return decode<LoginResponse>(resolveRpcReply("DevAuthService", "dev-login", reply.variant, reply.payload))
     }
 }
 
@@ -73,13 +92,16 @@ class DevAuthClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class UserClient(private val transport: Transport) {
     fun getProfile(request: EmptyRequest): User {
-        return decode<User>(transport.call("UserService", "get-profile", encode(request)))
+        val reply = transport.callReply("UserService", "get-profile", encode(request))
+        return decode<User>(resolveRpcReply("UserService", "get-profile", reply.variant, reply.payload))
     }
     fun updateProfile(request: UpdateProfileRequest): User {
-        return decode<User>(transport.call("UserService", "update-profile", encode(request)))
+        val reply = transport.callReply("UserService", "update-profile", encode(request))
+        return decode<User>(resolveRpcReply("UserService", "update-profile", reply.variant, reply.payload))
     }
     fun lookupPerson(request: LookupPersonRequest): PersonSummary {
-        return decode<PersonSummary>(transport.call("UserService", "lookup-person", encode(request)))
+        val reply = transport.callReply("UserService", "lookup-person", encode(request))
+        return decode<PersonSummary>(resolveRpcReply("UserService", "lookup-person", reply.variant, reply.payload))
     }
 }
 
@@ -87,28 +109,36 @@ class UserClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class CalendarClient(private val transport: Transport) {
     fun listCalendars(request: EmptyRequest): CalendarList {
-        return decode<CalendarList>(transport.call("CalendarService", "list-calendars", encode(request)))
+        val reply = transport.callReply("CalendarService", "list-calendars", encode(request))
+        return decode<CalendarList>(resolveRpcReply("CalendarService", "list-calendars", reply.variant, reply.payload))
     }
     fun getCalendar(request: CalendarID): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "get-calendar", encodeCalendarGetCalendarRequest(request)))
+        val reply = transport.callReply("CalendarService", "get-calendar", encodeCalendarGetCalendarRequest(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "get-calendar", reply.variant, reply.payload))
     }
     fun createCalendar(request: CreateCalendarRequest): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "create-calendar", encode(request)))
+        val reply = transport.callReply("CalendarService", "create-calendar", encode(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "create-calendar", reply.variant, reply.payload))
     }
     fun updateCalendar(request: UpdateCalendarRequest): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "update-calendar", encode(request)))
+        val reply = transport.callReply("CalendarService", "update-calendar", encode(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "update-calendar", reply.variant, reply.payload))
     }
     fun deleteCalendar(request: CalendarID): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("CalendarService", "delete-calendar", encodeCalendarDeleteCalendarRequest(request)))
+        val reply = transport.callReply("CalendarService", "delete-calendar", encodeCalendarDeleteCalendarRequest(request))
+        return decode<EmptyResponse>(resolveRpcReply("CalendarService", "delete-calendar", reply.variant, reply.payload))
     }
     fun subscribeCalendar(request: SubscribeCalendarRequest): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "subscribe-calendar", encode(request)))
+        val reply = transport.callReply("CalendarService", "subscribe-calendar", encode(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "subscribe-calendar", reply.variant, reply.payload))
     }
     fun refreshSubscription(request: CalendarID): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "refresh-subscription", encodeCalendarRefreshSubscriptionRequest(request)))
+        val reply = transport.callReply("CalendarService", "refresh-subscription", encodeCalendarRefreshSubscriptionRequest(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "refresh-subscription", reply.variant, reply.payload))
     }
     fun setFeed(request: SetFeedRequest): Calendar {
-        return decode<Calendar>(transport.call("CalendarService", "set-feed", encode(request)))
+        val reply = transport.callReply("CalendarService", "set-feed", encode(request))
+        return decode<Calendar>(resolveRpcReply("CalendarService", "set-feed", reply.variant, reply.payload))
     }
 }
 
@@ -116,13 +146,16 @@ class CalendarClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class ShareClient(private val transport: Transport) {
     fun listShares(request: CalendarID): ShareList {
-        return decode<ShareList>(transport.call("ShareService", "list-shares", encodeShareListSharesRequest(request)))
+        val reply = transport.callReply("ShareService", "list-shares", encodeShareListSharesRequest(request))
+        return decode<ShareList>(resolveRpcReply("ShareService", "list-shares", reply.variant, reply.payload))
     }
     fun putShare(request: Share): Share {
-        return decode<Share>(transport.call("ShareService", "put-share", encode(request)))
+        val reply = transport.callReply("ShareService", "put-share", encode(request))
+        return decode<Share>(resolveRpcReply("ShareService", "put-share", reply.variant, reply.payload))
     }
     fun deleteShare(request: ShareID): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("ShareService", "delete-share", encodeShareDeleteShareRequest(request)))
+        val reply = transport.callReply("ShareService", "delete-share", encodeShareDeleteShareRequest(request))
+        return decode<EmptyResponse>(resolveRpcReply("ShareService", "delete-share", reply.variant, reply.payload))
     }
 }
 
@@ -130,22 +163,28 @@ class ShareClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class GroupClient(private val transport: Transport) {
     fun listGroups(request: EmptyRequest): GroupList {
-        return decode<GroupList>(transport.call("GroupService", "list-groups", encode(request)))
+        val reply = transport.callReply("GroupService", "list-groups", encode(request))
+        return decode<GroupList>(resolveRpcReply("GroupService", "list-groups", reply.variant, reply.payload))
     }
     fun getGroup(request: GroupID): Group {
-        return decode<Group>(transport.call("GroupService", "get-group", encodeGroupGetGroupRequest(request)))
+        val reply = transport.callReply("GroupService", "get-group", encodeGroupGetGroupRequest(request))
+        return decode<Group>(resolveRpcReply("GroupService", "get-group", reply.variant, reply.payload))
     }
     fun createGroup(request: CreateGroupRequest): Group {
-        return decode<Group>(transport.call("GroupService", "create-group", encode(request)))
+        val reply = transport.callReply("GroupService", "create-group", encode(request))
+        return decode<Group>(resolveRpcReply("GroupService", "create-group", reply.variant, reply.payload))
     }
     fun updateGroup(request: UpdateGroupRequest): Group {
-        return decode<Group>(transport.call("GroupService", "update-group", encode(request)))
+        val reply = transport.callReply("GroupService", "update-group", encode(request))
+        return decode<Group>(resolveRpcReply("GroupService", "update-group", reply.variant, reply.payload))
     }
     fun setMembers(request: SetGroupMembersRequest): Group {
-        return decode<Group>(transport.call("GroupService", "set-members", encode(request)))
+        val reply = transport.callReply("GroupService", "set-members", encode(request))
+        return decode<Group>(resolveRpcReply("GroupService", "set-members", reply.variant, reply.payload))
     }
     fun deleteGroup(request: GroupID): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("GroupService", "delete-group", encodeGroupDeleteGroupRequest(request)))
+        val reply = transport.callReply("GroupService", "delete-group", encodeGroupDeleteGroupRequest(request))
+        return decode<EmptyResponse>(resolveRpcReply("GroupService", "delete-group", reply.variant, reply.payload))
     }
 }
 
@@ -153,19 +192,24 @@ class GroupClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class DelegationClient(private val transport: Transport) {
     fun listGranted(request: EmptyRequest): DelegationList {
-        return decode<DelegationList>(transport.call("DelegationService", "list-granted", encode(request)))
+        val reply = transport.callReply("DelegationService", "list-granted", encode(request))
+        return decode<DelegationList>(resolveRpcReply("DelegationService", "list-granted", reply.variant, reply.payload))
     }
     fun listReceived(request: EmptyRequest): DelegationList {
-        return decode<DelegationList>(transport.call("DelegationService", "list-received", encode(request)))
+        val reply = transport.callReply("DelegationService", "list-received", encode(request))
+        return decode<DelegationList>(resolveRpcReply("DelegationService", "list-received", reply.variant, reply.payload))
     }
     fun createDelegation(request: Delegation): Delegation {
-        return decode<Delegation>(transport.call("DelegationService", "create-delegation", encode(request)))
+        val reply = transport.callReply("DelegationService", "create-delegation", encode(request))
+        return decode<Delegation>(resolveRpcReply("DelegationService", "create-delegation", reply.variant, reply.payload))
     }
     fun updateDelegation(request: Delegation): Delegation {
-        return decode<Delegation>(transport.call("DelegationService", "update-delegation", encode(request)))
+        val reply = transport.callReply("DelegationService", "update-delegation", encode(request))
+        return decode<Delegation>(resolveRpcReply("DelegationService", "update-delegation", reply.variant, reply.payload))
     }
     fun revokeDelegation(request: DelegationID): EmptyResponse {
-        return decode<EmptyResponse>(transport.call("DelegationService", "revoke-delegation", encodeDelegationRevokeDelegationRequest(request)))
+        val reply = transport.callReply("DelegationService", "revoke-delegation", encodeDelegationRevokeDelegationRequest(request))
+        return decode<EmptyResponse>(resolveRpcReply("DelegationService", "revoke-delegation", reply.variant, reply.payload))
     }
 }
 
@@ -173,55 +217,72 @@ class DelegationClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class EventClient(private val transport: Transport) {
     fun listEvents(request: ListEventsRequest): OccurrenceList {
-        return decode<OccurrenceList>(transport.call("EventService", "list-events", encode(request)))
+        val reply = transport.callReply("EventService", "list-events", encode(request))
+        return decode<OccurrenceList>(resolveRpcReply("EventService", "list-events", reply.variant, reply.payload))
     }
     fun getEvent(request: EventID): Event {
-        return decode<Event>(transport.call("EventService", "get-event", encodeEventGetEventRequest(request)))
+        val reply = transport.callReply("EventService", "get-event", encodeEventGetEventRequest(request))
+        return decode<Event>(resolveRpcReply("EventService", "get-event", reply.variant, reply.payload))
     }
     fun getOccurrence(request: GetOccurrenceRequest): Occurrence {
-        return decode<Occurrence>(transport.call("EventService", "get-occurrence", encode(request)))
+        val reply = transport.callReply("EventService", "get-occurrence", encode(request))
+        return decode<Occurrence>(resolveRpcReply("EventService", "get-occurrence", reply.variant, reply.payload))
     }
     fun createEvent(request: Event): Event {
-        return decode<Event>(transport.call("EventService", "create-event", encode(request)))
+        val reply = transport.callReply("EventService", "create-event", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "create-event", reply.variant, reply.payload))
     }
     fun updateEvent(request: UpdateEventRequest): Event {
-        return decode<Event>(transport.call("EventService", "update-event", encode(request)))
+        val reply = transport.callReply("EventService", "update-event", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "update-event", reply.variant, reply.payload))
     }
     fun deleteEvent(request: DeleteEventRequest): DeleteEventResponse {
-        return decode<DeleteEventResponse>(transport.call("EventService", "delete-event", encode(request)))
+        val reply = transport.callReply("EventService", "delete-event", encode(request))
+        return decode<DeleteEventResponse>(resolveRpcReply("EventService", "delete-event", reply.variant, reply.payload))
     }
     fun moveEvent(request: MoveEventRequest): Event {
-        return decode<Event>(transport.call("EventService", "move-event", encode(request)))
+        val reply = transport.callReply("EventService", "move-event", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "move-event", reply.variant, reply.payload))
     }
     fun respond(request: RespondRequest): Event {
-        return decode<Event>(transport.call("EventService", "respond", encode(request)))
+        val reply = transport.callReply("EventService", "respond", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "respond", reply.variant, reply.payload))
     }
     fun listInvitations(request: EmptyRequest): EventList {
-        return decode<EventList>(transport.call("EventService", "list-invitations", encode(request)))
+        val reply = transport.callReply("EventService", "list-invitations", encode(request))
+        return decode<EventList>(resolveRpcReply("EventService", "list-invitations", reply.variant, reply.payload))
     }
     fun searchEvents(request: SearchEventsRequest): EventList {
-        return decode<EventList>(transport.call("EventService", "search-events", encode(request)))
+        val reply = transport.callReply("EventService", "search-events", encode(request))
+        return decode<EventList>(resolveRpcReply("EventService", "search-events", reply.variant, reply.payload))
     }
     fun listTrash(request: ListTrashRequest): TrashList {
-        return decode<TrashList>(transport.call("EventService", "list-trash", encode(request)))
+        val reply = transport.callReply("EventService", "list-trash", encode(request))
+        return decode<TrashList>(resolveRpcReply("EventService", "list-trash", reply.variant, reply.payload))
     }
     fun restoreEvent(request: RestoreEventRequest): Event {
-        return decode<Event>(transport.call("EventService", "restore-event", encode(request)))
+        val reply = transport.callReply("EventService", "restore-event", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "restore-event", reply.variant, reply.payload))
     }
     fun importEvent(request: ImportEventRequest): Event {
-        return decode<Event>(transport.call("EventService", "import-event", encode(request)))
+        val reply = transport.callReply("EventService", "import-event", encode(request))
+        return decode<Event>(resolveRpcReply("EventService", "import-event", reply.variant, reply.payload))
     }
     fun createEventOnce(request: CreateEventOnceRequest): CreateEventReceipt {
-        return decode<CreateEventReceipt>(transport.call("EventService", "create-event-once", encode(request)))
+        val reply = transport.callReply("EventService", "create-event-once", encode(request))
+        return decode<CreateEventReceipt>(resolveRpcReply("EventService", "create-event-once", reply.variant, reply.payload))
     }
     fun getCreateReceipt(request: CreateReceiptRequest): CreateEventReceipt {
-        return decode<CreateEventReceipt>(transport.call("EventService", "get-create-receipt", encode(request)))
+        val reply = transport.callReply("EventService", "get-create-receipt", encode(request))
+        return decode<CreateEventReceipt>(resolveRpcReply("EventService", "get-create-receipt", reply.variant, reply.payload))
     }
     fun splitSeriesOnce(request: SplitSeriesOnceRequest): SplitSeriesReceipt {
-        return decode<SplitSeriesReceipt>(transport.call("EventService", "split-series-once", encode(request)))
+        val reply = transport.callReply("EventService", "split-series-once", encode(request))
+        return decode<SplitSeriesReceipt>(resolveRpcReply("EventService", "split-series-once", reply.variant, reply.payload))
     }
     fun getSplitReceipt(request: SplitReceiptRequest): SplitSeriesReceipt {
-        return decode<SplitSeriesReceipt>(transport.call("EventService", "get-split-receipt", encode(request)))
+        val reply = transport.callReply("EventService", "get-split-receipt", encode(request))
+        return decode<SplitSeriesReceipt>(resolveRpcReply("EventService", "get-split-receipt", reply.variant, reply.payload))
     }
 }
 
@@ -229,7 +290,8 @@ class EventClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class FreeBusyClient(private val transport: Transport) {
     fun query(request: FreeBusyRequest): FreeBusyResponse {
-        return decode<FreeBusyResponse>(transport.call("FreeBusyService", "query", encode(request)))
+        val reply = transport.callReply("FreeBusyService", "query", encode(request))
+        return decode<FreeBusyResponse>(resolveRpcReply("FreeBusyService", "query", reply.variant, reply.payload))
     }
 }
 
@@ -237,13 +299,16 @@ class FreeBusyClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class IcsClient(private val transport: Transport) {
     fun importIcs(request: ImportIcsRequest): ImportResult {
-        return decode<ImportResult>(transport.call("IcsService", "import-ics", encode(request)))
+        val reply = transport.callReply("IcsService", "import-ics", encode(request))
+        return decode<ImportResult>(resolveRpcReply("IcsService", "import-ics", reply.variant, reply.payload))
     }
     fun exportCalendar(request: ExportCalendarRequest): IcsDocument {
-        return decode<IcsDocument>(transport.call("IcsService", "export-calendar", encode(request)))
+        val reply = transport.callReply("IcsService", "export-calendar", encode(request))
+        return decode<IcsDocument>(resolveRpcReply("IcsService", "export-calendar", reply.variant, reply.payload))
     }
     fun exportEvent(request: ExportEventRequest): IcsDocument {
-        return decode<IcsDocument>(transport.call("IcsService", "export-event", encode(request)))
+        val reply = transport.callReply("IcsService", "export-event", encode(request))
+        return decode<IcsDocument>(resolveRpcReply("IcsService", "export-event", reply.variant, reply.payload))
     }
 }
 
@@ -251,7 +316,8 @@ class IcsClient(private val transport: Transport) {
  * the carrier only moves bytes. */
 class AuditClient(private val transport: Transport) {
     fun listAudit(request: AuditQuery): AuditList {
-        return decode<AuditList>(transport.call("AuditService", "list-audit", encode(request)))
+        val reply = transport.callReply("AuditService", "list-audit", encode(request))
+        return decode<AuditList>(resolveRpcReply("AuditService", "list-audit", reply.variant, reply.payload))
     }
 }
 

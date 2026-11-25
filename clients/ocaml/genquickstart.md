@@ -28,6 +28,10 @@ Request/response. The library owns the envelope (`Rpc.encode_request`/
 HTTP carrier below is just one example — swap it for any HTTP client (it
 implements the generated `Client` byte seam).
 
+Some operations here have more than one reply arm, so the carrier also supplies
+`call_reply`, which returns the envelope `variant` with the payload. The generated
+client uses it to return the success value or the typed error arm.
+
 ```ocaml
 open Catalystcal_client
 open Csilgen_transport
@@ -86,8 +90,8 @@ let http_post ~(base_url : string) ~(path : string) ~(body : bytes) :
          with End_of_file -> ());
         Ok (status, Buffer.to_bytes buf))
 
-(* The generated client's transport seam. *)
-let csil_rpc_call base_url ~service ~op ~(payload : bytes) : (bytes, string) result =
+(* One CSIL-RPC exchange; a non-zero transport status is an [Error]. *)
+let csil_rpc_exchange base_url ~service ~op ~(payload : bytes) : (Rpc.response, string) result =
   (* Encode the request with the library's RPC envelope (never hand-rolled). *)
   let req = Rpc.new_request service op payload in
   match http_post ~base_url ~path:"/csil/v1/rpc" ~body:(Rpc.encode_request req) with
@@ -101,12 +105,26 @@ let csil_rpc_call base_url ~service ~op ~(payload : bytes) : (bytes, string) res
       (* A non-zero transport status is a transport failure: no typed payload. *)
       match Rpc.as_transport_error resp with
       | Some err -> Error (Conventions.error_message err)
-      | None -> Ok (Codec.resolve_rpc_reply ~service ~op ~variant:resp.Rpc.variant resp.Rpc.payload)))
+      | None -> Ok resp))
+
+(* The generated client's transport seam. *)
+let csil_rpc_call base_url ~service ~op ~(payload : bytes) : (bytes, string) result =
+  Result.map (fun (resp : Rpc.response) -> resp.payload) (csil_rpc_exchange base_url ~service ~op ~payload)
+
+(* Multi-arm operations use this seam: the client needs the reply variant to pick
+   the success value or the typed error arm. *)
+let csil_rpc_call_reply base_url ~service ~op ~(payload : bytes) :
+    (string option * bytes, string) result =
+  Result.map
+    (fun (resp : Rpc.response) -> (resp.variant, resp.payload))
+    (csil_rpc_exchange base_url ~service ~op ~payload)
 
 (* Build the typed client over the carrier; change the base URL to your server. *)
 let make_rpc_client base_url =
-  Client.make_client ~call:(fun ~service ~op ~payload ->
-      csil_rpc_call base_url ~service ~op ~payload)
+  Client.make_client
+    ~call:(fun ~service ~op ~payload -> csil_rpc_call base_url ~service ~op ~payload)
+    ~call_reply:(fun ~service ~op ~payload ->
+      csil_rpc_call_reply base_url ~service ~op ~payload)
 
 let () =
   let client = make_rpc_client "http://localhost:5080" in

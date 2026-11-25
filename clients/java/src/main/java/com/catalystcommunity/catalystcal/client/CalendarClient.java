@@ -14,34 +14,42 @@ public final class CalendarClient {
     }
 
     public CalendarList listCalendars(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeCalendarList(transport.call("CalendarService", "list-calendars", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "list-calendars", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeCalendarList(CsilCbor.resolveRpcReply("CalendarService", "list-calendars", reply.variant(), reply.payload()));
     }
 
     public Calendar getCalendar(CalendarId req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "get-calendar", CsilCbor.encodeCalendarGetCalendarRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "get-calendar", CsilCbor.encodeCalendarGetCalendarRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "get-calendar", reply.variant(), reply.payload()));
     }
 
     public Calendar createCalendar(CreateCalendarRequest req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "create-calendar", CsilCbor.encodeCreateCalendarRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "create-calendar", CsilCbor.encodeCreateCalendarRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "create-calendar", reply.variant(), reply.payload()));
     }
 
     public Calendar updateCalendar(UpdateCalendarRequest req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "update-calendar", CsilCbor.encodeUpdateCalendarRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "update-calendar", CsilCbor.encodeUpdateCalendarRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "update-calendar", reply.variant(), reply.payload()));
     }
 
     public EmptyResponse deleteCalendar(CalendarId req) throws ClientException {
-        return CsilCbor.decodeEmptyResponse(transport.call("CalendarService", "delete-calendar", CsilCbor.encodeCalendarDeleteCalendarRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "delete-calendar", CsilCbor.encodeCalendarDeleteCalendarRequest(req));
+        return CsilCbor.decodeEmptyResponse(CsilCbor.resolveRpcReply("CalendarService", "delete-calendar", reply.variant(), reply.payload()));
     }
 
     public Calendar subscribeCalendar(SubscribeCalendarRequest req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "subscribe-calendar", CsilCbor.encodeSubscribeCalendarRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "subscribe-calendar", CsilCbor.encodeSubscribeCalendarRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "subscribe-calendar", reply.variant(), reply.payload()));
     }
 
     public Calendar refreshSubscription(CalendarId req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "refresh-subscription", CsilCbor.encodeCalendarRefreshSubscriptionRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "refresh-subscription", CsilCbor.encodeCalendarRefreshSubscriptionRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "refresh-subscription", reply.variant(), reply.payload()));
     }
 
     public Calendar setFeed(SetFeedRequest req) throws ClientException {
-        return CsilCbor.decodeCalendar(transport.call("CalendarService", "set-feed", CsilCbor.encodeSetFeedRequest(req)));
+        WireReply reply = transport.callReply("CalendarService", "set-feed", CsilCbor.encodeSetFeedRequest(req));
+        return CsilCbor.decodeCalendar(CsilCbor.resolveRpcReply("CalendarService", "set-feed", reply.variant(), reply.payload()));
     }
 }
