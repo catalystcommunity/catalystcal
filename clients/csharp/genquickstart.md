@@ -47,7 +47,15 @@ public sealed class HttpRpcCarrier : ICsilTransport, IDisposable
         _http = new HttpClient(handler);
     }
 
-    public byte[] Call(string service, string op, byte[] request)
+    public byte[] Call(string service, string op, byte[] request) => Exchange(service, op, request).Payload;
+
+    public CsilWireReply CallReply(string service, string op, byte[] request)
+    {
+        RpcResponse resp = Exchange(service, op, request);
+        return new CsilWireReply(resp.Variant, resp.Payload);
+    }
+
+    private RpcResponse Exchange(string service, string op, byte[] request)
     {
         // The library owns the envelope; hand it the already-encoded request bytes.
         byte[] envelope = new RpcRequest(service, op, request).Encode();
@@ -67,9 +75,7 @@ public sealed class HttpRpcCarrier : ICsilTransport, IDisposable
         RpcResponse resp = RpcResponse.Decode(body);
         if (resp.AsTransportError() is StatusException ex)
             throw ex;
-        // A typed application error rides as a status-0 "ServiceError" variant — distinct
-        // from a transport failure. Surface it so the typed client decodes success only.
-        return Codec.ResolveRpcReply(service, op, resp.Variant, resp.Payload);
+        return resp;
     }
 
     public void Dispose() => _http.Dispose();

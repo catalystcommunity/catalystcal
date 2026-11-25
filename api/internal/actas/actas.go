@@ -174,7 +174,7 @@ func (k AppKeys) Signers() ([]regularrp.ApplicationSigner, error) {
 		if sk.KeyID == "" {
 			return nil, errors.New("act-as signing key without key_id")
 		}
-		out = append(out, regularrp.ApplicationSigner{KeyID: sk.KeyID, Algorithm: "ed25519", PrivateKeyBytes: seed})
+		out = append(out, regularrp.ApplicationSigner{KeyID: sk.KeyID, Algorithm: regularrp.AlgorithmEd25519, PrivateKeyBytes: seed})
 	}
 	return out, nil
 }
@@ -238,14 +238,14 @@ func (v *Verifier) SignScopeSet(_ context.Context, req ScopeSetRequest) ([]byte,
 		}},
 		Entries:   entries,
 		Language:  &lang,
-		IssuedAt:  regularrp.FormatActAsTime(now),
-		ExpiresAt: regularrp.FormatActAsTime(now.Add(ttl)),
+		IssuedAt:  now.Truncate(time.Second),
+		ExpiresAt: now.Add(ttl).Truncate(time.Second),
 	}
 	signed, err := regularrp.SignScopeSet(set, v.InstanceID, v.Signers)
 	if err != nil {
 		return nil, err
 	}
-	return api.EncodeSignedActAsScopeSet(signed), nil
+	return api.EncodeSignedActAsScopeSet(signed)
 }
 
 // VerifyCredential implements Provider: the SDK's audience checklist plus
@@ -313,10 +313,6 @@ func (v *Verifier) VerifyCredential(ctx context.Context, raw []byte, knownRevoke
 	if err != nil {
 		return Verified{}, err
 	}
-	expires, err := time.Parse(time.RFC3339, verified.ExpiresAt)
-	if err != nil {
-		return Verified{}, fmt.Errorf("grant expires_at: %w", err)
-	}
 	return Verified{
 		GrantID:       verified.GrantID,
 		SubjectUserID: grant.UserId,
@@ -324,7 +320,7 @@ func (v *Verifier) VerifyCredential(ctx context.Context, raw []byte, knownRevoke
 		Application:   GranteeName(grant.Grantee),
 		Grantee:       GranteeKey(grant.Grantee),
 		Scopes:        MapScopes(verified.ApprovedScope),
-		ExpiresAt:     expires.UTC(),
+		ExpiresAt:     verified.ExpiresAt.UTC(),
 		Nonce:         hex.EncodeToString(verified.Nonce),
 	}, nil
 }

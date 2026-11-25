@@ -19,7 +19,9 @@ public abstract record CborValue
     public sealed record Text(string Value) : CborValue;
     public sealed record Bytes(byte[] Value) : CborValue;
     public sealed record Array(System.Collections.Generic.IReadOnlyList<CborValue> Items) : CborValue;
-    public sealed record Map(System.Collections.Generic.IReadOnlyList<(CborValue Key, CborValue Value)> Entries) : CborValue;
+    // Canonical is false when a decoded map's encoded keys were not strictly ascending
+    // bytewise (RFC 8949 section 4.2.1): a dynamic map rejects that, a record does not.
+    public sealed record Map(System.Collections.Generic.IReadOnlyList<(CborValue Key, CborValue Value)> Entries, bool Canonical = true) : CborValue;
     public sealed record Tag(ulong Number, CborValue Inner) : CborValue;
 }
 
@@ -187,6 +189,11 @@ public static partial class Cbor
                 case 21: csilPos += 1; return new CborValue.Bool(true);
                 case 22:
                 case 23: csilPos += 1; return new CborValue.Null();
+                case 25:
+                {
+                    var bits = ReadArg(b, ref csilPos, low);
+                    return new CborValue.Float((double)System.BitConverter.UInt16BitsToHalf((ushort)bits));
+                }
                 case 26:
                 {
                     var bits = ReadArg(b, ref csilPos, low);
@@ -241,13 +248,38 @@ public static partial class Cbor
                 if (arg > (ulong)(b.Length - csilPos)) { throw new CborException("map length exceeds remaining input"); }
                 var n = (int)arg;
                 var kvs = new System.Collections.Generic.List<(CborValue, CborValue)>(System.Math.Min(n, PreallocLimit));
+                // Each key is compared with the one before it as raw bytes, so the order
+                // check is O(n). Only a map out of order can repeat a key, so the set of
+                // seen keys is built only then.
+                var csilKeys = new System.Collections.Generic.List<(int Start, int Length)>(System.Math.Min(n, PreallocLimit));
+                System.Collections.Generic.HashSet<string>? csilSeen = null;
                 for (int csilI = 0; csilI < n; csilI++)
                 {
+                    var csilStart = csilPos;
                     var k = Dec(b, ref csilPos, csilDepth + 1);
+                    var csilKey = (Start: csilStart, Length: csilPos - csilStart);
+                    if (!ShortestHead(b, csilStart)) { throw new CborException("csil cbor: map key is not in shortest form"); }
+                    if (csilSeen == null && csilI > 0)
+                    {
+                        var csilPrev = csilKeys[csilI - 1];
+                        if (System.MemoryExtensions.SequenceCompareTo(new System.ReadOnlySpan<byte>(b, csilPrev.Start, csilPrev.Length), new System.ReadOnlySpan<byte>(b, csilKey.Start, csilKey.Length)) >= 0)
+                        {
+                            csilSeen = new System.Collections.Generic.HashSet<string>();
+                            foreach (var csilEarlier in csilKeys)
+                            {
+                                csilSeen.Add(System.Convert.ToHexString(b, csilEarlier.Start, csilEarlier.Length));
+                            }
+                        }
+                    }
+                    if (csilSeen != null && !csilSeen.Add(System.Convert.ToHexString(b, csilKey.Start, csilKey.Length)))
+                    {
+                        throw new CborException($"csil cbor: duplicate key {DescribeKey(k)}");
+                    }
+                    csilKeys.Add(csilKey);
                     var val = Dec(b, ref csilPos, csilDepth + 1);
                     kvs.Add((k, val));
                 }
-                return new CborValue.Map(kvs);
+                return new CborValue.Map(kvs, csilSeen == null);
             }
             case 6:
             {
@@ -331,6 +363,47 @@ public static partial class Cbor
     public static System.Collections.Generic.IReadOnlyList<(CborValue Key, CborValue Value)> AsMap(CborValue v) =>
         v is CborValue.Map x ? x.Entries : throw new CborException("expected map");
 
+    /// <summary>The entries of a dynamic map, which must arrive in canonical key order.</summary>
+    public static System.Collections.Generic.IReadOnlyList<(CborValue Key, CborValue Value)> AsDynamicMap(CborValue v) =>
+        v is CborValue.Map { Canonical: false }
+            ? throw new CborException("csil cbor: map keys are not in canonical order")
+            : AsMap(v);
+
+    /// <summary>The entries in canonical order: bytewise order of each key's encoding,
+    /// which is not the order of the .NET keys.</summary>
+    public static System.Collections.Generic.List<(CborValue, CborValue)> CanonicalEntries(
+        System.Collections.Generic.IEnumerable<(CborValue Key, CborValue Value)> entries) =>
+        entries
+            .Select(csilEntry => (Bytes: Encode(csilEntry.Key), Entry: csilEntry))
+            .OrderBy(csilEntry => csilEntry.Bytes, CsilKeyOrder.Instance)
+            .Select(csilEntry => ((CborValue)csilEntry.Entry.Key, csilEntry.Entry.Value))
+            .ToList();
+
+    sealed class CsilKeyOrder : System.Collections.Generic.IComparer<byte[]>
+    {
+        public static readonly CsilKeyOrder Instance = new();
+
+        public int Compare(byte[]? x, byte[]? y) =>
+            System.MemoryExtensions.SequenceCompareTo(new System.ReadOnlySpan<byte>(x), new System.ReadOnlySpan<byte>(y));
+    }
+
+    /// <summary>Whether the head at <paramref name="at"/> uses the shortest argument for
+    /// its value. A float head (major 7) carries no length, so it is not checked.</summary>
+    static bool ShortestHead(byte[] b, int at)
+    {
+        var major = b[at] >> 5;
+        var low = b[at] & 0x1f;
+        if (major == 7 || low < 24) { return true; }
+        var width = 1 << (low - 24);
+        ulong arg = 0;
+        for (int csilI = 1; csilI <= width; csilI++) { arg = (arg << 8) | b[at + csilI]; }
+        ulong floor = low == 24 ? 24UL : 1UL << (8 * (width / 2));
+        return arg >= floor;
+    }
+
+    static string DescribeKey(CborValue k) =>
+        k is CborValue.Text t ? $"\"{t.Value}\"" : System.Convert.ToHexString(Encode(k)).ToLowerInvariant();
+
     public static string AsTaggedText(CborValue v, ulong num) =>
         v is CborValue.Tag x && x.Number == num ? AsText(x.Inner) : throw new CborException("expected tagged text");
 }
@@ -346,15 +419,128 @@ public static partial class Cbor
 
 public static partial class Cbor
 {
-    public static CborValue EncTimestamp(System.DateTimeOffset value) =>
-        new CborValue.Tag(0, new CborValue.Text(
-            value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.FFFFFFF'Z'", System.Globalization.CultureInfo.InvariantCulture)));
+    public static CborValue EncTimestamp(System.DateTimeOffset value)
+    {
+        var u = value.UtcDateTime;
+        var b = new System.Text.StringBuilder(30);
+        TimestampDigits(b, u.Year, 4).Append('-');
+        TimestampDigits(b, u.Month, 2).Append('-');
+        TimestampDigits(b, u.Day, 2).Append('T');
+        TimestampDigits(b, u.Hour, 2).Append(':');
+        TimestampDigits(b, u.Minute, 2).Append(':');
+        TimestampDigits(b, u.Second, 2);
+        long nano = (u.Ticks % System.TimeSpan.TicksPerSecond) * 100;
+        if (nano != 0)
+        {
+            b.Append('.');
+            if (nano % 1_000_000 == 0) TimestampDigits(b, nano / 1_000_000, 3);
+            else if (nano % 1_000 == 0) TimestampDigits(b, nano / 1_000, 6);
+            else TimestampDigits(b, nano, 9);
+        }
+        b.Append('Z');
+        return new CborValue.Tag(0, new CborValue.Text(b.ToString()));
+    }
+
+    private static System.Text.StringBuilder TimestampDigits(System.Text.StringBuilder b, long value, int width)
+    {
+        var text = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return b.Append('0', System.Math.Max(0, width - text.Length)).Append(text);
+    }
 
     public static System.DateTimeOffset AsTimestamp(CborValue v) =>
-        System.DateTimeOffset.Parse(
-            AsTaggedText(v, 0),
-            System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal);
+        v is CborValue.Tag t && t.Number == 0 && t.Inner is CborValue.Text text
+            ? ParseTimestamp(text.Value)
+            : throw new CborException("expected CBOR tag 0 timestamp");
+
+    private static int TimestampField(string s, int at, int width)
+    {
+        if (at + width > s.Length) throw new CborException("invalid timestamp text");
+        int value = 0;
+        for (int i = at; i < at + width; i++)
+        {
+            char c = s[i];
+            if (c < '0' || c > '9') throw new CborException("invalid timestamp text");
+            value = value * 10 + (c - '0');
+        }
+        return value;
+    }
+
+    private static void TimestampSeparator(string s, int at, char a, char b)
+    {
+        if (at >= s.Length || (s[at] != a && s[at] != b)) throw new CborException("invalid timestamp text");
+    }
+
+    // Days since 0001-01-01 in the proleptic Gregorian calendar. Computed by hand so the
+    // offset is applied in tick arithmetic, where a result outside 0001-9999 UTC is a
+    // range check and not a DateTime constructor exception.
+    private static long TimestampDays(int year, int month, int day)
+    {
+        long y = month <= 2 ? year - 1 : year;
+        long era = (y >= 0 ? y : y - 399) / 400;
+        long yoe = y - era * 400;
+        long doy = (153 * (month > 2 ? month - 3 : month + 9) + 2) / 5 + day - 1;
+        long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+        return era * 146097 + doe - 306;
+    }
+
+    private static System.DateTimeOffset ParseTimestamp(string s)
+    {
+        int year = TimestampField(s, 0, 4);
+        TimestampSeparator(s, 4, '-', '-');
+        int month = TimestampField(s, 5, 2);
+        TimestampSeparator(s, 7, '-', '-');
+        int day = TimestampField(s, 8, 2);
+        TimestampSeparator(s, 10, 'T', 't');
+        int hour = TimestampField(s, 11, 2);
+        TimestampSeparator(s, 13, ':', ':');
+        int minute = TimestampField(s, 14, 2);
+        TimestampSeparator(s, 16, ':', ':');
+        int second = TimestampField(s, 17, 2);
+        bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+        int monthDays = month == 2 ? (leap ? 29 : 28) : (month == 4 || month == 6 || month == 9 || month == 11 ? 30 : 31);
+        if (year < 1 || month < 1 || month > 12 || day < 1 || day > monthDays || hour > 23 || minute > 59 || second > 59)
+            throw new CborException("invalid timestamp value");
+        int at = 19;
+        long fraction = 0;
+        if (at < s.Length && s[at] == '.')
+        {
+            int start = ++at;
+            while (at < s.Length && s[at] >= '0' && s[at] <= '9') at++;
+            int digits = at - start;
+            if (digits < 1 || digits > 9) throw new CborException("invalid timestamp fraction");
+            for (int i = start; i < start + 7; i++) fraction = fraction * 10 + (i < at ? s[i] - '0' : 0);
+            for (int i = start + 7; i < at; i++)
+                if (s[i] != '0') throw new CborException("timestamp fraction finer than 100 ns");
+        }
+        if (at >= s.Length) throw new CborException("timestamp has no offset");
+        char zone = s[at];
+        long offset;
+        if (zone == 'Z' || zone == 'z')
+        {
+            offset = 0;
+            at += 1;
+        }
+        else if (zone == '+' || zone == '-')
+        {
+            int offsetHour = TimestampField(s, at + 1, 2);
+            TimestampSeparator(s, at + 3, ':', ':');
+            int offsetMinute = TimestampField(s, at + 4, 2);
+            if (offsetHour > 23 || offsetMinute > 59) throw new CborException("invalid timestamp offset");
+            offset = (zone == '-' ? -1 : 1) * (offsetHour * 3600L + offsetMinute * 60L);
+            at += 6;
+        }
+        else
+        {
+            throw new CborException("invalid timestamp offset");
+        }
+        if (at != s.Length) throw new CborException("trailing timestamp text");
+        long seconds = TimestampDays(year, month, day) * 86_400L + hour * 3_600L + minute * 60L + second - offset;
+        long ticks = seconds * System.TimeSpan.TicksPerSecond + fraction;
+        // DateTime spans exactly 0001-01-01 through 9999-12-31 UTC, the contract's range.
+        if (ticks < 0 || ticks > System.DateTime.MaxValue.Ticks)
+            throw new CborException("timestamp year outside 0001-9999");
+        return new System.DateTimeOffset(ticks, System.TimeSpan.Zero);
+    }
 }
 
 /// <summary>The typed CBOR codec: encodes/decodes a generated record to and
@@ -632,22 +818,22 @@ public static class Codec
     /// <summary>The bare-literal CBOR value for a Scope.</summary>
     public static CborValue ScopeToCborValue(Scope value) => value switch
     {
-        Scope.Calendars.read => new CborValue.Text("calendars.read"),
-        Scope.Freebusy.read => new CborValue.Text("freebusy.read"),
-        Scope.Events.write => new CborValue.Text("events.write"),
-        Scope.Events.respond => new CborValue.Text("events.respond"),
-        Scope.Calendars.manage => new CborValue.Text("calendars.manage"),
+        Scope.CalendarsRead => new CborValue.Text("calendars.read"),
+        Scope.FreebusyRead => new CborValue.Text("freebusy.read"),
+        Scope.EventsWrite => new CborValue.Text("events.write"),
+        Scope.EventsRespond => new CborValue.Text("events.respond"),
+        Scope.CalendarsManage => new CborValue.Text("calendars.manage"),
         _ => throw new CborException("invalid Scope"),
     };
 
     /// <summary>Reconstruct a Scope from its bare-literal CBOR value.</summary>
     public static Scope ScopeFromCborValue(CborValue value) => Cbor.AsText(value) switch
     {
-        "calendars.read" => Scope.Calendars.read,
-        "freebusy.read" => Scope.Freebusy.read,
-        "events.write" => Scope.Events.write,
-        "events.respond" => Scope.Events.respond,
-        "calendars.manage" => Scope.Calendars.manage,
+        "calendars.read" => Scope.CalendarsRead,
+        "freebusy.read" => Scope.FreebusyRead,
+        "events.write" => Scope.EventsWrite,
+        "events.respond" => Scope.EventsRespond,
+        "calendars.manage" => Scope.CalendarsManage,
         _ => throw new CborException("invalid Scope value"),
     };
 

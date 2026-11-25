@@ -22,6 +22,8 @@ defmodule Csilgen.Generated.Cbor do
           | {:bytes, binary()}
           | {:array, [value()]}
           | {:map, [{value(), value()}]}
+          | {:dynamic_map, [{value(), value()}]}
+          | {:unordered_map, [{value(), value()}]}
           | {:tag, non_neg_integer(), value()}
 
   @doc "Encodes a CBOR value tree to canonical bytes."
@@ -40,6 +42,20 @@ defmodule Csilgen.Generated.Cbor do
 
   defp enc({:map, kvs}),
     do: [head(5, length(kvs)) | Enum.map(kvs, fn {k, v} -> [enc(k), enc(v)] end)]
+
+  # A decoded map that is not in canonical order goes back out as it came in.
+  defp enc({:unordered_map, kvs}), do: enc({:map, kvs})
+
+  # A dynamic map sorts by the bytes of each encoded key (RFC 8949 section 4.2.1).
+  # Binary term order is bytewise with a shorter prefix first, so it is that order.
+  defp enc({:dynamic_map, kvs}) do
+    entries =
+      kvs
+      |> Enum.map(fn {k, v} -> {IO.iodata_to_binary(enc(k)), enc(v)} end)
+      |> Enum.sort_by(&elem(&1, 0))
+
+    [head(5, length(entries)) | Enum.map(entries, fn {k, v} -> [k, v] end)]
+  end
 
   defp enc({:tag, t, v}), do: [head(6, t), enc(v)]
 
@@ -71,11 +87,18 @@ defmodule Csilgen.Generated.Cbor do
   defp dec(<<7::size(3), low::size(5), rest::binary>>, _depth) when low in [22, 23],
     do: {:null, rest}
 
+  defp dec(<<7::size(3), 25::size(5), f::float-size(16), rest::binary>>, _depth),
+    do: {{:float, f}, rest}
+
   defp dec(<<7::size(3), 26::size(5), f::float-size(32), rest::binary>>, _depth),
     do: {{:float, f}, rest}
 
   defp dec(<<7::size(3), 27::size(5), f::float-size(64), rest::binary>>, _depth),
     do: {{:float, f}, rest}
+
+  # A float pattern does not match NaN or an infinity, which the BEAM cannot hold.
+  defp dec(<<7::size(3), low::size(5), _::binary>>, _depth) when low in [25, 26, 27],
+    do: raise(ArgumentError, "csilgen: non-finite or truncated float")
 
   defp dec(<<major::size(3), low::size(5), rest::binary>>, depth) do
     {arg, rest} = read_arg(low, rest)
@@ -102,7 +125,7 @@ defmodule Csilgen.Generated.Cbor do
 
       5 ->
         if arg > byte_size(rest), do: raise("csilgen: map length exceeds remaining input")
-        dec_map(arg, rest, [], depth + 1)
+        dec_map(arg, rest, [], [], true, depth + 1)
 
       6 ->
         {inner, r} = dec(rest, depth + 1)
@@ -123,13 +146,73 @@ defmodule Csilgen.Generated.Cbor do
     dec_array(n - 1, r, [v | acc], depth)
   end
 
-  defp dec_map(0, rest, acc, _depth), do: {{:map, Enum.reverse(acc)}, rest}
+  # A map whose raw keys are strictly ascending is `:map`. Any other map is
+  # `:unordered_map`, which a record accepts and a dynamic map refuses, so the
+  # order is checked here once, against the previous key only.
+  defp dec_map(0, rest, acc, _raws, true, _depth), do: {{:map, Enum.reverse(acc)}, rest}
 
-  defp dec_map(n, rest, acc, depth) do
-    {k, r1} = dec(rest, depth)
-    {v, r2} = dec(r1, depth)
-    dec_map(n - 1, r2, [{k, v} | acc], depth)
+  defp dec_map(0, rest, acc, raws, false, _depth) do
+    unique_keys!(raws, MapSet.new())
+    {{:unordered_map, Enum.reverse(acc)}, rest}
   end
+
+  defp dec_map(n, rest, acc, raws, ordered, depth) do
+    {k, r1} = dec(rest, depth)
+    raw = binary_part(rest, 0, byte_size(rest) - byte_size(r1))
+    shortest_key!(raw)
+    {v, r2} = dec(r1, depth)
+    ordered = ordered and (raws == [] or hd(raws) < raw)
+    dec_map(n - 1, r2, [{k, v} | acc], [raw | raws], ordered, depth)
+  end
+
+  # Map key order compares raw bytes, so a key must have one byte form: its head
+  # carries its argument in the fewest bytes. Major type 7 heads are floats and
+  # simple values, which have their own encoding rules.
+  defp shortest_key!(<<major::size(3), 24::size(5), n::size(8), _::binary>>)
+       when major != 7 and n < 24,
+       do: long_key!()
+
+  defp shortest_key!(<<major::size(3), 25::size(5), n::size(16), _::binary>>)
+       when major != 7 and n < 0x100,
+       do: long_key!()
+
+  defp shortest_key!(<<major::size(3), 26::size(5), n::size(32), _::binary>>)
+       when major != 7 and n < 0x10000,
+       do: long_key!()
+
+  defp shortest_key!(<<major::size(3), 27::size(5), n::size(64), _::binary>>)
+       when major != 7 and n < 0x100000000,
+       do: long_key!()
+
+  defp shortest_key!(_raw), do: :ok
+
+  defp long_key!, do: raise(ArgumentError, "csil cbor: map key is not in shortest form")
+
+  defp unique_keys!([], _seen), do: :ok
+
+  defp unique_keys!([raw | raws], seen) do
+    if MapSet.member?(seen, raw), do: raise(ArgumentError, duplicate_key_message(raw))
+    unique_keys!(raws, MapSet.put(seen, raw))
+  end
+
+  defp duplicate_key_message(raw) do
+    case dec(raw, 0) do
+      {{:text, text}, ""} -> "csil cbor: duplicate key #{inspect(text)}"
+      _ -> "csil cbor: duplicate key 0x#{Base.encode16(raw, case: :lower)}"
+    end
+  end
+
+  @doc "Whether a value is a map and not a struct, the shape a CSIL map arm takes."
+  @spec plain_map?(term()) :: boolean()
+  def plain_map?(value), do: is_map(value) and not is_struct(value)
+
+  @doc "Encodes a `null` field; the value is always `nil`."
+  @spec enc_null(nil) :: value()
+  def enc_null(nil), do: :null
+
+  @doc "Unwraps a CBOR null item."
+  @spec to_null(value()) :: nil
+  def to_null(:null), do: nil
 
   @doc "Unwraps a CBOR integer item."
   @spec to_int(value()) :: integer()
@@ -149,6 +232,161 @@ defmodule Csilgen.Generated.Cbor do
     ^text = Date.to_iso8601(date)
     date
   end
+
+  @doc """
+  Encodes a `DateTime` as CBOR tag 0 RFC 3339 text in UTC, with no fraction when
+  it is zero, else the fewest of 3 or 6 digits that hold it exactly.
+  """
+  @spec enc_timestamp(DateTime.t()) :: value()
+  def enc_timestamp(%DateTime{} = dt) do
+    utc = DateTime.from_unix!(DateTime.to_unix(dt, :microsecond), :microsecond)
+    if utc.year < 1 or utc.year > 9999, do: raise(ArgumentError, "timestamp year out of range")
+    {micro, _} = utc.microsecond
+
+    fraction =
+      cond do
+        micro == 0 -> ""
+        rem(micro, 1000) == 0 -> "." <> pad(div(micro, 1000), 3)
+        true -> "." <> pad(micro, 6)
+      end
+
+    text =
+      pad(utc.year, 4) <>
+        "-" <>
+        pad(utc.month, 2) <>
+        "-" <>
+        pad(utc.day, 2) <>
+        "T" <>
+        pad(utc.hour, 2) <>
+        ":" <> pad(utc.minute, 2) <> ":" <> pad(utc.second, 2) <> fraction <> "Z"
+
+    {:tag, 0, {:text, text}}
+  end
+
+  # The wire contract is stricter than DateTime.from_iso8601 (which accepts a
+  # space separator, comma fractions and leap-second carry), so the shape is
+  # checked byte by byte.
+  @doc "Decodes a CBOR tag 0 RFC 3339 instant into a UTC `DateTime`."
+  @spec as_timestamp(value()) :: DateTime.t()
+  def as_timestamp(
+        {:tag, 0,
+         {:text,
+          <<y::binary-size(4), ?-, mo::binary-size(2), ?-, d::binary-size(2), sep,
+            h::binary-size(2), ?:, mi::binary-size(2), ?:, s::binary-size(2), rest::binary>>}}
+      )
+      when sep in [?T, ?t] do
+    {nanos, zone} = ts_fraction(rest)
+    offset = ts_offset(zone)
+    {hour, minute, second} = {ts_digits(h), ts_digits(mi), ts_digits(s)}
+    if hour > 23 or minute > 59 or second > 59, do: raise(ArgumentError, "bad timestamp time")
+    if rem(nanos, 1000) != 0, do: raise(ArgumentError, "timestamp fraction exceeds microseconds")
+    micro = div(nanos, 1000)
+    year = ts_digits(y)
+    if year < 1, do: raise(ArgumentError, "timestamp year out of range")
+    date = Date.new!(year, ts_digits(mo), ts_digits(d))
+    naive = NaiveDateTime.new!(date, Time.new!(hour, minute, second, {micro, 6}))
+    utc = NaiveDateTime.add(naive, -offset, :second)
+    if utc.year < 1 or utc.year > 9999, do: raise(ArgumentError, "timestamp year out of range")
+
+    precision =
+      cond do
+        micro == 0 -> 0
+        rem(micro, 1000) == 0 -> 3
+        true -> 6
+      end
+
+    DateTime.from_naive!(%{utc | microsecond: {micro, precision}}, "Etc/UTC")
+  end
+
+  defp ts_fraction(<<?., rest::binary>>) do
+    {digits, zone} = ts_take_digits(rest, "")
+    n = byte_size(digits)
+    if n < 1 or n > 9, do: raise(ArgumentError, "bad timestamp fraction")
+    {String.to_integer(digits) * Integer.pow(10, 9 - n), zone}
+  end
+
+  defp ts_fraction(zone), do: {0, zone}
+
+  defp ts_take_digits(<<c, rest::binary>>, acc) when c in ?0..?9,
+    do: ts_take_digits(rest, acc <> <<c>>)
+
+  defp ts_take_digits(rest, acc), do: {acc, rest}
+
+  defp ts_offset(zone) when zone in ["Z", "z"], do: 0
+
+  defp ts_offset(<<sign, hh::binary-size(2), ?:, mm::binary-size(2)>>) when sign in [?+, ?-] do
+    {oh, om} = {ts_digits(hh), ts_digits(mm)}
+    if oh > 23 or om > 59, do: raise(ArgumentError, "bad timestamp offset")
+    if sign == ?+, do: (oh * 60 + om) * 60, else: -(oh * 60 + om) * 60
+  end
+
+  defp ts_digits(s) do
+    if s == "" or not Enum.all?(:binary.bin_to_list(s), &(&1 in ?0..?9)),
+      do: raise(ArgumentError, "bad timestamp digits")
+
+    String.to_integer(s)
+  end
+
+  @cddl_time_first -62_135_596_800
+  @cddl_time_last 253_402_300_799
+
+  @doc """
+  Encodes a `DateTime` as CBOR tag 1 epoch seconds: an integer when the fraction
+  is zero, else a binary64 float.
+  """
+  @spec enc_cddl_time(DateTime.t()) :: value()
+  def enc_cddl_time(%DateTime{} = dt) do
+    micros = DateTime.to_unix(dt, :microsecond)
+    seconds = Integer.floor_div(micros, 1_000_000)
+    micro = Integer.mod(micros, 1_000_000)
+
+    if seconds < @cddl_time_first or seconds > @cddl_time_last,
+      do: raise(ArgumentError, "cddl_time year out of range")
+
+    # `:erlang.float` keeps each step binary64, as the wire contract requires.
+    if micro == 0,
+      do: {:tag, 1, {:int, seconds}},
+      else: {:tag, 1, {:float, :erlang.float(seconds) + :erlang.float(micro) / 1_000_000.0}}
+  end
+
+  @doc "Decodes CBOR tag 1 epoch seconds into a UTC `DateTime`."
+  @spec as_cddl_time(value()) :: DateTime.t()
+  def as_cddl_time({:tag, 1, {:int, seconds}}), do: cddl_time_from(seconds, 0)
+
+  def as_cddl_time({:tag, 1, {:float, f}}) do
+    # The bounds are checked before `trunc` so that it never makes a huge integer.
+    if f < @cddl_time_first - 1.0 or f > @cddl_time_last + 1.0,
+      do: raise(ArgumentError, "cddl_time year out of range")
+
+    whole = Float.floor(f)
+    scaled = (f - whole) * 1_000_000.0
+    units = trunc(Float.floor(scaled + 0.5))
+    seconds = trunc(whole)
+
+    if units == 1_000_000,
+      do: cddl_time_from(seconds + 1, 0),
+      else: cddl_time_from(seconds, units)
+  end
+
+  def as_cddl_time(_), do: raise(ArgumentError, "expected tag 1 with epoch seconds")
+
+  defp cddl_time_from(seconds, micro) do
+    if seconds < @cddl_time_first or seconds > @cddl_time_last,
+      do: raise(ArgumentError, "cddl_time year out of range")
+
+    # The same precision rule as `as_timestamp`, so equal instants compare equal.
+    precision =
+      cond do
+        micro == 0 -> 0
+        rem(micro, 1000) == 0 -> 3
+        true -> 6
+      end
+
+    dt = DateTime.from_unix!(seconds * 1_000_000 + micro, :microsecond)
+    %{dt | microsecond: {micro, precision}}
+  end
+
+  defp pad(n, width), do: String.pad_leading(Integer.to_string(n), width, "0")
 
   def to_text({:text, s}), do: s
 
@@ -230,7 +468,8 @@ defmodule Csilgen.Generated.Cbor do
   end
 
   def encode_auth_service_get_application_identity_reply({:ok, value}) do
-    {"ApplicationIdentityResponse", encode(Csilgen.Generated.ApplicationIdentityResponse.to_cbor_value(value))}
+    {"ApplicationIdentityResponse",
+     encode(Csilgen.Generated.ApplicationIdentityResponse.to_cbor_value(value))}
   end
 
   def encode_auth_service_get_application_identity_reply({:error, value}) do
@@ -637,7 +876,9 @@ defmodule Csilgen.Generated.Cbor do
     {"ServiceError", encode(Csilgen.Generated.ServiceError.to_cbor_value(value))}
   end
 
-  def resolve_rpc_reply("AuthService", "complete", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "complete", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "complete", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -648,7 +889,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "resume-session", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "resume-session", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "resume-session", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -659,7 +902,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "end-session", "EmptyResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "end-session", "EmptyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "end-session", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -670,7 +915,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "me", "MeResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "me", "MeResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "me", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -681,7 +928,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "assume-principal", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "assume-principal", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "assume-principal", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -692,7 +941,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "release-principal", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "release-principal", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "release-principal", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -703,7 +954,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "exchange-act-as-credential", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "exchange-act-as-credential", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "exchange-act-as-credential", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -714,7 +967,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "get-act-as-scope-set", "ScopeSetResponse", payload), do: payload
+  def resolve_rpc_reply("AuthService", "get-act-as-scope-set", "ScopeSetResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "get-act-as-scope-set", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -725,7 +980,14 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "get-application-identity", "ApplicationIdentityResponse", payload), do: payload
+  def resolve_rpc_reply(
+        "AuthService",
+        "get-application-identity",
+        "ApplicationIdentityResponse",
+        payload
+      ) do
+    payload
+  end
 
   def resolve_rpc_reply("AuthService", "get-application-identity", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -736,9 +998,21 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuthService", "exchange-application-presentation", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply(
+        "AuthService",
+        "exchange-application-presentation",
+        "LoginResponse",
+        payload
+      ) do
+    payload
+  end
 
-  def resolve_rpc_reply("AuthService", "exchange-application-presentation", "ServiceError", payload) do
+  def resolve_rpc_reply(
+        "AuthService",
+        "exchange-application-presentation",
+        "ServiceError",
+        payload
+      ) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
     raise Csilgen.Generated.ServiceErrorRefusal, value: value
   end
@@ -747,7 +1021,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DevAuthService", "list-dev-users", "DevUsersResponse", payload), do: payload
+  def resolve_rpc_reply("DevAuthService", "list-dev-users", "DevUsersResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DevAuthService", "list-dev-users", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -758,7 +1034,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DevAuthService", "dev-login", "LoginResponse", payload), do: payload
+  def resolve_rpc_reply("DevAuthService", "dev-login", "LoginResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DevAuthService", "dev-login", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -769,7 +1047,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("UserService", "get-profile", "User", payload), do: payload
+  def resolve_rpc_reply("UserService", "get-profile", "User", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("UserService", "get-profile", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -780,7 +1060,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("UserService", "update-profile", "User", payload), do: payload
+  def resolve_rpc_reply("UserService", "update-profile", "User", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("UserService", "update-profile", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -791,7 +1073,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("UserService", "lookup-person", "PersonSummary", payload), do: payload
+  def resolve_rpc_reply("UserService", "lookup-person", "PersonSummary", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("UserService", "lookup-person", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -802,7 +1086,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "list-calendars", "CalendarList", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "list-calendars", "CalendarList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "list-calendars", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -813,7 +1099,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "get-calendar", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "get-calendar", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "get-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -824,7 +1112,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "create-calendar", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "create-calendar", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "create-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -835,7 +1125,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "update-calendar", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "update-calendar", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "update-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -846,7 +1138,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "delete-calendar", "EmptyResponse", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "delete-calendar", "EmptyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "delete-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -857,7 +1151,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "subscribe-calendar", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "subscribe-calendar", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "subscribe-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -868,7 +1164,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "refresh-subscription", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "refresh-subscription", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "refresh-subscription", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -879,7 +1177,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("CalendarService", "set-feed", "Calendar", payload), do: payload
+  def resolve_rpc_reply("CalendarService", "set-feed", "Calendar", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("CalendarService", "set-feed", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -890,7 +1190,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("ShareService", "list-shares", "ShareList", payload), do: payload
+  def resolve_rpc_reply("ShareService", "list-shares", "ShareList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("ShareService", "list-shares", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -901,7 +1203,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("ShareService", "put-share", "Share", payload), do: payload
+  def resolve_rpc_reply("ShareService", "put-share", "Share", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("ShareService", "put-share", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -912,7 +1216,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("ShareService", "delete-share", "EmptyResponse", payload), do: payload
+  def resolve_rpc_reply("ShareService", "delete-share", "EmptyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("ShareService", "delete-share", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -923,7 +1229,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "list-groups", "GroupList", payload), do: payload
+  def resolve_rpc_reply("GroupService", "list-groups", "GroupList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "list-groups", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -934,7 +1242,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "get-group", "Group", payload), do: payload
+  def resolve_rpc_reply("GroupService", "get-group", "Group", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "get-group", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -945,7 +1255,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "create-group", "Group", payload), do: payload
+  def resolve_rpc_reply("GroupService", "create-group", "Group", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "create-group", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -956,7 +1268,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "update-group", "Group", payload), do: payload
+  def resolve_rpc_reply("GroupService", "update-group", "Group", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "update-group", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -967,7 +1281,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "set-members", "Group", payload), do: payload
+  def resolve_rpc_reply("GroupService", "set-members", "Group", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "set-members", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -978,7 +1294,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("GroupService", "delete-group", "EmptyResponse", payload), do: payload
+  def resolve_rpc_reply("GroupService", "delete-group", "EmptyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("GroupService", "delete-group", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -989,7 +1307,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DelegationService", "list-granted", "DelegationList", payload), do: payload
+  def resolve_rpc_reply("DelegationService", "list-granted", "DelegationList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DelegationService", "list-granted", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1000,7 +1320,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DelegationService", "list-received", "DelegationList", payload), do: payload
+  def resolve_rpc_reply("DelegationService", "list-received", "DelegationList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DelegationService", "list-received", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1011,7 +1333,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DelegationService", "create-delegation", "Delegation", payload), do: payload
+  def resolve_rpc_reply("DelegationService", "create-delegation", "Delegation", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DelegationService", "create-delegation", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1022,7 +1346,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DelegationService", "update-delegation", "Delegation", payload), do: payload
+  def resolve_rpc_reply("DelegationService", "update-delegation", "Delegation", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DelegationService", "update-delegation", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1033,7 +1359,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("DelegationService", "revoke-delegation", "EmptyResponse", payload), do: payload
+  def resolve_rpc_reply("DelegationService", "revoke-delegation", "EmptyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("DelegationService", "revoke-delegation", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1044,7 +1372,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "list-events", "OccurrenceList", payload), do: payload
+  def resolve_rpc_reply("EventService", "list-events", "OccurrenceList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "list-events", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1055,7 +1385,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "get-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "get-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "get-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1066,7 +1398,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "get-occurrence", "Occurrence", payload), do: payload
+  def resolve_rpc_reply("EventService", "get-occurrence", "Occurrence", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "get-occurrence", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1077,7 +1411,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "create-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "create-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "create-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1088,7 +1424,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "update-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "update-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "update-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1099,7 +1437,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "delete-event", "DeleteEventResponse", payload), do: payload
+  def resolve_rpc_reply("EventService", "delete-event", "DeleteEventResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "delete-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1110,7 +1450,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "move-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "move-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "move-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1121,7 +1463,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "respond", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "respond", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "respond", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1132,7 +1476,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "list-invitations", "EventList", payload), do: payload
+  def resolve_rpc_reply("EventService", "list-invitations", "EventList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "list-invitations", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1143,7 +1489,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "search-events", "EventList", payload), do: payload
+  def resolve_rpc_reply("EventService", "search-events", "EventList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "search-events", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1154,7 +1502,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "list-trash", "TrashList", payload), do: payload
+  def resolve_rpc_reply("EventService", "list-trash", "TrashList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "list-trash", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1165,7 +1515,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "restore-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "restore-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "restore-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1176,7 +1528,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "import-event", "Event", payload), do: payload
+  def resolve_rpc_reply("EventService", "import-event", "Event", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "import-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1187,7 +1541,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "create-event-once", "CreateEventReceipt", payload), do: payload
+  def resolve_rpc_reply("EventService", "create-event-once", "CreateEventReceipt", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "create-event-once", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1198,7 +1554,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "get-create-receipt", "CreateEventReceipt", payload), do: payload
+  def resolve_rpc_reply("EventService", "get-create-receipt", "CreateEventReceipt", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "get-create-receipt", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1209,7 +1567,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "split-series-once", "SplitSeriesReceipt", payload), do: payload
+  def resolve_rpc_reply("EventService", "split-series-once", "SplitSeriesReceipt", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "split-series-once", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1220,7 +1580,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("EventService", "get-split-receipt", "SplitSeriesReceipt", payload), do: payload
+  def resolve_rpc_reply("EventService", "get-split-receipt", "SplitSeriesReceipt", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("EventService", "get-split-receipt", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1231,7 +1593,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("FreeBusyService", "query", "FreeBusyResponse", payload), do: payload
+  def resolve_rpc_reply("FreeBusyService", "query", "FreeBusyResponse", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("FreeBusyService", "query", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1242,7 +1606,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("IcsService", "import-ics", "ImportResult", payload), do: payload
+  def resolve_rpc_reply("IcsService", "import-ics", "ImportResult", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("IcsService", "import-ics", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1253,7 +1619,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("IcsService", "export-calendar", "IcsDocument", payload), do: payload
+  def resolve_rpc_reply("IcsService", "export-calendar", "IcsDocument", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("IcsService", "export-calendar", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1264,7 +1632,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("IcsService", "export-event", "IcsDocument", payload), do: payload
+  def resolve_rpc_reply("IcsService", "export-event", "IcsDocument", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("IcsService", "export-event", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))
@@ -1275,7 +1645,9 @@ defmodule Csilgen.Generated.Cbor do
     raise ArgumentError, "invalid reply variant: #{inspect(variant)}"
   end
 
-  def resolve_rpc_reply("AuditService", "list-audit", "AuditList", payload), do: payload
+  def resolve_rpc_reply("AuditService", "list-audit", "AuditList", payload) do
+    payload
+  end
 
   def resolve_rpc_reply("AuditService", "list-audit", "ServiceError", payload) do
     value = Csilgen.Generated.ServiceError.from_cbor_value(decode(payload))

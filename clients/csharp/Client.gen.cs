@@ -12,6 +12,11 @@ namespace CatalystCal.Client;
 public interface ICsilTransport
 {
     byte[] Call(string service, string op, byte[] request);
+
+    /// <summary>Performs a call to an op with several reply arms and returns the reply
+    /// variant with the payload bytes. The client selects the arm from the variant, so
+    /// the carrier must not drop it.</summary>
+    CsilWireReply CallReply(string service, string op, byte[] request);
 }
 
 /// <summary>Raised by a generated client when the transport reports a failure.</summary>
@@ -25,187 +30,368 @@ public sealed class CsilClientException : System.Exception
     }
 }
 
+/// <summary>One RPC reply as the client transport received it. <c>Variant</c> is null when
+/// the reply carried none.</summary>
+public sealed record CsilWireReply(string? Variant, byte[] Payload);
+
 /// <summary>Typed RPC client for the AuthService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class AuthClient(ICsilTransport transport)
 {
-    public LoginResponse Complete(CompleteRequest completeRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "complete", Codec.Encode(completeRequest)));
-    public LoginResponse ResumeSession(EmptyRequest emptyRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "resume-session", Codec.Encode(emptyRequest)));
-    public EmptyResponse EndSession(EmptyRequest emptyRequest) =>
-        Codec.Decode<EmptyResponse>(transport.Call("AuthService", "end-session", Codec.Encode(emptyRequest)));
-    public MeResponse Me(EmptyRequest emptyRequest) =>
-        Codec.Decode<MeResponse>(transport.Call("AuthService", "me", Codec.Encode(emptyRequest)));
-    public LoginResponse AssumePrincipal(AssumePrincipalRequest assumePrincipalRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "assume-principal", Codec.Encode(assumePrincipalRequest)));
-    public LoginResponse ReleasePrincipal(EmptyRequest emptyRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "release-principal", Codec.Encode(emptyRequest)));
-    public LoginResponse ExchangeActAsCredential(ExchangeActAsCredentialRequest exchangeActAsCredentialRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest)));
-    public ScopeSetResponse GetActAsScopeSet(ScopeSetRequest scopeSetRequest) =>
-        Codec.Decode<ScopeSetResponse>(transport.Call("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest)));
-    public ApplicationIdentityResponse GetApplicationIdentity(EmptyRequest emptyRequest) =>
-        Codec.Decode<ApplicationIdentityResponse>(transport.Call("AuthService", "get-application-identity", Codec.Encode(emptyRequest)));
-    public LoginResponse ExchangeApplicationPresentation(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest)));
+    public LoginResponse Complete(CompleteRequest completeRequest)
+    {
+        var reply = transport.CallReply("AuthService", "complete", Codec.Encode(completeRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "complete", reply.Variant, reply.Payload));
+    }
+    public LoginResponse ResumeSession(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("AuthService", "resume-session", Codec.Encode(emptyRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "resume-session", reply.Variant, reply.Payload));
+    }
+    public EmptyResponse EndSession(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("AuthService", "end-session", Codec.Encode(emptyRequest));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("AuthService", "end-session", reply.Variant, reply.Payload));
+    }
+    public MeResponse Me(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("AuthService", "me", Codec.Encode(emptyRequest));
+        return Codec.Decode<MeResponse>(Codec.ResolveRpcReply("AuthService", "me", reply.Variant, reply.Payload));
+    }
+    public LoginResponse AssumePrincipal(AssumePrincipalRequest assumePrincipalRequest)
+    {
+        var reply = transport.CallReply("AuthService", "assume-principal", Codec.Encode(assumePrincipalRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "assume-principal", reply.Variant, reply.Payload));
+    }
+    public LoginResponse ReleasePrincipal(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("AuthService", "release-principal", Codec.Encode(emptyRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "release-principal", reply.Variant, reply.Payload));
+    }
+    public LoginResponse ExchangeActAsCredential(ExchangeActAsCredentialRequest exchangeActAsCredentialRequest)
+    {
+        var reply = transport.CallReply("AuthService", "exchange-act-as-credential", Codec.Encode(exchangeActAsCredentialRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "exchange-act-as-credential", reply.Variant, reply.Payload));
+    }
+    public ScopeSetResponse GetActAsScopeSet(ScopeSetRequest scopeSetRequest)
+    {
+        var reply = transport.CallReply("AuthService", "get-act-as-scope-set", Codec.Encode(scopeSetRequest));
+        return Codec.Decode<ScopeSetResponse>(Codec.ResolveRpcReply("AuthService", "get-act-as-scope-set", reply.Variant, reply.Payload));
+    }
+    public ApplicationIdentityResponse GetApplicationIdentity(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("AuthService", "get-application-identity", Codec.Encode(emptyRequest));
+        return Codec.Decode<ApplicationIdentityResponse>(Codec.ResolveRpcReply("AuthService", "get-application-identity", reply.Variant, reply.Payload));
+    }
+    public LoginResponse ExchangeApplicationPresentation(ExchangeApplicationPresentationRequest exchangeApplicationPresentationRequest)
+    {
+        var reply = transport.CallReply("AuthService", "exchange-application-presentation", Codec.Encode(exchangeApplicationPresentationRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("AuthService", "exchange-application-presentation", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the DevAuthService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class DevAuthClient(ICsilTransport transport)
 {
-    public DevUsersResponse ListDevUsers(EmptyRequest emptyRequest) =>
-        Codec.Decode<DevUsersResponse>(transport.Call("DevAuthService", "list-dev-users", Codec.Encode(emptyRequest)));
-    public LoginResponse DevLogin(DevLoginRequest devLoginRequest) =>
-        Codec.Decode<LoginResponse>(transport.Call("DevAuthService", "dev-login", Codec.Encode(devLoginRequest)));
+    public DevUsersResponse ListDevUsers(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("DevAuthService", "list-dev-users", Codec.Encode(emptyRequest));
+        return Codec.Decode<DevUsersResponse>(Codec.ResolveRpcReply("DevAuthService", "list-dev-users", reply.Variant, reply.Payload));
+    }
+    public LoginResponse DevLogin(DevLoginRequest devLoginRequest)
+    {
+        var reply = transport.CallReply("DevAuthService", "dev-login", Codec.Encode(devLoginRequest));
+        return Codec.Decode<LoginResponse>(Codec.ResolveRpcReply("DevAuthService", "dev-login", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the UserService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class UserClient(ICsilTransport transport)
 {
-    public User GetProfile(EmptyRequest emptyRequest) =>
-        Codec.Decode<User>(transport.Call("UserService", "get-profile", Codec.Encode(emptyRequest)));
-    public User UpdateProfile(UpdateProfileRequest updateProfileRequest) =>
-        Codec.Decode<User>(transport.Call("UserService", "update-profile", Codec.Encode(updateProfileRequest)));
-    public PersonSummary LookupPerson(LookupPersonRequest lookupPersonRequest) =>
-        Codec.Decode<PersonSummary>(transport.Call("UserService", "lookup-person", Codec.Encode(lookupPersonRequest)));
+    public User GetProfile(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("UserService", "get-profile", Codec.Encode(emptyRequest));
+        return Codec.Decode<User>(Codec.ResolveRpcReply("UserService", "get-profile", reply.Variant, reply.Payload));
+    }
+    public User UpdateProfile(UpdateProfileRequest updateProfileRequest)
+    {
+        var reply = transport.CallReply("UserService", "update-profile", Codec.Encode(updateProfileRequest));
+        return Codec.Decode<User>(Codec.ResolveRpcReply("UserService", "update-profile", reply.Variant, reply.Payload));
+    }
+    public PersonSummary LookupPerson(LookupPersonRequest lookupPersonRequest)
+    {
+        var reply = transport.CallReply("UserService", "lookup-person", Codec.Encode(lookupPersonRequest));
+        return Codec.Decode<PersonSummary>(Codec.ResolveRpcReply("UserService", "lookup-person", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the CalendarService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class CalendarClient(ICsilTransport transport)
 {
-    public CalendarList ListCalendars(EmptyRequest emptyRequest) =>
-        Codec.Decode<CalendarList>(transport.Call("CalendarService", "list-calendars", Codec.Encode(emptyRequest)));
-    public Calendar GetCalendar(CalendarID calendarID) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "get-calendar", Codec.EncodeCalendarGetCalendarRequest(calendarID)));
-    public Calendar CreateCalendar(CreateCalendarRequest createCalendarRequest) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "create-calendar", Codec.Encode(createCalendarRequest)));
-    public Calendar UpdateCalendar(UpdateCalendarRequest updateCalendarRequest) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "update-calendar", Codec.Encode(updateCalendarRequest)));
-    public EmptyResponse DeleteCalendar(CalendarID calendarID) =>
-        Codec.Decode<EmptyResponse>(transport.Call("CalendarService", "delete-calendar", Codec.EncodeCalendarDeleteCalendarRequest(calendarID)));
-    public Calendar SubscribeCalendar(SubscribeCalendarRequest subscribeCalendarRequest) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "subscribe-calendar", Codec.Encode(subscribeCalendarRequest)));
-    public Calendar RefreshSubscription(CalendarID calendarID) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "refresh-subscription", Codec.EncodeCalendarRefreshSubscriptionRequest(calendarID)));
-    public Calendar SetFeed(SetFeedRequest setFeedRequest) =>
-        Codec.Decode<Calendar>(transport.Call("CalendarService", "set-feed", Codec.Encode(setFeedRequest)));
+    public CalendarList ListCalendars(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("CalendarService", "list-calendars", Codec.Encode(emptyRequest));
+        return Codec.Decode<CalendarList>(Codec.ResolveRpcReply("CalendarService", "list-calendars", reply.Variant, reply.Payload));
+    }
+    public Calendar GetCalendar(CalendarID calendarID)
+    {
+        var reply = transport.CallReply("CalendarService", "get-calendar", Codec.EncodeCalendarGetCalendarRequest(calendarID));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "get-calendar", reply.Variant, reply.Payload));
+    }
+    public Calendar CreateCalendar(CreateCalendarRequest createCalendarRequest)
+    {
+        var reply = transport.CallReply("CalendarService", "create-calendar", Codec.Encode(createCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "create-calendar", reply.Variant, reply.Payload));
+    }
+    public Calendar UpdateCalendar(UpdateCalendarRequest updateCalendarRequest)
+    {
+        var reply = transport.CallReply("CalendarService", "update-calendar", Codec.Encode(updateCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "update-calendar", reply.Variant, reply.Payload));
+    }
+    public EmptyResponse DeleteCalendar(CalendarID calendarID)
+    {
+        var reply = transport.CallReply("CalendarService", "delete-calendar", Codec.EncodeCalendarDeleteCalendarRequest(calendarID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("CalendarService", "delete-calendar", reply.Variant, reply.Payload));
+    }
+    public Calendar SubscribeCalendar(SubscribeCalendarRequest subscribeCalendarRequest)
+    {
+        var reply = transport.CallReply("CalendarService", "subscribe-calendar", Codec.Encode(subscribeCalendarRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "subscribe-calendar", reply.Variant, reply.Payload));
+    }
+    public Calendar RefreshSubscription(CalendarID calendarID)
+    {
+        var reply = transport.CallReply("CalendarService", "refresh-subscription", Codec.EncodeCalendarRefreshSubscriptionRequest(calendarID));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "refresh-subscription", reply.Variant, reply.Payload));
+    }
+    public Calendar SetFeed(SetFeedRequest setFeedRequest)
+    {
+        var reply = transport.CallReply("CalendarService", "set-feed", Codec.Encode(setFeedRequest));
+        return Codec.Decode<Calendar>(Codec.ResolveRpcReply("CalendarService", "set-feed", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the ShareService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class ShareClient(ICsilTransport transport)
 {
-    public ShareList ListShares(CalendarID calendarID) =>
-        Codec.Decode<ShareList>(transport.Call("ShareService", "list-shares", Codec.EncodeShareListSharesRequest(calendarID)));
-    public Share PutShare(Share share) =>
-        Codec.Decode<Share>(transport.Call("ShareService", "put-share", Codec.Encode(share)));
-    public EmptyResponse DeleteShare(ShareID shareID) =>
-        Codec.Decode<EmptyResponse>(transport.Call("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID)));
+    public ShareList ListShares(CalendarID calendarID)
+    {
+        var reply = transport.CallReply("ShareService", "list-shares", Codec.EncodeShareListSharesRequest(calendarID));
+        return Codec.Decode<ShareList>(Codec.ResolveRpcReply("ShareService", "list-shares", reply.Variant, reply.Payload));
+    }
+    public Share PutShare(Share share)
+    {
+        var reply = transport.CallReply("ShareService", "put-share", Codec.Encode(share));
+        return Codec.Decode<Share>(Codec.ResolveRpcReply("ShareService", "put-share", reply.Variant, reply.Payload));
+    }
+    public EmptyResponse DeleteShare(ShareID shareID)
+    {
+        var reply = transport.CallReply("ShareService", "delete-share", Codec.EncodeShareDeleteShareRequest(shareID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("ShareService", "delete-share", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the GroupService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class GroupClient(ICsilTransport transport)
 {
-    public GroupList ListGroups(EmptyRequest emptyRequest) =>
-        Codec.Decode<GroupList>(transport.Call("GroupService", "list-groups", Codec.Encode(emptyRequest)));
-    public Group GetGroup(GroupID groupID) =>
-        Codec.Decode<Group>(transport.Call("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID)));
-    public Group CreateGroup(CreateGroupRequest createGroupRequest) =>
-        Codec.Decode<Group>(transport.Call("GroupService", "create-group", Codec.Encode(createGroupRequest)));
-    public Group UpdateGroup(UpdateGroupRequest updateGroupRequest) =>
-        Codec.Decode<Group>(transport.Call("GroupService", "update-group", Codec.Encode(updateGroupRequest)));
-    public Group SetMembers(SetGroupMembersRequest setGroupMembersRequest) =>
-        Codec.Decode<Group>(transport.Call("GroupService", "set-members", Codec.Encode(setGroupMembersRequest)));
-    public EmptyResponse DeleteGroup(GroupID groupID) =>
-        Codec.Decode<EmptyResponse>(transport.Call("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID)));
+    public GroupList ListGroups(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("GroupService", "list-groups", Codec.Encode(emptyRequest));
+        return Codec.Decode<GroupList>(Codec.ResolveRpcReply("GroupService", "list-groups", reply.Variant, reply.Payload));
+    }
+    public Group GetGroup(GroupID groupID)
+    {
+        var reply = transport.CallReply("GroupService", "get-group", Codec.EncodeGroupGetGroupRequest(groupID));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "get-group", reply.Variant, reply.Payload));
+    }
+    public Group CreateGroup(CreateGroupRequest createGroupRequest)
+    {
+        var reply = transport.CallReply("GroupService", "create-group", Codec.Encode(createGroupRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "create-group", reply.Variant, reply.Payload));
+    }
+    public Group UpdateGroup(UpdateGroupRequest updateGroupRequest)
+    {
+        var reply = transport.CallReply("GroupService", "update-group", Codec.Encode(updateGroupRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "update-group", reply.Variant, reply.Payload));
+    }
+    public Group SetMembers(SetGroupMembersRequest setGroupMembersRequest)
+    {
+        var reply = transport.CallReply("GroupService", "set-members", Codec.Encode(setGroupMembersRequest));
+        return Codec.Decode<Group>(Codec.ResolveRpcReply("GroupService", "set-members", reply.Variant, reply.Payload));
+    }
+    public EmptyResponse DeleteGroup(GroupID groupID)
+    {
+        var reply = transport.CallReply("GroupService", "delete-group", Codec.EncodeGroupDeleteGroupRequest(groupID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("GroupService", "delete-group", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the DelegationService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class DelegationClient(ICsilTransport transport)
 {
-    public DelegationList ListGranted(EmptyRequest emptyRequest) =>
-        Codec.Decode<DelegationList>(transport.Call("DelegationService", "list-granted", Codec.Encode(emptyRequest)));
-    public DelegationList ListReceived(EmptyRequest emptyRequest) =>
-        Codec.Decode<DelegationList>(transport.Call("DelegationService", "list-received", Codec.Encode(emptyRequest)));
-    public Delegation CreateDelegation(Delegation delegation) =>
-        Codec.Decode<Delegation>(transport.Call("DelegationService", "create-delegation", Codec.Encode(delegation)));
-    public Delegation UpdateDelegation(Delegation delegation) =>
-        Codec.Decode<Delegation>(transport.Call("DelegationService", "update-delegation", Codec.Encode(delegation)));
-    public EmptyResponse RevokeDelegation(DelegationID delegationID) =>
-        Codec.Decode<EmptyResponse>(transport.Call("DelegationService", "revoke-delegation", Codec.EncodeDelegationRevokeDelegationRequest(delegationID)));
+    public DelegationList ListGranted(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("DelegationService", "list-granted", Codec.Encode(emptyRequest));
+        return Codec.Decode<DelegationList>(Codec.ResolveRpcReply("DelegationService", "list-granted", reply.Variant, reply.Payload));
+    }
+    public DelegationList ListReceived(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("DelegationService", "list-received", Codec.Encode(emptyRequest));
+        return Codec.Decode<DelegationList>(Codec.ResolveRpcReply("DelegationService", "list-received", reply.Variant, reply.Payload));
+    }
+    public Delegation CreateDelegation(Delegation delegation)
+    {
+        var reply = transport.CallReply("DelegationService", "create-delegation", Codec.Encode(delegation));
+        return Codec.Decode<Delegation>(Codec.ResolveRpcReply("DelegationService", "create-delegation", reply.Variant, reply.Payload));
+    }
+    public Delegation UpdateDelegation(Delegation delegation)
+    {
+        var reply = transport.CallReply("DelegationService", "update-delegation", Codec.Encode(delegation));
+        return Codec.Decode<Delegation>(Codec.ResolveRpcReply("DelegationService", "update-delegation", reply.Variant, reply.Payload));
+    }
+    public EmptyResponse RevokeDelegation(DelegationID delegationID)
+    {
+        var reply = transport.CallReply("DelegationService", "revoke-delegation", Codec.EncodeDelegationRevokeDelegationRequest(delegationID));
+        return Codec.Decode<EmptyResponse>(Codec.ResolveRpcReply("DelegationService", "revoke-delegation", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the EventService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class EventClient(ICsilTransport transport)
 {
-    public OccurrenceList ListEvents(ListEventsRequest listEventsRequest) =>
-        Codec.Decode<OccurrenceList>(transport.Call("EventService", "list-events", Codec.Encode(listEventsRequest)));
-    public Event GetEvent(EventID eventID) =>
-        Codec.Decode<Event>(transport.Call("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID)));
-    public Occurrence GetOccurrence(GetOccurrenceRequest getOccurrenceRequest) =>
-        Codec.Decode<Occurrence>(transport.Call("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest)));
-    public Event CreateEvent(Event @event) =>
-        Codec.Decode<Event>(transport.Call("EventService", "create-event", Codec.Encode(@event)));
-    public Event UpdateEvent(UpdateEventRequest updateEventRequest) =>
-        Codec.Decode<Event>(transport.Call("EventService", "update-event", Codec.Encode(updateEventRequest)));
-    public DeleteEventResponse DeleteEvent(DeleteEventRequest deleteEventRequest) =>
-        Codec.Decode<DeleteEventResponse>(transport.Call("EventService", "delete-event", Codec.Encode(deleteEventRequest)));
-    public Event MoveEvent(MoveEventRequest moveEventRequest) =>
-        Codec.Decode<Event>(transport.Call("EventService", "move-event", Codec.Encode(moveEventRequest)));
-    public Event Respond(RespondRequest respondRequest) =>
-        Codec.Decode<Event>(transport.Call("EventService", "respond", Codec.Encode(respondRequest)));
-    public EventList ListInvitations(EmptyRequest emptyRequest) =>
-        Codec.Decode<EventList>(transport.Call("EventService", "list-invitations", Codec.Encode(emptyRequest)));
-    public EventList SearchEvents(SearchEventsRequest searchEventsRequest) =>
-        Codec.Decode<EventList>(transport.Call("EventService", "search-events", Codec.Encode(searchEventsRequest)));
-    public TrashList ListTrash(ListTrashRequest listTrashRequest) =>
-        Codec.Decode<TrashList>(transport.Call("EventService", "list-trash", Codec.Encode(listTrashRequest)));
-    public Event RestoreEvent(RestoreEventRequest restoreEventRequest) =>
-        Codec.Decode<Event>(transport.Call("EventService", "restore-event", Codec.Encode(restoreEventRequest)));
-    public Event ImportEvent(ImportEventRequest importEventRequest) =>
-        Codec.Decode<Event>(transport.Call("EventService", "import-event", Codec.Encode(importEventRequest)));
-    public CreateEventReceipt CreateEventOnce(CreateEventOnceRequest createEventOnceRequest) =>
-        Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "create-event-once", Codec.Encode(createEventOnceRequest)));
-    public CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest) =>
-        Codec.Decode<CreateEventReceipt>(transport.Call("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest)));
-    public SplitSeriesReceipt SplitSeriesOnce(SplitSeriesOnceRequest splitSeriesOnceRequest) =>
-        Codec.Decode<SplitSeriesReceipt>(transport.Call("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest)));
-    public SplitSeriesReceipt GetSplitReceipt(SplitReceiptRequest splitReceiptRequest) =>
-        Codec.Decode<SplitSeriesReceipt>(transport.Call("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest)));
+    public OccurrenceList ListEvents(ListEventsRequest listEventsRequest)
+    {
+        var reply = transport.CallReply("EventService", "list-events", Codec.Encode(listEventsRequest));
+        return Codec.Decode<OccurrenceList>(Codec.ResolveRpcReply("EventService", "list-events", reply.Variant, reply.Payload));
+    }
+    public Event GetEvent(EventID eventID)
+    {
+        var reply = transport.CallReply("EventService", "get-event", Codec.EncodeEventGetEventRequest(eventID));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "get-event", reply.Variant, reply.Payload));
+    }
+    public Occurrence GetOccurrence(GetOccurrenceRequest getOccurrenceRequest)
+    {
+        var reply = transport.CallReply("EventService", "get-occurrence", Codec.Encode(getOccurrenceRequest));
+        return Codec.Decode<Occurrence>(Codec.ResolveRpcReply("EventService", "get-occurrence", reply.Variant, reply.Payload));
+    }
+    public Event CreateEvent(Event @event)
+    {
+        var reply = transport.CallReply("EventService", "create-event", Codec.Encode(@event));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "create-event", reply.Variant, reply.Payload));
+    }
+    public Event UpdateEvent(UpdateEventRequest updateEventRequest)
+    {
+        var reply = transport.CallReply("EventService", "update-event", Codec.Encode(updateEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "update-event", reply.Variant, reply.Payload));
+    }
+    public DeleteEventResponse DeleteEvent(DeleteEventRequest deleteEventRequest)
+    {
+        var reply = transport.CallReply("EventService", "delete-event", Codec.Encode(deleteEventRequest));
+        return Codec.Decode<DeleteEventResponse>(Codec.ResolveRpcReply("EventService", "delete-event", reply.Variant, reply.Payload));
+    }
+    public Event MoveEvent(MoveEventRequest moveEventRequest)
+    {
+        var reply = transport.CallReply("EventService", "move-event", Codec.Encode(moveEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "move-event", reply.Variant, reply.Payload));
+    }
+    public Event Respond(RespondRequest respondRequest)
+    {
+        var reply = transport.CallReply("EventService", "respond", Codec.Encode(respondRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "respond", reply.Variant, reply.Payload));
+    }
+    public EventList ListInvitations(EmptyRequest emptyRequest)
+    {
+        var reply = transport.CallReply("EventService", "list-invitations", Codec.Encode(emptyRequest));
+        return Codec.Decode<EventList>(Codec.ResolveRpcReply("EventService", "list-invitations", reply.Variant, reply.Payload));
+    }
+    public EventList SearchEvents(SearchEventsRequest searchEventsRequest)
+    {
+        var reply = transport.CallReply("EventService", "search-events", Codec.Encode(searchEventsRequest));
+        return Codec.Decode<EventList>(Codec.ResolveRpcReply("EventService", "search-events", reply.Variant, reply.Payload));
+    }
+    public TrashList ListTrash(ListTrashRequest listTrashRequest)
+    {
+        var reply = transport.CallReply("EventService", "list-trash", Codec.Encode(listTrashRequest));
+        return Codec.Decode<TrashList>(Codec.ResolveRpcReply("EventService", "list-trash", reply.Variant, reply.Payload));
+    }
+    public Event RestoreEvent(RestoreEventRequest restoreEventRequest)
+    {
+        var reply = transport.CallReply("EventService", "restore-event", Codec.Encode(restoreEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "restore-event", reply.Variant, reply.Payload));
+    }
+    public Event ImportEvent(ImportEventRequest importEventRequest)
+    {
+        var reply = transport.CallReply("EventService", "import-event", Codec.Encode(importEventRequest));
+        return Codec.Decode<Event>(Codec.ResolveRpcReply("EventService", "import-event", reply.Variant, reply.Payload));
+    }
+    public CreateEventReceipt CreateEventOnce(CreateEventOnceRequest createEventOnceRequest)
+    {
+        var reply = transport.CallReply("EventService", "create-event-once", Codec.Encode(createEventOnceRequest));
+        return Codec.Decode<CreateEventReceipt>(Codec.ResolveRpcReply("EventService", "create-event-once", reply.Variant, reply.Payload));
+    }
+    public CreateEventReceipt GetCreateReceipt(CreateReceiptRequest createReceiptRequest)
+    {
+        var reply = transport.CallReply("EventService", "get-create-receipt", Codec.Encode(createReceiptRequest));
+        return Codec.Decode<CreateEventReceipt>(Codec.ResolveRpcReply("EventService", "get-create-receipt", reply.Variant, reply.Payload));
+    }
+    public SplitSeriesReceipt SplitSeriesOnce(SplitSeriesOnceRequest splitSeriesOnceRequest)
+    {
+        var reply = transport.CallReply("EventService", "split-series-once", Codec.Encode(splitSeriesOnceRequest));
+        return Codec.Decode<SplitSeriesReceipt>(Codec.ResolveRpcReply("EventService", "split-series-once", reply.Variant, reply.Payload));
+    }
+    public SplitSeriesReceipt GetSplitReceipt(SplitReceiptRequest splitReceiptRequest)
+    {
+        var reply = transport.CallReply("EventService", "get-split-receipt", Codec.Encode(splitReceiptRequest));
+        return Codec.Decode<SplitSeriesReceipt>(Codec.ResolveRpcReply("EventService", "get-split-receipt", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the FreeBusyService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class FreeBusyClient(ICsilTransport transport)
 {
-    public FreeBusyResponse Query(FreeBusyRequest freeBusyRequest) =>
-        Codec.Decode<FreeBusyResponse>(transport.Call("FreeBusyService", "query", Codec.Encode(freeBusyRequest)));
+    public FreeBusyResponse Query(FreeBusyRequest freeBusyRequest)
+    {
+        var reply = transport.CallReply("FreeBusyService", "query", Codec.Encode(freeBusyRequest));
+        return Codec.Decode<FreeBusyResponse>(Codec.ResolveRpcReply("FreeBusyService", "query", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the IcsService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class IcsClient(ICsilTransport transport)
 {
-    public ImportResult ImportIcs(ImportIcsRequest importIcsRequest) =>
-        Codec.Decode<ImportResult>(transport.Call("IcsService", "import-ics", Codec.Encode(importIcsRequest)));
-    public IcsDocument ExportCalendar(ExportCalendarRequest exportCalendarRequest) =>
-        Codec.Decode<IcsDocument>(transport.Call("IcsService", "export-calendar", Codec.Encode(exportCalendarRequest)));
-    public IcsDocument ExportEvent(ExportEventRequest exportEventRequest) =>
-        Codec.Decode<IcsDocument>(transport.Call("IcsService", "export-event", Codec.Encode(exportEventRequest)));
+    public ImportResult ImportIcs(ImportIcsRequest importIcsRequest)
+    {
+        var reply = transport.CallReply("IcsService", "import-ics", Codec.Encode(importIcsRequest));
+        return Codec.Decode<ImportResult>(Codec.ResolveRpcReply("IcsService", "import-ics", reply.Variant, reply.Payload));
+    }
+    public IcsDocument ExportCalendar(ExportCalendarRequest exportCalendarRequest)
+    {
+        var reply = transport.CallReply("IcsService", "export-calendar", Codec.Encode(exportCalendarRequest));
+        return Codec.Decode<IcsDocument>(Codec.ResolveRpcReply("IcsService", "export-calendar", reply.Variant, reply.Payload));
+    }
+    public IcsDocument ExportEvent(ExportEventRequest exportEventRequest)
+    {
+        var reply = transport.CallReply("IcsService", "export-event", Codec.Encode(exportEventRequest));
+        return Codec.Decode<IcsDocument>(Codec.ResolveRpcReply("IcsService", "export-event", reply.Variant, reply.Payload));
+    }
 }
 
 /// <summary>Typed RPC client for the AuditService service. The client owns
 /// (de)serialization via the generated codec; the transport only moves bytes.</summary>
 public sealed class AuditClient(ICsilTransport transport)
 {
-    public AuditList ListAudit(AuditQuery auditQuery) =>
-        Codec.Decode<AuditList>(transport.Call("AuditService", "list-audit", Codec.Encode(auditQuery)));
+    public AuditList ListAudit(AuditQuery auditQuery)
+    {
+        var reply = transport.CallReply("AuditService", "list-audit", Codec.Encode(auditQuery));
+        return Codec.Decode<AuditList>(Codec.ResolveRpcReply("AuditService", "list-audit", reply.Variant, reply.Payload));
+    }
 }
 

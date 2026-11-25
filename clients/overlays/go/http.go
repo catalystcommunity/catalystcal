@@ -21,6 +21,23 @@ const RPCPath = "/api/csil/v1/rpc"
 // maxResponseBytes caps a reply. An iCalendar export is the largest.
 const maxResponseBytes = 32 << 20
 
+// ClientError reports a failure from HTTPTransport. Code and Message describe
+// a status returned by the server. Err holds the cause of a local failure.
+type ClientError struct {
+	Code    int64
+	Message string
+	Err     error
+}
+
+func (e *ClientError) Error() string {
+	if e.Err != nil {
+		return "transport error: " + e.Err.Error()
+	}
+	return fmt.Sprintf("service error %d: %s", e.Code, e.Message)
+}
+
+func (e *ClientError) Unwrap() error { return e.Err }
+
 // TokenSource gives the bearer for each call. Invalidate drops a cached
 // bearer after the server refused it, so the next Token makes a new one.
 type TokenSource interface {
@@ -58,7 +75,9 @@ func (t *HTTPTransport) client() *http.Client {
 // Unauthenticated reports whether err is a refused or missing bearer.
 func Unauthenticated(err error) bool {
 	var ce *ClientError
-	return errors.As(err, &ce) && ce.Code == http.StatusUnauthorized
+	var refusal *RPCApplicationError[ServiceError]
+	return (errors.As(err, &ce) && ce.Code == http.StatusUnauthorized) ||
+		(errors.As(err, &refusal) && refusal.Value.Code == http.StatusUnauthorized)
 }
 
 // Call implements Transport. A ServiceError reply becomes a *ClientError
@@ -67,29 +86,41 @@ func Unauthenticated(err error) bool {
 // refuses the bearer, Call invalidates it and tries once more with a new
 // one.
 func (t *HTTPTransport) Call(ctx context.Context, service, op string, req []byte) ([]byte, error) {
+	reply, err := t.CallReply(ctx, service, op, req)
+	if err != nil {
+		return nil, err
+	}
+	if err := reply.serviceError(); err != nil {
+		return nil, err
+	}
+	return reply.Payload, nil
+}
+
+// CallReply returns the chosen output arm to the generated client.
+func (t *HTTPTransport) CallReply(ctx context.Context, service, op string, req []byte) (WireReply, error) {
 	out, token, err := t.call(ctx, service, op, req)
-	if err != nil && token != "" && Unauthenticated(err) {
+	if token != "" && (Unauthenticated(err) || Unauthenticated(out.serviceError())) {
 		t.Tokens.Invalidate(token)
 		out, _, err = t.call(ctx, service, op, req)
 	}
 	return out, err
 }
 
-func (t *HTTPTransport) call(ctx context.Context, service, op string, req []byte) ([]byte, string, error) {
+func (t *HTTPTransport) call(ctx context.Context, service, op string, req []byte) (WireReply, string, error) {
 	var token string
 	if t.Tokens != nil {
 		var err error
 		if token, err = t.Tokens.Token(ctx); err != nil {
-			return nil, "", err
+			return WireReply{}, "", err
 		}
 	}
 	frame, err := transport.NewRpcRequest(service, op, req).Encode()
 	if err != nil {
-		return nil, token, &ClientError{Err: err}
+		return WireReply{}, token, &ClientError{Err: err}
 	}
 	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, t.BaseURL+RPCPath, bytes.NewReader(frame))
 	if err != nil {
-		return nil, token, &ClientError{Err: err}
+		return WireReply{}, token, &ClientError{Err: err}
 	}
 	hreq.Header.Set("Content-Type", "application/cbor")
 	hreq.Header.Set("Accept", "application/cbor")
@@ -98,32 +129,37 @@ func (t *HTTPTransport) call(ctx context.Context, service, op string, req []byte
 	}
 	resp, err := t.client().Do(hreq)
 	if err != nil {
-		return nil, token, &ClientError{Err: err}
+		return WireReply{}, token, &ClientError{Err: err}
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
-		return nil, token, &ClientError{Err: err}
+		return WireReply{}, token, &ClientError{Err: err}
 	}
 	r, err := transport.DecodeRpcResponse(body)
 	if err != nil {
-		return nil, token, &ClientError{Err: fmt.Errorf("HTTP %d: no CSIL-RPC envelope: %w", resp.StatusCode, err)}
+		return WireReply{}, token, &ClientError{Err: fmt.Errorf("HTTP %d: no CSIL-RPC envelope: %w", resp.StatusCode, err)}
 	}
 	if !r.Status.IsOk() {
 		msg := r.Status.Name()
 		if r.Error != nil {
 			msg = *r.Error
 		}
-		return nil, token, &ClientError{Code: statusCode(r.Status), Message: msg}
+		return WireReply{}, token, &ClientError{Code: statusCode(r.Status), Message: msg}
 	}
-	if r.Variant != nil && *r.Variant == "ServiceError" {
-		se, err := DecodeServiceError(r.Payload)
-		if err != nil {
-			return nil, token, &ClientError{Err: fmt.Errorf("decode ServiceError: %w", err)}
-		}
-		return nil, token, &ClientError{Code: int64(se.Code), Message: se.Message}
+	return WireReply{Variant: r.Variant, Payload: r.Payload}, token, nil
+}
+
+// serviceError preserves the error codes of the byte-only Call and bearer retry.
+func (r WireReply) serviceError() error {
+	if r.Variant == nil || *r.Variant != "ServiceError" {
+		return nil
 	}
-	return r.Payload, token, nil
+	se, err := DecodeServiceError(r.Payload)
+	if err != nil {
+		return &ClientError{Err: fmt.Errorf("decode ServiceError: %w", err)}
+	}
+	return &ClientError{Code: int64(se.Code), Message: se.Message}
 }
 
 // statusCode maps a transport status to an HTTP-shaped code.

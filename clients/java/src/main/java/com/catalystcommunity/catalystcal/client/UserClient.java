@@ -14,14 +14,17 @@ public final class UserClient {
     }
 
     public User getProfile(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeUser(transport.call("UserService", "get-profile", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("UserService", "get-profile", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeUser(CsilCbor.resolveRpcReply("UserService", "get-profile", reply.variant(), reply.payload()));
     }
 
     public User updateProfile(UpdateProfileRequest req) throws ClientException {
-        return CsilCbor.decodeUser(transport.call("UserService", "update-profile", CsilCbor.encodeUpdateProfileRequest(req)));
+        WireReply reply = transport.callReply("UserService", "update-profile", CsilCbor.encodeUpdateProfileRequest(req));
+        return CsilCbor.decodeUser(CsilCbor.resolveRpcReply("UserService", "update-profile", reply.variant(), reply.payload()));
     }
 
     public PersonSummary lookupPerson(LookupPersonRequest req) throws ClientException {
-        return CsilCbor.decodePersonSummary(transport.call("UserService", "lookup-person", CsilCbor.encodeLookupPersonRequest(req)));
+        WireReply reply = transport.callReply("UserService", "lookup-person", CsilCbor.encodeLookupPersonRequest(req));
+        return CsilCbor.decodePersonSummary(CsilCbor.resolveRpcReply("UserService", "lookup-person", reply.variant(), reply.payload()));
     }
 }

@@ -42,7 +42,15 @@ class HttpRpcTransport(baseUrl: String) : Transport {
     // Trim any trailing slash so the joined path is exactly one "/csil/v1/rpc".
     private val baseUrl: String = baseUrl.trimEnd('/')
 
-    override fun call(service: String, op: String, request: ByteArray): ByteArray {
+    override fun call(service: String, op: String, request: ByteArray): ByteArray =
+        exchange(service, op, request).payload
+
+    override fun callReply(service: String, op: String, request: ByteArray): WireReply {
+        val resp = exchange(service, op, request)
+        return WireReply(resp.variant, resp.payload)
+    }
+
+    private fun exchange(service: String, op: String, request: ByteArray): RpcResponse {
         // The library builds the envelope from the already-encoded request bytes; we never
         // hand-roll the wire form.
         val envelope = RpcRequest(service, op, request).encode()
@@ -60,7 +68,7 @@ class HttpRpcTransport(baseUrl: String) : Transport {
         val resp = RpcResponse.decode(httpResp.body())
         // A non-zero transport status is a StatusException, distinct from an application error.
         resp.asTransportError()?.let { throw ClientError(message = "csil-rpc $service/$op: ${it.message}") }
-        return resolveRpcReply(service, op, resp.variant, resp.payload)
+        return resp
     }
 }
 

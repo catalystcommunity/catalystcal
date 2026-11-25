@@ -43,7 +43,19 @@ defmodule CsilRpcHttpCarrier do
 
   # The generated client calls this seam with the already-encoded request bytes.
   @impl true
-  def call(%__MODULE__{rpc_url: url}, service, op, req) when is_binary(req) do
+  def call(%__MODULE__{} = carrier, service, op, req) when is_binary(req) do
+    round_trip(carrier, service, op, req).payload
+  end
+
+  # The generated client calls this seam for an operation with more than one
+  # reply arm; it picks the arm from the variant.
+  @impl true
+  def call_reply(%__MODULE__{} = carrier, service, op, req) when is_binary(req) do
+    resp = round_trip(carrier, service, op, req)
+    {resp.variant, resp.payload}
+  end
+
+  defp round_trip(%__MODULE__{rpc_url: url}, service, op, req) do
     # Encode the request with the library's RPC envelope (never hand-rolled).
     envelope = RPC.encode_request(RPC.new_request(service, op, req))
 
@@ -61,7 +73,7 @@ defmodule CsilRpcHttpCarrier do
       {:error, reason} -> raise "csil-rpc #{service}/#{op}: #{inspect(reason)}"
     end
 
-    Csilgen.Generated.Cbor.resolve_rpc_reply(service, op, resp.variant, resp.payload)
+    resp
   end
 
   # --- Plain-HTTP POST over :gen_tcp ---

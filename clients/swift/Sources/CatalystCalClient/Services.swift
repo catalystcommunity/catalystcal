@@ -3,111 +3,112 @@
 
 /// Transport-level failures a router can raise (distinct from application errors,
 /// which ride inside the payload as a declared `/ ErrorType` arm).
-public enum CsilTransportError: Error, Equatable {
-    case unknownOperation(String)
-    case unknownOrdinal(UInt64)
+public enum CsilTransportError: Swift.Error, Equatable {
+  case unknownOperation(String)
+  case unknownOrdinal(UInt64)
 }
 
 /// AuthService is the server-side handler seam.
 public protocol AuthService {
-    func complete(_ request: CompleteRequest) throws -> LoginResponse
-    func resumeSession(_ request: EmptyRequest) throws -> LoginResponse
-    func endSession(_ request: EmptyRequest) throws -> EmptyResponse
-    func me(_ request: EmptyRequest) throws -> MeResponse
-    func assumePrincipal(_ request: AssumePrincipalRequest) throws -> LoginResponse
-    func releasePrincipal(_ request: EmptyRequest) throws -> LoginResponse
-    func exchangeActAsCredential(_ request: ExchangeActAsCredentialRequest) throws -> LoginResponse
-    func getActAsScopeSet(_ request: ScopeSetRequest) throws -> ScopeSetResponse
-    func getApplicationIdentity(_ request: EmptyRequest) throws -> ApplicationIdentityResponse
-    func exchangeApplicationPresentation(_ request: ExchangeApplicationPresentationRequest) throws -> LoginResponse
+  func complete(_ request: CompleteRequest) throws -> LoginResponse
+  func resumeSession(_ request: EmptyRequest) throws -> LoginResponse
+  func endSession(_ request: EmptyRequest) throws -> EmptyResponse
+  func me(_ request: EmptyRequest) throws -> MeResponse
+  func assumePrincipal(_ request: AssumePrincipalRequest) throws -> LoginResponse
+  func releasePrincipal(_ request: EmptyRequest) throws -> LoginResponse
+  func exchangeActAsCredential(_ request: ExchangeActAsCredentialRequest) throws -> LoginResponse
+  func getActAsScopeSet(_ request: ScopeSetRequest) throws -> ScopeSetResponse
+  func getApplicationIdentity(_ request: EmptyRequest) throws -> ApplicationIdentityResponse
+  func exchangeApplicationPresentation(
+    _ request: ExchangeApplicationPresentationRequest
+  ) throws -> LoginResponse
 }
 
 /// DevAuthService is the server-side handler seam.
 public protocol DevAuthService {
-    func listDevUsers(_ request: EmptyRequest) throws -> DevUsersResponse
-    func devLogin(_ request: DevLoginRequest) throws -> LoginResponse
+  func listDevUsers(_ request: EmptyRequest) throws -> DevUsersResponse
+  func devLogin(_ request: DevLoginRequest) throws -> LoginResponse
 }
 
 /// UserService is the server-side handler seam.
 public protocol UserService {
-    func getProfile(_ request: EmptyRequest) throws -> User
-    func updateProfile(_ request: UpdateProfileRequest) throws -> User
-    func lookupPerson(_ request: LookupPersonRequest) throws -> PersonSummary
+  func getProfile(_ request: EmptyRequest) throws -> User
+  func updateProfile(_ request: UpdateProfileRequest) throws -> User
+  func lookupPerson(_ request: LookupPersonRequest) throws -> PersonSummary
 }
 
 /// CalendarService is the server-side handler seam.
 public protocol CalendarService {
-    func listCalendars(_ request: EmptyRequest) throws -> CalendarList
-    func getCalendar(_ request: CalendarId) throws -> Calendar
-    func createCalendar(_ request: CreateCalendarRequest) throws -> Calendar
-    func updateCalendar(_ request: UpdateCalendarRequest) throws -> Calendar
-    func deleteCalendar(_ request: CalendarId) throws -> EmptyResponse
-    func subscribeCalendar(_ request: SubscribeCalendarRequest) throws -> Calendar
-    func refreshSubscription(_ request: CalendarId) throws -> Calendar
-    func setFeed(_ request: SetFeedRequest) throws -> Calendar
+  func listCalendars(_ request: EmptyRequest) throws -> CalendarList
+  func getCalendar(_ request: CalendarId) throws -> Calendar
+  func createCalendar(_ request: CreateCalendarRequest) throws -> Calendar
+  func updateCalendar(_ request: UpdateCalendarRequest) throws -> Calendar
+  func deleteCalendar(_ request: CalendarId) throws -> EmptyResponse
+  func subscribeCalendar(_ request: SubscribeCalendarRequest) throws -> Calendar
+  func refreshSubscription(_ request: CalendarId) throws -> Calendar
+  func setFeed(_ request: SetFeedRequest) throws -> Calendar
 }
 
 /// ShareService is the server-side handler seam.
 public protocol ShareService {
-    func listShares(_ request: CalendarId) throws -> ShareList
-    func putShare(_ request: Share) throws -> Share
-    func deleteShare(_ request: ShareId) throws -> EmptyResponse
+  func listShares(_ request: CalendarId) throws -> ShareList
+  func putShare(_ request: Share) throws -> Share
+  func deleteShare(_ request: ShareId) throws -> EmptyResponse
 }
 
 /// GroupService is the server-side handler seam.
 public protocol GroupService {
-    func listGroups(_ request: EmptyRequest) throws -> GroupList
-    func getGroup(_ request: GroupId) throws -> Group
-    func createGroup(_ request: CreateGroupRequest) throws -> Group
-    func updateGroup(_ request: UpdateGroupRequest) throws -> Group
-    func setMembers(_ request: SetGroupMembersRequest) throws -> Group
-    func deleteGroup(_ request: GroupId) throws -> EmptyResponse
+  func listGroups(_ request: EmptyRequest) throws -> GroupList
+  func getGroup(_ request: GroupId) throws -> Group
+  func createGroup(_ request: CreateGroupRequest) throws -> Group
+  func updateGroup(_ request: UpdateGroupRequest) throws -> Group
+  func setMembers(_ request: SetGroupMembersRequest) throws -> Group
+  func deleteGroup(_ request: GroupId) throws -> EmptyResponse
 }
 
 /// DelegationService is the server-side handler seam.
 public protocol DelegationService {
-    func listGranted(_ request: EmptyRequest) throws -> DelegationList
-    func listReceived(_ request: EmptyRequest) throws -> DelegationList
-    func createDelegation(_ request: Delegation) throws -> Delegation
-    func updateDelegation(_ request: Delegation) throws -> Delegation
-    func revokeDelegation(_ request: DelegationId) throws -> EmptyResponse
+  func listGranted(_ request: EmptyRequest) throws -> DelegationList
+  func listReceived(_ request: EmptyRequest) throws -> DelegationList
+  func createDelegation(_ request: Delegation) throws -> Delegation
+  func updateDelegation(_ request: Delegation) throws -> Delegation
+  func revokeDelegation(_ request: DelegationId) throws -> EmptyResponse
 }
 
 /// EventService is the server-side handler seam.
 public protocol EventService {
-    func listEvents(_ request: ListEventsRequest) throws -> OccurrenceList
-    func getEvent(_ request: EventId) throws -> Event
-    func getOccurrence(_ request: GetOccurrenceRequest) throws -> Occurrence
-    func createEvent(_ request: Event) throws -> Event
-    func updateEvent(_ request: UpdateEventRequest) throws -> Event
-    func deleteEvent(_ request: DeleteEventRequest) throws -> DeleteEventResponse
-    func moveEvent(_ request: MoveEventRequest) throws -> Event
-    func respond(_ request: RespondRequest) throws -> Event
-    func listInvitations(_ request: EmptyRequest) throws -> EventList
-    func searchEvents(_ request: SearchEventsRequest) throws -> EventList
-    func listTrash(_ request: ListTrashRequest) throws -> TrashList
-    func restoreEvent(_ request: RestoreEventRequest) throws -> Event
-    func importEvent(_ request: ImportEventRequest) throws -> Event
-    func createEventOnce(_ request: CreateEventOnceRequest) throws -> CreateEventReceipt
-    func getCreateReceipt(_ request: CreateReceiptRequest) throws -> CreateEventReceipt
-    func splitSeriesOnce(_ request: SplitSeriesOnceRequest) throws -> SplitSeriesReceipt
-    func getSplitReceipt(_ request: SplitReceiptRequest) throws -> SplitSeriesReceipt
+  func listEvents(_ request: ListEventsRequest) throws -> OccurrenceList
+  func getEvent(_ request: EventId) throws -> Event
+  func getOccurrence(_ request: GetOccurrenceRequest) throws -> Occurrence
+  func createEvent(_ request: Event) throws -> Event
+  func updateEvent(_ request: UpdateEventRequest) throws -> Event
+  func deleteEvent(_ request: DeleteEventRequest) throws -> DeleteEventResponse
+  func moveEvent(_ request: MoveEventRequest) throws -> Event
+  func respond(_ request: RespondRequest) throws -> Event
+  func listInvitations(_ request: EmptyRequest) throws -> EventList
+  func searchEvents(_ request: SearchEventsRequest) throws -> EventList
+  func listTrash(_ request: ListTrashRequest) throws -> TrashList
+  func restoreEvent(_ request: RestoreEventRequest) throws -> Event
+  func importEvent(_ request: ImportEventRequest) throws -> Event
+  func createEventOnce(_ request: CreateEventOnceRequest) throws -> CreateEventReceipt
+  func getCreateReceipt(_ request: CreateReceiptRequest) throws -> CreateEventReceipt
+  func splitSeriesOnce(_ request: SplitSeriesOnceRequest) throws -> SplitSeriesReceipt
+  func getSplitReceipt(_ request: SplitReceiptRequest) throws -> SplitSeriesReceipt
 }
 
 /// FreeBusyService is the server-side handler seam.
 public protocol FreeBusyService {
-    func query(_ request: FreeBusyRequest) throws -> FreeBusyResponse
+  func query(_ request: FreeBusyRequest) throws -> FreeBusyResponse
 }
 
 /// IcsService is the server-side handler seam.
 public protocol IcsService {
-    func importIcs(_ request: ImportIcsRequest) throws -> ImportResult
-    func exportCalendar(_ request: ExportCalendarRequest) throws -> IcsDocument
-    func exportEvent(_ request: ExportEventRequest) throws -> IcsDocument
+  func importIcs(_ request: ImportIcsRequest) throws -> ImportResult
+  func exportCalendar(_ request: ExportCalendarRequest) throws -> IcsDocument
+  func exportEvent(_ request: ExportEventRequest) throws -> IcsDocument
 }
 
 /// AuditService is the server-side handler seam.
 public protocol AuditService {
-    func listAudit(_ request: AuditQuery) throws -> AuditList
+  func listAudit(_ request: AuditQuery) throws -> AuditList
 }
-

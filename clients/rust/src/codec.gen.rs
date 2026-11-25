@@ -4,7 +4,7 @@
 //! wire (a CBOR map keyed by the verbatim CSIL field name in canonical RFC
 //! 8949 order) so the generated types need no serde derive. One
 //! `encode_`/`decode_` pair is emitted per record type.
-#![allow(dead_code, clippy::vec_init_then_push)]
+#![allow(dead_code, clippy::vec_init_then_push, clippy::let_unit_value)]
 
 use super::types::*;
 
@@ -156,18 +156,51 @@ fn cbor_read_arg(b: &[u8], pos: &mut usize, low: u8) -> Result<u64, CsilCborErro
         _ => {
             return Err(CsilCborError(format!(
                 "csil cbor: reserved additional info {low}"
-            )))
+            )));
         }
     };
-    if *pos >= b.len() || width > b.len() - *pos - 1 {
-        return Err(CsilCborError("csil cbor: truncated argument".to_string()));
-    }
+    let bytes = pos
+        .checked_add(1)
+        .and_then(|start| b.get(start..start.checked_add(width)?))
+        .ok_or_else(|| CsilCborError("csil cbor: truncated argument".to_string()))?;
     let mut v = 0u64;
-    for &byte in &b[*pos + 1..*pos + 1 + width] {
+    for &byte in bytes {
         v = (v << 8) | byte as u64;
     }
     *pos += 1 + width;
     Ok(v)
+}
+
+/// Whether the item head at `at` uses the shortest argument for its value or
+/// length (RFC 8949 section 4.2.1). A map key with a longer head has a second byte
+/// form, and the canonical order check could then accept a map that no canonical
+/// encoder writes. Floats and simple values (major type 7) are not checked here,
+/// and a truncated head is left to the decoder to report.
+fn cbor_head_is_shortest(b: &[u8], at: usize) -> bool {
+    let Some(&ib) = b.get(at) else {
+        return true;
+    };
+    let (major, low) = (ib >> 5, ib & 0x1f);
+    let width = match low {
+        24 => 1usize,
+        25 => 2,
+        26 => 4,
+        27 => 8,
+        _ => return true,
+    };
+    if major == 7 {
+        return true;
+    }
+    let Some(bytes) = b.get(at + 1..at + 1 + width) else {
+        return true;
+    };
+    let value = bytes.iter().fold(0u64, |v, &byte| (v << 8) | byte as u64);
+    match width {
+        1 => value >= 24,
+        2 => value > 0xff,
+        4 => value > 0xffff,
+        _ => value > 0xffff_ffff,
+    }
 }
 
 /// The most elements a decoded array or map reserves before it reads them. The
@@ -177,18 +210,41 @@ fn cbor_read_arg(b: &[u8], pos: &mut usize, low: u8) -> Result<u64, CsilCborErro
 /// bound, the vector grows only as elements are actually read.
 const CSIL_CBOR_PREALLOC_LIMIT: usize = 1024;
 
+/// The `len` bytes at `start`, or `None` when the input is shorter. `get` is
+/// used instead of indexing so a bad length can never panic.
+fn cbor_take(b: &[u8], start: usize, len: u64) -> Option<&[u8]> {
+    let end = start.checked_add(usize::try_from(len).ok()?)?;
+    b.get(start..end)
+}
+
+/// Widen an IEEE 754 half-precision value (RFC 8949 Appendix D) exactly to binary64.
+fn cbor_half_to_f64(half: u16) -> f64 {
+    let exp = (half >> 10) & 0x1f;
+    let mant = f64::from(half & 0x3ff);
+    let magnitude = match exp {
+        0 => mant * 2f64.powi(-24),
+        31 if mant == 0.0 => f64::INFINITY,
+        31 => f64::NAN,
+        _ => (mant + 1024.0) * 2f64.powi(i32::from(exp) - 25),
+    };
+    if half & 0x8000 != 0 {
+        -magnitude
+    } else {
+        magnitude
+    }
+}
+
 fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, CsilCborError> {
     if depth > 64 {
         return Err(CsilCborError(
             "csil cbor: nesting limit exceeded".to_string(),
         ));
     }
-    if *pos >= b.len() {
+    let Some(&ib) = b.get(*pos) else {
         return Err(CsilCborError(
             "csil cbor: unexpected end of input".to_string(),
         ));
-    }
-    let ib = b[*pos];
+    };
     let major = ib >> 5;
     let low = ib & 0x1f;
     if major == 7 {
@@ -204,6 +260,10 @@ fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, Cs
             22 | 23 => {
                 *pos += 1;
                 Ok(CsilCborValue::Null)
+            }
+            25 => {
+                let bits = cbor_read_arg(b, pos, low)?;
+                Ok(CsilCborValue::Float(cbor_half_to_f64(bits as u16)))
             }
             26 => {
                 let bits = cbor_read_arg(b, pos, low)?;
@@ -230,31 +290,22 @@ fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, Cs
             Ok(CsilCborValue::Int(-1 - arg as i64))
         }
         2 => {
-            if arg > (b.len() - *pos) as u64 {
-                return Err(CsilCborError(
-                    "csil cbor: truncated byte string".to_string(),
-                ));
-            }
-            let n = arg as usize;
-            let slice = b[*pos..*pos + n].to_vec();
-            *pos += n;
-            Ok(CsilCborValue::Bytes(slice))
+            let slice = cbor_take(b, *pos, arg)
+                .ok_or_else(|| CsilCborError("csil cbor: truncated byte string".to_string()))?;
+            *pos += slice.len();
+            Ok(CsilCborValue::Bytes(slice.to_vec()))
         }
         3 => {
-            if arg > (b.len() - *pos) as u64 {
-                return Err(CsilCborError(
-                    "csil cbor: truncated text string".to_string(),
-                ));
-            }
-            let n = arg as usize;
-            let s = std::str::from_utf8(&b[*pos..*pos + n])
+            let slice = cbor_take(b, *pos, arg)
+                .ok_or_else(|| CsilCborError("csil cbor: truncated text string".to_string()))?;
+            let s = std::str::from_utf8(slice)
                 .map_err(|e| CsilCborError(format!("csil cbor: invalid utf-8: {e}")))?
                 .to_string();
-            *pos += n;
+            *pos += slice.len();
             Ok(CsilCborValue::Text(s))
         }
         4 => {
-            if arg > (b.len() - *pos) as u64 {
+            if arg > b.len().saturating_sub(*pos) as u64 {
                 return Err(CsilCborError(
                     "csil cbor: array length exceeds remaining input".to_string(),
                 ));
@@ -267,7 +318,7 @@ fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, Cs
             Ok(CsilCborValue::Array(items))
         }
         5 => {
-            if arg > (b.len() - *pos) as u64 {
+            if arg > b.len().saturating_sub(*pos) as u64 {
                 return Err(CsilCborError(
                     "csil cbor: map length exceeds remaining input".to_string(),
                 ));
@@ -275,6 +326,11 @@ fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, Cs
             let n = arg as usize;
             let mut entries = Vec::with_capacity(n.min(CSIL_CBOR_PREALLOC_LIMIT));
             for _ in 0..n {
+                if !cbor_head_is_shortest(b, *pos) {
+                    return Err(CsilCborError(
+                        "csil cbor: map key is not in shortest form".to_string(),
+                    ));
+                }
                 let k = cbor_dec(b, pos, depth + 1)?;
                 let val = cbor_dec(b, pos, depth + 1)?;
                 entries.push((k, val));
@@ -292,19 +348,30 @@ fn cbor_dec(b: &[u8], pos: &mut usize, depth: usize) -> Result<CsilCborValue, Cs
 }
 
 /// Map a typed slice to a CBOR array via the per-element encoder.
-fn cbor_enc_array<E>(xs: &[E], f: impl Fn(&E) -> CsilCborValue) -> CsilCborValue {
-    CsilCborValue::Array(xs.iter().map(f).collect())
+fn cbor_enc_array<E>(
+    xs: &[E],
+    f: impl Fn(&E) -> Result<CsilCborValue, CsilCborError>,
+) -> Result<CsilCborValue, CsilCborError> {
+    xs.iter()
+        .map(f)
+        .collect::<Result<Vec<_>, _>>()
+        .map(CsilCborValue::Array)
 }
 
-/// Map a typed map to a CBOR map. Rust `HashMap` iteration is unordered, so the inner
-/// map's entry order is not canonicalized; the record's own keys (laid down at
-/// generation time) are what the cross-language wire contract pins.
+/// Map a typed map to a CBOR map with its entries in canonical order: the bytewise
+/// order of each encoded key (RFC 8949 section 4.2.1). `HashMap` iteration order is
+/// arbitrary, and a peer rejects a map whose keys are not in that order.
 fn cbor_enc_map<K, V>(
     m: &std::collections::HashMap<K, V>,
-    kf: impl Fn(&K) -> CsilCborValue,
-    vf: impl Fn(&V) -> CsilCborValue,
-) -> CsilCborValue {
-    CsilCborValue::Map(m.iter().map(|(k, v)| (kf(k), vf(v))).collect())
+    kf: impl Fn(&K) -> Result<CsilCborValue, CsilCborError>,
+    vf: impl Fn(&V) -> Result<CsilCborValue, CsilCborError>,
+) -> Result<CsilCborValue, CsilCborError> {
+    let mut entries = m
+        .iter()
+        .map(|(k, v)| Ok((kf(k)?, vf(v)?)))
+        .collect::<Result<Vec<_>, CsilCborError>>()?;
+    entries.sort_by_cached_key(|(k, _)| cbor_encode(k));
+    Ok(CsilCborValue::Map(entries))
 }
 
 fn cbor_dec_array<E>(
@@ -314,6 +381,9 @@ fn cbor_dec_array<E>(
     cbor_as_array(v)?.iter().map(f).collect()
 }
 
+/// Decode a dynamic map. Its keys must be in strictly ascending canonical order, so
+/// each key is compared with the one before it only: one pass, no sort, and a key
+/// that comes twice is refused too.
 fn cbor_dec_map<K: std::cmp::Eq + std::hash::Hash, V>(
     v: &CsilCborValue,
     kf: impl Fn(&CsilCborValue) -> Result<K, CsilCborError>,
@@ -321,10 +391,42 @@ fn cbor_dec_map<K: std::cmp::Eq + std::hash::Hash, V>(
 ) -> Result<std::collections::HashMap<K, V>, CsilCborError> {
     let entries = cbor_as_map(v)?;
     let mut out = std::collections::HashMap::with_capacity(entries.len());
+    let mut previous: Option<Vec<u8>> = None;
     for (k, val) in entries {
+        let key = cbor_encode(k);
+        match previous.as_deref().map(|p| p.cmp(key.as_slice())) {
+            Some(std::cmp::Ordering::Equal) => return Err(cbor_duplicate_key(k)),
+            Some(std::cmp::Ordering::Greater) => {
+                return Err(CsilCborError(
+                    "csil cbor: map keys are not in canonical order".to_string(),
+                ));
+            }
+            _ => {}
+        }
         out.insert(kf(k)?, vf(val)?);
+        previous = Some(key);
     }
     Ok(out)
+}
+
+fn cbor_duplicate_key(k: &CsilCborValue) -> CsilCborError {
+    match k {
+        CsilCborValue::Text(name) => CsilCborError(format!("csil cbor: duplicate key {name:?}")),
+        other => CsilCborError(format!("csil cbor: duplicate key {other:?}")),
+    }
+}
+
+/// Refuse a record map that names one key twice. Record fields may come in any
+/// order, so a set of the encoded keys finds a repeat in one pass.
+fn cbor_check_record(v: &CsilCborValue) -> Result<(), CsilCborError> {
+    let entries = cbor_as_map(v)?;
+    let mut seen = std::collections::HashSet::with_capacity(entries.len());
+    for (k, _) in entries {
+        if !seen.insert(cbor_encode(k)) {
+            return Err(cbor_duplicate_key(k));
+        }
+    }
+    Ok(())
 }
 
 fn cbor_map_get<'a>(v: &'a CsilCborValue, key: &str) -> Option<&'a CsilCborValue> {
@@ -418,10 +520,17 @@ fn cbor_as_map(v: &CsilCborValue) -> Result<&[(CsilCborValue, CsilCborValue)], C
     }
 }
 
-fn csil_enc_date(date: &time::Date) -> CsilCborValue {
+fn csil_rt_enc_date(date: &time::Date) -> Result<CsilCborValue, CsilCborError> {
     let text = date.to_string();
-    assert!(text.len() == 10, "CSIL date requires a four-digit year");
-    CsilCborValue::Tag(1004, Box::new(CsilCborValue::Text(text)))
+    if !(1..=9999).contains(&date.year()) || text.len() != 10 {
+        return Err(CsilCborError(
+            "csil cbor: date outside years 0001-9999".to_string(),
+        ));
+    }
+    Ok(CsilCborValue::Tag(
+        1004,
+        Box::new(CsilCborValue::Text(text)),
+    ))
 }
 
 fn csil_as_date(v: &CsilCborValue) -> Result<time::Date, CsilCborError> {
@@ -437,34 +546,107 @@ fn csil_as_date(v: &CsilCborValue) -> Result<time::Date, CsilCborError> {
         .ok_or_else(|| CsilCborError("expected a YYYY-MM-DD date".into()))
 }
 
-fn csil_enc_timestamp(t: &time::OffsetDateTime) -> CsilCborValue {
-    let utc = t.to_offset(time::UtcOffset::UTC);
+fn csil_rt_enc_timestamp(t: &time::OffsetDateTime) -> Result<CsilCborValue, CsilCborError> {
+    let out_of_range = || CsilCborError("csil cbor: timestamp outside UTC years 0001-9999".into());
+    // `to_offset` panics when the shifted instant leaves the `time` range.
+    let utc = t
+        .checked_to_offset(time::UtcOffset::UTC)
+        .filter(|utc| (1..=9999).contains(&utc.year()))
+        .ok_or_else(out_of_range)?;
     let mut text = utc
         .format(&time::format_description::well_known::Rfc3339)
-        .expect("CSIL timestamp requires a four-digit UTC year");
+        .map_err(|_| out_of_range())?;
     // Keep the wire spelling used by earlier Rust releases (3, 6, or 9 fractional digits).
     if let Some(point) = text.find('.') {
-        let end = text.len() - 1; // final Z
-        let digits = end - point - 1;
-        let padding = (3 - digits % 3) % 3;
-        text.insert_str(end, &"00"[..padding]);
+        let end = text.len().saturating_sub(1); // final Z
+        let digits = end.saturating_sub(point + 1);
+        let padding = match digits % 3 {
+            1 => "00",
+            2 => "0",
+            _ => "",
+        };
+        text.insert_str(end, padding);
     }
-    CsilCborValue::Tag(0, Box::new(CsilCborValue::Text(text)))
+    Ok(CsilCborValue::Tag(0, Box::new(CsilCborValue::Text(text))))
 }
 
 pub(super) fn csil_parse_timestamp(s: &str) -> Result<time::OffsetDateTime, CsilCborError> {
-    if !matches!(s.as_bytes().get(10), Some(b'T' | b't' | b' ')) {
-        return Err(CsilCborError("invalid timestamp separator".into()));
+    let invalid = || CsilCborError(format!("csil cbor: invalid timestamp {s:?}"));
+    let b = s.as_bytes();
+    // Every field is read by position so that no parser leniency (space separator,
+    // offsets without a colon, rounding of a leap second) can widen the wire form.
+    let field = |from: usize, len: usize| -> Result<u32, CsilCborError> {
+        b.get(from..from + len)
+            .and_then(|part| {
+                part.iter().try_fold(0u32, |n, c| {
+                    c.is_ascii_digit().then(|| n * 10 + u32::from(c - b'0'))
+                })
+            })
+            .ok_or_else(invalid)
+    };
+    let at = |i: usize| b.get(i).copied();
+    if b.len() < 20
+        || at(4) != Some(b'-')
+        || at(7) != Some(b'-')
+        || !matches!(at(10), Some(b'T' | b't'))
+        || at(13) != Some(b':')
+        || at(16) != Some(b':')
+    {
+        return Err(invalid());
     }
-    // The time crate rounds a leap second down. Reject it to avoid changing the instant.
-    if s.get(17..19) == Some("60") {
-        return Err(CsilCborError("unrepresentable leap second".into()));
+    let (year, month, day) = (field(0, 4)?, field(5, 2)?, field(8, 2)?);
+    // A written year 0000 is refused even when the offset carries it into 0001.
+    if year == 0 {
+        return Err(invalid());
     }
-    let dt = time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339)
-        .map_err(|e| CsilCborError(format!("csil cbor: invalid timestamp: {e}")))?;
-    dt.checked_to_offset(time::UtcOffset::UTC)
-        .filter(|utc| (0..=9999).contains(&utc.year()))
-        .ok_or_else(|| CsilCborError("timestamp outside four-digit UTC year range".into()))
+    let (hour, minute, second) = (field(11, 2)?, field(14, 2)?, field(17, 2)?);
+    let mut pos = 19;
+    let mut nanos = 0;
+    if at(pos) == Some(b'.') {
+        let digits = b
+            .get(pos + 1..)
+            .unwrap_or_default()
+            .iter()
+            .take_while(|c| c.is_ascii_digit())
+            .count();
+        if !(1..=9).contains(&digits) {
+            return Err(invalid());
+        }
+        nanos = field(pos + 1, digits)? * 10u32.pow(9 - digits as u32);
+        pos += 1 + digits;
+    }
+    let offset = match b.get(pos..).unwrap_or_default() {
+        [b'Z' | b'z'] => 0,
+        [sign @ (b'+' | b'-'), _, _, b':', _, _] => {
+            let (h, m) = (field(pos + 1, 2)?, field(pos + 4, 2)?);
+            if h > 23 || m > 59 {
+                return Err(invalid());
+            }
+            let total = (h * 3600 + m * 60) as i32;
+            // A `match`, because rustfmt's 2021 and 2024 styles lay out a short
+            // `if`/`else` tail differently.
+            match *sign {
+                b'-' => -total,
+                _ => total,
+            }
+        }
+        _ => return Err(invalid()),
+    };
+    let month = u8::try_from(month)
+        .ok()
+        .and_then(|m| time::Month::try_from(m).ok())
+        .ok_or_else(invalid)?;
+    let date =
+        time::Date::from_calendar_date(year as i32, month, day as u8).map_err(|_| invalid())?;
+    // `Time` refuses hour 24, minute 60, and second 60, so a leap second is an error.
+    let clock = time::Time::from_hms_nano(hour as u8, minute as u8, second as u8, nanos)
+        .map_err(|_| invalid())?;
+    let offset = time::UtcOffset::from_whole_seconds(offset).map_err(|_| invalid())?;
+    time::PrimitiveDateTime::new(date, clock)
+        .assume_offset(offset)
+        .checked_to_offset(time::UtcOffset::UTC)
+        .filter(|utc| (1..=9999).contains(&utc.year()))
+        .ok_or_else(|| CsilCborError("timestamp outside UTC years 0001-9999".into()))
 }
 
 fn csil_as_timestamp(v: &CsilCborValue) -> Result<time::OffsetDateTime, CsilCborError> {
@@ -482,7 +664,7 @@ fn csil_as_timestamp(v: &CsilCborValue) -> Result<time::OffsetDateTime, CsilCbor
 }
 
 /// Build the canonical CBOR value tree for a IdentityRef.
-fn csil_enc_identity_ref(csil_v: &IdentityRef) -> CsilCborValue {
+fn csil_enc_identity_ref(csil_v: &IdentityRef) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((cbor_text("domain"), cbor_text(&csil_v.domain)));
     if let Some(csil_inner) = &csil_v.handle {
@@ -494,11 +676,12 @@ fn csil_enc_identity_ref(csil_v: &IdentityRef) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.application_id {
         csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a IdentityRef from a decoded CBOR value tree.
 fn csil_dec_identity_ref(csil_root: &CsilCborValue) -> Result<IdentityRef, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let domain = {
         let csil_field = cbor_require(csil_root, "domain")?;
         let csil_decode = cbor_as_text;
@@ -534,8 +717,9 @@ fn csil_dec_identity_ref(csil_root: &CsilCborValue) -> Result<IdentityRef, CsilC
 }
 
 /// Encode a IdentityRef to canonical CSIL CBOR bytes.
-pub fn encode_identity_ref(csil_v: &IdentityRef) -> Vec<u8> {
-    cbor_encode(&csil_enc_identity_ref(csil_v))
+pub fn encode_identity_ref(csil_v: &IdentityRef) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_identity_ref(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a IdentityRef.
@@ -545,7 +729,7 @@ pub fn decode_identity_ref(csil_data: &[u8]) -> Result<IdentityRef, CsilCborErro
 }
 
 /// Build the canonical CBOR value tree for a User.
-fn csil_enc_user(csil_v: &User) -> CsilCborValue {
+fn csil_enc_user(csil_v: &User) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(10);
     if let Some(csil_inner) = &csil_v.email {
         csil_entries.push((cbor_text("email"), cbor_text(csil_inner)));
@@ -561,11 +745,11 @@ fn csil_enc_user(csil_v: &User) -> CsilCborValue {
     }
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((
         cbor_text("updated_at"),
-        csil_enc_timestamp(&csil_v.updated_at),
+        csil_rt_enc_timestamp(&csil_v.updated_at)?,
     ));
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
@@ -573,11 +757,12 @@ fn csil_enc_user(csil_v: &User) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.application_id {
         csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a User from a decoded CBOR value tree.
 fn csil_dec_user(csil_root: &CsilCborValue) -> Result<User, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let user_id = {
         let csil_field = cbor_require(csil_root, "user_id")?;
         let csil_decode = cbor_as_text;
@@ -653,8 +838,9 @@ fn csil_dec_user(csil_root: &CsilCborValue) -> Result<User, CsilCborError> {
 }
 
 /// Encode a User to canonical CSIL CBOR bytes.
-pub fn encode_user(csil_v: &User) -> Vec<u8> {
-    cbor_encode(&csil_enc_user(csil_v))
+pub fn encode_user(csil_v: &User) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_user(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a User.
@@ -664,7 +850,7 @@ pub fn decode_user(csil_data: &[u8]) -> Result<User, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a PersonSummary.
-fn csil_enc_person_summary(csil_v: &PersonSummary) -> CsilCborValue {
+fn csil_enc_person_summary(csil_v: &PersonSummary) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
     csil_entries.push((cbor_text("domain"), cbor_text(&csil_v.domain)));
     if let Some(csil_inner) = &csil_v.handle {
@@ -678,11 +864,12 @@ fn csil_enc_person_summary(csil_v: &PersonSummary) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.application_id {
         csil_entries.push((cbor_text("application_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a PersonSummary from a decoded CBOR value tree.
 fn csil_dec_person_summary(csil_root: &CsilCborValue) -> Result<PersonSummary, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let user_id = {
         let csil_field = cbor_require(csil_root, "user_id")?;
         let csil_decode = cbor_as_text;
@@ -730,8 +917,9 @@ fn csil_dec_person_summary(csil_root: &CsilCborValue) -> Result<PersonSummary, C
 }
 
 /// Encode a PersonSummary to canonical CSIL CBOR bytes.
-pub fn encode_person_summary(csil_v: &PersonSummary) -> Vec<u8> {
-    cbor_encode(&csil_enc_person_summary(csil_v))
+pub fn encode_person_summary(csil_v: &PersonSummary) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_person_summary(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a PersonSummary.
@@ -741,15 +929,15 @@ pub fn decode_person_summary(csil_data: &[u8]) -> Result<PersonSummary, CsilCbor
 }
 
 /// Build the canonical CBOR value tree for a Calendar.
-fn csil_enc_calendar(csil_v: &Calendar) -> CsilCborValue {
+fn csil_enc_calendar(csil_v: &Calendar) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(16);
-    csil_entries.push((cbor_text("kind"), csil_enc_calendar_kind(&csil_v.kind)));
+    csil_entries.push((cbor_text("kind"), csil_enc_calendar_kind(&csil_v.kind)?));
     csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
     if let Some(csil_inner) = &csil_v.color {
         csil_entries.push((cbor_text("color"), cbor_text(csil_inner)));
     }
-    csil_entries.push((cbor_text("owner"), csil_enc_person_summary(&csil_v.owner)));
-    csil_entries.push((cbor_text("access"), csil_enc_access_role(&csil_v.access)));
+    csil_entries.push((cbor_text("owner"), csil_enc_person_summary(&csil_v.owner)?));
+    csil_entries.push((cbor_text("access"), csil_enc_access_role(&csil_v.access)?));
     if let Some(csil_inner) = &csil_v.timezone {
         csil_entries.push((cbor_text("timezone"), cbor_text(csil_inner)));
     }
@@ -758,7 +946,7 @@ fn csil_enc_calendar(csil_v: &Calendar) -> CsilCborValue {
     }
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((cbor_text("is_default"), cbor_bool(csil_v.is_default)));
     if let Some(csil_inner) = &csil_v.source_url {
@@ -769,24 +957,28 @@ fn csil_enc_calendar(csil_v: &Calendar) -> CsilCborValue {
     }
     csil_entries.push((
         cbor_text("updated_at"),
-        csil_enc_timestamp(&csil_v.updated_at),
+        csil_rt_enc_timestamp(&csil_v.updated_at)?,
     ));
     csil_entries.push((
         cbor_text("access_path"),
-        csil_enc_access_path(&csil_v.access_path),
+        csil_enc_access_path(&csil_v.access_path)?,
     ));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.last_synced_at {
-        csil_entries.push((cbor_text("last_synced_at"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("last_synced_at"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Calendar from a decoded CBOR value tree.
 fn csil_dec_calendar(csil_root: &CsilCborValue) -> Result<Calendar, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -902,8 +1094,9 @@ fn csil_dec_calendar(csil_root: &CsilCborValue) -> Result<Calendar, CsilCborErro
 }
 
 /// Encode a Calendar to canonical CSIL CBOR bytes.
-pub fn encode_calendar(csil_v: &Calendar) -> Vec<u8> {
-    cbor_encode(&csil_enc_calendar(csil_v))
+pub fn encode_calendar(csil_v: &Calendar) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_calendar(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Calendar.
@@ -913,7 +1106,9 @@ pub fn decode_calendar(csil_data: &[u8]) -> Result<Calendar, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a CreateCalendarRequest.
-fn csil_enc_create_calendar_request(csil_v: &CreateCalendarRequest) -> CsilCborValue {
+fn csil_enc_create_calendar_request(
+    csil_v: &CreateCalendarRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
     if let Some(csil_inner) = &csil_v.color {
@@ -925,13 +1120,14 @@ fn csil_enc_create_calendar_request(csil_v: &CreateCalendarRequest) -> CsilCborV
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CreateCalendarRequest from a decoded CBOR value tree.
 fn csil_dec_create_calendar_request(
     csil_root: &CsilCborValue,
 ) -> Result<CreateCalendarRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let name = {
         let csil_field = cbor_require(csil_root, "name")?;
         let csil_decode = cbor_as_text;
@@ -967,8 +1163,11 @@ fn csil_dec_create_calendar_request(
 }
 
 /// Encode a CreateCalendarRequest to canonical CSIL CBOR bytes.
-pub fn encode_create_calendar_request(csil_v: &CreateCalendarRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_create_calendar_request(csil_v))
+pub fn encode_create_calendar_request(
+    csil_v: &CreateCalendarRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_calendar_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CreateCalendarRequest.
@@ -980,7 +1179,9 @@ pub fn decode_create_calendar_request(
 }
 
 /// Build the canonical CBOR value tree for a UpdateCalendarRequest.
-fn csil_enc_update_calendar_request(csil_v: &UpdateCalendarRequest) -> CsilCborValue {
+fn csil_enc_update_calendar_request(
+    csil_v: &UpdateCalendarRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(5);
     if let Some(csil_inner) = &csil_v.name {
         csil_entries.push((cbor_text("name"), cbor_text(csil_inner)));
@@ -995,13 +1196,14 @@ fn csil_enc_update_calendar_request(csil_v: &UpdateCalendarRequest) -> CsilCborV
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a UpdateCalendarRequest from a decoded CBOR value tree.
 fn csil_dec_update_calendar_request(
     csil_root: &CsilCborValue,
 ) -> Result<UpdateCalendarRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -1045,8 +1247,11 @@ fn csil_dec_update_calendar_request(
 }
 
 /// Encode a UpdateCalendarRequest to canonical CSIL CBOR bytes.
-pub fn encode_update_calendar_request(csil_v: &UpdateCalendarRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_update_calendar_request(csil_v))
+pub fn encode_update_calendar_request(
+    csil_v: &UpdateCalendarRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_update_calendar_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a UpdateCalendarRequest.
@@ -1058,20 +1263,23 @@ pub fn decode_update_calendar_request(
 }
 
 /// Build the canonical CBOR value tree for a SubscribeCalendarRequest.
-fn csil_enc_subscribe_calendar_request(csil_v: &SubscribeCalendarRequest) -> CsilCborValue {
+fn csil_enc_subscribe_calendar_request(
+    csil_v: &SubscribeCalendarRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
     if let Some(csil_inner) = &csil_v.color {
         csil_entries.push((cbor_text("color"), cbor_text(csil_inner)));
     }
     csil_entries.push((cbor_text("source_url"), cbor_text(&csil_v.source_url)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SubscribeCalendarRequest from a decoded CBOR value tree.
 fn csil_dec_subscribe_calendar_request(
     csil_root: &CsilCborValue,
 ) -> Result<SubscribeCalendarRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let name = {
         let csil_field = cbor_require(csil_root, "name")?;
         let csil_decode = cbor_as_text;
@@ -1097,8 +1305,11 @@ fn csil_dec_subscribe_calendar_request(
 }
 
 /// Encode a SubscribeCalendarRequest to canonical CSIL CBOR bytes.
-pub fn encode_subscribe_calendar_request(csil_v: &SubscribeCalendarRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_subscribe_calendar_request(csil_v))
+pub fn encode_subscribe_calendar_request(
+    csil_v: &SubscribeCalendarRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_subscribe_calendar_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SubscribeCalendarRequest.
@@ -1110,15 +1321,16 @@ pub fn decode_subscribe_calendar_request(
 }
 
 /// Build the canonical CBOR value tree for a SetFeedRequest.
-fn csil_enc_set_feed_request(csil_v: &SetFeedRequest) -> CsilCborValue {
+fn csil_enc_set_feed_request(csil_v: &SetFeedRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("enabled"), cbor_bool(csil_v.enabled)));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SetFeedRequest from a decoded CBOR value tree.
 fn csil_dec_set_feed_request(csil_root: &CsilCborValue) -> Result<SetFeedRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -1136,8 +1348,9 @@ fn csil_dec_set_feed_request(csil_root: &CsilCborValue) -> Result<SetFeedRequest
 }
 
 /// Encode a SetFeedRequest to canonical CSIL CBOR bytes.
-pub fn encode_set_feed_request(csil_v: &SetFeedRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_set_feed_request(csil_v))
+pub fn encode_set_feed_request(csil_v: &SetFeedRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_set_feed_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SetFeedRequest.
@@ -1147,17 +1360,18 @@ pub fn decode_set_feed_request(csil_data: &[u8]) -> Result<SetFeedRequest, CsilC
 }
 
 /// Build the canonical CBOR value tree for a CalendarList.
-fn csil_enc_calendar_list(csil_v: &CalendarList) -> CsilCborValue {
+fn csil_enc_calendar_list(csil_v: &CalendarList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("calendars"),
-        cbor_enc_array(&csil_v.calendars, csil_enc_calendar),
+        cbor_enc_array(&csil_v.calendars, csil_enc_calendar)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CalendarList from a decoded CBOR value tree.
 fn csil_dec_calendar_list(csil_root: &CsilCborValue) -> Result<CalendarList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendars = {
         let csil_field = cbor_require(csil_root, "calendars")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_calendar);
@@ -1167,8 +1381,9 @@ fn csil_dec_calendar_list(csil_root: &CsilCborValue) -> Result<CalendarList, Csi
 }
 
 /// Encode a CalendarList to canonical CSIL CBOR bytes.
-pub fn encode_calendar_list(csil_v: &CalendarList) -> Vec<u8> {
-    cbor_encode(&csil_enc_calendar_list(csil_v))
+pub fn encode_calendar_list(csil_v: &CalendarList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_calendar_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CalendarList.
@@ -1178,22 +1393,22 @@ pub fn decode_calendar_list(csil_data: &[u8]) -> Result<CalendarList, CsilCborEr
 }
 
 /// Build the canonical CBOR value tree for a Share.
-fn csil_enc_share(csil_v: &Share) -> CsilCborValue {
+fn csil_enc_share(csil_v: &Share) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
-    csil_entries.push((cbor_text("role"), csil_enc_share_role(&csil_v.role)));
+    csil_entries.push((cbor_text("role"), csil_enc_share_role(&csil_v.role)?));
     if let Some(csil_inner) = &csil_v.grantee {
-        csil_entries.push((cbor_text("grantee"), csil_enc_identity_ref(csil_inner)));
+        csil_entries.push((cbor_text("grantee"), csil_enc_identity_ref(csil_inner)?));
     }
     csil_entries.push((cbor_text("share_id"), cbor_text(&csil_v.share_id)));
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     if let Some(csil_inner) = &csil_v.grantee_person {
         csil_entries.push((
             cbor_text("grantee_person"),
-            csil_enc_person_summary(csil_inner),
+            csil_enc_person_summary(csil_inner)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.grantee_group_id {
@@ -1202,11 +1417,12 @@ fn csil_enc_share(csil_v: &Share) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.grantee_group_name {
         csil_entries.push((cbor_text("grantee_group_name"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Share from a decoded CBOR value tree.
 fn csil_dec_share(csil_root: &CsilCborValue) -> Result<Share, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let share_id = {
         let csil_field = cbor_require(csil_root, "share_id")?;
         let csil_decode = cbor_as_text;
@@ -1268,8 +1484,9 @@ fn csil_dec_share(csil_root: &CsilCborValue) -> Result<Share, CsilCborError> {
 }
 
 /// Encode a Share to canonical CSIL CBOR bytes.
-pub fn encode_share(csil_v: &Share) -> Vec<u8> {
-    cbor_encode(&csil_enc_share(csil_v))
+pub fn encode_share(csil_v: &Share) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_share(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Share.
@@ -1279,17 +1496,18 @@ pub fn decode_share(csil_data: &[u8]) -> Result<Share, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a ShareList.
-fn csil_enc_share_list(csil_v: &ShareList) -> CsilCborValue {
+fn csil_enc_share_list(csil_v: &ShareList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("shares"),
-        cbor_enc_array(&csil_v.shares, csil_enc_share),
+        cbor_enc_array(&csil_v.shares, csil_enc_share)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ShareList from a decoded CBOR value tree.
 fn csil_dec_share_list(csil_root: &CsilCborValue) -> Result<ShareList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let shares = {
         let csil_field = cbor_require(csil_root, "shares")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_share);
@@ -1299,8 +1517,9 @@ fn csil_dec_share_list(csil_root: &CsilCborValue) -> Result<ShareList, CsilCborE
 }
 
 /// Encode a ShareList to canonical CSIL CBOR bytes.
-pub fn encode_share_list(csil_v: &ShareList) -> Vec<u8> {
-    cbor_encode(&csil_enc_share_list(csil_v))
+pub fn encode_share_list(csil_v: &ShareList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_share_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ShareList.
@@ -1310,25 +1529,26 @@ pub fn decode_share_list(csil_data: &[u8]) -> Result<ShareList, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a GroupMember.
-fn csil_enc_group_member(csil_v: &GroupMember) -> CsilCborValue {
+fn csil_enc_group_member(csil_v: &GroupMember) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     if let Some(csil_inner) = &csil_v.person {
-        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.group_id {
         csil_entries.push((cbor_text("group_id"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.identity {
-        csil_entries.push((cbor_text("identity"), csil_enc_identity_ref(csil_inner)));
+        csil_entries.push((cbor_text("identity"), csil_enc_identity_ref(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.group_name {
         csil_entries.push((cbor_text("group_name"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a GroupMember from a decoded CBOR value tree.
 fn csil_dec_group_member(csil_root: &CsilCborValue) -> Result<GroupMember, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let identity = match cbor_map_get(csil_root, "identity") {
         Some(csil_field) => {
             let csil_decode = csil_dec_identity_ref;
@@ -1366,8 +1586,9 @@ fn csil_dec_group_member(csil_root: &CsilCborValue) -> Result<GroupMember, CsilC
 }
 
 /// Encode a GroupMember to canonical CSIL CBOR bytes.
-pub fn encode_group_member(csil_v: &GroupMember) -> Vec<u8> {
-    cbor_encode(&csil_enc_group_member(csil_v))
+pub fn encode_group_member(csil_v: &GroupMember) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_group_member(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a GroupMember.
@@ -1377,32 +1598,33 @@ pub fn decode_group_member(csil_data: &[u8]) -> Result<GroupMember, CsilCborErro
 }
 
 /// Build the canonical CBOR value tree for a Group.
-fn csil_enc_group(csil_v: &Group) -> CsilCborValue {
+fn csil_enc_group(csil_v: &Group) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
     csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
-    csil_entries.push((cbor_text("owner"), csil_enc_person_summary(&csil_v.owner)));
+    csil_entries.push((cbor_text("owner"), csil_enc_person_summary(&csil_v.owner)?));
     csil_entries.push((
         cbor_text("members"),
-        cbor_enc_array(&csil_v.members, csil_enc_group_member),
+        cbor_enc_array(&csil_v.members, csil_enc_group_member)?,
     ));
     csil_entries.push((cbor_text("group_id"), cbor_text(&csil_v.group_id)));
     csil_entries.push((cbor_text("revision"), cbor_uint(csil_v.revision)));
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((
         cbor_text("updated_at"),
-        csil_enc_timestamp(&csil_v.updated_at),
+        csil_rt_enc_timestamp(&csil_v.updated_at)?,
     ));
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Group from a decoded CBOR value tree.
 fn csil_dec_group(csil_root: &CsilCborValue) -> Result<Group, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let group_id = {
         let csil_field = cbor_require(csil_root, "group_id")?;
         let csil_decode = cbor_as_text;
@@ -1458,8 +1680,9 @@ fn csil_dec_group(csil_root: &CsilCborValue) -> Result<Group, CsilCborError> {
 }
 
 /// Encode a Group to canonical CSIL CBOR bytes.
-pub fn encode_group(csil_v: &Group) -> Vec<u8> {
-    cbor_encode(&csil_enc_group(csil_v))
+pub fn encode_group(csil_v: &Group) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_group(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Group.
@@ -1469,25 +1692,28 @@ pub fn decode_group(csil_data: &[u8]) -> Result<Group, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a CreateGroupRequest.
-fn csil_enc_create_group_request(csil_v: &CreateGroupRequest) -> CsilCborValue {
+fn csil_enc_create_group_request(
+    csil_v: &CreateGroupRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((cbor_text("name"), cbor_text(&csil_v.name)));
     if let Some(csil_inner) = &csil_v.members {
         csil_entries.push((
             cbor_text("members"),
-            cbor_enc_array(csil_inner, csil_enc_group_member),
+            cbor_enc_array(csil_inner, csil_enc_group_member)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CreateGroupRequest from a decoded CBOR value tree.
 fn csil_dec_create_group_request(
     csil_root: &CsilCborValue,
 ) -> Result<CreateGroupRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let name = {
         let csil_field = cbor_require(csil_root, "name")?;
         let csil_decode = cbor_as_text;
@@ -1515,8 +1741,9 @@ fn csil_dec_create_group_request(
 }
 
 /// Encode a CreateGroupRequest to canonical CSIL CBOR bytes.
-pub fn encode_create_group_request(csil_v: &CreateGroupRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_create_group_request(csil_v))
+pub fn encode_create_group_request(csil_v: &CreateGroupRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_group_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CreateGroupRequest.
@@ -1526,7 +1753,9 @@ pub fn decode_create_group_request(csil_data: &[u8]) -> Result<CreateGroupReques
 }
 
 /// Build the canonical CBOR value tree for a UpdateGroupRequest.
-fn csil_enc_update_group_request(csil_v: &UpdateGroupRequest) -> CsilCborValue {
+fn csil_enc_update_group_request(
+    csil_v: &UpdateGroupRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     if let Some(csil_inner) = &csil_v.name {
         csil_entries.push((cbor_text("name"), cbor_text(csil_inner)));
@@ -1535,13 +1764,14 @@ fn csil_enc_update_group_request(csil_v: &UpdateGroupRequest) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.description {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a UpdateGroupRequest from a decoded CBOR value tree.
 fn csil_dec_update_group_request(
     csil_root: &CsilCborValue,
 ) -> Result<UpdateGroupRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let group_id = {
         let csil_field = cbor_require(csil_root, "group_id")?;
         let csil_decode = cbor_as_text;
@@ -1569,8 +1799,9 @@ fn csil_dec_update_group_request(
 }
 
 /// Encode a UpdateGroupRequest to canonical CSIL CBOR bytes.
-pub fn encode_update_group_request(csil_v: &UpdateGroupRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_update_group_request(csil_v))
+pub fn encode_update_group_request(csil_v: &UpdateGroupRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_update_group_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a UpdateGroupRequest.
@@ -1580,23 +1811,26 @@ pub fn decode_update_group_request(csil_data: &[u8]) -> Result<UpdateGroupReques
 }
 
 /// Build the canonical CBOR value tree for a SetGroupMembersRequest.
-fn csil_enc_set_group_members_request(csil_v: &SetGroupMembersRequest) -> CsilCborValue {
+fn csil_enc_set_group_members_request(
+    csil_v: &SetGroupMembersRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((
         cbor_text("members"),
-        cbor_enc_array(&csil_v.members, csil_enc_group_member),
+        cbor_enc_array(&csil_v.members, csil_enc_group_member)?,
     ));
     csil_entries.push((cbor_text("group_id"), cbor_text(&csil_v.group_id)));
     if let Some(csil_inner) = &csil_v.expected_revision {
         csil_entries.push((cbor_text("expected_revision"), cbor_uint(*csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SetGroupMembersRequest from a decoded CBOR value tree.
 fn csil_dec_set_group_members_request(
     csil_root: &CsilCborValue,
 ) -> Result<SetGroupMembersRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let group_id = {
         let csil_field = cbor_require(csil_root, "group_id")?;
         let csil_decode = cbor_as_text;
@@ -1622,8 +1856,11 @@ fn csil_dec_set_group_members_request(
 }
 
 /// Encode a SetGroupMembersRequest to canonical CSIL CBOR bytes.
-pub fn encode_set_group_members_request(csil_v: &SetGroupMembersRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_set_group_members_request(csil_v))
+pub fn encode_set_group_members_request(
+    csil_v: &SetGroupMembersRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_set_group_members_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SetGroupMembersRequest.
@@ -1635,17 +1872,18 @@ pub fn decode_set_group_members_request(
 }
 
 /// Build the canonical CBOR value tree for a GroupList.
-fn csil_enc_group_list(csil_v: &GroupList) -> CsilCborValue {
+fn csil_enc_group_list(csil_v: &GroupList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("groups"),
-        cbor_enc_array(&csil_v.groups, csil_enc_group),
+        cbor_enc_array(&csil_v.groups, csil_enc_group)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a GroupList from a decoded CBOR value tree.
 fn csil_dec_group_list(csil_root: &CsilCborValue) -> Result<GroupList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let groups = {
         let csil_field = cbor_require(csil_root, "groups")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_group);
@@ -1655,8 +1893,9 @@ fn csil_dec_group_list(csil_root: &CsilCborValue) -> Result<GroupList, CsilCborE
 }
 
 /// Encode a GroupList to canonical CSIL CBOR bytes.
-pub fn encode_group_list(csil_v: &GroupList) -> Vec<u8> {
-    cbor_encode(&csil_enc_group_list(csil_v))
+pub fn encode_group_list(csil_v: &GroupList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_group_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a GroupList.
@@ -1666,51 +1905,52 @@ pub fn decode_group_list(csil_data: &[u8]) -> Result<GroupList, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a Delegation.
-fn csil_enc_delegation(csil_v: &Delegation) -> CsilCborValue {
+fn csil_enc_delegation(csil_v: &Delegation) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(10);
     if let Some(csil_inner) = &csil_v.note {
         csil_entries.push((cbor_text("note"), cbor_text(csil_inner)));
     }
     csil_entries.push((
         cbor_text("scopes"),
-        cbor_enc_array(&csil_v.scopes, csil_enc_scope),
+        cbor_enc_array(&csil_v.scopes, csil_enc_scope)?,
     ));
     csil_entries.push((
         cbor_text("delegate"),
-        csil_enc_identity_ref(&csil_v.delegate),
+        csil_enc_identity_ref(&csil_v.delegate)?,
     ));
     csil_entries.push((
         cbor_text("principal"),
-        csil_enc_person_summary(&csil_v.principal),
+        csil_enc_person_summary(&csil_v.principal)?,
     ));
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     if let Some(csil_inner) = &csil_v.expires_at {
-        csil_entries.push((cbor_text("expires_at"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((cbor_text("expires_at"), csil_rt_enc_timestamp(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.revoked_at {
-        csil_entries.push((cbor_text("revoked_at"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((cbor_text("revoked_at"), csil_rt_enc_timestamp(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.calendar_ids {
         csil_entries.push((
             cbor_text("calendar_ids"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
     csil_entries.push((cbor_text("delegation_id"), cbor_text(&csil_v.delegation_id)));
     if let Some(csil_inner) = &csil_v.delegate_person {
         csil_entries.push((
             cbor_text("delegate_person"),
-            csil_enc_person_summary(csil_inner),
+            csil_enc_person_summary(csil_inner)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Delegation from a decoded CBOR value tree.
 fn csil_dec_delegation(csil_root: &CsilCborValue) -> Result<Delegation, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let delegation_id = {
         let csil_field = cbor_require(csil_root, "delegation_id")?;
         let csil_decode = cbor_as_text;
@@ -1786,8 +2026,9 @@ fn csil_dec_delegation(csil_root: &CsilCborValue) -> Result<Delegation, CsilCbor
 }
 
 /// Encode a Delegation to canonical CSIL CBOR bytes.
-pub fn encode_delegation(csil_v: &Delegation) -> Vec<u8> {
-    cbor_encode(&csil_enc_delegation(csil_v))
+pub fn encode_delegation(csil_v: &Delegation) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_delegation(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Delegation.
@@ -1797,17 +2038,18 @@ pub fn decode_delegation(csil_data: &[u8]) -> Result<Delegation, CsilCborError> 
 }
 
 /// Build the canonical CBOR value tree for a DelegationList.
-fn csil_enc_delegation_list(csil_v: &DelegationList) -> CsilCborValue {
+fn csil_enc_delegation_list(csil_v: &DelegationList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("delegations"),
-        cbor_enc_array(&csil_v.delegations, csil_enc_delegation),
+        cbor_enc_array(&csil_v.delegations, csil_enc_delegation)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DelegationList from a decoded CBOR value tree.
 fn csil_dec_delegation_list(csil_root: &CsilCborValue) -> Result<DelegationList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let delegations = {
         let csil_field = cbor_require(csil_root, "delegations")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_delegation);
@@ -1817,8 +2059,9 @@ fn csil_dec_delegation_list(csil_root: &CsilCborValue) -> Result<DelegationList,
 }
 
 /// Encode a DelegationList to canonical CSIL CBOR bytes.
-pub fn encode_delegation_list(csil_v: &DelegationList) -> Vec<u8> {
-    cbor_encode(&csil_enc_delegation_list(csil_v))
+pub fn encode_delegation_list(csil_v: &DelegationList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_delegation_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DelegationList.
@@ -1828,19 +2071,22 @@ pub fn decode_delegation_list(csil_data: &[u8]) -> Result<DelegationList, CsilCb
 }
 
 /// Build the canonical CBOR value tree for a AssumePrincipalRequest.
-fn csil_enc_assume_principal_request(csil_v: &AssumePrincipalRequest) -> CsilCborValue {
+fn csil_enc_assume_principal_request(
+    csil_v: &AssumePrincipalRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("principal_user_id"),
         cbor_text(&csil_v.principal_user_id),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a AssumePrincipalRequest from a decoded CBOR value tree.
 fn csil_dec_assume_principal_request(
     csil_root: &CsilCborValue,
 ) -> Result<AssumePrincipalRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let principal_user_id = {
         let csil_field = cbor_require(csil_root, "principal_user_id")?;
         let csil_decode = cbor_as_text;
@@ -1850,8 +2096,11 @@ fn csil_dec_assume_principal_request(
 }
 
 /// Encode a AssumePrincipalRequest to canonical CSIL CBOR bytes.
-pub fn encode_assume_principal_request(csil_v: &AssumePrincipalRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_assume_principal_request(csil_v))
+pub fn encode_assume_principal_request(
+    csil_v: &AssumePrincipalRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_assume_principal_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a AssumePrincipalRequest.
@@ -1863,26 +2112,27 @@ pub fn decode_assume_principal_request(
 }
 
 /// Build the canonical CBOR value tree for a Recurrence.
-fn csil_enc_recurrence(csil_v: &Recurrence) -> CsilCborValue {
+fn csil_enc_recurrence(csil_v: &Recurrence) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((cbor_text("rrule"), cbor_text(&csil_v.rrule)));
     if let Some(csil_inner) = &csil_v.rdates {
         csil_entries.push((
             cbor_text("rdates"),
-            cbor_enc_array(csil_inner, csil_enc_timestamp),
+            cbor_enc_array(csil_inner, csil_rt_enc_timestamp)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.exdates {
         csil_entries.push((
             cbor_text("exdates"),
-            cbor_enc_array(csil_inner, csil_enc_timestamp),
+            cbor_enc_array(csil_inner, csil_rt_enc_timestamp)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Recurrence from a decoded CBOR value tree.
 fn csil_dec_recurrence(csil_root: &CsilCborValue) -> Result<Recurrence, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let rrule = {
         let csil_field = cbor_require(csil_root, "rrule")?;
         let csil_decode = cbor_as_text;
@@ -1910,8 +2160,9 @@ fn csil_dec_recurrence(csil_root: &CsilCborValue) -> Result<Recurrence, CsilCbor
 }
 
 /// Encode a Recurrence to canonical CSIL CBOR bytes.
-pub fn encode_recurrence(csil_v: &Recurrence) -> Vec<u8> {
-    cbor_encode(&csil_enc_recurrence(csil_v))
+pub fn encode_recurrence(csil_v: &Recurrence) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_recurrence(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Recurrence.
@@ -1921,13 +2172,13 @@ pub fn decode_recurrence(csil_data: &[u8]) -> Result<Recurrence, CsilCborError> 
 }
 
 /// Build the canonical CBOR value tree for a Attendee.
-fn csil_enc_attendee(csil_v: &Attendee) -> CsilCborValue {
+fn csil_enc_attendee(csil_v: &Attendee) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
     if let Some(csil_inner) = &csil_v.name {
         csil_entries.push((cbor_text("name"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.role {
-        csil_entries.push((cbor_text("role"), csil_enc_attendee_role(csil_inner)));
+        csil_entries.push((cbor_text("role"), csil_enc_attendee_role(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.rsvp {
         csil_entries.push((cbor_text("rsvp"), cbor_bool(*csil_inner)));
@@ -1936,28 +2187,29 @@ fn csil_enc_attendee(csil_v: &Attendee) -> CsilCborValue {
         csil_entries.push((cbor_text("email"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.person {
-        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.status {
         csil_entries.push((
             cbor_text("status"),
-            csil_enc_participation_status(csil_inner),
+            csil_enc_participation_status(csil_inner)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.identity {
-        csil_entries.push((cbor_text("identity"), csil_enc_identity_ref(csil_inner)));
+        csil_entries.push((cbor_text("identity"), csil_enc_identity_ref(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.responded_by {
         csil_entries.push((
             cbor_text("responded_by"),
-            csil_enc_person_summary(csil_inner),
+            csil_enc_person_summary(csil_inner)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Attendee from a decoded CBOR value tree.
 fn csil_dec_attendee(csil_root: &CsilCborValue) -> Result<Attendee, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let identity = match cbor_map_get(csil_root, "identity") {
         Some(csil_field) => {
             let csil_decode = csil_dec_identity_ref;
@@ -2027,8 +2279,9 @@ fn csil_dec_attendee(csil_root: &CsilCborValue) -> Result<Attendee, CsilCborErro
 }
 
 /// Encode a Attendee to canonical CSIL CBOR bytes.
-pub fn encode_attendee(csil_v: &Attendee) -> Vec<u8> {
-    cbor_encode(&csil_enc_attendee(csil_v))
+pub fn encode_attendee(csil_v: &Attendee) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_attendee(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Attendee.
@@ -2038,17 +2291,18 @@ pub fn decode_attendee(csil_data: &[u8]) -> Result<Attendee, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a Reminder.
-fn csil_enc_reminder(csil_v: &Reminder) -> CsilCborValue {
+fn csil_enc_reminder(csil_v: &Reminder) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.method {
-        csil_entries.push((cbor_text("method"), csil_enc_reminder_method(csil_inner)));
+        csil_entries.push((cbor_text("method"), csil_enc_reminder_method(csil_inner)?));
     }
     csil_entries.push((cbor_text("minutes_before"), cbor_int(csil_v.minutes_before)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Reminder from a decoded CBOR value tree.
 fn csil_dec_reminder(csil_root: &CsilCborValue) -> Result<Reminder, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let minutes_before = {
         let csil_field = cbor_require(csil_root, "minutes_before")?;
         let csil_decode = cbor_as_i64;
@@ -2068,8 +2322,9 @@ fn csil_dec_reminder(csil_root: &CsilCborValue) -> Result<Reminder, CsilCborErro
 }
 
 /// Encode a Reminder to canonical CSIL CBOR bytes.
-pub fn encode_reminder(csil_v: &Reminder) -> Vec<u8> {
-    cbor_encode(&csil_enc_reminder(csil_v))
+pub fn encode_reminder(csil_v: &Reminder) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_reminder(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Reminder.
@@ -2079,10 +2334,10 @@ pub fn decode_reminder(csil_data: &[u8]) -> Result<Reminder, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a Event.
-fn csil_enc_event(csil_v: &Event) -> CsilCborValue {
+fn csil_enc_event(csil_v: &Event) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(31);
     if let Some(csil_inner) = &csil_v.end {
-        csil_entries.push((cbor_text("end"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((cbor_text("end"), csil_rt_enc_timestamp(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.uid {
         csil_entries.push((cbor_text("uid"), cbor_text(csil_inner)));
@@ -2094,17 +2349,17 @@ fn csil_enc_event(csil_v: &Event) -> CsilCborValue {
         csil_entries.push((cbor_text("color"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.start {
-        csil_entries.push((cbor_text("start"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((cbor_text("start"), csil_rt_enc_timestamp(csil_inner)?));
     }
     csil_entries.push((cbor_text("title"), cbor_text(&csil_v.title)));
     if let Some(csil_inner) = &csil_v.status {
-        csil_entries.push((cbor_text("status"), csil_enc_event_status(csil_inner)));
+        csil_entries.push((cbor_text("status"), csil_enc_event_status(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.all_day {
         csil_entries.push((cbor_text("all_day"), cbor_bool(*csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.end_date {
-        csil_entries.push((cbor_text("end_date"), csil_enc_date(csil_inner)));
+        csil_entries.push((cbor_text("end_date"), csil_rt_enc_date(csil_inner)?));
     }
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     if let Some(csil_inner) = &csil_v.location {
@@ -2117,48 +2372,54 @@ fn csil_enc_event(csil_v: &Event) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.attendees {
         csil_entries.push((
             cbor_text("attendees"),
-            cbor_enc_array(csil_inner, csil_enc_attendee),
+            cbor_enc_array(csil_inner, csil_enc_attendee)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.organizer {
-        csil_entries.push((cbor_text("organizer"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("organizer"), csil_enc_person_summary(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.reminders {
         csil_entries.push((
             cbor_text("reminders"),
-            cbor_enc_array(csil_inner, csil_enc_reminder),
+            cbor_enc_array(csil_inner, csil_enc_reminder)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.categories {
         csil_entries.push((
             cbor_text("categories"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     if let Some(csil_inner) = &csil_v.created_by {
-        csil_entries.push((cbor_text("created_by"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((
+            cbor_text("created_by"),
+            csil_enc_person_summary(csil_inner)?,
+        ));
     }
     if let Some(csil_inner) = &csil_v.recurrence {
-        csil_entries.push((cbor_text("recurrence"), csil_enc_recurrence(csil_inner)));
+        csil_entries.push((cbor_text("recurrence"), csil_enc_recurrence(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.start_date {
-        csil_entries.push((cbor_text("start_date"), csil_enc_date(csil_inner)));
+        csil_entries.push((cbor_text("start_date"), csil_rt_enc_date(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("updated_at"),
-        csil_enc_timestamp(&csil_v.updated_at),
+        csil_rt_enc_timestamp(&csil_v.updated_at)?,
     ));
     if let Some(csil_inner) = &csil_v.updated_by {
-        csil_entries.push((cbor_text("updated_by"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((
+            cbor_text("updated_by"),
+            csil_enc_person_summary(csil_inner)?,
+        ));
     }
     if let Some(csil_inner) = &csil_v.visibility {
         csil_entries.push((
             cbor_text("visibility"),
-            csil_enc_event_visibility(csil_inner),
+            csil_enc_event_visibility(csil_inner)?,
         ));
     }
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
@@ -2166,16 +2427,19 @@ fn csil_enc_event(csil_v: &Event) -> CsilCborValue {
         csil_entries.push((cbor_text("description"), cbor_text(csil_inner)));
     }
     if let Some(csil_inner) = &csil_v.updated_via {
-        csil_entries.push((cbor_text("updated_via"), csil_enc_acting_via(csil_inner)));
+        csil_entries.push((cbor_text("updated_via"), csil_enc_acting_via(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.transparency {
         csil_entries.push((
             cbor_text("transparency"),
-            csil_enc_event_transparency(csil_inner),
+            csil_enc_event_transparency(csil_inner)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
     if let Some(csil_inner) = &csil_v.conference_url {
         csil_entries.push((cbor_text("conference_url"), cbor_text(csil_inner)));
@@ -2183,11 +2447,12 @@ fn csil_enc_event(csil_v: &Event) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.master_event_id {
         csil_entries.push((cbor_text("master_event_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Event from a decoded CBOR value tree.
 fn csil_dec_event(csil_root: &CsilCborValue) -> Result<Event, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -2429,8 +2694,9 @@ fn csil_dec_event(csil_root: &CsilCborValue) -> Result<Event, CsilCborError> {
 }
 
 /// Encode a Event to canonical CSIL CBOR bytes.
-pub fn encode_event(csil_v: &Event) -> Vec<u8> {
-    cbor_encode(&csil_enc_event(csil_v))
+pub fn encode_event(csil_v: &Event) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_event(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Event.
@@ -2440,22 +2706,26 @@ pub fn decode_event(csil_data: &[u8]) -> Result<Event, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a Occurrence.
-fn csil_enc_occurrence(csil_v: &Occurrence) -> CsilCborValue {
+fn csil_enc_occurrence(csil_v: &Occurrence) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(7);
-    csil_entries.push((cbor_text("end"), csil_enc_timestamp(&csil_v.end)));
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
-    csil_entries.push((cbor_text("start"), csil_enc_timestamp(&csil_v.start)));
-    csil_entries.push((cbor_text("access"), csil_enc_access_role(&csil_v.access)));
+    csil_entries.push((cbor_text("end"), csil_rt_enc_timestamp(&csil_v.end)?));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
+    csil_entries.push((cbor_text("start"), csil_rt_enc_timestamp(&csil_v.start)?));
+    csil_entries.push((cbor_text("access"), csil_enc_access_role(&csil_v.access)?));
     csil_entries.push((cbor_text("invited"), cbor_bool(csil_v.invited)));
     csil_entries.push((cbor_text("busy_only"), cbor_bool(csil_v.busy_only)));
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a Occurrence from a decoded CBOR value tree.
 fn csil_dec_occurrence(csil_root: &CsilCborValue) -> Result<Occurrence, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event = {
         let csil_field = cbor_require(csil_root, "event")?;
         let csil_decode = csil_dec_event;
@@ -2505,8 +2775,9 @@ fn csil_dec_occurrence(csil_root: &CsilCborValue) -> Result<Occurrence, CsilCbor
 }
 
 /// Encode a Occurrence to canonical CSIL CBOR bytes.
-pub fn encode_occurrence(csil_v: &Occurrence) -> Vec<u8> {
-    cbor_encode(&csil_enc_occurrence(csil_v))
+pub fn encode_occurrence(csil_v: &Occurrence) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_occurrence(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a Occurrence.
@@ -2516,32 +2787,35 @@ pub fn decode_occurrence(csil_data: &[u8]) -> Result<Occurrence, CsilCborError> 
 }
 
 /// Build the canonical CBOR value tree for a ListEventsRequest.
-fn csil_enc_list_events_request(csil_v: &ListEventsRequest) -> CsilCborValue {
+fn csil_enc_list_events_request(
+    csil_v: &ListEventsRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((
         cbor_text("range_end"),
-        csil_enc_timestamp(&csil_v.range_end),
+        csil_rt_enc_timestamp(&csil_v.range_end)?,
     ));
     csil_entries.push((
         cbor_text("range_start"),
-        csil_enc_timestamp(&csil_v.range_start),
+        csil_rt_enc_timestamp(&csil_v.range_start)?,
     ));
     if let Some(csil_inner) = &csil_v.calendar_ids {
         csil_entries.push((
             cbor_text("calendar_ids"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
     if let Some(csil_inner) = &csil_v.include_invitations {
         csil_entries.push((cbor_text("include_invitations"), cbor_bool(*csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ListEventsRequest from a decoded CBOR value tree.
 fn csil_dec_list_events_request(
     csil_root: &CsilCborValue,
 ) -> Result<ListEventsRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let range_start = {
         let csil_field = cbor_require(csil_root, "range_start")?;
         let csil_decode = csil_as_timestamp;
@@ -2575,8 +2849,9 @@ fn csil_dec_list_events_request(
 }
 
 /// Encode a ListEventsRequest to canonical CSIL CBOR bytes.
-pub fn encode_list_events_request(csil_v: &ListEventsRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_list_events_request(csil_v))
+pub fn encode_list_events_request(csil_v: &ListEventsRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_list_events_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ListEventsRequest.
@@ -2586,18 +2861,19 @@ pub fn decode_list_events_request(csil_data: &[u8]) -> Result<ListEventsRequest,
 }
 
 /// Build the canonical CBOR value tree for a OccurrenceList.
-fn csil_enc_occurrence_list(csil_v: &OccurrenceList) -> CsilCborValue {
+fn csil_enc_occurrence_list(csil_v: &OccurrenceList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("truncated"), cbor_bool(csil_v.truncated)));
     csil_entries.push((
         cbor_text("occurrences"),
-        cbor_enc_array(&csil_v.occurrences, csil_enc_occurrence),
+        cbor_enc_array(&csil_v.occurrences, csil_enc_occurrence)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a OccurrenceList from a decoded CBOR value tree.
 fn csil_dec_occurrence_list(csil_root: &CsilCborValue) -> Result<OccurrenceList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let occurrences = {
         let csil_field = cbor_require(csil_root, "occurrences")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_occurrence);
@@ -2615,8 +2891,9 @@ fn csil_dec_occurrence_list(csil_root: &CsilCborValue) -> Result<OccurrenceList,
 }
 
 /// Encode a OccurrenceList to canonical CSIL CBOR bytes.
-pub fn encode_occurrence_list(csil_v: &OccurrenceList) -> Vec<u8> {
-    cbor_encode(&csil_enc_occurrence_list(csil_v))
+pub fn encode_occurrence_list(csil_v: &OccurrenceList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_occurrence_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a OccurrenceList.
@@ -2626,22 +2903,28 @@ pub fn decode_occurrence_list(csil_data: &[u8]) -> Result<OccurrenceList, CsilCb
 }
 
 /// Build the canonical CBOR value tree for a UpdateEventRequest.
-fn csil_enc_update_event_request(csil_v: &UpdateEventRequest) -> CsilCborValue {
+fn csil_enc_update_event_request(
+    csil_v: &UpdateEventRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
     if let Some(csil_inner) = &csil_v.scope {
-        csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(csil_inner)));
+        csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(csil_inner)?));
     }
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a UpdateEventRequest from a decoded CBOR value tree.
 fn csil_dec_update_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<UpdateEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event = {
         let csil_field = cbor_require(csil_root, "event")?;
         let csil_decode = csil_dec_event;
@@ -2669,8 +2952,9 @@ fn csil_dec_update_event_request(
 }
 
 /// Encode a UpdateEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_update_event_request(csil_v: &UpdateEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_update_event_request(csil_v))
+pub fn encode_update_event_request(csil_v: &UpdateEventRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_update_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a UpdateEventRequest.
@@ -2680,22 +2964,28 @@ pub fn decode_update_event_request(csil_data: &[u8]) -> Result<UpdateEventReques
 }
 
 /// Build the canonical CBOR value tree for a DeleteEventRequest.
-fn csil_enc_delete_event_request(csil_v: &DeleteEventRequest) -> CsilCborValue {
+fn csil_enc_delete_event_request(
+    csil_v: &DeleteEventRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     if let Some(csil_inner) = &csil_v.scope {
-        csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(csil_inner)));
+        csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(csil_inner)?));
     }
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DeleteEventRequest from a decoded CBOR value tree.
 fn csil_dec_delete_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<DeleteEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -2723,8 +3013,9 @@ fn csil_dec_delete_event_request(
 }
 
 /// Encode a DeleteEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_delete_event_request(csil_v: &DeleteEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_delete_event_request(csil_v))
+pub fn encode_delete_event_request(csil_v: &DeleteEventRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_delete_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DeleteEventRequest.
@@ -2734,18 +3025,21 @@ pub fn decode_delete_event_request(csil_data: &[u8]) -> Result<DeleteEventReques
 }
 
 /// Build the canonical CBOR value tree for a DeleteEventResponse.
-fn csil_enc_delete_event_response(csil_v: &DeleteEventResponse) -> CsilCborValue {
+fn csil_enc_delete_event_response(
+    csil_v: &DeleteEventResponse,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     if let Some(csil_inner) = &csil_v.trash_id {
         csil_entries.push((cbor_text("trash_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DeleteEventResponse from a decoded CBOR value tree.
 fn csil_dec_delete_event_response(
     csil_root: &CsilCborValue,
 ) -> Result<DeleteEventResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let trash_id = match cbor_map_get(csil_root, "trash_id") {
         Some(csil_field) => {
             let csil_decode = cbor_as_text;
@@ -2757,8 +3051,11 @@ fn csil_dec_delete_event_response(
 }
 
 /// Encode a DeleteEventResponse to canonical CSIL CBOR bytes.
-pub fn encode_delete_event_response(csil_v: &DeleteEventResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_delete_event_response(csil_v))
+pub fn encode_delete_event_response(
+    csil_v: &DeleteEventResponse,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_delete_event_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DeleteEventResponse.
@@ -2770,17 +3067,18 @@ pub fn decode_delete_event_response(
 }
 
 /// Build the canonical CBOR value tree for a MoveEventRequest.
-fn csil_enc_move_event_request(csil_v: &MoveEventRequest) -> CsilCborValue {
+fn csil_enc_move_event_request(csil_v: &MoveEventRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a MoveEventRequest from a decoded CBOR value tree.
 fn csil_dec_move_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<MoveEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -2798,8 +3096,9 @@ fn csil_dec_move_event_request(
 }
 
 /// Encode a MoveEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_move_event_request(csil_v: &MoveEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_move_event_request(csil_v))
+pub fn encode_move_event_request(csil_v: &MoveEventRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_move_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a MoveEventRequest.
@@ -2809,35 +3108,45 @@ pub fn decode_move_event_request(csil_data: &[u8]) -> Result<MoveEventRequest, C
 }
 
 /// Build the canonical CBOR value tree for a TrashEntry.
-fn csil_enc_trash_entry(csil_v: &TrashEntry) -> CsilCborValue {
+fn csil_enc_trash_entry(csil_v: &TrashEntry) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(10);
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
-    csil_entries.push((cbor_text("scope"), csil_enc_recurrence_scope(&csil_v.scope)));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
+    csil_entries.push((
+        cbor_text("scope"),
+        csil_enc_recurrence_scope(&csil_v.scope)?,
+    ));
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     if let Some(csil_inner) = &csil_v.instance {
-        csil_entries.push((cbor_text("instance"), csil_enc_event(csil_inner)));
+        csil_entries.push((cbor_text("instance"), csil_enc_event(csil_inner)?));
     }
     csil_entries.push((cbor_text("trash_id"), cbor_text(&csil_v.trash_id)));
     csil_entries.push((
         cbor_text("deleted_at"),
-        csil_enc_timestamp(&csil_v.deleted_at),
+        csil_rt_enc_timestamp(&csil_v.deleted_at)?,
     ));
     if let Some(csil_inner) = &csil_v.deleted_by {
-        csil_entries.push((cbor_text("deleted_by"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((
+            cbor_text("deleted_by"),
+            csil_enc_person_summary(csil_inner)?,
+        ));
     }
     csil_entries.push((
         cbor_text("expires_at"),
-        csil_enc_timestamp(&csil_v.expires_at),
+        csil_rt_enc_timestamp(&csil_v.expires_at)?,
     ));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a TrashEntry from a decoded CBOR value tree.
 fn csil_dec_trash_entry(csil_root: &CsilCborValue) -> Result<TrashEntry, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let trash_id = {
         let csil_field = cbor_require(csil_root, "trash_id")?;
         let csil_decode = cbor_as_text;
@@ -2909,8 +3218,9 @@ fn csil_dec_trash_entry(csil_root: &CsilCborValue) -> Result<TrashEntry, CsilCbo
 }
 
 /// Encode a TrashEntry to canonical CSIL CBOR bytes.
-pub fn encode_trash_entry(csil_v: &TrashEntry) -> Vec<u8> {
-    cbor_encode(&csil_enc_trash_entry(csil_v))
+pub fn encode_trash_entry(csil_v: &TrashEntry) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_trash_entry(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a TrashEntry.
@@ -2920,19 +3230,20 @@ pub fn decode_trash_entry(csil_data: &[u8]) -> Result<TrashEntry, CsilCborError>
 }
 
 /// Build the canonical CBOR value tree for a ListTrashRequest.
-fn csil_enc_list_trash_request(csil_v: &ListTrashRequest) -> CsilCborValue {
+fn csil_enc_list_trash_request(csil_v: &ListTrashRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.limit {
         csil_entries.push((cbor_text("limit"), cbor_uint(*csil_inner)));
     }
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ListTrashRequest from a decoded CBOR value tree.
 fn csil_dec_list_trash_request(
     csil_root: &CsilCborValue,
 ) -> Result<ListTrashRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -2949,8 +3260,9 @@ fn csil_dec_list_trash_request(
 }
 
 /// Encode a ListTrashRequest to canonical CSIL CBOR bytes.
-pub fn encode_list_trash_request(csil_v: &ListTrashRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_list_trash_request(csil_v))
+pub fn encode_list_trash_request(csil_v: &ListTrashRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_list_trash_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ListTrashRequest.
@@ -2960,17 +3272,18 @@ pub fn decode_list_trash_request(csil_data: &[u8]) -> Result<ListTrashRequest, C
 }
 
 /// Build the canonical CBOR value tree for a TrashList.
-fn csil_enc_trash_list(csil_v: &TrashList) -> CsilCborValue {
+fn csil_enc_trash_list(csil_v: &TrashList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("entries"),
-        cbor_enc_array(&csil_v.entries, csil_enc_trash_entry),
+        cbor_enc_array(&csil_v.entries, csil_enc_trash_entry)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a TrashList from a decoded CBOR value tree.
 fn csil_dec_trash_list(csil_root: &CsilCborValue) -> Result<TrashList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let entries = {
         let csil_field = cbor_require(csil_root, "entries")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_trash_entry);
@@ -2980,8 +3293,9 @@ fn csil_dec_trash_list(csil_root: &CsilCborValue) -> Result<TrashList, CsilCborE
 }
 
 /// Encode a TrashList to canonical CSIL CBOR bytes.
-pub fn encode_trash_list(csil_v: &TrashList) -> Vec<u8> {
-    cbor_encode(&csil_enc_trash_list(csil_v))
+pub fn encode_trash_list(csil_v: &TrashList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_trash_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a TrashList.
@@ -2991,16 +3305,19 @@ pub fn decode_trash_list(csil_data: &[u8]) -> Result<TrashList, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a RestoreEventRequest.
-fn csil_enc_restore_event_request(csil_v: &RestoreEventRequest) -> CsilCborValue {
+fn csil_enc_restore_event_request(
+    csil_v: &RestoreEventRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((cbor_text("trash_id"), cbor_text(&csil_v.trash_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a RestoreEventRequest from a decoded CBOR value tree.
 fn csil_dec_restore_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<RestoreEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let trash_id = {
         let csil_field = cbor_require(csil_root, "trash_id")?;
         let csil_decode = cbor_as_text;
@@ -3010,8 +3327,11 @@ fn csil_dec_restore_event_request(
 }
 
 /// Encode a RestoreEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_restore_event_request(csil_v: &RestoreEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_restore_event_request(csil_v))
+pub fn encode_restore_event_request(
+    csil_v: &RestoreEventRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_restore_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a RestoreEventRequest.
@@ -3023,23 +3343,26 @@ pub fn decode_restore_event_request(
 }
 
 /// Build the canonical CBOR value tree for a ImportEventRequest.
-fn csil_enc_import_event_request(csil_v: &ImportEventRequest) -> CsilCborValue {
+fn csil_enc_import_event_request(
+    csil_v: &ImportEventRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
     if let Some(csil_inner) = &csil_v.created_at {
-        csil_entries.push((cbor_text("created_at"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((cbor_text("created_at"), csil_rt_enc_timestamp(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("created_by"),
-        csil_enc_identity_ref(&csil_v.created_by),
+        csil_enc_identity_ref(&csil_v.created_by)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ImportEventRequest from a decoded CBOR value tree.
 fn csil_dec_import_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<ImportEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event = {
         let csil_field = cbor_require(csil_root, "event")?;
         let csil_decode = csil_dec_event;
@@ -3065,8 +3388,9 @@ fn csil_dec_import_event_request(
 }
 
 /// Encode a ImportEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_import_event_request(csil_v: &ImportEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_import_event_request(csil_v))
+pub fn encode_import_event_request(csil_v: &ImportEventRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_import_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ImportEventRequest.
@@ -3076,20 +3400,23 @@ pub fn decode_import_event_request(csil_data: &[u8]) -> Result<ImportEventReques
 }
 
 /// Build the canonical CBOR value tree for a CreateEventOnceRequest.
-fn csil_enc_create_event_once_request(csil_v: &CreateEventOnceRequest) -> CsilCborValue {
+fn csil_enc_create_event_once_request(
+    csil_v: &CreateEventOnceRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
     csil_entries.push((
         cbor_text("idempotency_key"),
         cbor_text(&csil_v.idempotency_key),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CreateEventOnceRequest from a decoded CBOR value tree.
 fn csil_dec_create_event_once_request(
     csil_root: &CsilCborValue,
 ) -> Result<CreateEventOnceRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let idempotency_key = {
         let csil_field = cbor_require(csil_root, "idempotency_key")?;
         let csil_decode = cbor_as_text;
@@ -3107,8 +3434,11 @@ fn csil_dec_create_event_once_request(
 }
 
 /// Encode a CreateEventOnceRequest to canonical CSIL CBOR bytes.
-pub fn encode_create_event_once_request(csil_v: &CreateEventOnceRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_create_event_once_request(csil_v))
+pub fn encode_create_event_once_request(
+    csil_v: &CreateEventOnceRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_event_once_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CreateEventOnceRequest.
@@ -3120,20 +3450,23 @@ pub fn decode_create_event_once_request(
 }
 
 /// Build the canonical CBOR value tree for a CreateReceiptRequest.
-fn csil_enc_create_receipt_request(csil_v: &CreateReceiptRequest) -> CsilCborValue {
+fn csil_enc_create_receipt_request(
+    csil_v: &CreateReceiptRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     csil_entries.push((
         cbor_text("idempotency_key"),
         cbor_text(&csil_v.idempotency_key),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CreateReceiptRequest from a decoded CBOR value tree.
 fn csil_dec_create_receipt_request(
     csil_root: &CsilCborValue,
 ) -> Result<CreateReceiptRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -3151,8 +3484,11 @@ fn csil_dec_create_receipt_request(
 }
 
 /// Encode a CreateReceiptRequest to canonical CSIL CBOR bytes.
-pub fn encode_create_receipt_request(csil_v: &CreateReceiptRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_create_receipt_request(csil_v))
+pub fn encode_create_receipt_request(
+    csil_v: &CreateReceiptRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_receipt_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CreateReceiptRequest.
@@ -3164,14 +3500,16 @@ pub fn decode_create_receipt_request(
 }
 
 /// Build the canonical CBOR value tree for a CreateEventReceipt.
-fn csil_enc_create_event_receipt(csil_v: &CreateEventReceipt) -> CsilCborValue {
+fn csil_enc_create_event_receipt(
+    csil_v: &CreateEventReceipt,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(8);
     if let Some(csil_inner) = &csil_v.event {
-        csil_entries.push((cbor_text("event"), csil_enc_event(csil_inner)));
+        csil_entries.push((cbor_text("event"), csil_enc_event(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("state"),
-        csil_enc_create_receipt_state(&csil_v.state),
+        csil_enc_create_receipt_state(&csil_v.state)?,
     ));
     csil_entries.push((cbor_text("created"), cbor_bool(csil_v.created)));
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
@@ -3180,20 +3518,21 @@ fn csil_enc_create_event_receipt(csil_v: &CreateEventReceipt) -> CsilCborValue {
     }
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     csil_entries.push((
         cbor_text("idempotency_key"),
         cbor_text(&csil_v.idempotency_key),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CreateEventReceipt from a decoded CBOR value tree.
 fn csil_dec_create_event_receipt(
     csil_root: &CsilCborValue,
 ) -> Result<CreateEventReceipt, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -3251,8 +3590,9 @@ fn csil_dec_create_event_receipt(
 }
 
 /// Encode a CreateEventReceipt to canonical CSIL CBOR bytes.
-pub fn encode_create_event_receipt(csil_v: &CreateEventReceipt) -> Vec<u8> {
-    cbor_encode(&csil_enc_create_event_receipt(csil_v))
+pub fn encode_create_event_receipt(csil_v: &CreateEventReceipt) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_event_receipt(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CreateEventReceipt.
@@ -3262,12 +3602,14 @@ pub fn decode_create_event_receipt(csil_data: &[u8]) -> Result<CreateEventReceip
 }
 
 /// Build the canonical CBOR value tree for a SplitSeriesOnceRequest.
-fn csil_enc_split_series_once_request(csil_v: &SplitSeriesOnceRequest) -> CsilCborValue {
+fn csil_enc_split_series_once_request(
+    csil_v: &SplitSeriesOnceRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
-    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)));
+    csil_entries.push((cbor_text("event"), csil_enc_event(&csil_v.event)?));
     csil_entries.push((
         cbor_text("recurrence_id"),
-        csil_enc_timestamp(&csil_v.recurrence_id),
+        csil_rt_enc_timestamp(&csil_v.recurrence_id)?,
     ));
     csil_entries.push((
         cbor_text("idempotency_key"),
@@ -3276,16 +3618,17 @@ fn csil_enc_split_series_once_request(csil_v: &SplitSeriesOnceRequest) -> CsilCb
     if let Some(csil_inner) = &csil_v.map_recurrence_ids {
         csil_entries.push((
             cbor_text("map_recurrence_ids"),
-            cbor_enc_array(csil_inner, csil_enc_timestamp),
+            cbor_enc_array(csil_inner, csil_rt_enc_timestamp)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SplitSeriesOnceRequest from a decoded CBOR value tree.
 fn csil_dec_split_series_once_request(
     csil_root: &CsilCborValue,
 ) -> Result<SplitSeriesOnceRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let idempotency_key = {
         let csil_field = cbor_require(csil_root, "idempotency_key")?;
         let csil_decode = cbor_as_text;
@@ -3317,8 +3660,11 @@ fn csil_dec_split_series_once_request(
 }
 
 /// Encode a SplitSeriesOnceRequest to canonical CSIL CBOR bytes.
-pub fn encode_split_series_once_request(csil_v: &SplitSeriesOnceRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_split_series_once_request(csil_v))
+pub fn encode_split_series_once_request(
+    csil_v: &SplitSeriesOnceRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_split_series_once_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SplitSeriesOnceRequest.
@@ -3330,7 +3676,9 @@ pub fn decode_split_series_once_request(
 }
 
 /// Build the canonical CBOR value tree for a SplitReceiptRequest.
-fn csil_enc_split_receipt_request(csil_v: &SplitReceiptRequest) -> CsilCborValue {
+fn csil_enc_split_receipt_request(
+    csil_v: &SplitReceiptRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((cbor_text("series_id"), cbor_text(&csil_v.series_id)));
     csil_entries.push((
@@ -3340,16 +3688,17 @@ fn csil_enc_split_receipt_request(csil_v: &SplitReceiptRequest) -> CsilCborValue
     if let Some(csil_inner) = &csil_v.map_recurrence_ids {
         csil_entries.push((
             cbor_text("map_recurrence_ids"),
-            cbor_enc_array(csil_inner, csil_enc_timestamp),
+            cbor_enc_array(csil_inner, csil_rt_enc_timestamp)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SplitReceiptRequest from a decoded CBOR value tree.
 fn csil_dec_split_receipt_request(
     csil_root: &CsilCborValue,
 ) -> Result<SplitReceiptRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let series_id = {
         let csil_field = cbor_require(csil_root, "series_id")?;
         let csil_decode = cbor_as_text;
@@ -3375,8 +3724,11 @@ fn csil_dec_split_receipt_request(
 }
 
 /// Encode a SplitReceiptRequest to canonical CSIL CBOR bytes.
-pub fn encode_split_receipt_request(csil_v: &SplitReceiptRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_split_receipt_request(csil_v))
+pub fn encode_split_receipt_request(
+    csil_v: &SplitReceiptRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_split_receipt_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SplitReceiptRequest.
@@ -3388,32 +3740,35 @@ pub fn decode_split_receipt_request(
 }
 
 /// Build the canonical CBOR value tree for a SplitOccurrenceMapping.
-fn csil_enc_split_occurrence_mapping(csil_v: &SplitOccurrenceMapping) -> CsilCborValue {
+fn csil_enc_split_occurrence_mapping(
+    csil_v: &SplitOccurrenceMapping,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((
         cbor_text("result"),
-        csil_enc_split_map_result(&csil_v.result),
+        csil_enc_split_map_result(&csil_v.result)?,
     ));
     if let Some(csil_inner) = &csil_v.event_id {
         csil_entries.push((cbor_text("event_id"), cbor_text(csil_inner)));
     }
     csil_entries.push((
         cbor_text("recurrence_id"),
-        csil_enc_timestamp(&csil_v.recurrence_id),
+        csil_rt_enc_timestamp(&csil_v.recurrence_id)?,
     ));
     if let Some(csil_inner) = &csil_v.mapped_recurrence_id {
         csil_entries.push((
             cbor_text("mapped_recurrence_id"),
-            csil_enc_timestamp(csil_inner),
+            csil_rt_enc_timestamp(csil_inner)?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree.
 fn csil_dec_split_occurrence_mapping(
     csil_root: &CsilCborValue,
 ) -> Result<SplitOccurrenceMapping, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let recurrence_id = {
         let csil_field = cbor_require(csil_root, "recurrence_id")?;
         let csil_decode = csil_as_timestamp;
@@ -3447,8 +3802,11 @@ fn csil_dec_split_occurrence_mapping(
 }
 
 /// Encode a SplitOccurrenceMapping to canonical CSIL CBOR bytes.
-pub fn encode_split_occurrence_mapping(csil_v: &SplitOccurrenceMapping) -> Vec<u8> {
-    cbor_encode(&csil_enc_split_occurrence_mapping(csil_v))
+pub fn encode_split_occurrence_mapping(
+    csil_v: &SplitOccurrenceMapping,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_split_occurrence_mapping(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SplitOccurrenceMapping.
@@ -3460,30 +3818,35 @@ pub fn decode_split_occurrence_mapping(
 }
 
 /// Build the canonical CBOR value tree for a SplitSeriesReceipt.
-fn csil_enc_split_series_receipt(csil_v: &SplitSeriesReceipt) -> CsilCborValue {
+fn csil_enc_split_series_receipt(
+    csil_v: &SplitSeriesReceipt,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(15);
     if let Some(csil_inner) = &csil_v.series {
-        csil_entries.push((cbor_text("series"), csil_enc_event(csil_inner)));
+        csil_entries.push((cbor_text("series"), csil_enc_event(csil_inner)?));
     }
     csil_entries.push((cbor_text("created"), cbor_bool(csil_v.created)));
     csil_entries.push((cbor_text("in_place"), cbor_bool(csil_v.in_place)));
     csil_entries.push((
         cbor_text("mappings"),
-        cbor_enc_array(&csil_v.mappings, csil_enc_split_occurrence_mapping),
+        cbor_enc_array(&csil_v.mappings, csil_enc_split_occurrence_mapping)?,
     ));
-    csil_entries.push((cbor_text("split_at"), csil_enc_timestamp(&csil_v.split_at)));
+    csil_entries.push((
+        cbor_text("split_at"),
+        csil_rt_enc_timestamp(&csil_v.split_at)?,
+    ));
     csil_entries.push((cbor_text("series_id"), cbor_text(&csil_v.series_id)));
     if let Some(csil_inner) = &csil_v.successor {
-        csil_entries.push((cbor_text("successor"), csil_enc_event(csil_inner)));
+        csil_entries.push((cbor_text("successor"), csil_enc_event(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("created_at"),
-        csil_enc_timestamp(&csil_v.created_at),
+        csil_rt_enc_timestamp(&csil_v.created_at)?,
     ));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
     csil_entries.push((
         cbor_text("series_state"),
-        csil_enc_create_receipt_state(&csil_v.series_state),
+        csil_enc_create_receipt_state(&csil_v.series_state)?,
     ));
     csil_entries.push((cbor_text("successor_id"), cbor_text(&csil_v.successor_id)));
     csil_entries.push((
@@ -3495,18 +3858,19 @@ fn csil_enc_split_series_receipt(csil_v: &SplitSeriesReceipt) -> CsilCborValue {
     }
     csil_entries.push((
         cbor_text("successor_state"),
-        csil_enc_create_receipt_state(&csil_v.successor_state),
+        csil_enc_create_receipt_state(&csil_v.successor_state)?,
     ));
     if let Some(csil_inner) = &csil_v.successor_trash_id {
         csil_entries.push((cbor_text("successor_trash_id"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SplitSeriesReceipt from a decoded CBOR value tree.
 fn csil_dec_split_series_receipt(
     csil_root: &CsilCborValue,
 ) -> Result<SplitSeriesReceipt, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let series_id = {
         let csil_field = cbor_require(csil_root, "series_id")?;
         let csil_decode = cbor_as_text;
@@ -3610,8 +3974,9 @@ fn csil_dec_split_series_receipt(
 }
 
 /// Encode a SplitSeriesReceipt to canonical CSIL CBOR bytes.
-pub fn encode_split_series_receipt(csil_v: &SplitSeriesReceipt) -> Vec<u8> {
-    cbor_encode(&csil_enc_split_series_receipt(csil_v))
+pub fn encode_split_series_receipt(csil_v: &SplitSeriesReceipt) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_split_series_receipt(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SplitSeriesReceipt.
@@ -3621,19 +3986,25 @@ pub fn decode_split_series_receipt(csil_data: &[u8]) -> Result<SplitSeriesReceip
 }
 
 /// Build the canonical CBOR value tree for a GetOccurrenceRequest.
-fn csil_enc_get_occurrence_request(csil_v: &GetOccurrenceRequest) -> CsilCborValue {
+fn csil_enc_get_occurrence_request(
+    csil_v: &GetOccurrenceRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree.
 fn csil_dec_get_occurrence_request(
     csil_root: &CsilCborValue,
 ) -> Result<GetOccurrenceRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -3653,8 +4024,11 @@ fn csil_dec_get_occurrence_request(
 }
 
 /// Encode a GetOccurrenceRequest to canonical CSIL CBOR bytes.
-pub fn encode_get_occurrence_request(csil_v: &GetOccurrenceRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_get_occurrence_request(csil_v))
+pub fn encode_get_occurrence_request(
+    csil_v: &GetOccurrenceRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_get_occurrence_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a GetOccurrenceRequest.
@@ -3666,24 +4040,28 @@ pub fn decode_get_occurrence_request(
 }
 
 /// Build the canonical CBOR value tree for a RespondRequest.
-fn csil_enc_respond_request(csil_v: &RespondRequest) -> CsilCborValue {
+fn csil_enc_respond_request(csil_v: &RespondRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((
         cbor_text("status"),
-        csil_enc_participation_status(&csil_v.status),
+        csil_enc_participation_status(&csil_v.status)?,
     ));
     if let Some(csil_inner) = &csil_v.comment {
         csil_entries.push((cbor_text("comment"), cbor_text(csil_inner)));
     }
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
     if let Some(csil_inner) = &csil_v.recurrence_id {
-        csil_entries.push((cbor_text("recurrence_id"), csil_enc_timestamp(csil_inner)));
+        csil_entries.push((
+            cbor_text("recurrence_id"),
+            csil_rt_enc_timestamp(csil_inner)?,
+        ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a RespondRequest from a decoded CBOR value tree.
 fn csil_dec_respond_request(csil_root: &CsilCborValue) -> Result<RespondRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -3717,8 +4095,9 @@ fn csil_dec_respond_request(csil_root: &CsilCborValue) -> Result<RespondRequest,
 }
 
 /// Encode a RespondRequest to canonical CSIL CBOR bytes.
-pub fn encode_respond_request(csil_v: &RespondRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_respond_request(csil_v))
+pub fn encode_respond_request(csil_v: &RespondRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_respond_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a RespondRequest.
@@ -3728,19 +4107,22 @@ pub fn decode_respond_request(csil_data: &[u8]) -> Result<RespondRequest, CsilCb
 }
 
 /// Build the canonical CBOR value tree for a SearchEventsRequest.
-fn csil_enc_search_events_request(csil_v: &SearchEventsRequest) -> CsilCborValue {
+fn csil_enc_search_events_request(
+    csil_v: &SearchEventsRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.limit {
         csil_entries.push((cbor_text("limit"), cbor_uint(*csil_inner)));
     }
     csil_entries.push((cbor_text("query"), cbor_text(&csil_v.query)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SearchEventsRequest from a decoded CBOR value tree.
 fn csil_dec_search_events_request(
     csil_root: &CsilCborValue,
 ) -> Result<SearchEventsRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let query = {
         let csil_field = cbor_require(csil_root, "query")?;
         let csil_decode = cbor_as_text;
@@ -3757,8 +4139,11 @@ fn csil_dec_search_events_request(
 }
 
 /// Encode a SearchEventsRequest to canonical CSIL CBOR bytes.
-pub fn encode_search_events_request(csil_v: &SearchEventsRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_search_events_request(csil_v))
+pub fn encode_search_events_request(
+    csil_v: &SearchEventsRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_search_events_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SearchEventsRequest.
@@ -3770,17 +4155,18 @@ pub fn decode_search_events_request(
 }
 
 /// Build the canonical CBOR value tree for a EventList.
-fn csil_enc_event_list(csil_v: &EventList) -> CsilCborValue {
+fn csil_enc_event_list(csil_v: &EventList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("events"),
-        cbor_enc_array(&csil_v.events, csil_enc_event),
+        cbor_enc_array(&csil_v.events, csil_enc_event)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a EventList from a decoded CBOR value tree.
 fn csil_dec_event_list(csil_root: &CsilCborValue) -> Result<EventList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let events = {
         let csil_field = cbor_require(csil_root, "events")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_event);
@@ -3790,8 +4176,9 @@ fn csil_dec_event_list(csil_root: &CsilCborValue) -> Result<EventList, CsilCborE
 }
 
 /// Encode a EventList to canonical CSIL CBOR bytes.
-pub fn encode_event_list(csil_v: &EventList) -> Vec<u8> {
-    cbor_encode(&csil_enc_event_list(csil_v))
+pub fn encode_event_list(csil_v: &EventList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_event_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a EventList.
@@ -3801,18 +4188,19 @@ pub fn decode_event_list(csil_data: &[u8]) -> Result<EventList, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a BusyInterval.
-fn csil_enc_busy_interval(csil_v: &BusyInterval) -> CsilCborValue {
+fn csil_enc_busy_interval(csil_v: &BusyInterval) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
-    csil_entries.push((cbor_text("end"), csil_enc_timestamp(&csil_v.end)));
-    csil_entries.push((cbor_text("start"), csil_enc_timestamp(&csil_v.start)));
+    csil_entries.push((cbor_text("end"), csil_rt_enc_timestamp(&csil_v.end)?));
+    csil_entries.push((cbor_text("start"), csil_rt_enc_timestamp(&csil_v.start)?));
     if let Some(csil_inner) = &csil_v.tentative {
         csil_entries.push((cbor_text("tentative"), cbor_bool(*csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a BusyInterval from a decoded CBOR value tree.
 fn csil_dec_busy_interval(csil_root: &CsilCborValue) -> Result<BusyInterval, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let start = {
         let csil_field = cbor_require(csil_root, "start")?;
         let csil_decode = csil_as_timestamp;
@@ -3838,8 +4226,9 @@ fn csil_dec_busy_interval(csil_root: &CsilCborValue) -> Result<BusyInterval, Csi
 }
 
 /// Encode a BusyInterval to canonical CSIL CBOR bytes.
-pub fn encode_busy_interval(csil_v: &BusyInterval) -> Vec<u8> {
-    cbor_encode(&csil_enc_busy_interval(csil_v))
+pub fn encode_busy_interval(csil_v: &BusyInterval) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_busy_interval(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a BusyInterval.
@@ -3849,25 +4238,26 @@ pub fn decode_busy_interval(csil_data: &[u8]) -> Result<BusyInterval, CsilCborEr
 }
 
 /// Build the canonical CBOR value tree for a FreeBusyRequest.
-fn csil_enc_free_busy_request(csil_v: &FreeBusyRequest) -> CsilCborValue {
+fn csil_enc_free_busy_request(csil_v: &FreeBusyRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((
         cbor_text("people"),
-        cbor_enc_array(&csil_v.people, csil_enc_identity_ref),
+        cbor_enc_array(&csil_v.people, csil_enc_identity_ref)?,
     ));
     csil_entries.push((
         cbor_text("range_end"),
-        csil_enc_timestamp(&csil_v.range_end),
+        csil_rt_enc_timestamp(&csil_v.range_end)?,
     ));
     csil_entries.push((
         cbor_text("range_start"),
-        csil_enc_timestamp(&csil_v.range_start),
+        csil_rt_enc_timestamp(&csil_v.range_start)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a FreeBusyRequest from a decoded CBOR value tree.
 fn csil_dec_free_busy_request(csil_root: &CsilCborValue) -> Result<FreeBusyRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let people = {
         let csil_field = cbor_require(csil_root, "people")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_identity_ref);
@@ -3891,8 +4281,9 @@ fn csil_dec_free_busy_request(csil_root: &CsilCborValue) -> Result<FreeBusyReque
 }
 
 /// Encode a FreeBusyRequest to canonical CSIL CBOR bytes.
-pub fn encode_free_busy_request(csil_v: &FreeBusyRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_free_busy_request(csil_v))
+pub fn encode_free_busy_request(csil_v: &FreeBusyRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_free_busy_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a FreeBusyRequest.
@@ -3902,25 +4293,26 @@ pub fn decode_free_busy_request(csil_data: &[u8]) -> Result<FreeBusyRequest, Csi
 }
 
 /// Build the canonical CBOR value tree for a PersonFreeBusy.
-fn csil_enc_person_free_busy(csil_v: &PersonFreeBusy) -> CsilCborValue {
+fn csil_enc_person_free_busy(csil_v: &PersonFreeBusy) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((
         cbor_text("busy"),
-        cbor_enc_array(&csil_v.busy, csil_enc_busy_interval),
+        cbor_enc_array(&csil_v.busy, csil_enc_busy_interval)?,
     ));
     if let Some(csil_inner) = &csil_v.person {
-        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("person"), csil_enc_person_summary(csil_inner)?));
     }
     csil_entries.push((cbor_text("visible"), cbor_bool(csil_v.visible)));
     csil_entries.push((
         cbor_text("identity"),
-        csil_enc_identity_ref(&csil_v.identity),
+        csil_enc_identity_ref(&csil_v.identity)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a PersonFreeBusy from a decoded CBOR value tree.
 fn csil_dec_person_free_busy(csil_root: &CsilCborValue) -> Result<PersonFreeBusy, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let identity = {
         let csil_field = cbor_require(csil_root, "identity")?;
         let csil_decode = csil_dec_identity_ref;
@@ -3952,8 +4344,9 @@ fn csil_dec_person_free_busy(csil_root: &CsilCborValue) -> Result<PersonFreeBusy
 }
 
 /// Encode a PersonFreeBusy to canonical CSIL CBOR bytes.
-pub fn encode_person_free_busy(csil_v: &PersonFreeBusy) -> Vec<u8> {
-    cbor_encode(&csil_enc_person_free_busy(csil_v))
+pub fn encode_person_free_busy(csil_v: &PersonFreeBusy) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_person_free_busy(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a PersonFreeBusy.
@@ -3963,19 +4356,20 @@ pub fn decode_person_free_busy(csil_data: &[u8]) -> Result<PersonFreeBusy, CsilC
 }
 
 /// Build the canonical CBOR value tree for a FreeBusyResponse.
-fn csil_enc_free_busy_response(csil_v: &FreeBusyResponse) -> CsilCborValue {
+fn csil_enc_free_busy_response(csil_v: &FreeBusyResponse) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("people"),
-        cbor_enc_array(&csil_v.people, csil_enc_person_free_busy),
+        cbor_enc_array(&csil_v.people, csil_enc_person_free_busy)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a FreeBusyResponse from a decoded CBOR value tree.
 fn csil_dec_free_busy_response(
     csil_root: &CsilCborValue,
 ) -> Result<FreeBusyResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let people = {
         let csil_field = cbor_require(csil_root, "people")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_person_free_busy);
@@ -3985,8 +4379,9 @@ fn csil_dec_free_busy_response(
 }
 
 /// Encode a FreeBusyResponse to canonical CSIL CBOR bytes.
-pub fn encode_free_busy_response(csil_v: &FreeBusyResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_free_busy_response(csil_v))
+pub fn encode_free_busy_response(csil_v: &FreeBusyResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_free_busy_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a FreeBusyResponse.
@@ -3996,17 +4391,18 @@ pub fn decode_free_busy_response(csil_data: &[u8]) -> Result<FreeBusyResponse, C
 }
 
 /// Build the canonical CBOR value tree for a ImportIcsRequest.
-fn csil_enc_import_ics_request(csil_v: &ImportIcsRequest) -> CsilCborValue {
+fn csil_enc_import_ics_request(csil_v: &ImportIcsRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("ics"), cbor_text(&csil_v.ics)));
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ImportIcsRequest from a decoded CBOR value tree.
 fn csil_dec_import_ics_request(
     csil_root: &CsilCborValue,
 ) -> Result<ImportIcsRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -4021,8 +4417,9 @@ fn csil_dec_import_ics_request(
 }
 
 /// Encode a ImportIcsRequest to canonical CSIL CBOR bytes.
-pub fn encode_import_ics_request(csil_v: &ImportIcsRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_import_ics_request(csil_v))
+pub fn encode_import_ics_request(csil_v: &ImportIcsRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_import_ics_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ImportIcsRequest.
@@ -4032,7 +4429,7 @@ pub fn decode_import_ics_request(csil_data: &[u8]) -> Result<ImportIcsRequest, C
 }
 
 /// Build the canonical CBOR value tree for a ImportResult.
-fn csil_enc_import_result(csil_v: &ImportResult) -> CsilCborValue {
+fn csil_enc_import_result(csil_v: &ImportResult) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((cbor_text("created"), cbor_uint(csil_v.created)));
     csil_entries.push((cbor_text("skipped"), cbor_uint(csil_v.skipped)));
@@ -4040,14 +4437,15 @@ fn csil_enc_import_result(csil_v: &ImportResult) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.warnings {
         csil_entries.push((
             cbor_text("warnings"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ImportResult from a decoded CBOR value tree.
 fn csil_dec_import_result(csil_root: &CsilCborValue) -> Result<ImportResult, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let created = {
         let csil_field = cbor_require(csil_root, "created")?;
         let csil_decode = cbor_as_u64;
@@ -4079,8 +4477,9 @@ fn csil_dec_import_result(csil_root: &CsilCborValue) -> Result<ImportResult, Csi
 }
 
 /// Encode a ImportResult to canonical CSIL CBOR bytes.
-pub fn encode_import_result(csil_v: &ImportResult) -> Vec<u8> {
-    cbor_encode(&csil_enc_import_result(csil_v))
+pub fn encode_import_result(csil_v: &ImportResult) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_import_result(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ImportResult.
@@ -4090,16 +4489,19 @@ pub fn decode_import_result(csil_data: &[u8]) -> Result<ImportResult, CsilCborEr
 }
 
 /// Build the canonical CBOR value tree for a ExportCalendarRequest.
-fn csil_enc_export_calendar_request(csil_v: &ExportCalendarRequest) -> CsilCborValue {
+fn csil_enc_export_calendar_request(
+    csil_v: &ExportCalendarRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((cbor_text("calendar_id"), cbor_text(&csil_v.calendar_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ExportCalendarRequest from a decoded CBOR value tree.
 fn csil_dec_export_calendar_request(
     csil_root: &CsilCborValue,
 ) -> Result<ExportCalendarRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let calendar_id = {
         let csil_field = cbor_require(csil_root, "calendar_id")?;
         let csil_decode = cbor_as_text;
@@ -4109,8 +4511,11 @@ fn csil_dec_export_calendar_request(
 }
 
 /// Encode a ExportCalendarRequest to canonical CSIL CBOR bytes.
-pub fn encode_export_calendar_request(csil_v: &ExportCalendarRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_export_calendar_request(csil_v))
+pub fn encode_export_calendar_request(
+    csil_v: &ExportCalendarRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_export_calendar_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ExportCalendarRequest.
@@ -4122,19 +4527,22 @@ pub fn decode_export_calendar_request(
 }
 
 /// Build the canonical CBOR value tree for a ExportEventRequest.
-fn csil_enc_export_event_request(csil_v: &ExportEventRequest) -> CsilCborValue {
+fn csil_enc_export_event_request(
+    csil_v: &ExportEventRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.method {
         csil_entries.push((cbor_text("method"), cbor_text(csil_inner)));
     }
     csil_entries.push((cbor_text("event_id"), cbor_text(&csil_v.event_id)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ExportEventRequest from a decoded CBOR value tree.
 fn csil_dec_export_event_request(
     csil_root: &CsilCborValue,
 ) -> Result<ExportEventRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let event_id = {
         let csil_field = cbor_require(csil_root, "event_id")?;
         let csil_decode = cbor_as_text;
@@ -4151,8 +4559,9 @@ fn csil_dec_export_event_request(
 }
 
 /// Encode a ExportEventRequest to canonical CSIL CBOR bytes.
-pub fn encode_export_event_request(csil_v: &ExportEventRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_export_event_request(csil_v))
+pub fn encode_export_event_request(csil_v: &ExportEventRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_export_event_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ExportEventRequest.
@@ -4162,15 +4571,16 @@ pub fn decode_export_event_request(csil_data: &[u8]) -> Result<ExportEventReques
 }
 
 /// Build the canonical CBOR value tree for a IcsDocument.
-fn csil_enc_ics_document(csil_v: &IcsDocument) -> CsilCborValue {
+fn csil_enc_ics_document(csil_v: &IcsDocument) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("ics"), cbor_text(&csil_v.ics)));
     csil_entries.push((cbor_text("filename"), cbor_text(&csil_v.filename)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a IcsDocument from a decoded CBOR value tree.
 fn csil_dec_ics_document(csil_root: &CsilCborValue) -> Result<IcsDocument, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let ics = {
         let csil_field = cbor_require(csil_root, "ics")?;
         let csil_decode = cbor_as_text;
@@ -4185,8 +4595,9 @@ fn csil_dec_ics_document(csil_root: &CsilCborValue) -> Result<IcsDocument, CsilC
 }
 
 /// Encode a IcsDocument to canonical CSIL CBOR bytes.
-pub fn encode_ics_document(csil_v: &IcsDocument) -> Vec<u8> {
-    cbor_encode(&csil_enc_ics_document(csil_v))
+pub fn encode_ics_document(csil_v: &IcsDocument) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_ics_document(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a IcsDocument.
@@ -4196,11 +4607,11 @@ pub fn decode_ics_document(csil_data: &[u8]) -> Result<IcsDocument, CsilCborErro
 }
 
 /// Build the canonical CBOR value tree for a AuditEntry.
-fn csil_enc_audit_entry(csil_v: &AuditEntry) -> CsilCborValue {
+fn csil_enc_audit_entry(csil_v: &AuditEntry) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(9);
-    csil_entries.push((cbor_text("at"), csil_enc_timestamp(&csil_v.at)));
-    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)));
-    csil_entries.push((cbor_text("actor"), csil_enc_person_summary(&csil_v.actor)));
+    csil_entries.push((cbor_text("at"), csil_rt_enc_timestamp(&csil_v.at)?));
+    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)?));
+    csil_entries.push((cbor_text("actor"), csil_enc_person_summary(&csil_v.actor)?));
     if let Some(csil_inner) = &csil_v.target {
         csil_entries.push((cbor_text("target"), cbor_text(csil_inner)));
     }
@@ -4209,16 +4620,17 @@ fn csil_enc_audit_entry(csil_v: &AuditEntry) -> CsilCborValue {
     csil_entries.push((cbor_text("operation"), cbor_text(&csil_v.operation)));
     csil_entries.push((
         cbor_text("principal"),
-        csil_enc_person_summary(&csil_v.principal),
+        csil_enc_person_summary(&csil_v.principal)?,
     ));
     if let Some(csil_inner) = &csil_v.application {
         csil_entries.push((cbor_text("application"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a AuditEntry from a decoded CBOR value tree.
 fn csil_dec_audit_entry(csil_root: &CsilCborValue) -> Result<AuditEntry, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let audit_id = {
         let csil_field = cbor_require(csil_root, "audit_id")?;
         let csil_decode = cbor_as_text;
@@ -4282,8 +4694,9 @@ fn csil_dec_audit_entry(csil_root: &CsilCborValue) -> Result<AuditEntry, CsilCbo
 }
 
 /// Encode a AuditEntry to canonical CSIL CBOR bytes.
-pub fn encode_audit_entry(csil_v: &AuditEntry) -> Vec<u8> {
-    cbor_encode(&csil_enc_audit_entry(csil_v))
+pub fn encode_audit_entry(csil_v: &AuditEntry) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_audit_entry(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a AuditEntry.
@@ -4293,7 +4706,7 @@ pub fn decode_audit_entry(csil_data: &[u8]) -> Result<AuditEntry, CsilCborError>
 }
 
 /// Build the canonical CBOR value tree for a AuditQuery.
-fn csil_enc_audit_query(csil_v: &AuditQuery) -> CsilCborValue {
+fn csil_enc_audit_query(csil_v: &AuditQuery) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.limit {
         csil_entries.push((cbor_text("limit"), cbor_uint(*csil_inner)));
@@ -4301,11 +4714,12 @@ fn csil_enc_audit_query(csil_v: &AuditQuery) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.delegated_only {
         csil_entries.push((cbor_text("delegated_only"), cbor_bool(*csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a AuditQuery from a decoded CBOR value tree.
 fn csil_dec_audit_query(csil_root: &CsilCborValue) -> Result<AuditQuery, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let limit = match cbor_map_get(csil_root, "limit") {
         Some(csil_field) => {
             let csil_decode = cbor_as_u64;
@@ -4327,8 +4741,9 @@ fn csil_dec_audit_query(csil_root: &CsilCborValue) -> Result<AuditQuery, CsilCbo
 }
 
 /// Encode a AuditQuery to canonical CSIL CBOR bytes.
-pub fn encode_audit_query(csil_v: &AuditQuery) -> Vec<u8> {
-    cbor_encode(&csil_enc_audit_query(csil_v))
+pub fn encode_audit_query(csil_v: &AuditQuery) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_audit_query(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a AuditQuery.
@@ -4338,17 +4753,18 @@ pub fn decode_audit_query(csil_data: &[u8]) -> Result<AuditQuery, CsilCborError>
 }
 
 /// Build the canonical CBOR value tree for a AuditList.
-fn csil_enc_audit_list(csil_v: &AuditList) -> CsilCborValue {
+fn csil_enc_audit_list(csil_v: &AuditList) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("entries"),
-        cbor_enc_array(&csil_v.entries, csil_enc_audit_entry),
+        cbor_enc_array(&csil_v.entries, csil_enc_audit_entry)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a AuditList from a decoded CBOR value tree.
 fn csil_dec_audit_list(csil_root: &CsilCborValue) -> Result<AuditList, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let entries = {
         let csil_field = cbor_require(csil_root, "entries")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_audit_entry);
@@ -4358,8 +4774,9 @@ fn csil_dec_audit_list(csil_root: &CsilCborValue) -> Result<AuditList, CsilCborE
 }
 
 /// Encode a AuditList to canonical CSIL CBOR bytes.
-pub fn encode_audit_list(csil_v: &AuditList) -> Vec<u8> {
-    cbor_encode(&csil_enc_audit_list(csil_v))
+pub fn encode_audit_list(csil_v: &AuditList) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_audit_list(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a AuditList.
@@ -4369,7 +4786,7 @@ pub fn decode_audit_list(csil_data: &[u8]) -> Result<AuditList, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a CompleteRequest.
-fn csil_enc_complete_request(csil_v: &CompleteRequest) -> CsilCborValue {
+fn csil_enc_complete_request(csil_v: &CompleteRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.domain {
         csil_entries.push((cbor_text("domain"), cbor_text(csil_inner)));
@@ -4378,11 +4795,12 @@ fn csil_enc_complete_request(csil_v: &CompleteRequest) -> CsilCborValue {
         cbor_text("encrypted_token"),
         cbor_text(&csil_v.encrypted_token),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a CompleteRequest from a decoded CBOR value tree.
 fn csil_dec_complete_request(csil_root: &CsilCborValue) -> Result<CompleteRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let encrypted_token = {
         let csil_field = cbor_require(csil_root, "encrypted_token")?;
         let csil_decode = cbor_as_text;
@@ -4402,8 +4820,9 @@ fn csil_dec_complete_request(csil_root: &CsilCborValue) -> Result<CompleteReques
 }
 
 /// Encode a CompleteRequest to canonical CSIL CBOR bytes.
-pub fn encode_complete_request(csil_v: &CompleteRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_complete_request(csil_v))
+pub fn encode_complete_request(csil_v: &CompleteRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_complete_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a CompleteRequest.
@@ -4413,29 +4832,30 @@ pub fn decode_complete_request(csil_data: &[u8]) -> Result<CompleteRequest, Csil
 }
 
 /// Build the canonical CBOR value tree for a LoginResponse.
-fn csil_enc_login_response(csil_v: &LoginResponse) -> CsilCborValue {
+fn csil_enc_login_response(csil_v: &LoginResponse) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
-    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)));
-    csil_entries.push((cbor_text("user"), csil_enc_person_summary(&csil_v.user)));
+    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)?));
+    csil_entries.push((cbor_text("user"), csil_enc_person_summary(&csil_v.user)?));
     csil_entries.push((cbor_text("token"), cbor_text(&csil_v.token)));
     if let Some(csil_inner) = &csil_v.scopes {
         csil_entries.push((
             cbor_text("scopes"),
-            cbor_enc_array(csil_inner, csil_enc_scope),
+            cbor_enc_array(csil_inner, csil_enc_scope)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.acting_as {
-        csil_entries.push((cbor_text("acting_as"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("acting_as"), csil_enc_person_summary(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("expires_at"),
-        csil_enc_timestamp(&csil_v.expires_at),
+        csil_rt_enc_timestamp(&csil_v.expires_at)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a LoginResponse from a decoded CBOR value tree.
 fn csil_dec_login_response(csil_root: &CsilCborValue) -> Result<LoginResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let token = {
         let csil_field = cbor_require(csil_root, "token")?;
         let csil_decode = cbor_as_text;
@@ -4481,8 +4901,9 @@ fn csil_dec_login_response(csil_root: &CsilCborValue) -> Result<LoginResponse, C
 }
 
 /// Encode a LoginResponse to canonical CSIL CBOR bytes.
-pub fn encode_login_response(csil_v: &LoginResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_login_response(csil_v))
+pub fn encode_login_response(csil_v: &LoginResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_login_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a LoginResponse.
@@ -4492,28 +4913,29 @@ pub fn decode_login_response(csil_data: &[u8]) -> Result<LoginResponse, CsilCbor
 }
 
 /// Build the canonical CBOR value tree for a MeResponse.
-fn csil_enc_me_response(csil_v: &MeResponse) -> CsilCborValue {
+fn csil_enc_me_response(csil_v: &MeResponse) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(5);
-    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)));
-    csil_entries.push((cbor_text("user"), csil_enc_user(&csil_v.user)));
+    csil_entries.push((cbor_text("via"), csil_enc_acting_via(&csil_v.via)?));
+    csil_entries.push((cbor_text("user"), csil_enc_user(&csil_v.user)?));
     if let Some(csil_inner) = &csil_v.scopes {
         csil_entries.push((
             cbor_text("scopes"),
-            cbor_enc_array(csil_inner, csil_enc_scope),
+            cbor_enc_array(csil_inner, csil_enc_scope)?,
         ));
     }
     if let Some(csil_inner) = &csil_v.acting_as {
-        csil_entries.push((cbor_text("acting_as"), csil_enc_person_summary(csil_inner)));
+        csil_entries.push((cbor_text("acting_as"), csil_enc_person_summary(csil_inner)?));
     }
     csil_entries.push((
         cbor_text("principals"),
-        cbor_enc_array(&csil_v.principals, csil_enc_person_summary),
+        cbor_enc_array(&csil_v.principals, csil_enc_person_summary)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a MeResponse from a decoded CBOR value tree.
 fn csil_dec_me_response(csil_root: &CsilCborValue) -> Result<MeResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let user = {
         let csil_field = cbor_require(csil_root, "user")?;
         let csil_decode = csil_dec_user;
@@ -4553,8 +4975,9 @@ fn csil_dec_me_response(csil_root: &CsilCborValue) -> Result<MeResponse, CsilCbo
 }
 
 /// Encode a MeResponse to canonical CSIL CBOR bytes.
-pub fn encode_me_response(csil_v: &MeResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_me_response(csil_v))
+pub fn encode_me_response(csil_v: &MeResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_me_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a MeResponse.
@@ -4566,16 +4989,17 @@ pub fn decode_me_response(csil_data: &[u8]) -> Result<MeResponse, CsilCborError>
 /// Build the canonical CBOR value tree for a ExchangeActAsCredentialRequest.
 fn csil_enc_exchange_act_as_credential_request(
     csil_v: &ExchangeActAsCredentialRequest,
-) -> CsilCborValue {
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((cbor_text("credential"), cbor_bytes(&csil_v.credential)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ExchangeActAsCredentialRequest from a decoded CBOR value tree.
 fn csil_dec_exchange_act_as_credential_request(
     csil_root: &CsilCborValue,
 ) -> Result<ExchangeActAsCredentialRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let credential = {
         let csil_field = cbor_require(csil_root, "credential")?;
         let csil_decode = cbor_as_bytes;
@@ -4587,8 +5011,9 @@ fn csil_dec_exchange_act_as_credential_request(
 /// Encode a ExchangeActAsCredentialRequest to canonical CSIL CBOR bytes.
 pub fn encode_exchange_act_as_credential_request(
     csil_v: &ExchangeActAsCredentialRequest,
-) -> Vec<u8> {
-    cbor_encode(&csil_enc_exchange_act_as_credential_request(csil_v))
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_exchange_act_as_credential_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ExchangeActAsCredentialRequest.
@@ -4600,18 +5025,18 @@ pub fn decode_exchange_act_as_credential_request(
 }
 
 /// Build the canonical CBOR value tree for a ScopeSetRequest.
-fn csil_enc_scope_set_request(csil_v: &ScopeSetRequest) -> CsilCborValue {
+fn csil_enc_scope_set_request(csil_v: &ScopeSetRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(5);
     if let Some(csil_inner) = &csil_v.scopes {
         csil_entries.push((
             cbor_text("scopes"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
     if let Some(csil_inner) = &csil_v.languages {
         csil_entries.push((
             cbor_text("languages"),
-            cbor_enc_array(csil_inner, |csil_elem| cbor_text(csil_elem)),
+            cbor_enc_array(csil_inner, |csil_elem| Ok(cbor_text(csil_elem)))?,
         ));
     }
     csil_entries.push((
@@ -4626,11 +5051,12 @@ fn csil_enc_scope_set_request(csil_v: &ScopeSetRequest) -> CsilCborValue {
         cbor_text("grantee_application_id"),
         cbor_text(&csil_v.grantee_application_id),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ScopeSetRequest from a decoded CBOR value tree.
 fn csil_dec_scope_set_request(csil_root: &CsilCborValue) -> Result<ScopeSetRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let grantee_domain = {
         let csil_field = cbor_require(csil_root, "grantee_domain")?;
         let csil_decode = cbor_as_text;
@@ -4670,8 +5096,9 @@ fn csil_dec_scope_set_request(csil_root: &CsilCborValue) -> Result<ScopeSetReque
 }
 
 /// Encode a ScopeSetRequest to canonical CSIL CBOR bytes.
-pub fn encode_scope_set_request(csil_v: &ScopeSetRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_scope_set_request(csil_v))
+pub fn encode_scope_set_request(csil_v: &ScopeSetRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_scope_set_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ScopeSetRequest.
@@ -4681,19 +5108,20 @@ pub fn decode_scope_set_request(csil_data: &[u8]) -> Result<ScopeSetRequest, Csi
 }
 
 /// Build the canonical CBOR value tree for a ScopeSetResponse.
-fn csil_enc_scope_set_response(csil_v: &ScopeSetResponse) -> CsilCborValue {
+fn csil_enc_scope_set_response(csil_v: &ScopeSetResponse) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("signed_scope_set"),
         cbor_bytes(&csil_v.signed_scope_set),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ScopeSetResponse from a decoded CBOR value tree.
 fn csil_dec_scope_set_response(
     csil_root: &CsilCborValue,
 ) -> Result<ScopeSetResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let signed_scope_set = {
         let csil_field = cbor_require(csil_root, "signed_scope_set")?;
         let csil_decode = cbor_as_bytes;
@@ -4703,8 +5131,9 @@ fn csil_dec_scope_set_response(
 }
 
 /// Encode a ScopeSetResponse to canonical CSIL CBOR bytes.
-pub fn encode_scope_set_response(csil_v: &ScopeSetResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_scope_set_response(csil_v))
+pub fn encode_scope_set_response(csil_v: &ScopeSetResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_scope_set_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ScopeSetResponse.
@@ -4714,7 +5143,7 @@ pub fn decode_scope_set_response(csil_data: &[u8]) -> Result<ScopeSetResponse, C
 }
 
 /// Build the canonical CBOR value tree for a ApplicationRef.
-fn csil_enc_application_ref(csil_v: &ApplicationRef) -> CsilCborValue {
+fn csil_enc_application_ref(csil_v: &ApplicationRef) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((
         cbor_text("application_id"),
@@ -4728,11 +5157,12 @@ fn csil_enc_application_ref(csil_v: &ApplicationRef) -> CsilCborValue {
         cbor_text("subject_user_id"),
         cbor_text(&csil_v.subject_user_id),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ApplicationRef from a decoded CBOR value tree.
 fn csil_dec_application_ref(csil_root: &CsilCborValue) -> Result<ApplicationRef, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let subject_user_id = {
         let csil_field = cbor_require(csil_root, "subject_user_id")?;
         let csil_decode = cbor_as_text;
@@ -4756,8 +5186,9 @@ fn csil_dec_application_ref(csil_root: &CsilCborValue) -> Result<ApplicationRef,
 }
 
 /// Encode a ApplicationRef to canonical CSIL CBOR bytes.
-pub fn encode_application_ref(csil_v: &ApplicationRef) -> Vec<u8> {
-    cbor_encode(&csil_enc_application_ref(csil_v))
+pub fn encode_application_ref(csil_v: &ApplicationRef) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_application_ref(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ApplicationRef.
@@ -4767,20 +5198,22 @@ pub fn decode_application_ref(csil_data: &[u8]) -> Result<ApplicationRef, CsilCb
 }
 
 /// Build the canonical CBOR value tree for a ApplicationPresentation.
-fn csil_enc_application_presentation(csil_v: &ApplicationPresentation) -> CsilCborValue {
+fn csil_enc_application_presentation(
+    csil_v: &ApplicationPresentation,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(6);
     csil_entries.push((cbor_text("nonce"), cbor_bytes(&csil_v.nonce)));
     csil_entries.push((
         cbor_text("signer"),
-        csil_enc_application_ref(&csil_v.signer),
+        csil_enc_application_ref(&csil_v.signer)?,
     ));
     csil_entries.push((
         cbor_text("audience"),
-        csil_enc_application_ref(&csil_v.audience),
+        csil_enc_application_ref(&csil_v.audience)?,
     ));
     csil_entries.push((
         cbor_text("presented_at"),
-        csil_enc_timestamp(&csil_v.presented_at),
+        csil_rt_enc_timestamp(&csil_v.presented_at)?,
     ));
     csil_entries.push((
         cbor_text("request_digest"),
@@ -4790,13 +5223,14 @@ fn csil_enc_application_presentation(csil_v: &ApplicationPresentation) -> CsilCb
         cbor_text("signer_instance_id"),
         cbor_text(&csil_v.signer_instance_id),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ApplicationPresentation from a decoded CBOR value tree.
 fn csil_dec_application_presentation(
     csil_root: &CsilCborValue,
 ) -> Result<ApplicationPresentation, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let signer = {
         let csil_field = cbor_require(csil_root, "signer")?;
         let csil_decode = csil_dec_application_ref;
@@ -4838,8 +5272,11 @@ fn csil_dec_application_presentation(
 }
 
 /// Encode a ApplicationPresentation to canonical CSIL CBOR bytes.
-pub fn encode_application_presentation(csil_v: &ApplicationPresentation) -> Vec<u8> {
-    cbor_encode(&csil_enc_application_presentation(csil_v))
+pub fn encode_application_presentation(
+    csil_v: &ApplicationPresentation,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_application_presentation(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ApplicationPresentation.
@@ -4853,7 +5290,7 @@ pub fn decode_application_presentation(
 /// Build the canonical CBOR value tree for a SignedApplicationPresentation.
 fn csil_enc_signed_application_presentation(
     csil_v: &SignedApplicationPresentation,
-) -> CsilCborValue {
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     csil_entries.push((cbor_text("signature"), cbor_bytes(&csil_v.signature)));
     csil_entries.push((cbor_text("presentation"), cbor_bytes(&csil_v.presentation)));
@@ -4861,13 +5298,14 @@ fn csil_enc_signed_application_presentation(
         cbor_text("signed_by_key_id"),
         cbor_text(&csil_v.signed_by_key_id),
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a SignedApplicationPresentation from a decoded CBOR value tree.
 fn csil_dec_signed_application_presentation(
     csil_root: &CsilCborValue,
 ) -> Result<SignedApplicationPresentation, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let presentation = {
         let csil_field = cbor_require(csil_root, "presentation")?;
         let csil_decode = cbor_as_bytes;
@@ -4891,8 +5329,11 @@ fn csil_dec_signed_application_presentation(
 }
 
 /// Encode a SignedApplicationPresentation to canonical CSIL CBOR bytes.
-pub fn encode_signed_application_presentation(csil_v: &SignedApplicationPresentation) -> Vec<u8> {
-    cbor_encode(&csil_enc_signed_application_presentation(csil_v))
+pub fn encode_signed_application_presentation(
+    csil_v: &SignedApplicationPresentation,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_signed_application_presentation(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a SignedApplicationPresentation.
@@ -4906,19 +5347,20 @@ pub fn decode_signed_application_presentation(
 /// Build the canonical CBOR value tree for a ExchangeApplicationPresentationRequest.
 fn csil_enc_exchange_application_presentation_request(
     csil_v: &ExchangeApplicationPresentationRequest,
-) -> CsilCborValue {
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("presentation"),
-        csil_enc_signed_application_presentation(&csil_v.presentation),
+        csil_enc_signed_application_presentation(&csil_v.presentation)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ExchangeApplicationPresentationRequest from a decoded CBOR value tree.
 fn csil_dec_exchange_application_presentation_request(
     csil_root: &CsilCborValue,
 ) -> Result<ExchangeApplicationPresentationRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let presentation = {
         let csil_field = cbor_require(csil_root, "presentation")?;
         let csil_decode = csil_dec_signed_application_presentation;
@@ -4930,8 +5372,9 @@ fn csil_dec_exchange_application_presentation_request(
 /// Encode a ExchangeApplicationPresentationRequest to canonical CSIL CBOR bytes.
 pub fn encode_exchange_application_presentation_request(
     csil_v: &ExchangeApplicationPresentationRequest,
-) -> Vec<u8> {
-    cbor_encode(&csil_enc_exchange_application_presentation_request(csil_v))
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_exchange_application_presentation_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ExchangeApplicationPresentationRequest.
@@ -4943,19 +5386,22 @@ pub fn decode_exchange_application_presentation_request(
 }
 
 /// Build the canonical CBOR value tree for a ApplicationIdentityResponse.
-fn csil_enc_application_identity_response(csil_v: &ApplicationIdentityResponse) -> CsilCborValue {
+fn csil_enc_application_identity_response(
+    csil_v: &ApplicationIdentityResponse,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("audience"),
-        csil_enc_application_ref(&csil_v.audience),
+        csil_enc_application_ref(&csil_v.audience)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ApplicationIdentityResponse from a decoded CBOR value tree.
 fn csil_dec_application_identity_response(
     csil_root: &CsilCborValue,
 ) -> Result<ApplicationIdentityResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let audience = {
         let csil_field = cbor_require(csil_root, "audience")?;
         let csil_decode = csil_dec_application_ref;
@@ -4965,8 +5411,11 @@ fn csil_dec_application_identity_response(
 }
 
 /// Encode a ApplicationIdentityResponse to canonical CSIL CBOR bytes.
-pub fn encode_application_identity_response(csil_v: &ApplicationIdentityResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_application_identity_response(csil_v))
+pub fn encode_application_identity_response(
+    csil_v: &ApplicationIdentityResponse,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_application_identity_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ApplicationIdentityResponse.
@@ -4978,7 +5427,7 @@ pub fn decode_application_identity_response(
 }
 
 /// Build the canonical CBOR value tree for a DevUser.
-fn csil_enc_dev_user(csil_v: &DevUser) -> CsilCborValue {
+fn csil_enc_dev_user(csil_v: &DevUser) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(4);
     csil_entries.push((cbor_text("domain"), cbor_text(&csil_v.domain)));
     if let Some(csil_inner) = &csil_v.handle {
@@ -4988,11 +5437,12 @@ fn csil_enc_dev_user(csil_v: &DevUser) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DevUser from a decoded CBOR value tree.
 fn csil_dec_dev_user(csil_root: &CsilCborValue) -> Result<DevUser, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let user_id = {
         let csil_field = cbor_require(csil_root, "user_id")?;
         let csil_decode = cbor_as_text;
@@ -5026,8 +5476,9 @@ fn csil_dec_dev_user(csil_root: &CsilCborValue) -> Result<DevUser, CsilCborError
 }
 
 /// Encode a DevUser to canonical CSIL CBOR bytes.
-pub fn encode_dev_user(csil_v: &DevUser) -> Vec<u8> {
-    cbor_encode(&csil_enc_dev_user(csil_v))
+pub fn encode_dev_user(csil_v: &DevUser) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_dev_user(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DevUser.
@@ -5037,19 +5488,20 @@ pub fn decode_dev_user(csil_data: &[u8]) -> Result<DevUser, CsilCborError> {
 }
 
 /// Build the canonical CBOR value tree for a DevUsersResponse.
-fn csil_enc_dev_users_response(csil_v: &DevUsersResponse) -> CsilCborValue {
+fn csil_enc_dev_users_response(csil_v: &DevUsersResponse) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("users"),
-        cbor_enc_array(&csil_v.users, csil_enc_dev_user),
+        cbor_enc_array(&csil_v.users, csil_enc_dev_user)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DevUsersResponse from a decoded CBOR value tree.
 fn csil_dec_dev_users_response(
     csil_root: &CsilCborValue,
 ) -> Result<DevUsersResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let users = {
         let csil_field = cbor_require(csil_root, "users")?;
         let csil_decode = |csil_v| cbor_dec_array(csil_v, csil_dec_dev_user);
@@ -5059,8 +5511,9 @@ fn csil_dec_dev_users_response(
 }
 
 /// Encode a DevUsersResponse to canonical CSIL CBOR bytes.
-pub fn encode_dev_users_response(csil_v: &DevUsersResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_dev_users_response(csil_v))
+pub fn encode_dev_users_response(csil_v: &DevUsersResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_dev_users_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DevUsersResponse.
@@ -5070,7 +5523,7 @@ pub fn decode_dev_users_response(csil_data: &[u8]) -> Result<DevUsersResponse, C
 }
 
 /// Build the canonical CBOR value tree for a DevLoginRequest.
-fn csil_enc_dev_login_request(csil_v: &DevLoginRequest) -> CsilCborValue {
+fn csil_enc_dev_login_request(csil_v: &DevLoginRequest) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(3);
     if let Some(csil_inner) = &csil_v.handle {
         csil_entries.push((cbor_text("handle"), cbor_text(csil_inner)));
@@ -5081,11 +5534,12 @@ fn csil_enc_dev_login_request(csil_v: &DevLoginRequest) -> CsilCborValue {
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a DevLoginRequest from a decoded CBOR value tree.
 fn csil_dec_dev_login_request(csil_root: &CsilCborValue) -> Result<DevLoginRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let user_id = match cbor_map_get(csil_root, "user_id") {
         Some(csil_field) => {
             let csil_decode = cbor_as_text;
@@ -5115,8 +5569,9 @@ fn csil_dec_dev_login_request(csil_root: &CsilCborValue) -> Result<DevLoginReque
 }
 
 /// Encode a DevLoginRequest to canonical CSIL CBOR bytes.
-pub fn encode_dev_login_request(csil_v: &DevLoginRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_dev_login_request(csil_v))
+pub fn encode_dev_login_request(csil_v: &DevLoginRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_dev_login_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a DevLoginRequest.
@@ -5126,19 +5581,22 @@ pub fn decode_dev_login_request(csil_data: &[u8]) -> Result<DevLoginRequest, Csi
 }
 
 /// Build the canonical CBOR value tree for a LookupPersonRequest.
-fn csil_enc_lookup_person_request(csil_v: &LookupPersonRequest) -> CsilCborValue {
+fn csil_enc_lookup_person_request(
+    csil_v: &LookupPersonRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(1);
     csil_entries.push((
         cbor_text("identity"),
-        csil_enc_identity_ref(&csil_v.identity),
+        csil_enc_identity_ref(&csil_v.identity)?,
     ));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a LookupPersonRequest from a decoded CBOR value tree.
 fn csil_dec_lookup_person_request(
     csil_root: &CsilCborValue,
 ) -> Result<LookupPersonRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let identity = {
         let csil_field = cbor_require(csil_root, "identity")?;
         let csil_decode = csil_dec_identity_ref;
@@ -5148,8 +5606,11 @@ fn csil_dec_lookup_person_request(
 }
 
 /// Encode a LookupPersonRequest to canonical CSIL CBOR bytes.
-pub fn encode_lookup_person_request(csil_v: &LookupPersonRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_lookup_person_request(csil_v))
+pub fn encode_lookup_person_request(
+    csil_v: &LookupPersonRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_lookup_person_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a LookupPersonRequest.
@@ -5161,7 +5622,9 @@ pub fn decode_lookup_person_request(
 }
 
 /// Build the canonical CBOR value tree for a UpdateProfileRequest.
-fn csil_enc_update_profile_request(csil_v: &UpdateProfileRequest) -> CsilCborValue {
+fn csil_enc_update_profile_request(
+    csil_v: &UpdateProfileRequest,
+) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     if let Some(csil_inner) = &csil_v.timezone {
         csil_entries.push((cbor_text("timezone"), cbor_text(csil_inner)));
@@ -5169,13 +5632,14 @@ fn csil_enc_update_profile_request(csil_v: &UpdateProfileRequest) -> CsilCborVal
     if let Some(csil_inner) = &csil_v.display_name {
         csil_entries.push((cbor_text("display_name"), cbor_text(csil_inner)));
     }
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a UpdateProfileRequest from a decoded CBOR value tree.
 fn csil_dec_update_profile_request(
     csil_root: &CsilCborValue,
 ) -> Result<UpdateProfileRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let display_name = match cbor_map_get(csil_root, "display_name") {
         Some(csil_field) => {
             let csil_decode = cbor_as_text;
@@ -5197,8 +5661,11 @@ fn csil_dec_update_profile_request(
 }
 
 /// Encode a UpdateProfileRequest to canonical CSIL CBOR bytes.
-pub fn encode_update_profile_request(csil_v: &UpdateProfileRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_update_profile_request(csil_v))
+pub fn encode_update_profile_request(
+    csil_v: &UpdateProfileRequest,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_update_profile_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a UpdateProfileRequest.
@@ -5210,18 +5677,20 @@ pub fn decode_update_profile_request(
 }
 
 /// Build the canonical CBOR value tree for a EmptyRequest.
-fn csil_enc_empty_request(_csil_v: &EmptyRequest) -> CsilCborValue {
-    CsilCborValue::Map(Vec::new())
+fn csil_enc_empty_request(_csil_v: &EmptyRequest) -> Result<CsilCborValue, CsilCborError> {
+    Ok(CsilCborValue::Map(Vec::new()))
 }
 
 /// Reconstruct a EmptyRequest from a decoded CBOR value tree.
-fn csil_dec_empty_request(_csil_root: &CsilCborValue) -> Result<EmptyRequest, CsilCborError> {
+fn csil_dec_empty_request(csil_root: &CsilCborValue) -> Result<EmptyRequest, CsilCborError> {
+    cbor_check_record(csil_root)?;
     Ok(EmptyRequest {})
 }
 
 /// Encode a EmptyRequest to canonical CSIL CBOR bytes.
-pub fn encode_empty_request(csil_v: &EmptyRequest) -> Vec<u8> {
-    cbor_encode(&csil_enc_empty_request(csil_v))
+pub fn encode_empty_request(csil_v: &EmptyRequest) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_empty_request(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a EmptyRequest.
@@ -5231,18 +5700,20 @@ pub fn decode_empty_request(csil_data: &[u8]) -> Result<EmptyRequest, CsilCborEr
 }
 
 /// Build the canonical CBOR value tree for a EmptyResponse.
-fn csil_enc_empty_response(_csil_v: &EmptyResponse) -> CsilCborValue {
-    CsilCborValue::Map(Vec::new())
+fn csil_enc_empty_response(_csil_v: &EmptyResponse) -> Result<CsilCborValue, CsilCborError> {
+    Ok(CsilCborValue::Map(Vec::new()))
 }
 
 /// Reconstruct a EmptyResponse from a decoded CBOR value tree.
-fn csil_dec_empty_response(_csil_root: &CsilCborValue) -> Result<EmptyResponse, CsilCborError> {
+fn csil_dec_empty_response(csil_root: &CsilCborValue) -> Result<EmptyResponse, CsilCborError> {
+    cbor_check_record(csil_root)?;
     Ok(EmptyResponse {})
 }
 
 /// Encode a EmptyResponse to canonical CSIL CBOR bytes.
-pub fn encode_empty_response(csil_v: &EmptyResponse) -> Vec<u8> {
-    cbor_encode(&csil_enc_empty_response(csil_v))
+pub fn encode_empty_response(csil_v: &EmptyResponse) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_empty_response(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a EmptyResponse.
@@ -5252,15 +5723,16 @@ pub fn decode_empty_response(csil_data: &[u8]) -> Result<EmptyResponse, CsilCbor
 }
 
 /// Build the canonical CBOR value tree for a ServiceError.
-fn csil_enc_service_error(csil_v: &ServiceError) -> CsilCborValue {
+fn csil_enc_service_error(csil_v: &ServiceError) -> Result<CsilCborValue, CsilCborError> {
     let mut csil_entries: Vec<(CsilCborValue, CsilCborValue)> = Vec::with_capacity(2);
     csil_entries.push((cbor_text("code"), cbor_uint(csil_v.code)));
     csil_entries.push((cbor_text("message"), cbor_text(&csil_v.message)));
-    CsilCborValue::Map(csil_entries)
+    Ok(CsilCborValue::Map(csil_entries))
 }
 
 /// Reconstruct a ServiceError from a decoded CBOR value tree.
 fn csil_dec_service_error(csil_root: &CsilCborValue) -> Result<ServiceError, CsilCborError> {
+    cbor_check_record(csil_root)?;
     let code = {
         let csil_field = cbor_require(csil_root, "code")?;
         let csil_decode = cbor_as_u64;
@@ -5275,8 +5747,9 @@ fn csil_dec_service_error(csil_root: &CsilCborValue) -> Result<ServiceError, Csi
 }
 
 /// Encode a ServiceError to canonical CSIL CBOR bytes.
-pub fn encode_service_error(csil_v: &ServiceError) -> Vec<u8> {
-    cbor_encode(&csil_enc_service_error(csil_v))
+pub fn encode_service_error(csil_v: &ServiceError) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_service_error(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into a ServiceError.
@@ -5286,14 +5759,14 @@ pub fn decode_service_error(csil_data: &[u8]) -> Result<ServiceError, CsilCborEr
 }
 
 /// Encode a ShareRole enum as its CBOR value.
-fn csil_enc_share_role(csil_v: &ShareRole) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_share_role(csil_v: &ShareRole) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         ShareRole::FreeBusy => cbor_text("free_busy"),
         ShareRole::Read => cbor_text("read"),
         ShareRole::Contribute => cbor_text("contribute"),
         ShareRole::Write => cbor_text("write"),
         ShareRole::Manage => cbor_text("manage"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a ShareRole enum.
@@ -5311,9 +5784,21 @@ fn csil_dec_share_role(csil_v: &CsilCborValue) -> Result<ShareRole, CsilCborErro
     }
 }
 
+/// Encode a ShareRole to canonical CSIL CBOR bytes.
+pub fn encode_share_role(csil_v: &ShareRole) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_share_role(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ShareRole.
+pub fn decode_share_role(csil_data: &[u8]) -> Result<ShareRole, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_share_role(&csil_root)
+}
+
 /// Encode a AccessRole enum as its CBOR value.
-fn csil_enc_access_role(csil_v: &AccessRole) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_access_role(csil_v: &AccessRole) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         AccessRole::None => cbor_text("none"),
         AccessRole::FreeBusy => cbor_text("free_busy"),
         AccessRole::Read => cbor_text("read"),
@@ -5321,7 +5806,7 @@ fn csil_enc_access_role(csil_v: &AccessRole) -> CsilCborValue {
         AccessRole::Write => cbor_text("write"),
         AccessRole::Manage => cbor_text("manage"),
         AccessRole::Owner => cbor_text("owner"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a AccessRole enum.
@@ -5341,14 +5826,26 @@ fn csil_dec_access_role(csil_v: &CsilCborValue) -> Result<AccessRole, CsilCborEr
     }
 }
 
+/// Encode a AccessRole to canonical CSIL CBOR bytes.
+pub fn encode_access_role(csil_v: &AccessRole) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_access_role(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a AccessRole.
+pub fn decode_access_role(csil_data: &[u8]) -> Result<AccessRole, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_access_role(&csil_root)
+}
+
 /// Encode a AccessPath enum as its CBOR value.
-fn csil_enc_access_path(csil_v: &AccessPath) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_access_path(csil_v: &AccessPath) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         AccessPath::Owner => cbor_text("owner"),
         AccessPath::Share => cbor_text("share"),
         AccessPath::Delegation => cbor_text("delegation"),
         AccessPath::Attendee => cbor_text("attendee"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a AccessPath enum.
@@ -5365,15 +5862,27 @@ fn csil_dec_access_path(csil_v: &CsilCborValue) -> Result<AccessPath, CsilCborEr
     }
 }
 
+/// Encode a AccessPath to canonical CSIL CBOR bytes.
+pub fn encode_access_path(csil_v: &AccessPath) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_access_path(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a AccessPath.
+pub fn decode_access_path(csil_data: &[u8]) -> Result<AccessPath, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_access_path(&csil_root)
+}
+
 /// Encode a Scope enum as its CBOR value.
-fn csil_enc_scope(csil_v: &Scope) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_scope(csil_v: &Scope) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         Scope::CalendarsRead => cbor_text("calendars.read"),
         Scope::FreebusyRead => cbor_text("freebusy.read"),
         Scope::EventsWrite => cbor_text("events.write"),
         Scope::EventsRespond => cbor_text("events.respond"),
         Scope::CalendarsManage => cbor_text("calendars.manage"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a Scope enum.
@@ -5391,12 +5900,24 @@ fn csil_dec_scope(csil_v: &CsilCborValue) -> Result<Scope, CsilCborError> {
     }
 }
 
+/// Encode a Scope to canonical CSIL CBOR bytes.
+pub fn encode_scope(csil_v: &Scope) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_scope(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a Scope.
+pub fn decode_scope(csil_data: &[u8]) -> Result<Scope, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_scope(&csil_root)
+}
+
 /// Encode a CalendarKind enum as its CBOR value.
-fn csil_enc_calendar_kind(csil_v: &CalendarKind) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_calendar_kind(csil_v: &CalendarKind) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         CalendarKind::Local => cbor_text("local"),
         CalendarKind::Subscription => cbor_text("subscription"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a CalendarKind enum.
@@ -5411,13 +5932,25 @@ fn csil_dec_calendar_kind(csil_v: &CsilCborValue) -> Result<CalendarKind, CsilCb
     }
 }
 
+/// Encode a CalendarKind to canonical CSIL CBOR bytes.
+pub fn encode_calendar_kind(csil_v: &CalendarKind) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_calendar_kind(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CalendarKind.
+pub fn decode_calendar_kind(csil_data: &[u8]) -> Result<CalendarKind, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_calendar_kind(&csil_root)
+}
+
 /// Encode a EventStatus enum as its CBOR value.
-fn csil_enc_event_status(csil_v: &EventStatus) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_event_status(csil_v: &EventStatus) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         EventStatus::Confirmed => cbor_text("confirmed"),
         EventStatus::Tentative => cbor_text("tentative"),
         EventStatus::Cancelled => cbor_text("cancelled"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a EventStatus enum.
@@ -5433,12 +5966,24 @@ fn csil_dec_event_status(csil_v: &CsilCborValue) -> Result<EventStatus, CsilCbor
     }
 }
 
+/// Encode a EventStatus to canonical CSIL CBOR bytes.
+pub fn encode_event_status(csil_v: &EventStatus) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_event_status(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a EventStatus.
+pub fn decode_event_status(csil_data: &[u8]) -> Result<EventStatus, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_event_status(&csil_root)
+}
+
 /// Encode a EventTransparency enum as its CBOR value.
-fn csil_enc_event_transparency(csil_v: &EventTransparency) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_event_transparency(csil_v: &EventTransparency) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         EventTransparency::Opaque => cbor_text("opaque"),
         EventTransparency::Transparent => cbor_text("transparent"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a EventTransparency enum.
@@ -5453,14 +5998,26 @@ fn csil_dec_event_transparency(csil_v: &CsilCborValue) -> Result<EventTransparen
     }
 }
 
+/// Encode a EventTransparency to canonical CSIL CBOR bytes.
+pub fn encode_event_transparency(csil_v: &EventTransparency) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_event_transparency(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a EventTransparency.
+pub fn decode_event_transparency(csil_data: &[u8]) -> Result<EventTransparency, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_event_transparency(&csil_root)
+}
+
 /// Encode a EventVisibility enum as its CBOR value.
-fn csil_enc_event_visibility(csil_v: &EventVisibility) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_event_visibility(csil_v: &EventVisibility) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         EventVisibility::Default => cbor_text("default"),
         EventVisibility::Public => cbor_text("public"),
         EventVisibility::Private => cbor_text("private"),
         EventVisibility::Confidential => cbor_text("confidential"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a EventVisibility enum.
@@ -5477,15 +6034,29 @@ fn csil_dec_event_visibility(csil_v: &CsilCborValue) -> Result<EventVisibility, 
     }
 }
 
+/// Encode a EventVisibility to canonical CSIL CBOR bytes.
+pub fn encode_event_visibility(csil_v: &EventVisibility) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_event_visibility(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a EventVisibility.
+pub fn decode_event_visibility(csil_data: &[u8]) -> Result<EventVisibility, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_event_visibility(&csil_root)
+}
+
 /// Encode a ParticipationStatus enum as its CBOR value.
-fn csil_enc_participation_status(csil_v: &ParticipationStatus) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_participation_status(
+    csil_v: &ParticipationStatus,
+) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         ParticipationStatus::NeedsAction => cbor_text("needs_action"),
         ParticipationStatus::Accepted => cbor_text("accepted"),
         ParticipationStatus::Declined => cbor_text("declined"),
         ParticipationStatus::Tentative => cbor_text("tentative"),
         ParticipationStatus::Delegated => cbor_text("delegated"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a ParticipationStatus enum.
@@ -5505,14 +6076,26 @@ fn csil_dec_participation_status(
     }
 }
 
+/// Encode a ParticipationStatus to canonical CSIL CBOR bytes.
+pub fn encode_participation_status(csil_v: &ParticipationStatus) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_participation_status(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ParticipationStatus.
+pub fn decode_participation_status(csil_data: &[u8]) -> Result<ParticipationStatus, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_participation_status(&csil_root)
+}
+
 /// Encode a AttendeeRole enum as its CBOR value.
-fn csil_enc_attendee_role(csil_v: &AttendeeRole) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_attendee_role(csil_v: &AttendeeRole) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         AttendeeRole::Chair => cbor_text("chair"),
         AttendeeRole::Required => cbor_text("required"),
         AttendeeRole::Optional => cbor_text("optional"),
         AttendeeRole::NonParticipant => cbor_text("non_participant"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a AttendeeRole enum.
@@ -5529,12 +6112,24 @@ fn csil_dec_attendee_role(csil_v: &CsilCborValue) -> Result<AttendeeRole, CsilCb
     }
 }
 
+/// Encode a AttendeeRole to canonical CSIL CBOR bytes.
+pub fn encode_attendee_role(csil_v: &AttendeeRole) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_attendee_role(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a AttendeeRole.
+pub fn decode_attendee_role(csil_data: &[u8]) -> Result<AttendeeRole, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_attendee_role(&csil_root)
+}
+
 /// Encode a ReminderMethod enum as its CBOR value.
-fn csil_enc_reminder_method(csil_v: &ReminderMethod) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_reminder_method(csil_v: &ReminderMethod) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         ReminderMethod::Display => cbor_text("display"),
         ReminderMethod::Email => cbor_text("email"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a ReminderMethod enum.
@@ -5549,13 +6144,25 @@ fn csil_dec_reminder_method(csil_v: &CsilCborValue) -> Result<ReminderMethod, Cs
     }
 }
 
+/// Encode a ReminderMethod to canonical CSIL CBOR bytes.
+pub fn encode_reminder_method(csil_v: &ReminderMethod) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_reminder_method(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ReminderMethod.
+pub fn decode_reminder_method(csil_data: &[u8]) -> Result<ReminderMethod, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_reminder_method(&csil_root)
+}
+
 /// Encode a RecurrenceScope enum as its CBOR value.
-fn csil_enc_recurrence_scope(csil_v: &RecurrenceScope) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_recurrence_scope(csil_v: &RecurrenceScope) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         RecurrenceScope::All => cbor_text("all"),
         RecurrenceScope::This => cbor_text("this"),
         RecurrenceScope::ThisAndFuture => cbor_text("this_and_future"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a RecurrenceScope enum.
@@ -5571,20 +6178,32 @@ fn csil_dec_recurrence_scope(csil_v: &CsilCborValue) -> Result<RecurrenceScope, 
     }
 }
 
+/// Encode a RecurrenceScope to canonical CSIL CBOR bytes.
+pub fn encode_recurrence_scope(csil_v: &RecurrenceScope) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_recurrence_scope(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a RecurrenceScope.
+pub fn decode_recurrence_scope(csil_data: &[u8]) -> Result<RecurrenceScope, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_recurrence_scope(&csil_root)
+}
+
 /// Encode a ActingVia enum as its CBOR value.
-fn csil_enc_acting_via(csil_v: &ActingVia) -> CsilCborValue {
-    match csil_v {
-        ActingVia::SelfActor => cbor_text("self"),
+fn csil_enc_acting_via(csil_v: &ActingVia) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
+        ActingVia::VSelf => cbor_text("self"),
         ActingVia::Delegation => cbor_text("delegation"),
         ActingVia::ActAsGrant => cbor_text("act_as_grant"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a ActingVia enum.
 fn csil_dec_acting_via(csil_v: &CsilCborValue) -> Result<ActingVia, CsilCborError> {
     let csil_val = cbor_as_text(csil_v)?;
     match csil_val.as_str() {
-        "self" => Ok(ActingVia::SelfActor),
+        "self" => Ok(ActingVia::VSelf),
         "delegation" => Ok(ActingVia::Delegation),
         "act_as_grant" => Ok(ActingVia::ActAsGrant),
         csil_other => Err(CsilCborError(format!(
@@ -5593,14 +6212,28 @@ fn csil_dec_acting_via(csil_v: &CsilCborValue) -> Result<ActingVia, CsilCborErro
     }
 }
 
+/// Encode a ActingVia to canonical CSIL CBOR bytes.
+pub fn encode_acting_via(csil_v: &ActingVia) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_acting_via(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a ActingVia.
+pub fn decode_acting_via(csil_data: &[u8]) -> Result<ActingVia, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_acting_via(&csil_root)
+}
+
 /// Encode a CreateReceiptState enum as its CBOR value.
-fn csil_enc_create_receipt_state(csil_v: &CreateReceiptState) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_create_receipt_state(
+    csil_v: &CreateReceiptState,
+) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         CreateReceiptState::Live => cbor_text("live"),
         CreateReceiptState::Trashed => cbor_text("trashed"),
         CreateReceiptState::Deleted => cbor_text("deleted"),
         CreateReceiptState::Hidden => cbor_text("hidden"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a CreateReceiptState enum.
@@ -5619,13 +6252,25 @@ fn csil_dec_create_receipt_state(
     }
 }
 
+/// Encode a CreateReceiptState to canonical CSIL CBOR bytes.
+pub fn encode_create_receipt_state(csil_v: &CreateReceiptState) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_create_receipt_state(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a CreateReceiptState.
+pub fn decode_create_receipt_state(csil_data: &[u8]) -> Result<CreateReceiptState, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_create_receipt_state(&csil_root)
+}
+
 /// Encode a SplitMapResult enum as its CBOR value.
-fn csil_enc_split_map_result(csil_v: &SplitMapResult) -> CsilCborValue {
-    match csil_v {
+fn csil_enc_split_map_result(csil_v: &SplitMapResult) -> Result<CsilCborValue, CsilCborError> {
+    Ok(match csil_v {
         SplitMapResult::Original => cbor_text("original"),
         SplitMapResult::Successor => cbor_text("successor"),
         SplitMapResult::None => cbor_text("none"),
-    }
+    })
 }
 
 /// Decode a bare literal value into a SplitMapResult enum.
@@ -5641,9 +6286,22 @@ fn csil_dec_split_map_result(csil_v: &CsilCborValue) -> Result<SplitMapResult, C
     }
 }
 
+/// Encode a SplitMapResult to canonical CSIL CBOR bytes.
+pub fn encode_split_map_result(csil_v: &SplitMapResult) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = csil_enc_split_map_result(csil_v)?;
+    Ok(cbor_encode(&csil_tree))
+}
+
+/// Decode canonical CSIL CBOR bytes into a SplitMapResult.
+pub fn decode_split_map_result(csil_data: &[u8]) -> Result<SplitMapResult, CsilCborError> {
+    let csil_root = cbor_decode(csil_data)?;
+    csil_dec_split_map_result(&csil_root)
+}
+
 /// Encode the calendar_get_calendar_request payload to canonical CSIL CBOR bytes.
-pub fn encode_calendar_get_calendar_request(csil_v: &CalendarID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_calendar_get_calendar_request(csil_v: &CalendarID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the calendar_get_calendar_request payload.
@@ -5654,8 +6312,11 @@ pub fn decode_calendar_get_calendar_request(csil_data: &[u8]) -> Result<Calendar
 }
 
 /// Encode the calendar_delete_calendar_request payload to canonical CSIL CBOR bytes.
-pub fn encode_calendar_delete_calendar_request(csil_v: &CalendarID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_calendar_delete_calendar_request(
+    csil_v: &CalendarID,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the calendar_delete_calendar_request payload.
@@ -5668,8 +6329,11 @@ pub fn decode_calendar_delete_calendar_request(
 }
 
 /// Encode the calendar_refresh_subscription_request payload to canonical CSIL CBOR bytes.
-pub fn encode_calendar_refresh_subscription_request(csil_v: &CalendarID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_calendar_refresh_subscription_request(
+    csil_v: &CalendarID,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the calendar_refresh_subscription_request payload.
@@ -5682,8 +6346,9 @@ pub fn decode_calendar_refresh_subscription_request(
 }
 
 /// Encode the share_list_shares_request payload to canonical CSIL CBOR bytes.
-pub fn encode_share_list_shares_request(csil_v: &CalendarID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_share_list_shares_request(csil_v: &CalendarID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the share_list_shares_request payload.
@@ -5694,8 +6359,9 @@ pub fn decode_share_list_shares_request(csil_data: &[u8]) -> Result<CalendarID, 
 }
 
 /// Encode the share_delete_share_request payload to canonical CSIL CBOR bytes.
-pub fn encode_share_delete_share_request(csil_v: &ShareID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_share_delete_share_request(csil_v: &ShareID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the share_delete_share_request payload.
@@ -5706,8 +6372,9 @@ pub fn decode_share_delete_share_request(csil_data: &[u8]) -> Result<ShareID, Cs
 }
 
 /// Encode the group_get_group_request payload to canonical CSIL CBOR bytes.
-pub fn encode_group_get_group_request(csil_v: &GroupID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_group_get_group_request(csil_v: &GroupID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the group_get_group_request payload.
@@ -5718,8 +6385,9 @@ pub fn decode_group_get_group_request(csil_data: &[u8]) -> Result<GroupID, CsilC
 }
 
 /// Encode the group_delete_group_request payload to canonical CSIL CBOR bytes.
-pub fn encode_group_delete_group_request(csil_v: &GroupID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_group_delete_group_request(csil_v: &GroupID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the group_delete_group_request payload.
@@ -5730,8 +6398,11 @@ pub fn decode_group_delete_group_request(csil_data: &[u8]) -> Result<GroupID, Cs
 }
 
 /// Encode the delegation_revoke_delegation_request payload to canonical CSIL CBOR bytes.
-pub fn encode_delegation_revoke_delegation_request(csil_v: &DelegationID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_delegation_revoke_delegation_request(
+    csil_v: &DelegationID,
+) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the delegation_revoke_delegation_request payload.
@@ -5744,8 +6415,9 @@ pub fn decode_delegation_revoke_delegation_request(
 }
 
 /// Encode the event_get_event_request payload to canonical CSIL CBOR bytes.
-pub fn encode_event_get_event_request(csil_v: &EventID) -> Vec<u8> {
-    cbor_encode(&cbor_text(csil_v))
+pub fn encode_event_get_event_request(csil_v: &EventID) -> Result<Vec<u8>, CsilCborError> {
+    let csil_tree = cbor_text(csil_v);
+    Ok(cbor_encode(&csil_tree))
 }
 
 /// Decode canonical CSIL CBOR bytes into the event_get_event_request payload.
@@ -5757,519 +6429,534 @@ pub fn decode_event_get_event_request(csil_data: &[u8]) -> Result<EventID, CsilC
 
 pub fn encode_auth_complete_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_resume_session_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_end_session_reply(
     reply: Result<EmptyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EmptyResponse", encode_empty_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EmptyResponse", encode_empty_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_auth_me_reply(reply: Result<MeResponse, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("MeResponse", encode_me_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_auth_me_reply(
+    reply: Result<MeResponse, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("MeResponse", encode_me_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_assume_principal_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_release_principal_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_exchange_act_as_credential_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_get_act_as_scope_set_reply(
     reply: Result<ScopeSetResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("ScopeSetResponse", encode_scope_set_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("ScopeSetResponse", encode_scope_set_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_get_application_identity_reply(
     reply: Result<ApplicationIdentityResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("ApplicationIdentityResponse", encode_application_identity_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => (
+            "ApplicationIdentityResponse",
+            encode_application_identity_response(&value)?,
+        ),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_auth_exchange_application_presentation_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_dev_auth_list_dev_users_reply(
     reply: Result<DevUsersResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("DevUsersResponse", encode_dev_users_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("DevUsersResponse", encode_dev_users_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_dev_auth_dev_login_reply(
     reply: Result<LoginResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("LoginResponse", encode_login_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("LoginResponse", encode_login_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_user_get_profile_reply(reply: Result<User, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("User", encode_user(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_user_get_profile_reply(
+    reply: Result<User, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("User", encode_user(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_user_update_profile_reply(
     reply: Result<User, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("User", encode_user(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("User", encode_user(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_user_lookup_person_reply(
     reply: Result<PersonSummary, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("PersonSummary", encode_person_summary(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("PersonSummary", encode_person_summary(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_list_calendars_reply(
     reply: Result<CalendarList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("CalendarList", encode_calendar_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("CalendarList", encode_calendar_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_get_calendar_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_create_calendar_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_update_calendar_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_delete_calendar_reply(
     reply: Result<EmptyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EmptyResponse", encode_empty_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EmptyResponse", encode_empty_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_subscribe_calendar_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_refresh_subscription_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_calendar_set_feed_reply(
     reply: Result<Calendar, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Calendar", encode_calendar(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Calendar", encode_calendar(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_share_list_shares_reply(
     reply: Result<ShareList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("ShareList", encode_share_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("ShareList", encode_share_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_share_put_share_reply(reply: Result<Share, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Share", encode_share(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_share_put_share_reply(
+    reply: Result<Share, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Share", encode_share(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_share_delete_share_reply(
     reply: Result<EmptyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EmptyResponse", encode_empty_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EmptyResponse", encode_empty_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_group_list_groups_reply(
     reply: Result<GroupList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("GroupList", encode_group_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("GroupList", encode_group_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_group_get_group_reply(reply: Result<Group, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Group", encode_group(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_group_get_group_reply(
+    reply: Result<Group, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Group", encode_group(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_group_create_group_reply(
     reply: Result<Group, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Group", encode_group(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Group", encode_group(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_group_update_group_reply(
     reply: Result<Group, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Group", encode_group(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Group", encode_group(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_group_set_members_reply(
     reply: Result<Group, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Group", encode_group(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Group", encode_group(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_group_delete_group_reply(
     reply: Result<EmptyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EmptyResponse", encode_empty_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EmptyResponse", encode_empty_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_delegation_list_granted_reply(
     reply: Result<DelegationList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("DelegationList", encode_delegation_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("DelegationList", encode_delegation_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_delegation_list_received_reply(
     reply: Result<DelegationList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("DelegationList", encode_delegation_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("DelegationList", encode_delegation_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_delegation_create_delegation_reply(
     reply: Result<Delegation, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Delegation", encode_delegation(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Delegation", encode_delegation(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_delegation_update_delegation_reply(
     reply: Result<Delegation, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Delegation", encode_delegation(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Delegation", encode_delegation(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_delegation_revoke_delegation_reply(
     reply: Result<EmptyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EmptyResponse", encode_empty_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EmptyResponse", encode_empty_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_list_events_reply(
     reply: Result<OccurrenceList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("OccurrenceList", encode_occurrence_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("OccurrenceList", encode_occurrence_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_event_get_event_reply(reply: Result<Event, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_event_get_event_reply(
+    reply: Result<Event, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_get_occurrence_reply(
     reply: Result<Occurrence, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Occurrence", encode_occurrence(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Occurrence", encode_occurrence(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_create_event_reply(
     reply: Result<Event, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_update_event_reply(
     reply: Result<Event, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_delete_event_reply(
     reply: Result<DeleteEventResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("DeleteEventResponse", encode_delete_event_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("DeleteEventResponse", encode_delete_event_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_move_event_reply(
     reply: Result<Event, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
-pub fn encode_event_respond_reply(reply: Result<Event, ServiceError>) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+pub fn encode_event_respond_reply(
+    reply: Result<Event, ServiceError>,
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_list_invitations_reply(
     reply: Result<EventList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EventList", encode_event_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EventList", encode_event_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_search_events_reply(
     reply: Result<EventList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("EventList", encode_event_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("EventList", encode_event_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_list_trash_reply(
     reply: Result<TrashList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("TrashList", encode_trash_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("TrashList", encode_trash_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_restore_event_reply(
     reply: Result<Event, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_import_event_reply(
     reply: Result<Event, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("Event", encode_event(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("Event", encode_event(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_create_event_once_reply(
     reply: Result<CreateEventReceipt, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("CreateEventReceipt", encode_create_event_receipt(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("CreateEventReceipt", encode_create_event_receipt(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_get_create_receipt_reply(
     reply: Result<CreateEventReceipt, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("CreateEventReceipt", encode_create_event_receipt(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("CreateEventReceipt", encode_create_event_receipt(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_split_series_once_reply(
     reply: Result<SplitSeriesReceipt, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("SplitSeriesReceipt", encode_split_series_receipt(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("SplitSeriesReceipt", encode_split_series_receipt(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_event_get_split_receipt_reply(
     reply: Result<SplitSeriesReceipt, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("SplitSeriesReceipt", encode_split_series_receipt(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("SplitSeriesReceipt", encode_split_series_receipt(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_free_busy_query_reply(
     reply: Result<FreeBusyResponse, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("FreeBusyResponse", encode_free_busy_response(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("FreeBusyResponse", encode_free_busy_response(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_ics_import_ics_reply(
     reply: Result<ImportResult, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("ImportResult", encode_import_result(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("ImportResult", encode_import_result(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_ics_export_calendar_reply(
     reply: Result<IcsDocument, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("IcsDocument", encode_ics_document(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("IcsDocument", encode_ics_document(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_ics_export_event_reply(
     reply: Result<IcsDocument, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("IcsDocument", encode_ics_document(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("IcsDocument", encode_ics_document(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }
 
 pub fn encode_audit_list_audit_reply(
     reply: Result<AuditList, ServiceError>,
-) -> (&'static str, Vec<u8>) {
-    match reply {
-        Ok(value) => ("AuditList", encode_audit_list(&value)),
-        Err(value) => ("ServiceError", encode_service_error(&value)),
-    }
+) -> Result<(&'static str, Vec<u8>), CsilCborError> {
+    Ok(match reply {
+        Ok(value) => ("AuditList", encode_audit_list(&value)?),
+        Err(value) => ("ServiceError", encode_service_error(&value)?),
+    })
 }

@@ -55,7 +55,10 @@ func TestServeRPC_SuccessRoundTrip(t *testing.T) {
 		csil.EncodeShareList,
 	))
 
-	payload := csil.EncodeShareListSharesRequest(csil.CalendarID("h-1"))
+	payload, err := csil.EncodeShareListSharesRequest(csil.CalendarID("h-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp := serveRPC(t, d, transport.NewRpcRequest("widget", "get-widget", payload).WithID(7), "")
 
 	if !resp.Status.IsOk() {
@@ -85,9 +88,32 @@ func TestServeRPC_AcceptsGeneratedServiceName(t *testing.T) {
 		csil.DecodeEmptyRequest,
 		csil.EncodeEmptyResponse,
 	))
-	resp := serveRPC(t, d, transport.NewRpcRequest("WidgetService", "get-widget", csil.EncodeEmptyRequest(csil.EmptyRequest{})), "")
+	payload, err := csil.EncodeEmptyRequest(csil.EmptyRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := serveRPC(t, d, transport.NewRpcRequest("WidgetService", "get-widget", payload), "")
 	if !resp.Status.IsOk() {
 		t.Fatalf("status: got %v want ok", resp.Status.Name())
+	}
+}
+
+func TestServeRPC_ResponseEncodeFailure(t *testing.T) {
+	d := New(nil)
+	d.RegisterTypedPublic("widget", "GetWidget", Route(
+		func(context.Context, csil.EmptyRequest) (csil.Share, error) {
+			return csil.Share{}, nil // Role is a required enum.
+		},
+		csil.DecodeEmptyRequest,
+		csil.EncodeShare,
+	))
+	payload, err := csil.EncodeEmptyRequest(csil.EmptyRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := serveRPC(t, d, transport.NewRpcRequest("WidgetService", "get-widget", payload), "")
+	if resp.Status != transport.StatusInternal || resp.Variant != nil {
+		t.Fatalf("invalid response: got status %v, variant %v", resp.Status, resp.Variant)
 	}
 }
 
@@ -101,7 +127,10 @@ func TestServeRPC_ApplicationErrorIsServiceErrorArm(t *testing.T) {
 		csil.EncodeEmptyResponse,
 	))
 
-	payload := csil.EncodeEmptyRequest(csil.EmptyRequest{})
+	payload, err := csil.EncodeEmptyRequest(csil.EmptyRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	resp := serveRPC(t, d, transport.NewRpcRequest("widget", "get-widget", payload), "")
 
 	// Application errors ride at status 0 with the ServiceError variant — never a

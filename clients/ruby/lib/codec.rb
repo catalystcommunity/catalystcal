@@ -79,9 +79,17 @@ module CsilCbor
       put_head(buf, 4, value.length)
       value.each { |item| put(buf, item) }
     when Hash
-      put_head(buf, 5, value.length)
-      value.each do |k, v|
-        put(buf, k)
+      # RFC 8949 section 4.2.1: entries sorted by the bytes of each encoded key, which
+      # is not the order of the Ruby keys ("b" sorts before "aa", 10 before -1).
+      entries = value.map do |k, v|
+        key = "".b
+        put(key, k)
+        [key, v]
+      end
+      entries.sort_by!(&:first)
+      put_head(buf, 5, entries.length)
+      entries.each do |key, v|
+        buf << key
         put(buf, v)
       end
     when Tag
@@ -90,6 +98,80 @@ module CsilCbor
     else
       raise ArgumentError, "csilgen: cannot encode #{value.class}"
     end
+  end
+
+  # A decoded dynamic map (`{ * K => V }`): its keys must arrive in canonical order.
+  def dyn_map(node)
+    raise ArgumentError, "csil cbor: expected a map" unless node.is_a?(Hash)
+    unless node.instance_variable_get(:@csil_canonical)
+      raise ArgumentError, "csil cbor: map keys are not in canonical order"
+    end
+
+    node
+  end
+
+  # A decoded record: a map in any key order (`decode` already refused a repeated key).
+  def record_map(node, name)
+    raise ArgumentError, "csil cbor: #{name} is not a map" unless node.is_a?(Hash)
+
+    node
+  end
+
+  def required(node, key)
+    node.fetch(key) { raise ArgumentError, "csil cbor: missing key #{key.inspect}" }
+  end
+
+  def dec_int(value)
+    raise ArgumentError, "csil cbor: expected an integer" unless value.is_a?(Integer)
+
+    value
+  end
+
+  def dec_uint(value)
+    raise ArgumentError, "csil cbor: expected an unsigned integer" unless value.is_a?(Integer) && value >= 0
+
+    value
+  end
+
+  def dec_float(value)
+    raise ArgumentError, "csil cbor: expected a float" unless value.is_a?(Float)
+
+    value
+  end
+
+  def dec_bool(value)
+    raise ArgumentError, "csil cbor: expected a bool" unless [true, false].include?(value)
+
+    value
+  end
+
+  def dec_text(value)
+    unless value.is_a?(String) && value.encoding == Encoding::UTF_8
+      raise ArgumentError, "csil cbor: expected a text string"
+    end
+
+    value
+  end
+
+  def dec_bytes(value)
+    unless value.is_a?(String) && value.encoding == Encoding::BINARY
+      raise ArgumentError, "csil cbor: expected a byte string"
+    end
+
+    value
+  end
+
+  # Two encodings of one key would pass the key-order check as different keys, so a
+  # map key must use the shortest head for its value or length.
+  def shortest_head?(bin, pos)
+    return true if pos >= bin.bytesize
+
+    ib = bin.getbyte(pos)
+    low = ib & 0x1f
+    return true if (ib >> 5) == 7 || low < 24 || low > 27
+
+    arg, = read_arg(bin, pos, low)
+    arg >= { 24 => 24, 25 => 0x100, 26 => 0x10000, 27 => 0x100000000 }[low]
   end
 
   # Decode a binary String to a Ruby value tree.
@@ -122,6 +204,18 @@ module CsilCbor
     end
   end
 
+  # `unpack` has no half-precision code. Every half value is exact in binary64.
+  def half_to_float(half)
+    exponent = (half >> 10) & 0x1f
+    mantissa = half & 0x3ff
+    value =
+      if exponent.zero? then Math.ldexp(mantissa, -24)
+      elsif exponent == 31 then mantissa.zero? ? Float::INFINITY : Float::NAN
+      else Math.ldexp(mantissa + 1024, exponent - 25)
+      end
+    (half & 0x8000).zero? ? value : -value
+  end
+
   def take(bin, pos, depth)
     raise ArgumentError, "csilgen: nesting limit exceeded" if depth > 64
     raise ArgumentError, "csilgen: unexpected end of input" if pos >= bin.bytesize
@@ -133,8 +227,14 @@ module CsilCbor
       when 20 then [false, pos + 1]
       when 21 then [true, pos + 1]
       when 22, 23 then [nil, pos + 1]
-      when 26 then [[bin[pos + 1, 4].unpack1("N")].pack("N").unpack1("g"), pos + 5]
-      when 27 then [bin[pos + 1, 8].unpack1("G"), pos + 9]
+      when 25, 26, 27
+        width = { 25 => 2, 26 => 4, 27 => 8 }[low]
+        raise ArgumentError, "csilgen: truncated float" if bin.bytesize - pos - 1 < width
+        case low
+        when 25 then [half_to_float(bin[pos + 1, 2].unpack1("n")), pos + 3]
+        when 26 then [[bin[pos + 1, 4].unpack1("N")].pack("N").unpack1("g"), pos + 5]
+        else [bin[pos + 1, 8].unpack1("G"), pos + 9]
+        end
       else raise ArgumentError, "csilgen: unsupported simple value"
       end
     else
@@ -163,11 +263,24 @@ module CsilCbor
       when 5
         raise ArgumentError, "csilgen: map length exceeds remaining input" if arg > bin.bytesize - p
         hash = {}
+        previous = nil
+        canonical = true
         arg.times do
+          start = p
+          raise ArgumentError, "csil cbor: map key is not in shortest form" unless shortest_head?(bin, start)
+
           k, p = take(bin, p, depth + 1)
+          raise ArgumentError, "csil cbor: duplicate key #{k.inspect}" if hash.key?(k)
+
+          # Each key's encoded bytes are compared to the previous key's only, so the
+          # check stays linear; a record ignores the result, a dynamic map needs it.
+          key = bin.byteslice(start, p - start)
+          canonical &&= previous.nil? || previous < key
+          previous = key
           v, p = take(bin, p, depth + 1)
           hash[k] = v
         end
+        hash.instance_variable_set(:@csil_canonical, canonical)
         [hash, p]
       when 6
         inner, p = take(bin, p, depth + 1)
@@ -176,6 +289,63 @@ module CsilCbor
         raise ArgumentError, "csilgen: bad major"
       end
     end
+  end
+end
+
+module CsilCbor
+  module_function
+
+  TIMESTAMP_SHAPE = /\A([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?(?:[Zz]|([+-])([0-9]{2}):([0-9]{2}))\z/
+
+  def timestamp_days_in_month(year, month)
+    return 29 if month == 2 && (year % 4).zero? && (!(year % 100).zero? || (year % 400).zero?)
+
+    [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+  end
+
+  def as_timestamp(node)
+    text = node.value if node.is_a?(Tag) && node.tag.zero?
+    match = TIMESTAMP_SHAPE.match(text) if text.is_a?(String) && text.encoding == Encoding::UTF_8
+    raise ArgumentError, "expected tag 0 with RFC 3339 timestamp text" unless match
+
+    year, month, day, hour, minute, second = match[1..6].map { |part| Integer(part, 10) }
+    unless year >= 1 && (1..12).cover?(month) && day >= 1 && day <= timestamp_days_in_month(year, month) &&
+           hour <= 23 && minute <= 59 && second <= 59
+      raise ArgumentError, "timestamp field out of range"
+    end
+    offset = 0
+    if match[8]
+      offset_hour = Integer(match[9], 10)
+      offset_minute = Integer(match[10], 10)
+      raise ArgumentError, "timestamp offset out of range" if offset_hour > 23 || offset_minute > 59
+
+      offset = (offset_hour * 3600 + offset_minute * 60) * (match[8] == "-" ? -1 : 1)
+    end
+    nanos = match[7] ? Integer(match[7].ljust(9, "0"), 10) : 0
+    value = Time.utc(year, month, day, hour, minute, second) - offset + Rational(nanos, 1_000_000_000)
+    raise ArgumentError, "timestamp year outside 0001-9999" unless (1..9999).cover?(value.year)
+
+    value
+  end
+
+  def enc_timestamp(value)
+    raise ArgumentError, "expected a Time for a timestamp" unless value.is_a?(Time)
+
+    utc = value.getutc
+    raise ArgumentError, "timestamp year outside 0001-9999" unless (1..9999).cover?(utc.year)
+
+    nanos = utc.subsec * 1_000_000_000
+    raise ArgumentError, "timestamp fraction finer than nanoseconds" unless nanos.denominator == 1
+
+    nanos = nanos.to_i
+    fraction =
+      if nanos.zero? then ""
+      elsif (nanos % 1_000_000).zero? then format(".%03d", nanos / 1_000_000)
+      elsif (nanos % 1000).zero? then format(".%06d", nanos / 1000)
+      else format(".%09d", nanos)
+      end
+    text = format("%04d-%02d-%02dT%02d:%02d:%02d%sZ", utc.year, utc.month, utc.day, utc.hour, utc.min, utc.sec, fraction)
+    Tag.new(0, text.encode(Encoding::UTF_8))
   end
 end
 
@@ -200,11 +370,12 @@ class IdentityRef
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "IdentityRef")
     new(
-      domain: node["domain"],
-      user_id: (node.key?("user_id") ? node["user_id"] : nil),
-      handle: (node.key?("handle") ? node["handle"] : nil),
-      application_id: (node.key?("application_id") ? node["application_id"] : nil)
+      domain: CsilCbor.dec_text(CsilCbor.required(node, "domain")),
+      user_id: (node.key?("user_id") ? CsilCbor.dec_text(node["user_id"]) : nil),
+      handle: (node.key?("handle") ? CsilCbor.dec_text(node["handle"]) : nil),
+      application_id: (node.key?("application_id") ? CsilCbor.dec_text(node["application_id"]) : nil)
     )
   end
 end
@@ -224,8 +395,8 @@ class User
     csil_map["subject"] = subject
     csil_map["user_id"] = user_id
     csil_map["timezone"] = timezone unless timezone.nil?
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
-    csil_map["updated_at"] = CsilCbor::Tag.new(0, (updated_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
+    csil_map["updated_at"] = CsilCbor.enc_timestamp(updated_at)
     csil_map["display_name"] = display_name unless display_name.nil?
     csil_map["application_id"] = application_id unless application_id.nil?
     csil_map
@@ -236,17 +407,18 @@ class User
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "User")
     new(
-      user_id: node["user_id"],
-      domain: node["domain"],
-      subject: node["subject"],
-      application_id: (node.key?("application_id") ? node["application_id"] : nil),
-      handle: (node.key?("handle") ? node["handle"] : nil),
-      display_name: (node.key?("display_name") ? node["display_name"] : nil),
-      email: (node.key?("email") ? node["email"] : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil),
-      created_at: Time.iso8601((node["created_at"]).value),
-      updated_at: Time.iso8601((node["updated_at"]).value)
+      user_id: CsilCbor.dec_text(CsilCbor.required(node, "user_id")),
+      domain: CsilCbor.dec_text(CsilCbor.required(node, "domain")),
+      subject: CsilCbor.dec_text(CsilCbor.required(node, "subject")),
+      application_id: (node.key?("application_id") ? CsilCbor.dec_text(node["application_id"]) : nil),
+      handle: (node.key?("handle") ? CsilCbor.dec_text(node["handle"]) : nil),
+      display_name: (node.key?("display_name") ? CsilCbor.dec_text(node["display_name"]) : nil),
+      email: (node.key?("email") ? CsilCbor.dec_text(node["email"]) : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      updated_at: CsilCbor.as_timestamp(CsilCbor.required(node, "updated_at"))
     )
   end
 end
@@ -274,13 +446,14 @@ class PersonSummary
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "PersonSummary")
     new(
-      user_id: node["user_id"],
-      domain: node["domain"],
-      subject: node["subject"],
-      application_id: (node.key?("application_id") ? node["application_id"] : nil),
-      handle: (node.key?("handle") ? node["handle"] : nil),
-      display_name: (node.key?("display_name") ? node["display_name"] : nil)
+      user_id: CsilCbor.dec_text(CsilCbor.required(node, "user_id")),
+      domain: CsilCbor.dec_text(CsilCbor.required(node, "domain")),
+      subject: CsilCbor.dec_text(CsilCbor.required(node, "subject")),
+      application_id: (node.key?("application_id") ? CsilCbor.dec_text(node["application_id"]) : nil),
+      handle: (node.key?("handle") ? CsilCbor.dec_text(node["handle"]) : nil),
+      display_name: (node.key?("display_name") ? CsilCbor.dec_text(node["display_name"]) : nil)
     )
   end
 end
@@ -301,15 +474,15 @@ class Calendar
     csil_map["access"] = (access)
     csil_map["timezone"] = timezone unless timezone.nil?
     csil_map["feed_path"] = feed_path unless feed_path.nil?
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
     csil_map["is_default"] = is_default
     csil_map["source_url"] = source_url unless source_url.nil?
     csil_map["sync_error"] = sync_error unless sync_error.nil?
-    csil_map["updated_at"] = CsilCbor::Tag.new(0, (updated_at).getutc.iso8601)
+    csil_map["updated_at"] = CsilCbor.enc_timestamp(updated_at)
     csil_map["access_path"] = (access_path)
     csil_map["calendar_id"] = calendar_id
     csil_map["description"] = description unless description.nil?
-    csil_map["last_synced_at"] = CsilCbor::Tag.new(0, (last_synced_at).getutc.iso8601) unless last_synced_at.nil?
+    csil_map["last_synced_at"] = CsilCbor.enc_timestamp(last_synced_at) unless last_synced_at.nil?
     csil_map
   end
 
@@ -318,23 +491,24 @@ class Calendar
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Calendar")
     new(
-      calendar_id: node["calendar_id"],
-      owner: PersonSummary.csil_from_tree(node["owner"]),
-      name: node["name"],
-      description: (node.key?("description") ? node["description"] : nil),
-      color: (node.key?("color") ? node["color"] : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil),
-      kind: CalendarKind.from_wire(node["kind"]),
-      source_url: (node.key?("source_url") ? node["source_url"] : nil),
-      last_synced_at: (node.key?("last_synced_at") ? Time.iso8601((node["last_synced_at"]).value) : nil),
-      sync_error: (node.key?("sync_error") ? node["sync_error"] : nil),
-      is_default: node["is_default"],
-      access: AccessRole.from_wire(node["access"]),
-      access_path: AccessPath.from_wire(node["access_path"]),
-      feed_path: (node.key?("feed_path") ? node["feed_path"] : nil),
-      created_at: Time.iso8601((node["created_at"]).value),
-      updated_at: Time.iso8601((node["updated_at"]).value)
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      owner: PersonSummary.csil_from_tree(CsilCbor.required(node, "owner")),
+      name: CsilCbor.dec_text(CsilCbor.required(node, "name")),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
+      color: (node.key?("color") ? CsilCbor.dec_text(node["color"]) : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil),
+      kind: CalendarKind.from_wire(CsilCbor.required(node, "kind")),
+      source_url: (node.key?("source_url") ? CsilCbor.dec_text(node["source_url"]) : nil),
+      last_synced_at: (node.key?("last_synced_at") ? CsilCbor.as_timestamp(node["last_synced_at"]) : nil),
+      sync_error: (node.key?("sync_error") ? CsilCbor.dec_text(node["sync_error"]) : nil),
+      is_default: CsilCbor.dec_bool(CsilCbor.required(node, "is_default")),
+      access: AccessRole.from_wire(CsilCbor.required(node, "access")),
+      access_path: AccessPath.from_wire(CsilCbor.required(node, "access_path")),
+      feed_path: (node.key?("feed_path") ? CsilCbor.dec_text(node["feed_path"]) : nil),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      updated_at: CsilCbor.as_timestamp(CsilCbor.required(node, "updated_at"))
     )
   end
 end
@@ -360,11 +534,12 @@ class CreateCalendarRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CreateCalendarRequest")
     new(
-      name: node["name"],
-      description: (node.key?("description") ? node["description"] : nil),
-      color: (node.key?("color") ? node["color"] : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil)
+      name: CsilCbor.dec_text(CsilCbor.required(node, "name")),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
+      color: (node.key?("color") ? CsilCbor.dec_text(node["color"]) : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil)
     )
   end
 end
@@ -391,12 +566,13 @@ class UpdateCalendarRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "UpdateCalendarRequest")
     new(
-      calendar_id: node["calendar_id"],
-      name: (node.key?("name") ? node["name"] : nil),
-      description: (node.key?("description") ? node["description"] : nil),
-      color: (node.key?("color") ? node["color"] : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil)
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      name: (node.key?("name") ? CsilCbor.dec_text(node["name"]) : nil),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
+      color: (node.key?("color") ? CsilCbor.dec_text(node["color"]) : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil)
     )
   end
 end
@@ -421,10 +597,11 @@ class SubscribeCalendarRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SubscribeCalendarRequest")
     new(
-      name: node["name"],
-      source_url: node["source_url"],
-      color: (node.key?("color") ? node["color"] : nil)
+      name: CsilCbor.dec_text(CsilCbor.required(node, "name")),
+      source_url: CsilCbor.dec_text(CsilCbor.required(node, "source_url")),
+      color: (node.key?("color") ? CsilCbor.dec_text(node["color"]) : nil)
     )
   end
 end
@@ -448,9 +625,10 @@ class SetFeedRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SetFeedRequest")
     new(
-      calendar_id: node["calendar_id"],
-      enabled: node["enabled"]
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      enabled: CsilCbor.dec_bool(CsilCbor.required(node, "enabled"))
     )
   end
 end
@@ -473,8 +651,9 @@ class CalendarList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CalendarList")
     new(
-      calendars: (node["calendars"]).map { |csil_e| Calendar.csil_from_tree(csil_e) }
+      calendars: (CsilCbor.required(node, "calendars")).map { |csil_e| Calendar.csil_from_tree(csil_e) }
     )
   end
 end
@@ -491,7 +670,7 @@ class Share
     csil_map["role"] = (role)
     csil_map["grantee"] = (grantee).csil_to_tree unless grantee.nil?
     csil_map["share_id"] = share_id
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
     csil_map["calendar_id"] = calendar_id
     csil_map["grantee_person"] = (grantee_person).csil_to_tree unless grantee_person.nil?
     csil_map["grantee_group_id"] = grantee_group_id unless grantee_group_id.nil?
@@ -504,15 +683,16 @@ class Share
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Share")
     new(
-      share_id: node["share_id"],
-      calendar_id: node["calendar_id"],
+      share_id: CsilCbor.dec_text(CsilCbor.required(node, "share_id")),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
       grantee: (node.key?("grantee") ? IdentityRef.csil_from_tree(node["grantee"]) : nil),
-      grantee_group_id: (node.key?("grantee_group_id") ? node["grantee_group_id"] : nil),
-      role: ShareRole.from_wire(node["role"]),
+      grantee_group_id: (node.key?("grantee_group_id") ? CsilCbor.dec_text(node["grantee_group_id"]) : nil),
+      role: ShareRole.from_wire(CsilCbor.required(node, "role")),
       grantee_person: (node.key?("grantee_person") ? PersonSummary.csil_from_tree(node["grantee_person"]) : nil),
-      grantee_group_name: (node.key?("grantee_group_name") ? node["grantee_group_name"] : nil),
-      created_at: Time.iso8601((node["created_at"]).value)
+      grantee_group_name: (node.key?("grantee_group_name") ? CsilCbor.dec_text(node["grantee_group_name"]) : nil),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at"))
     )
   end
 end
@@ -535,8 +715,9 @@ class ShareList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ShareList")
     new(
-      shares: (node["shares"]).map { |csil_e| Share.csil_from_tree(csil_e) }
+      shares: (CsilCbor.required(node, "shares")).map { |csil_e| Share.csil_from_tree(csil_e) }
     )
   end
 end
@@ -562,11 +743,12 @@ class GroupMember
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "GroupMember")
     new(
       identity: (node.key?("identity") ? IdentityRef.csil_from_tree(node["identity"]) : nil),
-      group_id: (node.key?("group_id") ? node["group_id"] : nil),
+      group_id: (node.key?("group_id") ? CsilCbor.dec_text(node["group_id"]) : nil),
       person: (node.key?("person") ? PersonSummary.csil_from_tree(node["person"]) : nil),
-      group_name: (node.key?("group_name") ? node["group_name"] : nil)
+      group_name: (node.key?("group_name") ? CsilCbor.dec_text(node["group_name"]) : nil)
     )
   end
 end
@@ -585,8 +767,8 @@ class Group
     csil_map["members"] = (members_).map { |csil_e| (csil_e).csil_to_tree }
     csil_map["group_id"] = group_id
     csil_map["revision"] = revision
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
-    csil_map["updated_at"] = CsilCbor::Tag.new(0, (updated_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
+    csil_map["updated_at"] = CsilCbor.enc_timestamp(updated_at)
     csil_map["description"] = description unless description.nil?
     csil_map
   end
@@ -596,15 +778,16 @@ class Group
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Group")
     new(
-      group_id: node["group_id"],
-      owner: PersonSummary.csil_from_tree(node["owner"]),
-      name: node["name"],
-      description: (node.key?("description") ? node["description"] : nil),
-      revision: node["revision"],
-      members_: (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) },
-      created_at: Time.iso8601((node["created_at"]).value),
-      updated_at: Time.iso8601((node["updated_at"]).value)
+      group_id: CsilCbor.dec_text(CsilCbor.required(node, "group_id")),
+      owner: PersonSummary.csil_from_tree(CsilCbor.required(node, "owner")),
+      name: CsilCbor.dec_text(CsilCbor.required(node, "name")),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
+      revision: CsilCbor.dec_uint(CsilCbor.required(node, "revision")),
+      members_: (CsilCbor.required(node, "members")).map { |csil_e| GroupMember.csil_from_tree(csil_e) },
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      updated_at: CsilCbor.as_timestamp(CsilCbor.required(node, "updated_at"))
     )
   end
 end
@@ -629,9 +812,10 @@ class CreateGroupRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CreateGroupRequest")
     new(
-      name: node["name"],
-      description: (node.key?("description") ? node["description"] : nil),
+      name: CsilCbor.dec_text(CsilCbor.required(node, "name")),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
       members_: (node.key?("members") ? (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) } : nil)
     )
   end
@@ -657,10 +841,11 @@ class UpdateGroupRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "UpdateGroupRequest")
     new(
-      group_id: node["group_id"],
-      name: (node.key?("name") ? node["name"] : nil),
-      description: (node.key?("description") ? node["description"] : nil)
+      group_id: CsilCbor.dec_text(CsilCbor.required(node, "group_id")),
+      name: (node.key?("name") ? CsilCbor.dec_text(node["name"]) : nil),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil)
     )
   end
 end
@@ -685,10 +870,11 @@ class SetGroupMembersRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SetGroupMembersRequest")
     new(
-      group_id: node["group_id"],
-      expected_revision: (node.key?("expected_revision") ? node["expected_revision"] : nil),
-      members_: (node["members"]).map { |csil_e| GroupMember.csil_from_tree(csil_e) }
+      group_id: CsilCbor.dec_text(CsilCbor.required(node, "group_id")),
+      expected_revision: (node.key?("expected_revision") ? CsilCbor.dec_uint(node["expected_revision"]) : nil),
+      members_: (CsilCbor.required(node, "members")).map { |csil_e| GroupMember.csil_from_tree(csil_e) }
     )
   end
 end
@@ -711,8 +897,9 @@ class GroupList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "GroupList")
     new(
-      groups: (node["groups"]).map { |csil_e| Group.csil_from_tree(csil_e) }
+      groups: (CsilCbor.required(node, "groups")).map { |csil_e| Group.csil_from_tree(csil_e) }
     )
   end
 end
@@ -730,9 +917,9 @@ class Delegation
     csil_map["scopes"] = (scopes).map { |csil_e| (csil_e) }
     csil_map["delegate"] = (delegate).csil_to_tree
     csil_map["principal"] = (principal).csil_to_tree
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
-    csil_map["expires_at"] = CsilCbor::Tag.new(0, (expires_at).getutc.iso8601) unless expires_at.nil?
-    csil_map["revoked_at"] = CsilCbor::Tag.new(0, (revoked_at).getutc.iso8601) unless revoked_at.nil?
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
+    csil_map["expires_at"] = CsilCbor.enc_timestamp(expires_at) unless expires_at.nil?
+    csil_map["revoked_at"] = CsilCbor.enc_timestamp(revoked_at) unless revoked_at.nil?
     csil_map["calendar_ids"] = (calendar_ids).map { |csil_e| csil_e } unless calendar_ids.nil?
     csil_map["delegation_id"] = delegation_id
     csil_map["delegate_person"] = (delegate_person).csil_to_tree unless delegate_person.nil?
@@ -744,17 +931,18 @@ class Delegation
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Delegation")
     new(
-      delegation_id: node["delegation_id"],
-      principal: PersonSummary.csil_from_tree(node["principal"]),
-      delegate: IdentityRef.csil_from_tree(node["delegate"]),
+      delegation_id: CsilCbor.dec_text(CsilCbor.required(node, "delegation_id")),
+      principal: PersonSummary.csil_from_tree(CsilCbor.required(node, "principal")),
+      delegate: IdentityRef.csil_from_tree(CsilCbor.required(node, "delegate")),
       delegate_person: (node.key?("delegate_person") ? PersonSummary.csil_from_tree(node["delegate_person"]) : nil),
-      scopes: (node["scopes"]).map { |csil_e| Scope.from_wire(csil_e) },
-      calendar_ids: (node.key?("calendar_ids") ? (node["calendar_ids"]).map { |csil_e| csil_e } : nil),
-      note: (node.key?("note") ? node["note"] : nil),
-      expires_at: (node.key?("expires_at") ? Time.iso8601((node["expires_at"]).value) : nil),
-      created_at: Time.iso8601((node["created_at"]).value),
-      revoked_at: (node.key?("revoked_at") ? Time.iso8601((node["revoked_at"]).value) : nil)
+      scopes: (CsilCbor.required(node, "scopes")).map { |csil_e| Scope.from_wire(csil_e) },
+      calendar_ids: (node.key?("calendar_ids") ? (node["calendar_ids"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil),
+      note: (node.key?("note") ? CsilCbor.dec_text(node["note"]) : nil),
+      expires_at: (node.key?("expires_at") ? CsilCbor.as_timestamp(node["expires_at"]) : nil),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      revoked_at: (node.key?("revoked_at") ? CsilCbor.as_timestamp(node["revoked_at"]) : nil)
     )
   end
 end
@@ -777,8 +965,9 @@ class DelegationList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DelegationList")
     new(
-      delegations: (node["delegations"]).map { |csil_e| Delegation.csil_from_tree(csil_e) }
+      delegations: (CsilCbor.required(node, "delegations")).map { |csil_e| Delegation.csil_from_tree(csil_e) }
     )
   end
 end
@@ -801,8 +990,9 @@ class AssumePrincipalRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "AssumePrincipalRequest")
     new(
-      principal_user_id: node["principal_user_id"]
+      principal_user_id: CsilCbor.dec_text(CsilCbor.required(node, "principal_user_id"))
     )
   end
 end
@@ -817,8 +1007,8 @@ class Recurrence
   def csil_to_tree
     csil_map = {}
     csil_map["rrule"] = rrule
-    csil_map["rdates"] = (rdates).map { |csil_e| CsilCbor::Tag.new(0, (csil_e).getutc.iso8601) } unless rdates.nil?
-    csil_map["exdates"] = (exdates).map { |csil_e| CsilCbor::Tag.new(0, (csil_e).getutc.iso8601) } unless exdates.nil?
+    csil_map["rdates"] = (rdates).map { |csil_e| CsilCbor.enc_timestamp(csil_e) } unless rdates.nil?
+    csil_map["exdates"] = (exdates).map { |csil_e| CsilCbor.enc_timestamp(csil_e) } unless exdates.nil?
     csil_map
   end
 
@@ -827,10 +1017,11 @@ class Recurrence
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Recurrence")
     new(
-      rrule: node["rrule"],
-      exdates: (node.key?("exdates") ? (node["exdates"]).map { |csil_e| Time.iso8601((csil_e).value) } : nil),
-      rdates: (node.key?("rdates") ? (node["rdates"]).map { |csil_e| Time.iso8601((csil_e).value) } : nil)
+      rrule: CsilCbor.dec_text(CsilCbor.required(node, "rrule")),
+      exdates: (node.key?("exdates") ? (node["exdates"]).map { |csil_e| CsilCbor.as_timestamp(csil_e) } : nil),
+      rdates: (node.key?("rdates") ? (node["rdates"]).map { |csil_e| CsilCbor.as_timestamp(csil_e) } : nil)
     )
   end
 end
@@ -860,13 +1051,14 @@ class Attendee
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Attendee")
     new(
       identity: (node.key?("identity") ? IdentityRef.csil_from_tree(node["identity"]) : nil),
-      email: (node.key?("email") ? node["email"] : nil),
-      name: (node.key?("name") ? node["name"] : nil),
+      email: (node.key?("email") ? CsilCbor.dec_text(node["email"]) : nil),
+      name: (node.key?("name") ? CsilCbor.dec_text(node["name"]) : nil),
       role: (node.key?("role") ? AttendeeRole.from_wire(node["role"]) : nil),
       status: (node.key?("status") ? ParticipationStatus.from_wire(node["status"]) : nil),
-      rsvp: (node.key?("rsvp") ? node["rsvp"] : nil),
+      rsvp: (node.key?("rsvp") ? CsilCbor.dec_bool(node["rsvp"]) : nil),
       person: (node.key?("person") ? PersonSummary.csil_from_tree(node["person"]) : nil),
       responded_by: (node.key?("responded_by") ? PersonSummary.csil_from_tree(node["responded_by"]) : nil)
     )
@@ -892,8 +1084,9 @@ class Reminder
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Reminder")
     new(
-      minutes_before: node["minutes_before"],
+      minutes_before: CsilCbor.dec_int(CsilCbor.required(node, "minutes_before")),
       method_: (node.key?("method") ? ReminderMethod.from_wire(node["method"]) : nil)
     )
   end
@@ -908,11 +1101,11 @@ class Event
 
   def csil_to_tree
     csil_map = {}
-    csil_map["end"] = CsilCbor::Tag.new(0, (self.end).getutc.iso8601) unless self.end.nil?
+    csil_map["end"] = CsilCbor.enc_timestamp(self.end) unless self.end.nil?
     csil_map["uid"] = uid unless uid.nil?
     csil_map["url"] = url unless url.nil?
     csil_map["color"] = color unless color.nil?
-    csil_map["start"] = CsilCbor::Tag.new(0, (start).getutc.iso8601) unless start.nil?
+    csil_map["start"] = CsilCbor.enc_timestamp(start) unless start.nil?
     csil_map["title"] = title
     csil_map["status"] = (status) unless status.nil?
     csil_map["all_day"] = all_day unless all_day.nil?
@@ -925,18 +1118,18 @@ class Event
     csil_map["organizer"] = (organizer).csil_to_tree unless organizer.nil?
     csil_map["reminders"] = (reminders).map { |csil_e| (csil_e).csil_to_tree } unless reminders.nil?
     csil_map["categories"] = (categories).map { |csil_e| csil_e } unless categories.nil?
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
     csil_map["created_by"] = (created_by).csil_to_tree unless created_by.nil?
     csil_map["recurrence"] = (recurrence).csil_to_tree unless recurrence.nil?
     csil_map["start_date"] = CsilCbor.enc_date(start_date) unless start_date.nil?
-    csil_map["updated_at"] = CsilCbor::Tag.new(0, (updated_at).getutc.iso8601)
+    csil_map["updated_at"] = CsilCbor.enc_timestamp(updated_at)
     csil_map["updated_by"] = (updated_by).csil_to_tree unless updated_by.nil?
     csil_map["visibility"] = (visibility) unless visibility.nil?
     csil_map["calendar_id"] = calendar_id
     csil_map["description"] = description unless description.nil?
     csil_map["updated_via"] = (updated_via) unless updated_via.nil?
     csil_map["transparency"] = (transparency) unless transparency.nil?
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map["conference_url"] = conference_url unless conference_url.nil?
     csil_map["master_event_id"] = master_event_id unless master_event_id.nil?
     csil_map
@@ -947,38 +1140,39 @@ class Event
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Event")
     new(
-      event_id: node["event_id"],
-      calendar_id: node["calendar_id"],
-      uid: (node.key?("uid") ? node["uid"] : nil),
-      title: node["title"],
-      description: (node.key?("description") ? node["description"] : nil),
-      location: (node.key?("location") ? node["location"] : nil),
-      url: (node.key?("url") ? node["url"] : nil),
-      conference_url: (node.key?("conference_url") ? node["conference_url"] : nil),
-      start: (node.key?("start") ? Time.iso8601((node["start"]).value) : nil),
-      end: (node.key?("end") ? Time.iso8601((node["end"]).value) : nil),
-      all_day: (node.key?("all_day") ? node["all_day"] : nil),
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      uid: (node.key?("uid") ? CsilCbor.dec_text(node["uid"]) : nil),
+      title: CsilCbor.dec_text(CsilCbor.required(node, "title")),
+      description: (node.key?("description") ? CsilCbor.dec_text(node["description"]) : nil),
+      location: (node.key?("location") ? CsilCbor.dec_text(node["location"]) : nil),
+      url: (node.key?("url") ? CsilCbor.dec_text(node["url"]) : nil),
+      conference_url: (node.key?("conference_url") ? CsilCbor.dec_text(node["conference_url"]) : nil),
+      start: (node.key?("start") ? CsilCbor.as_timestamp(node["start"]) : nil),
+      end: (node.key?("end") ? CsilCbor.as_timestamp(node["end"]) : nil),
+      all_day: (node.key?("all_day") ? CsilCbor.dec_bool(node["all_day"]) : nil),
       start_date: (node.key?("start_date") ? CsilCbor.as_date(node["start_date"]) : nil),
       end_date: (node.key?("end_date") ? CsilCbor.as_date(node["end_date"]) : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil),
       status: (node.key?("status") ? EventStatus.from_wire(node["status"]) : nil),
       transparency: (node.key?("transparency") ? EventTransparency.from_wire(node["transparency"]) : nil),
       visibility: (node.key?("visibility") ? EventVisibility.from_wire(node["visibility"]) : nil),
       recurrence: (node.key?("recurrence") ? Recurrence.csil_from_tree(node["recurrence"]) : nil),
-      master_event_id: (node.key?("master_event_id") ? node["master_event_id"] : nil),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil),
+      master_event_id: (node.key?("master_event_id") ? CsilCbor.dec_text(node["master_event_id"]) : nil),
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil),
       attendees: (node.key?("attendees") ? (node["attendees"]).map { |csil_e| Attendee.csil_from_tree(csil_e) } : nil),
       reminders: (node.key?("reminders") ? (node["reminders"]).map { |csil_e| Reminder.csil_from_tree(csil_e) } : nil),
-      categories: (node.key?("categories") ? (node["categories"]).map { |csil_e| csil_e } : nil),
-      color: (node.key?("color") ? node["color"] : nil),
+      categories: (node.key?("categories") ? (node["categories"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil),
+      color: (node.key?("color") ? CsilCbor.dec_text(node["color"]) : nil),
       organizer: (node.key?("organizer") ? PersonSummary.csil_from_tree(node["organizer"]) : nil),
       created_by: (node.key?("created_by") ? PersonSummary.csil_from_tree(node["created_by"]) : nil),
       updated_by: (node.key?("updated_by") ? PersonSummary.csil_from_tree(node["updated_by"]) : nil),
       updated_via: (node.key?("updated_via") ? ActingVia.from_wire(node["updated_via"]) : nil),
-      sequence: node["sequence"],
-      created_at: Time.iso8601((node["created_at"]).value),
-      updated_at: Time.iso8601((node["updated_at"]).value)
+      sequence: CsilCbor.dec_int(CsilCbor.required(node, "sequence")),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      updated_at: CsilCbor.as_timestamp(CsilCbor.required(node, "updated_at"))
     )
   end
 end
@@ -992,13 +1186,13 @@ class Occurrence
 
   def csil_to_tree
     csil_map = {}
-    csil_map["end"] = CsilCbor::Tag.new(0, (self.end).getutc.iso8601)
+    csil_map["end"] = CsilCbor.enc_timestamp(self.end)
     csil_map["event"] = (event).csil_to_tree
-    csil_map["start"] = CsilCbor::Tag.new(0, (start).getutc.iso8601)
+    csil_map["start"] = CsilCbor.enc_timestamp(start)
     csil_map["access"] = (access)
     csil_map["invited"] = invited
     csil_map["busy_only"] = busy_only
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1007,14 +1201,15 @@ class Occurrence
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "Occurrence")
     new(
-      event: Event.csil_from_tree(node["event"]),
-      start: Time.iso8601((node["start"]).value),
-      end: Time.iso8601((node["end"]).value),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil),
-      access: AccessRole.from_wire(node["access"]),
-      busy_only: node["busy_only"],
-      invited: node["invited"]
+      event: Event.csil_from_tree(CsilCbor.required(node, "event")),
+      start: CsilCbor.as_timestamp(CsilCbor.required(node, "start")),
+      end: CsilCbor.as_timestamp(CsilCbor.required(node, "end")),
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil),
+      access: AccessRole.from_wire(CsilCbor.required(node, "access")),
+      busy_only: CsilCbor.dec_bool(CsilCbor.required(node, "busy_only")),
+      invited: CsilCbor.dec_bool(CsilCbor.required(node, "invited"))
     )
   end
 end
@@ -1028,8 +1223,8 @@ class ListEventsRequest
 
   def csil_to_tree
     csil_map = {}
-    csil_map["range_end"] = CsilCbor::Tag.new(0, (range_end).getutc.iso8601)
-    csil_map["range_start"] = CsilCbor::Tag.new(0, (range_start).getutc.iso8601)
+    csil_map["range_end"] = CsilCbor.enc_timestamp(range_end)
+    csil_map["range_start"] = CsilCbor.enc_timestamp(range_start)
     csil_map["calendar_ids"] = (calendar_ids).map { |csil_e| csil_e } unless calendar_ids.nil?
     csil_map["include_invitations"] = include_invitations unless include_invitations.nil?
     csil_map
@@ -1040,11 +1235,12 @@ class ListEventsRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ListEventsRequest")
     new(
-      range_start: Time.iso8601((node["range_start"]).value),
-      range_end: Time.iso8601((node["range_end"]).value),
-      calendar_ids: (node.key?("calendar_ids") ? (node["calendar_ids"]).map { |csil_e| csil_e } : nil),
-      include_invitations: (node.key?("include_invitations") ? node["include_invitations"] : nil)
+      range_start: CsilCbor.as_timestamp(CsilCbor.required(node, "range_start")),
+      range_end: CsilCbor.as_timestamp(CsilCbor.required(node, "range_end")),
+      calendar_ids: (node.key?("calendar_ids") ? (node["calendar_ids"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil),
+      include_invitations: (node.key?("include_invitations") ? CsilCbor.dec_bool(node["include_invitations"]) : nil)
     )
   end
 end
@@ -1068,9 +1264,10 @@ class OccurrenceList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "OccurrenceList")
     new(
-      occurrences: (node["occurrences"]).map { |csil_e| Occurrence.csil_from_tree(csil_e) },
-      truncated: node["truncated"]
+      occurrences: (CsilCbor.required(node, "occurrences")).map { |csil_e| Occurrence.csil_from_tree(csil_e) },
+      truncated: CsilCbor.dec_bool(CsilCbor.required(node, "truncated"))
     )
   end
 end
@@ -1086,7 +1283,7 @@ class UpdateEventRequest
     csil_map = {}
     csil_map["event"] = (event).csil_to_tree
     csil_map["scope"] = (scope) unless scope.nil?
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1095,10 +1292,11 @@ class UpdateEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "UpdateEventRequest")
     new(
-      event: Event.csil_from_tree(node["event"]),
+      event: Event.csil_from_tree(CsilCbor.required(node, "event")),
       scope: (node.key?("scope") ? RecurrenceScope.from_wire(node["scope"]) : nil),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil)
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil)
     )
   end
 end
@@ -1114,7 +1312,7 @@ class DeleteEventRequest
     csil_map = {}
     csil_map["scope"] = (scope) unless scope.nil?
     csil_map["event_id"] = event_id
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1123,10 +1321,11 @@ class DeleteEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DeleteEventRequest")
     new(
-      event_id: node["event_id"],
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
       scope: (node.key?("scope") ? RecurrenceScope.from_wire(node["scope"]) : nil),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil)
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil)
     )
   end
 end
@@ -1149,8 +1348,9 @@ class DeleteEventResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DeleteEventResponse")
     new(
-      trash_id: (node.key?("trash_id") ? node["trash_id"] : nil)
+      trash_id: (node.key?("trash_id") ? CsilCbor.dec_text(node["trash_id"]) : nil)
     )
   end
 end
@@ -1174,9 +1374,10 @@ class MoveEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "MoveEventRequest")
     new(
-      event_id: node["event_id"],
-      calendar_id: node["calendar_id"]
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id"))
     )
   end
 end
@@ -1195,11 +1396,11 @@ class TrashEntry
     csil_map["event_id"] = event_id
     csil_map["instance"] = (instance).csil_to_tree unless instance.nil?
     csil_map["trash_id"] = trash_id
-    csil_map["deleted_at"] = CsilCbor::Tag.new(0, (deleted_at).getutc.iso8601)
+    csil_map["deleted_at"] = CsilCbor.enc_timestamp(deleted_at)
     csil_map["deleted_by"] = (deleted_by).csil_to_tree unless deleted_by.nil?
-    csil_map["expires_at"] = CsilCbor::Tag.new(0, (expires_at).getutc.iso8601)
+    csil_map["expires_at"] = CsilCbor.enc_timestamp(expires_at)
     csil_map["calendar_id"] = calendar_id
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1208,17 +1409,18 @@ class TrashEntry
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "TrashEntry")
     new(
-      trash_id: node["trash_id"],
-      calendar_id: node["calendar_id"],
-      event_id: node["event_id"],
-      scope: RecurrenceScope.from_wire(node["scope"]),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil),
-      event: Event.csil_from_tree(node["event"]),
+      trash_id: CsilCbor.dec_text(CsilCbor.required(node, "trash_id")),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      scope: RecurrenceScope.from_wire(CsilCbor.required(node, "scope")),
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil),
+      event: Event.csil_from_tree(CsilCbor.required(node, "event")),
       instance: (node.key?("instance") ? Event.csil_from_tree(node["instance"]) : nil),
       deleted_by: (node.key?("deleted_by") ? PersonSummary.csil_from_tree(node["deleted_by"]) : nil),
-      deleted_at: Time.iso8601((node["deleted_at"]).value),
-      expires_at: Time.iso8601((node["expires_at"]).value)
+      deleted_at: CsilCbor.as_timestamp(CsilCbor.required(node, "deleted_at")),
+      expires_at: CsilCbor.as_timestamp(CsilCbor.required(node, "expires_at"))
     )
   end
 end
@@ -1242,9 +1444,10 @@ class ListTrashRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ListTrashRequest")
     new(
-      calendar_id: node["calendar_id"],
-      limit: (node.key?("limit") ? node["limit"] : nil)
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      limit: (node.key?("limit") ? CsilCbor.dec_uint(node["limit"]) : nil)
     )
   end
 end
@@ -1267,8 +1470,9 @@ class TrashList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "TrashList")
     new(
-      entries: (node["entries"]).map { |csil_e| TrashEntry.csil_from_tree(csil_e) }
+      entries: (CsilCbor.required(node, "entries")).map { |csil_e| TrashEntry.csil_from_tree(csil_e) }
     )
   end
 end
@@ -1291,8 +1495,9 @@ class RestoreEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "RestoreEventRequest")
     new(
-      trash_id: node["trash_id"]
+      trash_id: CsilCbor.dec_text(CsilCbor.required(node, "trash_id"))
     )
   end
 end
@@ -1307,7 +1512,7 @@ class ImportEventRequest
   def csil_to_tree
     csil_map = {}
     csil_map["event"] = (event).csil_to_tree
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601) unless created_at.nil?
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at) unless created_at.nil?
     csil_map["created_by"] = (created_by).csil_to_tree
     csil_map
   end
@@ -1317,10 +1522,11 @@ class ImportEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ImportEventRequest")
     new(
-      event: Event.csil_from_tree(node["event"]),
-      created_by: IdentityRef.csil_from_tree(node["created_by"]),
-      created_at: (node.key?("created_at") ? Time.iso8601((node["created_at"]).value) : nil)
+      event: Event.csil_from_tree(CsilCbor.required(node, "event")),
+      created_by: IdentityRef.csil_from_tree(CsilCbor.required(node, "created_by")),
+      created_at: (node.key?("created_at") ? CsilCbor.as_timestamp(node["created_at"]) : nil)
     )
   end
 end
@@ -1344,9 +1550,10 @@ class CreateEventOnceRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CreateEventOnceRequest")
     new(
-      idempotency_key: node["idempotency_key"],
-      event: Event.csil_from_tree(node["event"])
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key")),
+      event: Event.csil_from_tree(CsilCbor.required(node, "event"))
     )
   end
 end
@@ -1370,9 +1577,10 @@ class CreateReceiptRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CreateReceiptRequest")
     new(
-      calendar_id: node["calendar_id"],
-      idempotency_key: node["idempotency_key"]
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key"))
     )
   end
 end
@@ -1391,7 +1599,7 @@ class CreateEventReceipt
     csil_map["created"] = created
     csil_map["event_id"] = event_id
     csil_map["trash_id"] = trash_id unless trash_id.nil?
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
     csil_map["calendar_id"] = calendar_id
     csil_map["idempotency_key"] = idempotency_key
     csil_map
@@ -1402,15 +1610,16 @@ class CreateEventReceipt
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CreateEventReceipt")
     new(
-      calendar_id: node["calendar_id"],
-      idempotency_key: node["idempotency_key"],
-      event_id: node["event_id"],
-      state: CreateReceiptState.from_wire(node["state"]),
-      created: node["created"],
-      created_at: Time.iso8601((node["created_at"]).value),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key")),
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      state: CreateReceiptState.from_wire(CsilCbor.required(node, "state")),
+      created: CsilCbor.dec_bool(CsilCbor.required(node, "created")),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
       event: (node.key?("event") ? Event.csil_from_tree(node["event"]) : nil),
-      trash_id: (node.key?("trash_id") ? node["trash_id"] : nil)
+      trash_id: (node.key?("trash_id") ? CsilCbor.dec_text(node["trash_id"]) : nil)
     )
   end
 end
@@ -1425,9 +1634,9 @@ class SplitSeriesOnceRequest
   def csil_to_tree
     csil_map = {}
     csil_map["event"] = (event).csil_to_tree
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601)
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id)
     csil_map["idempotency_key"] = idempotency_key
-    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| CsilCbor::Tag.new(0, (csil_e).getutc.iso8601) } unless map_recurrence_ids.nil?
+    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| CsilCbor.enc_timestamp(csil_e) } unless map_recurrence_ids.nil?
     csil_map
   end
 
@@ -1436,11 +1645,12 @@ class SplitSeriesOnceRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SplitSeriesOnceRequest")
     new(
-      idempotency_key: node["idempotency_key"],
-      event: Event.csil_from_tree(node["event"]),
-      recurrence_id: Time.iso8601((node["recurrence_id"]).value),
-      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| Time.iso8601((csil_e).value) } : nil)
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key")),
+      event: Event.csil_from_tree(CsilCbor.required(node, "event")),
+      recurrence_id: CsilCbor.as_timestamp(CsilCbor.required(node, "recurrence_id")),
+      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| CsilCbor.as_timestamp(csil_e) } : nil)
     )
   end
 end
@@ -1456,7 +1666,7 @@ class SplitReceiptRequest
     csil_map = {}
     csil_map["series_id"] = series_id
     csil_map["idempotency_key"] = idempotency_key
-    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| CsilCbor::Tag.new(0, (csil_e).getutc.iso8601) } unless map_recurrence_ids.nil?
+    csil_map["map_recurrence_ids"] = (map_recurrence_ids).map { |csil_e| CsilCbor.enc_timestamp(csil_e) } unless map_recurrence_ids.nil?
     csil_map
   end
 
@@ -1465,10 +1675,11 @@ class SplitReceiptRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SplitReceiptRequest")
     new(
-      series_id: node["series_id"],
-      idempotency_key: node["idempotency_key"],
-      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| Time.iso8601((csil_e).value) } : nil)
+      series_id: CsilCbor.dec_text(CsilCbor.required(node, "series_id")),
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key")),
+      map_recurrence_ids: (node.key?("map_recurrence_ids") ? (node["map_recurrence_ids"]).map { |csil_e| CsilCbor.as_timestamp(csil_e) } : nil)
     )
   end
 end
@@ -1484,8 +1695,8 @@ class SplitOccurrenceMapping
     csil_map = {}
     csil_map["result"] = (result)
     csil_map["event_id"] = event_id unless event_id.nil?
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601)
-    csil_map["mapped_recurrence_id"] = CsilCbor::Tag.new(0, (mapped_recurrence_id).getutc.iso8601) unless mapped_recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id)
+    csil_map["mapped_recurrence_id"] = CsilCbor.enc_timestamp(mapped_recurrence_id) unless mapped_recurrence_id.nil?
     csil_map
   end
 
@@ -1494,11 +1705,12 @@ class SplitOccurrenceMapping
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SplitOccurrenceMapping")
     new(
-      recurrence_id: Time.iso8601((node["recurrence_id"]).value),
-      result: SplitMapResult.from_wire(node["result"]),
-      event_id: (node.key?("event_id") ? node["event_id"] : nil),
-      mapped_recurrence_id: (node.key?("mapped_recurrence_id") ? Time.iso8601((node["mapped_recurrence_id"]).value) : nil)
+      recurrence_id: CsilCbor.as_timestamp(CsilCbor.required(node, "recurrence_id")),
+      result: SplitMapResult.from_wire(CsilCbor.required(node, "result")),
+      event_id: (node.key?("event_id") ? CsilCbor.dec_text(node["event_id"]) : nil),
+      mapped_recurrence_id: (node.key?("mapped_recurrence_id") ? CsilCbor.as_timestamp(node["mapped_recurrence_id"]) : nil)
     )
   end
 end
@@ -1516,10 +1728,10 @@ class SplitSeriesReceipt
     csil_map["created"] = created
     csil_map["in_place"] = in_place
     csil_map["mappings"] = (mappings).map { |csil_e| (csil_e).csil_to_tree }
-    csil_map["split_at"] = CsilCbor::Tag.new(0, (split_at).getutc.iso8601)
+    csil_map["split_at"] = CsilCbor.enc_timestamp(split_at)
     csil_map["series_id"] = series_id
     csil_map["successor"] = (successor).csil_to_tree unless successor.nil?
-    csil_map["created_at"] = CsilCbor::Tag.new(0, (created_at).getutc.iso8601)
+    csil_map["created_at"] = CsilCbor.enc_timestamp(created_at)
     csil_map["calendar_id"] = calendar_id
     csil_map["series_state"] = (series_state)
     csil_map["successor_id"] = successor_id
@@ -1535,22 +1747,23 @@ class SplitSeriesReceipt
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SplitSeriesReceipt")
     new(
-      series_id: node["series_id"],
-      idempotency_key: node["idempotency_key"],
-      successor_id: node["successor_id"],
-      split_at: Time.iso8601((node["split_at"]).value),
-      in_place: node["in_place"],
-      created: node["created"],
-      created_at: Time.iso8601((node["created_at"]).value),
-      calendar_id: node["calendar_id"],
-      series_state: CreateReceiptState.from_wire(node["series_state"]),
+      series_id: CsilCbor.dec_text(CsilCbor.required(node, "series_id")),
+      idempotency_key: CsilCbor.dec_text(CsilCbor.required(node, "idempotency_key")),
+      successor_id: CsilCbor.dec_text(CsilCbor.required(node, "successor_id")),
+      split_at: CsilCbor.as_timestamp(CsilCbor.required(node, "split_at")),
+      in_place: CsilCbor.dec_bool(CsilCbor.required(node, "in_place")),
+      created: CsilCbor.dec_bool(CsilCbor.required(node, "created")),
+      created_at: CsilCbor.as_timestamp(CsilCbor.required(node, "created_at")),
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      series_state: CreateReceiptState.from_wire(CsilCbor.required(node, "series_state")),
       series: (node.key?("series") ? Event.csil_from_tree(node["series"]) : nil),
-      series_trash_id: (node.key?("series_trash_id") ? node["series_trash_id"] : nil),
-      successor_state: CreateReceiptState.from_wire(node["successor_state"]),
+      series_trash_id: (node.key?("series_trash_id") ? CsilCbor.dec_text(node["series_trash_id"]) : nil),
+      successor_state: CreateReceiptState.from_wire(CsilCbor.required(node, "successor_state")),
       successor: (node.key?("successor") ? Event.csil_from_tree(node["successor"]) : nil),
-      successor_trash_id: (node.key?("successor_trash_id") ? node["successor_trash_id"] : nil),
-      mappings: (node["mappings"]).map { |csil_e| SplitOccurrenceMapping.csil_from_tree(csil_e) }
+      successor_trash_id: (node.key?("successor_trash_id") ? CsilCbor.dec_text(node["successor_trash_id"]) : nil),
+      mappings: (CsilCbor.required(node, "mappings")).map { |csil_e| SplitOccurrenceMapping.csil_from_tree(csil_e) }
     )
   end
 end
@@ -1565,7 +1778,7 @@ class GetOccurrenceRequest
   def csil_to_tree
     csil_map = {}
     csil_map["event_id"] = event_id
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1574,9 +1787,10 @@ class GetOccurrenceRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "GetOccurrenceRequest")
     new(
-      event_id: node["event_id"],
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil)
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil)
     )
   end
 end
@@ -1593,7 +1807,7 @@ class RespondRequest
     csil_map["status"] = (status)
     csil_map["comment"] = comment unless comment.nil?
     csil_map["event_id"] = event_id
-    csil_map["recurrence_id"] = CsilCbor::Tag.new(0, (recurrence_id).getutc.iso8601) unless recurrence_id.nil?
+    csil_map["recurrence_id"] = CsilCbor.enc_timestamp(recurrence_id) unless recurrence_id.nil?
     csil_map
   end
 
@@ -1602,11 +1816,12 @@ class RespondRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "RespondRequest")
     new(
-      event_id: node["event_id"],
-      status: ParticipationStatus.from_wire(node["status"]),
-      recurrence_id: (node.key?("recurrence_id") ? Time.iso8601((node["recurrence_id"]).value) : nil),
-      comment: (node.key?("comment") ? node["comment"] : nil)
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      status: ParticipationStatus.from_wire(CsilCbor.required(node, "status")),
+      recurrence_id: (node.key?("recurrence_id") ? CsilCbor.as_timestamp(node["recurrence_id"]) : nil),
+      comment: (node.key?("comment") ? CsilCbor.dec_text(node["comment"]) : nil)
     )
   end
 end
@@ -1630,9 +1845,10 @@ class SearchEventsRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SearchEventsRequest")
     new(
-      query: node["query"],
-      limit: (node.key?("limit") ? node["limit"] : nil)
+      query: CsilCbor.dec_text(CsilCbor.required(node, "query")),
+      limit: (node.key?("limit") ? CsilCbor.dec_uint(node["limit"]) : nil)
     )
   end
 end
@@ -1655,8 +1871,9 @@ class EventList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "EventList")
     new(
-      events: (node["events"]).map { |csil_e| Event.csil_from_tree(csil_e) }
+      events: (CsilCbor.required(node, "events")).map { |csil_e| Event.csil_from_tree(csil_e) }
     )
   end
 end
@@ -1670,8 +1887,8 @@ class BusyInterval
 
   def csil_to_tree
     csil_map = {}
-    csil_map["end"] = CsilCbor::Tag.new(0, (self.end).getutc.iso8601)
-    csil_map["start"] = CsilCbor::Tag.new(0, (start).getutc.iso8601)
+    csil_map["end"] = CsilCbor.enc_timestamp(self.end)
+    csil_map["start"] = CsilCbor.enc_timestamp(start)
     csil_map["tentative"] = tentative unless tentative.nil?
     csil_map
   end
@@ -1681,10 +1898,11 @@ class BusyInterval
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "BusyInterval")
     new(
-      start: Time.iso8601((node["start"]).value),
-      end: Time.iso8601((node["end"]).value),
-      tentative: (node.key?("tentative") ? node["tentative"] : nil)
+      start: CsilCbor.as_timestamp(CsilCbor.required(node, "start")),
+      end: CsilCbor.as_timestamp(CsilCbor.required(node, "end")),
+      tentative: (node.key?("tentative") ? CsilCbor.dec_bool(node["tentative"]) : nil)
     )
   end
 end
@@ -1699,8 +1917,8 @@ class FreeBusyRequest
   def csil_to_tree
     csil_map = {}
     csil_map["people"] = (people).map { |csil_e| (csil_e).csil_to_tree }
-    csil_map["range_end"] = CsilCbor::Tag.new(0, (range_end).getutc.iso8601)
-    csil_map["range_start"] = CsilCbor::Tag.new(0, (range_start).getutc.iso8601)
+    csil_map["range_end"] = CsilCbor.enc_timestamp(range_end)
+    csil_map["range_start"] = CsilCbor.enc_timestamp(range_start)
     csil_map
   end
 
@@ -1709,10 +1927,11 @@ class FreeBusyRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "FreeBusyRequest")
     new(
-      people: (node["people"]).map { |csil_e| IdentityRef.csil_from_tree(csil_e) },
-      range_start: Time.iso8601((node["range_start"]).value),
-      range_end: Time.iso8601((node["range_end"]).value)
+      people: (CsilCbor.required(node, "people")).map { |csil_e| IdentityRef.csil_from_tree(csil_e) },
+      range_start: CsilCbor.as_timestamp(CsilCbor.required(node, "range_start")),
+      range_end: CsilCbor.as_timestamp(CsilCbor.required(node, "range_end"))
     )
   end
 end
@@ -1738,11 +1957,12 @@ class PersonFreeBusy
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "PersonFreeBusy")
     new(
-      identity: IdentityRef.csil_from_tree(node["identity"]),
+      identity: IdentityRef.csil_from_tree(CsilCbor.required(node, "identity")),
       person: (node.key?("person") ? PersonSummary.csil_from_tree(node["person"]) : nil),
-      busy: (node["busy"]).map { |csil_e| BusyInterval.csil_from_tree(csil_e) },
-      visible: node["visible"]
+      busy: (CsilCbor.required(node, "busy")).map { |csil_e| BusyInterval.csil_from_tree(csil_e) },
+      visible: CsilCbor.dec_bool(CsilCbor.required(node, "visible"))
     )
   end
 end
@@ -1765,8 +1985,9 @@ class FreeBusyResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "FreeBusyResponse")
     new(
-      people: (node["people"]).map { |csil_e| PersonFreeBusy.csil_from_tree(csil_e) }
+      people: (CsilCbor.required(node, "people")).map { |csil_e| PersonFreeBusy.csil_from_tree(csil_e) }
     )
   end
 end
@@ -1790,9 +2011,10 @@ class ImportIcsRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ImportIcsRequest")
     new(
-      calendar_id: node["calendar_id"],
-      ics: node["ics"]
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id")),
+      ics: CsilCbor.dec_text(CsilCbor.required(node, "ics"))
     )
   end
 end
@@ -1818,11 +2040,12 @@ class ImportResult
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ImportResult")
     new(
-      created: node["created"],
-      updated: node["updated"],
-      skipped: node["skipped"],
-      warnings: (node.key?("warnings") ? (node["warnings"]).map { |csil_e| csil_e } : nil)
+      created: CsilCbor.dec_uint(CsilCbor.required(node, "created")),
+      updated: CsilCbor.dec_uint(CsilCbor.required(node, "updated")),
+      skipped: CsilCbor.dec_uint(CsilCbor.required(node, "skipped")),
+      warnings: (node.key?("warnings") ? (node["warnings"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil)
     )
   end
 end
@@ -1845,8 +2068,9 @@ class ExportCalendarRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ExportCalendarRequest")
     new(
-      calendar_id: node["calendar_id"]
+      calendar_id: CsilCbor.dec_text(CsilCbor.required(node, "calendar_id"))
     )
   end
 end
@@ -1870,9 +2094,10 @@ class ExportEventRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ExportEventRequest")
     new(
-      event_id: node["event_id"],
-      method_: (node.key?("method") ? node["method"] : nil)
+      event_id: CsilCbor.dec_text(CsilCbor.required(node, "event_id")),
+      method_: (node.key?("method") ? CsilCbor.dec_text(node["method"]) : nil)
     )
   end
 end
@@ -1896,9 +2121,10 @@ class IcsDocument
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "IcsDocument")
     new(
-      ics: node["ics"],
-      filename: node["filename"]
+      ics: CsilCbor.dec_text(CsilCbor.required(node, "ics")),
+      filename: CsilCbor.dec_text(CsilCbor.required(node, "filename"))
     )
   end
 end
@@ -1912,7 +2138,7 @@ class AuditEntry
 
   def csil_to_tree
     csil_map = {}
-    csil_map["at"] = CsilCbor::Tag.new(0, (at).getutc.iso8601)
+    csil_map["at"] = CsilCbor.enc_timestamp(at)
     csil_map["via"] = (via)
     csil_map["actor"] = (actor).csil_to_tree
     csil_map["target"] = target unless target.nil?
@@ -1929,16 +2155,17 @@ class AuditEntry
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "AuditEntry")
     new(
-      audit_id: node["audit_id"],
-      at: Time.iso8601((node["at"]).value),
-      actor: PersonSummary.csil_from_tree(node["actor"]),
-      principal: PersonSummary.csil_from_tree(node["principal"]),
-      via: ActingVia.from_wire(node["via"]),
-      application: (node.key?("application") ? node["application"] : nil),
-      operation: node["operation"],
-      target: (node.key?("target") ? node["target"] : nil),
-      outcome: node["outcome"]
+      audit_id: CsilCbor.dec_text(CsilCbor.required(node, "audit_id")),
+      at: CsilCbor.as_timestamp(CsilCbor.required(node, "at")),
+      actor: PersonSummary.csil_from_tree(CsilCbor.required(node, "actor")),
+      principal: PersonSummary.csil_from_tree(CsilCbor.required(node, "principal")),
+      via: ActingVia.from_wire(CsilCbor.required(node, "via")),
+      application: (node.key?("application") ? CsilCbor.dec_text(node["application"]) : nil),
+      operation: CsilCbor.dec_text(CsilCbor.required(node, "operation")),
+      target: (node.key?("target") ? CsilCbor.dec_text(node["target"]) : nil),
+      outcome: CsilCbor.dec_text(CsilCbor.required(node, "outcome"))
     )
   end
 end
@@ -1962,9 +2189,10 @@ class AuditQuery
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "AuditQuery")
     new(
-      limit: (node.key?("limit") ? node["limit"] : nil),
-      delegated_only: (node.key?("delegated_only") ? node["delegated_only"] : nil)
+      limit: (node.key?("limit") ? CsilCbor.dec_uint(node["limit"]) : nil),
+      delegated_only: (node.key?("delegated_only") ? CsilCbor.dec_bool(node["delegated_only"]) : nil)
     )
   end
 end
@@ -1987,8 +2215,9 @@ class AuditList
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "AuditList")
     new(
-      entries: (node["entries"]).map { |csil_e| AuditEntry.csil_from_tree(csil_e) }
+      entries: (CsilCbor.required(node, "entries")).map { |csil_e| AuditEntry.csil_from_tree(csil_e) }
     )
   end
 end
@@ -2012,9 +2241,10 @@ class CompleteRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "CompleteRequest")
     new(
-      encrypted_token: node["encrypted_token"],
-      domain: (node.key?("domain") ? node["domain"] : nil)
+      encrypted_token: CsilCbor.dec_text(CsilCbor.required(node, "encrypted_token")),
+      domain: (node.key?("domain") ? CsilCbor.dec_text(node["domain"]) : nil)
     )
   end
 end
@@ -2033,7 +2263,7 @@ class LoginResponse
     csil_map["token"] = token
     csil_map["scopes"] = (scopes).map { |csil_e| (csil_e) } unless scopes.nil?
     csil_map["acting_as"] = (acting_as).csil_to_tree unless acting_as.nil?
-    csil_map["expires_at"] = CsilCbor::Tag.new(0, (expires_at).getutc.iso8601)
+    csil_map["expires_at"] = CsilCbor.enc_timestamp(expires_at)
     csil_map
   end
 
@@ -2042,12 +2272,13 @@ class LoginResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "LoginResponse")
     new(
-      token: node["token"],
-      expires_at: Time.iso8601((node["expires_at"]).value),
-      user: PersonSummary.csil_from_tree(node["user"]),
+      token: CsilCbor.dec_text(CsilCbor.required(node, "token")),
+      expires_at: CsilCbor.as_timestamp(CsilCbor.required(node, "expires_at")),
+      user: PersonSummary.csil_from_tree(CsilCbor.required(node, "user")),
       acting_as: (node.key?("acting_as") ? PersonSummary.csil_from_tree(node["acting_as"]) : nil),
-      via: ActingVia.from_wire(node["via"]),
+      via: ActingVia.from_wire(CsilCbor.required(node, "via")),
       scopes: (node.key?("scopes") ? (node["scopes"]).map { |csil_e| Scope.from_wire(csil_e) } : nil)
     )
   end
@@ -2075,12 +2306,13 @@ class MeResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "MeResponse")
     new(
-      user: User.csil_from_tree(node["user"]),
+      user: User.csil_from_tree(CsilCbor.required(node, "user")),
       acting_as: (node.key?("acting_as") ? PersonSummary.csil_from_tree(node["acting_as"]) : nil),
-      via: ActingVia.from_wire(node["via"]),
+      via: ActingVia.from_wire(CsilCbor.required(node, "via")),
       scopes: (node.key?("scopes") ? (node["scopes"]).map { |csil_e| Scope.from_wire(csil_e) } : nil),
-      principals: (node["principals"]).map { |csil_e| PersonSummary.csil_from_tree(csil_e) }
+      principals: (CsilCbor.required(node, "principals")).map { |csil_e| PersonSummary.csil_from_tree(csil_e) }
     )
   end
 end
@@ -2103,8 +2335,9 @@ class ExchangeActAsCredentialRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ExchangeActAsCredentialRequest")
     new(
-      credential: node["credential"]
+      credential: CsilCbor.dec_bytes(CsilCbor.required(node, "credential"))
     )
   end
 end
@@ -2131,12 +2364,13 @@ class ScopeSetRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ScopeSetRequest")
     new(
-      grantee_domain: node["grantee_domain"],
-      grantee_user_id: node["grantee_user_id"],
-      grantee_application_id: node["grantee_application_id"],
-      languages: (node.key?("languages") ? (node["languages"]).map { |csil_e| csil_e } : nil),
-      scopes: (node.key?("scopes") ? (node["scopes"]).map { |csil_e| csil_e } : nil)
+      grantee_domain: CsilCbor.dec_text(CsilCbor.required(node, "grantee_domain")),
+      grantee_user_id: CsilCbor.dec_text(CsilCbor.required(node, "grantee_user_id")),
+      grantee_application_id: CsilCbor.dec_text(CsilCbor.required(node, "grantee_application_id")),
+      languages: (node.key?("languages") ? (node["languages"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil),
+      scopes: (node.key?("scopes") ? (node["scopes"]).map { |csil_e| CsilCbor.dec_text(csil_e) } : nil)
     )
   end
 end
@@ -2159,8 +2393,9 @@ class ScopeSetResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ScopeSetResponse")
     new(
-      signed_scope_set: node["signed_scope_set"]
+      signed_scope_set: CsilCbor.dec_bytes(CsilCbor.required(node, "signed_scope_set"))
     )
   end
 end
@@ -2185,10 +2420,11 @@ class ApplicationRef
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ApplicationRef")
     new(
-      subject_user_id: node["subject_user_id"],
-      subject_domain: node["subject_domain"],
-      application_id: node["application_id"]
+      subject_user_id: CsilCbor.dec_text(CsilCbor.required(node, "subject_user_id")),
+      subject_domain: CsilCbor.dec_text(CsilCbor.required(node, "subject_domain")),
+      application_id: CsilCbor.dec_text(CsilCbor.required(node, "application_id"))
     )
   end
 end
@@ -2205,7 +2441,7 @@ class ApplicationPresentation
     csil_map["nonce"] = (nonce).b
     csil_map["signer"] = (signer).csil_to_tree
     csil_map["audience"] = (audience).csil_to_tree
-    csil_map["presented_at"] = CsilCbor::Tag.new(0, (presented_at).getutc.iso8601)
+    csil_map["presented_at"] = CsilCbor.enc_timestamp(presented_at)
     csil_map["request_digest"] = (request_digest).b
     csil_map["signer_instance_id"] = signer_instance_id
     csil_map
@@ -2216,13 +2452,14 @@ class ApplicationPresentation
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ApplicationPresentation")
     new(
-      signer: ApplicationRef.csil_from_tree(node["signer"]),
-      signer_instance_id: node["signer_instance_id"],
-      audience: ApplicationRef.csil_from_tree(node["audience"]),
-      request_digest: node["request_digest"],
-      presented_at: Time.iso8601((node["presented_at"]).value),
-      nonce: node["nonce"]
+      signer: ApplicationRef.csil_from_tree(CsilCbor.required(node, "signer")),
+      signer_instance_id: CsilCbor.dec_text(CsilCbor.required(node, "signer_instance_id")),
+      audience: ApplicationRef.csil_from_tree(CsilCbor.required(node, "audience")),
+      request_digest: CsilCbor.dec_bytes(CsilCbor.required(node, "request_digest")),
+      presented_at: CsilCbor.as_timestamp(CsilCbor.required(node, "presented_at")),
+      nonce: CsilCbor.dec_bytes(CsilCbor.required(node, "nonce"))
     )
   end
 end
@@ -2247,10 +2484,11 @@ class SignedApplicationPresentation
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "SignedApplicationPresentation")
     new(
-      presentation: node["presentation"],
-      signed_by_key_id: node["signed_by_key_id"],
-      signature: node["signature"]
+      presentation: CsilCbor.dec_bytes(CsilCbor.required(node, "presentation")),
+      signed_by_key_id: CsilCbor.dec_text(CsilCbor.required(node, "signed_by_key_id")),
+      signature: CsilCbor.dec_bytes(CsilCbor.required(node, "signature"))
     )
   end
 end
@@ -2273,8 +2511,9 @@ class ExchangeApplicationPresentationRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ExchangeApplicationPresentationRequest")
     new(
-      presentation: SignedApplicationPresentation.csil_from_tree(node["presentation"])
+      presentation: SignedApplicationPresentation.csil_from_tree(CsilCbor.required(node, "presentation"))
     )
   end
 end
@@ -2297,8 +2536,9 @@ class ApplicationIdentityResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ApplicationIdentityResponse")
     new(
-      audience: ApplicationRef.csil_from_tree(node["audience"])
+      audience: ApplicationRef.csil_from_tree(CsilCbor.required(node, "audience"))
     )
   end
 end
@@ -2324,11 +2564,12 @@ class DevUser
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DevUser")
     new(
-      user_id: node["user_id"],
-      handle: (node.key?("handle") ? node["handle"] : nil),
-      display_name: (node.key?("display_name") ? node["display_name"] : nil),
-      domain: node["domain"]
+      user_id: CsilCbor.dec_text(CsilCbor.required(node, "user_id")),
+      handle: (node.key?("handle") ? CsilCbor.dec_text(node["handle"]) : nil),
+      display_name: (node.key?("display_name") ? CsilCbor.dec_text(node["display_name"]) : nil),
+      domain: CsilCbor.dec_text(CsilCbor.required(node, "domain"))
     )
   end
 end
@@ -2351,8 +2592,9 @@ class DevUsersResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DevUsersResponse")
     new(
-      users: (node["users"]).map { |csil_e| DevUser.csil_from_tree(csil_e) }
+      users: (CsilCbor.required(node, "users")).map { |csil_e| DevUser.csil_from_tree(csil_e) }
     )
   end
 end
@@ -2377,10 +2619,11 @@ class DevLoginRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "DevLoginRequest")
     new(
-      user_id: (node.key?("user_id") ? node["user_id"] : nil),
-      handle: (node.key?("handle") ? node["handle"] : nil),
-      display_name: (node.key?("display_name") ? node["display_name"] : nil)
+      user_id: (node.key?("user_id") ? CsilCbor.dec_text(node["user_id"]) : nil),
+      handle: (node.key?("handle") ? CsilCbor.dec_text(node["handle"]) : nil),
+      display_name: (node.key?("display_name") ? CsilCbor.dec_text(node["display_name"]) : nil)
     )
   end
 end
@@ -2403,8 +2646,9 @@ class LookupPersonRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "LookupPersonRequest")
     new(
-      identity: IdentityRef.csil_from_tree(node["identity"])
+      identity: IdentityRef.csil_from_tree(CsilCbor.required(node, "identity"))
     )
   end
 end
@@ -2428,9 +2672,10 @@ class UpdateProfileRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "UpdateProfileRequest")
     new(
-      display_name: (node.key?("display_name") ? node["display_name"] : nil),
-      timezone: (node.key?("timezone") ? node["timezone"] : nil)
+      display_name: (node.key?("display_name") ? CsilCbor.dec_text(node["display_name"]) : nil),
+      timezone: (node.key?("timezone") ? CsilCbor.dec_text(node["timezone"]) : nil)
     )
   end
 end
@@ -2452,6 +2697,7 @@ class EmptyRequest
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "EmptyRequest")
     new
   end
 end
@@ -2473,6 +2719,7 @@ class EmptyResponse
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "EmptyResponse")
     new
   end
 end
@@ -2496,9 +2743,10 @@ class ServiceError
   end
 
   def self.csil_from_tree(node)
+    CsilCbor.record_map(node, "ServiceError")
     new(
-      code: node["code"],
-      message: node["message"]
+      code: CsilCbor.dec_uint(CsilCbor.required(node, "code")),
+      message: CsilCbor.dec_text(CsilCbor.required(node, "message"))
     )
   end
 end

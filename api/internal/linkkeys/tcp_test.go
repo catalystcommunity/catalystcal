@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/transport"
+	api "github.com/catalystcommunity/linkkeys/sdks/regular-rp/go/generated"
 	"github.com/fxamacker/cbor/v2"
 )
 
@@ -77,19 +78,15 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 	_, tlsCert, cert := newTestCert(t)
 	handler := func(req *transport.RpcRequest) transport.HandlerOutcome {
 		recvd <- req
-		if req.Service != rpService || req.Op != opSignRequest {
+		if req.Service != "Rp" || req.Op != "sign-request" {
 			return transport.Transport(transport.StatusUnknownServiceOrOp, "bad route")
 		}
 		if req.Auth == nil || *req.Auth != "secret-key" {
 			return transport.Transport(transport.StatusUnauthenticated, "bad auth")
 		}
-		var in struct {
-			CallbackURL     string       `cbor:"callback_url"`
-			Nonce           string       `cbor:"nonce"`
-			RequestedClaims ClaimRequest `cbor:"requested_claims"`
-		}
-		if err := cbor.Unmarshal(req.Payload, &in); err != nil {
-			return transport.Transport(transport.StatusInternal, err.Error())
+		in, err := api.DecodeRpSignRequest(req.Payload)
+		if err != nil || in.RequestedClaims == nil {
+			return transport.Transport(transport.StatusInternal, "invalid sign request")
 		}
 		var raw map[string]any
 		if err := cbor.Unmarshal(req.Payload, &raw); err != nil {
@@ -98,12 +95,12 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 		appIDs <- raw
 		var handle bool
 		for _, c := range in.RequestedClaims.Required {
-			handle = handle || c.ClaimType == "handle"
+			handle = handle || (c.ClaimType == "handle" && c.Datatype == api.ClaimValueTypeText)
 		}
 		if !handle {
 			return transport.Transport(transport.StatusInternal, "requested_claims must ask for handle")
 		}
-		b, _ := cbor.Marshal(map[string]string{"signed_request": "signed:" + in.CallbackURL + ":" + in.Nonce})
+		b, _ := cbor.Marshal(map[string]string{"signed_request": "signed:" + in.CallbackUrl + ":" + in.Nonce})
 		return transport.Reply("RpSignResponse", b)
 	}
 	addr := startTestRPCServer(t, tlsCert, handler)
@@ -129,7 +126,7 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 	if req.Service != "Rp" || req.Op != "sign-request" {
 		t.Fatalf("envelope routed to %s/%s, want Rp/sign-request", req.Service, req.Op)
 	}
-	// No application ID: the field is absent, and the RP uses the username.
+	// The RP gets the application ID from the caller account.
 	if raw := <-appIDs; raw["application_id"] != nil {
 		t.Fatalf("application_id = %v, want absent", raw["application_id"])
 	}
@@ -142,8 +139,8 @@ func TestTCPClient_SignRequest_RoundTrip(t *testing.T) {
 		t.Fatalf("SignRequest: %v", err)
 	}
 	<-recvd
-	if raw := <-appIDs; raw["application_id"] != "catalystcal" {
-		t.Fatalf("application_id = %v, want catalystcal", raw["application_id"])
+	if raw := <-appIDs; raw["application_id"] != nil {
+		t.Fatalf("application_id = %v, want absent", raw["application_id"])
 	}
 }
 
@@ -156,23 +153,20 @@ func TestTCPClient_VerifyAssertion_RoundTrip(t *testing.T) {
 			ExpectedDomain  string `cbor:"expected_domain"`
 		}
 		_ = cbor.Unmarshal(req.Payload, &in)
-		b, _ := cbor.Marshal(map[string]any{
-			"verified": true,
-			"assertion": map[string]any{
-				"user_id":           "u1",
-				"domain":            in.ExpectedDomain,
-				"audience":          "rp.example",
-				"nonce":             "n1",
-				"issued_at":         "2026-01-01T00:00:00Z",
-				"expires_at":        "2026-01-01T00:10:00Z",
-				"authorized_claims": []string{"email"}, // unknown to Assertion; must be ignored
-				"display_name":      "Ada",
-			},
-		})
+		name := "Ada"
+		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		b, err := api.EncodeRpVerifyResponse(api.RpVerifyResponse{Verified: true, Assertion: api.IdentityAssertion{
+			UserId: "u1", Domain: in.ExpectedDomain, Audience: "rp.example", Nonce: "n1", DisplayName: &name,
+			IssuedAt: at, ExpiresAt: at.Add(10 * time.Minute), AuthorizedClaims: []string{"email"},
+			Application: api.ApplicationRef{ApplicationId: "catalystcal", SubjectDomain: "rp.example", SubjectUserId: "owner"},
+		}})
+		if err != nil {
+			return transport.Transport(transport.StatusInternal, err.Error())
+		}
 		return transport.Reply("RpVerifyResponse", b)
 	}
 	addr := startTestRPCServer(t, tlsCert, handler)
-	c, err := NewTCPClient(TCPConfig{Addr: addr, Insecure: true, APIKey: "k"})
+	c, err := NewTCPClient(TCPConfig{Addr: addr, Insecure: true, APIKey: "k", ApplicationID: "catalystcal"})
 	if err != nil {
 		t.Fatalf("NewTCPClient: %v", err)
 	}
@@ -183,13 +177,20 @@ func TestTCPClient_VerifyAssertion_RoundTrip(t *testing.T) {
 	if a.UserID != "u1" || a.Domain != "idp.example" || a.DisplayName != "Ada" {
 		t.Fatalf("assertion decoded wrong: %+v", a)
 	}
+	c.appID = "other-app"
+	if _, err := c.VerifyAssertion("signed-blob", "idp.example"); err == nil {
+		t.Fatal("accepted an assertion for another application")
+	}
 }
 
 func TestTCPClient_VerifyAssertion_RejectedWhenUnverified(t *testing.T) {
 	t.Parallel()
 	_, tlsCert, _ := newTestCert(t)
 	handler := func(req *transport.RpcRequest) transport.HandlerOutcome {
-		b, _ := cbor.Marshal(map[string]any{"verified": false, "assertion": map[string]any{}})
+		b, err := api.EncodeRpVerifyResponse(api.RpVerifyResponse{Verified: false})
+		if err != nil {
+			return transport.Transport(transport.StatusInternal, err.Error())
+		}
 		return transport.Reply("RpVerifyResponse", b)
 	}
 	addr := startTestRPCServer(t, tlsCert, handler)
@@ -203,7 +204,7 @@ func TestTCPClient_FetchUserInfo_RoundTrip(t *testing.T) {
 	t.Parallel()
 	_, tlsCert, _ := newTestCert(t)
 	handler := func(req *transport.RpcRequest) transport.HandlerOutcome {
-		if req.Op != opUserInfo {
+		if req.Op != "userinfo-fetch" {
 			return transport.Transport(transport.StatusUnknownServiceOrOp, "bad op")
 		}
 		var in struct {
@@ -215,14 +216,12 @@ func TestTCPClient_FetchUserInfo_RoundTrip(t *testing.T) {
 		if in.APIBase != "https://idp.example" || in.Domain != "idp.example" {
 			return transport.Transport(transport.StatusInternal, "unexpected request fields")
 		}
-		b, _ := cbor.Marshal(map[string]any{
-			"user_id":      "u1",
-			"domain":       "idp.example",
-			"display_name": "Ada Lovelace",
-			"claims": []map[string]any{
-				{"claim_id": "c1", "claim_type": "email", "claim_value": []byte("ada@example.com")},
-			},
+		b, err := api.EncodeUserInfo(api.UserInfo{UserId: "u1", Domain: in.Domain, DisplayName: "Ada Lovelace",
+			Claims: []api.Claim{{ClaimId: "c1", ClaimType: "email", ClaimValue: []byte("ada@example.com")}},
 		})
+		if err != nil {
+			return transport.Transport(transport.StatusInternal, err.Error())
+		}
 		return transport.Reply("UserInfo", b)
 	}
 	addr := startTestRPCServer(t, tlsCert, handler)

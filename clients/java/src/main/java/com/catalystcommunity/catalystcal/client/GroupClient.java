@@ -14,26 +14,32 @@ public final class GroupClient {
     }
 
     public GroupList listGroups(EmptyRequest req) throws ClientException {
-        return CsilCbor.decodeGroupList(transport.call("GroupService", "list-groups", CsilCbor.encodeEmptyRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "list-groups", CsilCbor.encodeEmptyRequest(req));
+        return CsilCbor.decodeGroupList(CsilCbor.resolveRpcReply("GroupService", "list-groups", reply.variant(), reply.payload()));
     }
 
     public Group getGroup(GroupId req) throws ClientException {
-        return CsilCbor.decodeGroup(transport.call("GroupService", "get-group", CsilCbor.encodeGroupGetGroupRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "get-group", CsilCbor.encodeGroupGetGroupRequest(req));
+        return CsilCbor.decodeGroup(CsilCbor.resolveRpcReply("GroupService", "get-group", reply.variant(), reply.payload()));
     }
 
     public Group createGroup(CreateGroupRequest req) throws ClientException {
-        return CsilCbor.decodeGroup(transport.call("GroupService", "create-group", CsilCbor.encodeCreateGroupRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "create-group", CsilCbor.encodeCreateGroupRequest(req));
+        return CsilCbor.decodeGroup(CsilCbor.resolveRpcReply("GroupService", "create-group", reply.variant(), reply.payload()));
     }
 
     public Group updateGroup(UpdateGroupRequest req) throws ClientException {
-        return CsilCbor.decodeGroup(transport.call("GroupService", "update-group", CsilCbor.encodeUpdateGroupRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "update-group", CsilCbor.encodeUpdateGroupRequest(req));
+        return CsilCbor.decodeGroup(CsilCbor.resolveRpcReply("GroupService", "update-group", reply.variant(), reply.payload()));
     }
 
     public Group setMembers(SetGroupMembersRequest req) throws ClientException {
-        return CsilCbor.decodeGroup(transport.call("GroupService", "set-members", CsilCbor.encodeSetGroupMembersRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "set-members", CsilCbor.encodeSetGroupMembersRequest(req));
+        return CsilCbor.decodeGroup(CsilCbor.resolveRpcReply("GroupService", "set-members", reply.variant(), reply.payload()));
     }
 
     public EmptyResponse deleteGroup(GroupId req) throws ClientException {
-        return CsilCbor.decodeEmptyResponse(transport.call("GroupService", "delete-group", CsilCbor.encodeGroupDeleteGroupRequest(req)));
+        WireReply reply = transport.callReply("GroupService", "delete-group", CsilCbor.encodeGroupDeleteGroupRequest(req));
+        return CsilCbor.decodeEmptyResponse(CsilCbor.resolveRpcReply("GroupService", "delete-group", reply.variant(), reply.payload()));
     }
 }

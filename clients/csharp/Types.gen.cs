@@ -62,15 +62,15 @@ public enum AccessPath
 public enum Scope
 {
     // wire value: calendars.read
-    Calendars.read,
+    CalendarsRead,
     // wire value: freebusy.read
-    Freebusy.read,
+    FreebusyRead,
     // wire value: events.write
-    Events.write,
+    EventsWrite,
     // wire value: events.respond
-    Events.respond,
+    EventsRespond,
     // wire value: calendars.manage
-    Calendars.manage,
+    CalendarsManage,
 }
 
 public enum CalendarKind

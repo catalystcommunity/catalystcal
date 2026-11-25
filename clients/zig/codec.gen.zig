@@ -6,9 +6,15 @@ const types = @import("types.gen.zig");
 
 // ===== self-contained canonical CBOR codec (RFC 8949 subset) =====
 
-const CodecError = error{ Malformed, UnexpectedEof, TrailingBytes, WrongType, MissingField } || std.mem.Allocator.Error;
+/// `DuplicateKey`: csil cbor: a map holds one key twice. `NonCanonicalMapOrder`:
+/// csil cbor: map keys are not in canonical order (RFC 8949 section 4.2.1).
+/// `NonShortestMapKey`: csil cbor: map key is not in shortest form.
+const CodecError = error{ Malformed, UnexpectedEof, TrailingBytes, WrongType, MissingField, DuplicateKey, NonCanonicalMapOrder, NonShortestMapKey } || std.mem.Allocator.Error;
 
-pub const Pair = struct { key: Value, val: Value };
+/// `raw_key` holds the key's encoded bytes as decoded, so a dynamic map can check
+/// the canonical key order without encoding its keys again. It stays empty for a
+/// pair built in memory; the encoder never reads it.
+pub const Pair = struct { key: Value, val: Value, raw_key: []const u8 = &.{} };
 pub const Tag = struct { num: u64, content: *Value };
 
 pub const Value = union(enum) {
@@ -196,7 +202,7 @@ fn half_to_f64(h: u16) f64 {
 // frame reserve a large multiple of its size at every nesting level.
 const prealloc_limit: usize = 1024;
 
-fn decode_value(alloc: std.mem.Allocator, b: []const u8, depth: usize) CodecError!Decoded {
+fn csil_decode_value(alloc: std.mem.Allocator, b: []const u8, depth: usize) CodecError!Decoded {
     if (depth > 64) return error.Malformed;
     if (b.len == 0) return error.UnexpectedEof;
     const ib = b[0];
@@ -226,7 +232,7 @@ fn decode_value(alloc: std.mem.Allocator, b: []const u8, depth: usize) CodecErro
             var off = n;
             var i: usize = 0;
             while (i < count) : (i += 1) {
-                const d = try decode_value(alloc, b[off..], depth + 1);
+                const d = try csil_decode_value(alloc, b[off..], depth + 1);
                 try items.append(alloc, d.value);
                 off += d.consumed;
             }
@@ -238,17 +244,33 @@ fn decode_value(alloc: std.mem.Allocator, b: []const u8, depth: usize) CodecErro
             var pairs = try std.ArrayListUnmanaged(Pair).initCapacity(alloc, @min(count, prealloc_limit));
             var off = n;
             var i: usize = 0;
+            // Keys in canonical order cannot repeat, so only a map out of that order
+            // pays for the hash set that finds a repeated key.
+            var ascending = true;
             while (i < count) : (i += 1) {
-                const k = try decode_value(alloc, b[off..], depth + 1);
+                const k = try csil_decode_value(alloc, b[off..], depth + 1);
+                if (!csil_shortest_head(b[off..])) return error.NonShortestMapKey;
+                const raw_key = try alloc.dupe(u8, b[off .. off + k.consumed]);
                 off += k.consumed;
-                const v = try decode_value(alloc, b[off..], depth + 1);
+                const v = try csil_decode_value(alloc, b[off..], depth + 1);
                 off += v.consumed;
-                try pairs.append(alloc, .{ .key = k.value, .val = v.value });
+                if (pairs.items.len > 0 and std.mem.order(u8, pairs.items[pairs.items.len - 1].raw_key, raw_key) != .lt) {
+                    ascending = false;
+                }
+                try pairs.append(alloc, .{ .key = k.value, .val = v.value, .raw_key = raw_key });
+            }
+            if (!ascending) {
+                var seen: std.StringHashMapUnmanaged(void) = .{};
+                defer seen.deinit(alloc);
+                try seen.ensureTotalCapacity(alloc, @intCast(pairs.items.len));
+                for (pairs.items) |p| {
+                    if ((try seen.getOrPut(alloc, p.raw_key)).found_existing) return error.DuplicateKey;
+                }
             }
             return .{ .value = .{ .map = try pairs.toOwnedSlice(alloc) }, .consumed = off };
         },
         6 => {
-            const inner = try decode_value(alloc, b[n..], depth + 1);
+            const inner = try csil_decode_value(alloc, b[n..], depth + 1);
             const content = try alloc.create(Value);
             content.* = inner.value;
             return .{ .value = .{ .tag = .{ .num = arg, .content = content } }, .consumed = n + inner.consumed };
@@ -267,9 +289,52 @@ fn decode_value(alloc: std.mem.Allocator, b: []const u8, depth: usize) CodecErro
 }
 
 fn decode(alloc: std.mem.Allocator, b: []const u8) CodecError!Value {
-    const d = try decode_value(alloc, b, 0);
+    const d = try csil_decode_value(alloc, b, 0);
     if (d.consumed != b.len) return error.TrailingBytes;
     return d.value;
+}
+
+/// Whether the head at the start of `b` (already read once, so it is complete)
+/// uses the shortest argument for its value. A key with a longer head has a
+/// second byte form, so the key order check alone could accept it. A float head
+/// (major 7) has no shorter form to compare with.
+fn csil_shortest_head(b: []const u8) bool {
+    const major = b[0] >> 5;
+    if (major == 7) return true;
+    const arg = read_arg(b, b[0] & 0x1f) catch return false;
+    return switch (b[0] & 0x1f) {
+        24 => arg.arg >= 24,
+        25 => arg.arg > 0xff,
+        26 => arg.arg > 0xffff,
+        27 => arg.arg > 0xffff_ffff,
+        else => true,
+    };
+}
+
+/// A dynamic map must arrive with its encoded keys strictly ascending in bytewise
+/// order. Each key is compared with the one before it, so the check is O(n).
+fn csil_check_canonical(pairs: []const Pair) CodecError!void {
+    var i: usize = 1;
+    while (i < pairs.len) : (i += 1) {
+        if (std.mem.order(u8, pairs[i - 1].raw_key, pairs[i].raw_key) != .lt) return error.NonCanonicalMapOrder;
+    }
+}
+
+/// One encoded entry of a dynamic map inside a scratch buffer: the key is
+/// `buf[start..key_end]`, the value runs on to `end`.
+const CsilSpan = struct { start: usize, key_end: usize, end: usize };
+
+fn csil_span_less(buf: []const u8, a: CsilSpan, b: CsilSpan) bool {
+    return std.mem.order(u8, buf[a.start..a.key_end], buf[b.start..b.key_end]) == .lt;
+}
+
+/// Writes the entries of a dynamic map in canonical order: sorted by the bytes of
+/// each encoded key (RFC 8949 section 4.2.1). A hash map iterates in no fixed
+/// order, so the entries are encoded first and sorted by their key bytes.
+fn csil_w_sorted_map(out: *std.ArrayList(u8), buf: []const u8, spans: []CsilSpan) std.mem.Allocator.Error!void {
+    std.mem.sort(CsilSpan, spans, buf, csil_span_less);
+    try w_map_head(out, spans.len);
+    for (spans) |span| try out.appendSlice(buf[span.start..span.end]);
 }
 
 fn mget(m: Value, key: []const u8) ?Value {
@@ -280,7 +345,7 @@ fn mget(m: Value, key: []const u8) ?Value {
     return null;
 }
 
-fn req(m: Value, key: []const u8) CodecError!Value {
+fn csil_required_field(m: Value, key: []const u8) CodecError!Value {
     return mget(m, key) orelse error.MissingField;
 }
 
@@ -347,6 +412,200 @@ fn calendar_date(s: []const u8) CodecError![]const u8 {
 fn as_tagged_text(v: Value, num: u64) CodecError![]const u8 {
     if (v != .tag or v.tag.num != num or v.tag.content.* != .text) return error.WrongType;
     return v.tag.content.text;
+}
+
+/// The longest canonical timestamp: `YYYY-MM-DDThh:mm:ss.fffffffffZ`.
+const csil_timestamp_max_len = 30;
+
+const CsilTimestampParts = struct { rfc3339: []const u8, epoch_seconds: i64 };
+
+fn csil_timestamp_digits(s: []const u8, at: usize, width: usize) CodecError!i64 {
+    if (at + width > s.len) return error.WrongType;
+    var v: i64 = 0;
+    for (s[at .. at + width]) |c| {
+        if (c < '0' or c > '9') return error.WrongType;
+        v = v * 10 + (c - '0');
+    }
+    return v;
+}
+
+fn csil_days_from_civil(year: i64, month: i64, day: i64) i64 {
+    const y = if (month <= 2) year - 1 else year;
+    const era = @divFloor(y, 400);
+    const yoe = y - era * 400;
+    const doy = @divFloor(153 * @mod(month + 9, 12) + 2, 5) + day - 1;
+    const doe = yoe * 365 + @divFloor(yoe, 4) - @divFloor(yoe, 100) + doy;
+    return era * 146097 + doe - 719468;
+}
+
+fn csil_timestamp_put(buf: []u8, at: usize, value: i64, width: usize) void {
+    var v: u64 = @intCast(value);
+    var k = width;
+    while (k > 0) {
+        k -= 1;
+        buf[at + k] = '0' + @as(u8, @intCast(v % 10));
+        v /= 10;
+    }
+}
+
+/// `0001-01-01T00:00:00Z` and `9999-12-31T23:59:59Z` as epoch seconds.
+const csil_epoch_first: i64 = -62135596800;
+const csil_epoch_last: i64 = 253402300799;
+
+const CsilInstant = struct { seconds: i64, nanos: i64 };
+
+/// Reads the strict RFC 3339 form of the wire contract into UTC epoch seconds and
+/// nanoseconds. The year must be 0001 to 9999 after conversion to UTC.
+fn csil_timestamp_parse(s: []const u8) CodecError!CsilInstant {
+    if (s.len < 20 or s[4] != '-' or s[7] != '-' or (s[10] != 'T' and s[10] != 't') or
+        s[13] != ':' or s[16] != ':') return error.WrongType;
+    const year = try csil_timestamp_digits(s, 0, 4);
+    const month = try csil_timestamp_digits(s, 5, 2);
+    const day = try csil_timestamp_digits(s, 8, 2);
+    const hour = try csil_timestamp_digits(s, 11, 2);
+    const minute = try csil_timestamp_digits(s, 14, 2);
+    const second = try csil_timestamp_digits(s, 17, 2);
+    const leap = @mod(year, 4) == 0 and (@mod(year, 100) != 0 or @mod(year, 400) == 0);
+    const days = [_]i64{ 31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    if (year < 1 or month < 1 or month > 12 or day < 1 or day > days[@intCast(month - 1)]) return error.WrongType;
+    if (hour > 23 or minute > 59 or second > 59) return error.WrongType;
+    var i: usize = 19;
+    var nanos: i64 = 0;
+    if (s[i] == '.') {
+        i += 1;
+        const start = i;
+        while (i < s.len and s[i] >= '0' and s[i] <= '9') : (i += 1) {}
+        var width = i - start;
+        if (width < 1 or width > 9) return error.WrongType;
+        nanos = try csil_timestamp_digits(s, start, width);
+        while (width < 9) : (width += 1) nanos *= 10;
+    }
+    if (i >= s.len) return error.WrongType;
+    var offset: i64 = 0;
+    if ((s[i] == '+' or s[i] == '-') and i + 6 == s.len and s[i + 3] == ':') {
+        const oh = try csil_timestamp_digits(s, i + 1, 2);
+        const om = try csil_timestamp_digits(s, i + 4, 2);
+        if (oh > 23 or om > 59) return error.WrongType;
+        offset = oh * 3600 + om * 60;
+        if (s[i] == '-') offset = -offset;
+    } else if ((s[i] != 'Z' and s[i] != 'z') or i + 1 != s.len) {
+        return error.WrongType;
+    }
+    const utc = csil_days_from_civil(year, month, day) * 86400 + hour * 3600 + minute * 60 + second - offset;
+    if (utc < csil_epoch_first or utc > csil_epoch_last) return error.WrongType;
+    return .{ .seconds = utc, .nanos = nanos };
+}
+
+/// Writes the canonical UTC text for an instant already known to lie in years
+/// 0001 to 9999, so that both wire forms produce the same text.
+fn csil_timestamp_write(utc: i64, nanos: i64, buf: *[csil_timestamp_max_len]u8) []const u8 {
+    const z = @divFloor(utc, 86400) + 719468;
+    const sod = @mod(utc, 86400);
+    const era = @divFloor(z, 146097);
+    const doe = z - era * 146097;
+    const yoe = @divFloor(doe - @divFloor(doe, 1460) + @divFloor(doe, 36524) - @divFloor(doe, 146096), 365);
+    const doy = doe - (365 * yoe + @divFloor(yoe, 4) - @divFloor(yoe, 100));
+    const mp = @divFloor(5 * doy + 2, 153);
+    const d = doy - @divFloor(153 * mp + 2, 5) + 1;
+    const m = if (mp < 10) mp + 3 else mp - 9;
+    const y = yoe + era * 400 + @as(i64, if (m <= 2) 1 else 0);
+    csil_timestamp_put(buf, 0, y, 4);
+    buf[4] = '-';
+    csil_timestamp_put(buf, 5, m, 2);
+    buf[7] = '-';
+    csil_timestamp_put(buf, 8, d, 2);
+    buf[10] = 'T';
+    csil_timestamp_put(buf, 11, @divFloor(sod, 3600), 2);
+    buf[13] = ':';
+    csil_timestamp_put(buf, 14, @mod(@divFloor(sod, 60), 60), 2);
+    buf[16] = ':';
+    csil_timestamp_put(buf, 17, @mod(sod, 60), 2);
+    var len: usize = 19;
+    if (nanos != 0) {
+        // The fewest of 3, 6, or 9 digits that hold the value exactly, so every
+        // peer writes the same bytes for the same instant.
+        const width: usize = if (@mod(nanos, 1_000_000) == 0) 3 else if (@mod(nanos, 1000) == 0) 6 else 9;
+        const scaled = if (width == 3) @divFloor(nanos, 1_000_000) else if (width == 6) @divFloor(nanos, 1000) else nanos;
+        buf[len] = '.';
+        csil_timestamp_put(buf, len + 1, scaled, width);
+        len += 1 + width;
+    }
+    buf[len] = 'Z';
+    return buf[0 .. len + 1];
+}
+
+/// Validates the strict RFC 3339 form of the wire contract and writes the canonical
+/// UTC spelling into `buf`, so equal instants compare equal as text.
+fn csil_timestamp_text(s: []const u8, buf: *[csil_timestamp_max_len]u8, epoch: *i64) CodecError![]const u8 {
+    const instant = try csil_timestamp_parse(s);
+    epoch.* = instant.seconds;
+    return csil_timestamp_write(instant.seconds, instant.nanos, buf);
+}
+
+/// Decoded text that is already canonical is borrowed as is; only a value that
+/// needs normalizing costs an allocation.
+fn csil_as_timestamp(alloc: std.mem.Allocator, v: Value) CodecError!CsilTimestampParts {
+    const raw = try as_tagged_text(v, 0);
+    var buf: [csil_timestamp_max_len]u8 = undefined;
+    var epoch: i64 = 0;
+    const canonical = try csil_timestamp_text(raw, &buf, &epoch);
+    const text = if (std.mem.eql(u8, canonical, raw)) raw else try alloc.dupe(u8, canonical);
+    return .{ .rfc3339 = text, .epoch_seconds = epoch };
+}
+
+/// A caller-built value is normalized too, so the wire never carries an offset,
+/// lowercase separators, or a non-minimal fraction.
+fn csil_w_timestamp(out: *std.ArrayList(u8), text: []const u8) CodecError!void {
+    var buf: [csil_timestamp_max_len]u8 = undefined;
+    var epoch: i64 = 0;
+    const canonical = try csil_timestamp_text(text, &buf, &epoch);
+    try w_tag(out, 0);
+    try w_text(out, canonical);
+}
+
+/// `cddl_time`: tag 1 around epoch seconds, kept as the same canonical text as a
+/// `timestamp` so both wire forms compare equal for one instant.
+fn csil_as_epoch(alloc: std.mem.Allocator, v: Value) CodecError!CsilTimestampParts {
+    if (v != .tag or v.tag.num != 1) return error.WrongType;
+    var seconds: i64 = 0;
+    var units: i64 = 0;
+    switch (v.tag.content.*) {
+        .uint => |n| {
+            if (n > @as(u64, @intCast(csil_epoch_last))) return error.WrongType;
+            seconds = @intCast(n);
+        },
+        .int => |n| seconds = n,
+        .float => |value| {
+            // The range test also refuses NaN and infinity, and it comes before
+            // the conversion to an integer, which panics out of range.
+            const low: f64 = @floatFromInt(csil_epoch_first - 1);
+            const high: f64 = @floatFromInt(csil_epoch_last + 1);
+            if (!(value >= low and value <= high)) return error.WrongType;
+            const whole = @floor(value);
+            seconds = @intFromFloat(whole);
+            // Two operations, not a fused multiply-add, which can round differently.
+            const scaled = (value - whole) * 1e9;
+            units = @intFromFloat(@floor(scaled + 0.5));
+            if (units == 1_000_000_000) {
+                seconds += 1;
+                units = 0;
+            }
+        },
+        else => return error.WrongType,
+    }
+    if (seconds < csil_epoch_first or seconds > csil_epoch_last) return error.WrongType;
+    var buf: [csil_timestamp_max_len]u8 = undefined;
+    const text = try alloc.dupe(u8, csil_timestamp_write(seconds, units, &buf));
+    return .{ .rfc3339 = text, .epoch_seconds = seconds };
+}
+
+fn csil_w_epoch(out: *std.ArrayList(u8), text: []const u8) CodecError!void {
+    const instant = try csil_timestamp_parse(text);
+    try w_tag(out, 1);
+    if (instant.nanos == 0) return w_int(out, instant.seconds);
+    const seconds: f64 = @floatFromInt(instant.seconds);
+    const fraction = @as(f64, @floatFromInt(instant.nanos)) / 1e9;
+    try w_f64(out, seconds + fraction);
 }
 
 const Decimal = struct { exp: i64, mant: i64 };
@@ -463,23 +722,23 @@ fn dec_Scope(alloc: std.mem.Allocator, src: Value, out: *types.Scope) CodecError
     _ = alloc;
     const csil_s = try as_text(src);
     if (std.mem.eql(u8, csil_s, "calendars.read")) {
-        out.* = .@"calendars.read";
+        out.* = .calendars_read;
         return;
     }
     if (std.mem.eql(u8, csil_s, "freebusy.read")) {
-        out.* = .@"freebusy.read";
+        out.* = .freebusy_read;
         return;
     }
     if (std.mem.eql(u8, csil_s, "events.write")) {
-        out.* = .@"events.write";
+        out.* = .events_write;
         return;
     }
     if (std.mem.eql(u8, csil_s, "events.respond")) {
-        out.* = .@"events.respond";
+        out.* = .events_respond;
         return;
     }
     if (std.mem.eql(u8, csil_s, "calendars.manage")) {
-        out.* = .@"calendars.manage";
+        out.* = .calendars_manage;
         return;
     }
     return error.WrongType;
@@ -739,7 +998,7 @@ fn dec_IdentityRef(alloc: std.mem.Allocator, m: Value, out: *types.IdentityRef) 
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "domain");
+        const csil_fv = try csil_required_field(m, "domain");
         out.domain = try as_text(csil_fv);
     }
     {
@@ -792,11 +1051,9 @@ fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "updated_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.updated_at).rfc3339);
+    try csil_w_timestamp(out, (v.updated_at).rfc3339);
     if (v.display_name) |csil_x| {
         try w_text(out, "display_name");
         try w_text(out, csil_x);
@@ -808,7 +1065,6 @@ fn enc_User(out: *std.ArrayList(u8), v: *const types.User) CodecError!void {
 }
 
 fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!void {
-    _ = alloc;
     if (m != .map) return error.WrongType;
     {
         if (mget(m, "email")) |csil_fv| {
@@ -818,7 +1074,7 @@ fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!voi
         }
     }
     {
-        const csil_fv = try req(m, "domain");
+        const csil_fv = try csil_required_field(m, "domain");
         out.domain = try as_text(csil_fv);
     }
     {
@@ -829,11 +1085,11 @@ fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!voi
         }
     }
     {
-        const csil_fv = try req(m, "subject");
+        const csil_fv = try csil_required_field(m, "subject");
         out.subject = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "user_id");
+        const csil_fv = try csil_required_field(m, "user_id");
         out.user_id = try as_text(csil_fv);
     }
     {
@@ -844,12 +1100,18 @@ fn dec_User(alloc: std.mem.Allocator, m: Value, out: *types.User) CodecError!voi
         }
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "updated_at");
-        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "updated_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.updated_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "display_name")) |csil_fv| {
@@ -897,7 +1159,7 @@ fn dec_PersonSummary(alloc: std.mem.Allocator, m: Value, out: *types.PersonSumma
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "domain");
+        const csil_fv = try csil_required_field(m, "domain");
         out.domain = try as_text(csil_fv);
     }
     {
@@ -908,11 +1170,11 @@ fn dec_PersonSummary(alloc: std.mem.Allocator, m: Value, out: *types.PersonSumma
         }
     }
     {
-        const csil_fv = try req(m, "subject");
+        const csil_fv = try csil_required_field(m, "subject");
         out.subject = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "user_id");
+        const csil_fv = try csil_required_field(m, "user_id");
         out.user_id = try as_text(csil_fv);
     }
     {
@@ -962,8 +1224,7 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "is_default");
     try w_bool(out, v.is_default);
     if (v.source_url) |csil_x| {
@@ -975,8 +1236,7 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
         try w_text(out, csil_x);
     }
     try w_text(out, "updated_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.updated_at).rfc3339);
+    try csil_w_timestamp(out, (v.updated_at).rfc3339);
     try w_text(out, "access_path");
     try enc_AccessPath(out, &(v.access_path));
     try w_text(out, "calendar_id");
@@ -987,19 +1247,18 @@ fn enc_Calendar(out: *std.ArrayList(u8), v: *const types.Calendar) CodecError!vo
     }
     if (v.last_synced_at) |csil_x| {
         try w_text(out, "last_synced_at");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "kind");
+        const csil_fv = try csil_required_field(m, "kind");
         try dec_CalendarKind(alloc, csil_fv, &(out.kind));
     }
     {
-        const csil_fv = try req(m, "name");
+        const csil_fv = try csil_required_field(m, "name");
         out.name = try as_text(csil_fv);
     }
     {
@@ -1010,11 +1269,11 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
         }
     }
     {
-        const csil_fv = try req(m, "owner");
+        const csil_fv = try csil_required_field(m, "owner");
         try dec_PersonSummary(alloc, csil_fv, &(out.owner));
     }
     {
-        const csil_fv = try req(m, "access");
+        const csil_fv = try csil_required_field(m, "access");
         try dec_AccessRole(alloc, csil_fv, &(out.access));
     }
     {
@@ -1032,11 +1291,14 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
         }
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "is_default");
+        const csil_fv = try csil_required_field(m, "is_default");
         out.is_default = try as_bool(csil_fv);
     }
     {
@@ -1054,15 +1316,18 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
         }
     }
     {
-        const csil_fv = try req(m, "updated_at");
-        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "updated_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.updated_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "access_path");
+        const csil_fv = try csil_required_field(m, "access_path");
         try dec_AccessPath(alloc, csil_fv, &(out.access_path));
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
@@ -1074,7 +1339,10 @@ fn dec_Calendar(alloc: std.mem.Allocator, m: Value, out: *types.Calendar) CodecE
     }
     {
         if (mget(m, "last_synced_at")) |csil_fv| {
-            out.last_synced_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.last_synced_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.last_synced_at = null;
         }
@@ -1107,7 +1375,7 @@ fn dec_CreateCalendarRequest(alloc: std.mem.Allocator, m: Value, out: *types.Cre
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "name");
+        const csil_fv = try csil_required_field(m, "name");
         out.name = try as_text(csil_fv);
     }
     {
@@ -1185,7 +1453,7 @@ fn dec_UpdateCalendarRequest(alloc: std.mem.Allocator, m: Value, out: *types.Upd
         }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
@@ -1215,7 +1483,7 @@ fn dec_SubscribeCalendarRequest(alloc: std.mem.Allocator, m: Value, out: *types.
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "name");
+        const csil_fv = try csil_required_field(m, "name");
         out.name = try as_text(csil_fv);
     }
     {
@@ -1226,7 +1494,7 @@ fn dec_SubscribeCalendarRequest(alloc: std.mem.Allocator, m: Value, out: *types.
         }
     }
     {
-        const csil_fv = try req(m, "source_url");
+        const csil_fv = try csil_required_field(m, "source_url");
         out.source_url = try as_text(csil_fv);
     }
 }
@@ -1243,11 +1511,11 @@ fn dec_SetFeedRequest(alloc: std.mem.Allocator, m: Value, out: *types.SetFeedReq
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "enabled");
+        const csil_fv = try csil_required_field(m, "enabled");
         out.enabled = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
 }
@@ -1264,7 +1532,7 @@ fn enc_CalendarList(out: *std.ArrayList(u8), v: *const types.CalendarList) Codec
 fn dec_CalendarList(alloc: std.mem.Allocator, m: Value, out: *types.CalendarList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "calendars");
+        const csil_fv = try csil_required_field(m, "calendars");
         if (csil_fv != .array) return error.WrongType;
         out.calendars = try alloc.alloc(types.Calendar, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1289,8 +1557,7 @@ fn enc_Share(out: *std.ArrayList(u8), v: *const types.Share) CodecError!void {
     try w_text(out, "share_id");
     try w_text(out, v.share_id);
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     if (v.grantee_person) |csil_x| {
@@ -1310,34 +1577,37 @@ fn enc_Share(out: *std.ArrayList(u8), v: *const types.Share) CodecError!void {
 fn dec_Share(alloc: std.mem.Allocator, m: Value, out: *types.Share) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "role");
+        const csil_fv = try csil_required_field(m, "role");
         try dec_ShareRole(alloc, csil_fv, &(out.role));
     }
     {
         if (mget(m, "grantee")) |csil_fv| {
             var csil_tmp: types.IdentityRef = undefined;
-            try dec_IdentityRef(alloc, csil_fv, &csil_tmp);
+            try dec_IdentityRef(alloc, csil_fv, &(csil_tmp));
             out.grantee = csil_tmp;
         } else {
             out.grantee = null;
         }
     }
     {
-        const csil_fv = try req(m, "share_id");
+        const csil_fv = try csil_required_field(m, "share_id");
         out.share_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "grantee_person")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.grantee_person = csil_tmp;
         } else {
             out.grantee_person = null;
@@ -1371,7 +1641,7 @@ fn enc_ShareList(out: *std.ArrayList(u8), v: *const types.ShareList) CodecError!
 fn dec_ShareList(alloc: std.mem.Allocator, m: Value, out: *types.ShareList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "shares");
+        const csil_fv = try csil_required_field(m, "shares");
         if (csil_fv != .array) return error.WrongType;
         out.shares = try alloc.alloc(types.Share, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1410,7 +1680,7 @@ fn dec_GroupMember(alloc: std.mem.Allocator, m: Value, out: *types.GroupMember) 
     {
         if (mget(m, "person")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.person = csil_tmp;
         } else {
             out.person = null;
@@ -1426,7 +1696,7 @@ fn dec_GroupMember(alloc: std.mem.Allocator, m: Value, out: *types.GroupMember) 
     {
         if (mget(m, "identity")) |csil_fv| {
             var csil_tmp: types.IdentityRef = undefined;
-            try dec_IdentityRef(alloc, csil_fv, &csil_tmp);
+            try dec_IdentityRef(alloc, csil_fv, &(csil_tmp));
             out.identity = csil_tmp;
         } else {
             out.identity = null;
@@ -1459,11 +1729,9 @@ fn enc_Group(out: *std.ArrayList(u8), v: *const types.Group) CodecError!void {
     try w_text(out, "revision");
     try w_uint(out, v.revision);
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "updated_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.updated_at).rfc3339);
+    try csil_w_timestamp(out, (v.updated_at).rfc3339);
     if (v.description) |csil_x| {
         try w_text(out, "description");
         try w_text(out, csil_x);
@@ -1473,15 +1741,15 @@ fn enc_Group(out: *std.ArrayList(u8), v: *const types.Group) CodecError!void {
 fn dec_Group(alloc: std.mem.Allocator, m: Value, out: *types.Group) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "name");
+        const csil_fv = try csil_required_field(m, "name");
         out.name = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "owner");
+        const csil_fv = try csil_required_field(m, "owner");
         try dec_PersonSummary(alloc, csil_fv, &(out.owner));
     }
     {
-        const csil_fv = try req(m, "members");
+        const csil_fv = try csil_required_field(m, "members");
         if (csil_fv != .array) return error.WrongType;
         out.members = try alloc.alloc(types.GroupMember, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1489,20 +1757,26 @@ fn dec_Group(alloc: std.mem.Allocator, m: Value, out: *types.Group) CodecError!v
         }
     }
     {
-        const csil_fv = try req(m, "group_id");
+        const csil_fv = try csil_required_field(m, "group_id");
         out.group_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "revision");
+        const csil_fv = try csil_required_field(m, "revision");
         out.revision = try as_u64(csil_fv);
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "updated_at");
-        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "updated_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.updated_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "description")) |csil_fv| {
@@ -1536,7 +1810,7 @@ fn enc_CreateGroupRequest(out: *std.ArrayList(u8), v: *const types.CreateGroupRe
 fn dec_CreateGroupRequest(alloc: std.mem.Allocator, m: Value, out: *types.CreateGroupRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "name");
+        const csil_fv = try csil_required_field(m, "name");
         out.name = try as_text(csil_fv);
     }
     {
@@ -1588,7 +1862,7 @@ fn dec_UpdateGroupRequest(alloc: std.mem.Allocator, m: Value, out: *types.Update
         }
     }
     {
-        const csil_fv = try req(m, "group_id");
+        const csil_fv = try csil_required_field(m, "group_id");
         out.group_id = try as_text(csil_fv);
     }
     {
@@ -1620,7 +1894,7 @@ fn enc_SetGroupMembersRequest(out: *std.ArrayList(u8), v: *const types.SetGroupM
 fn dec_SetGroupMembersRequest(alloc: std.mem.Allocator, m: Value, out: *types.SetGroupMembersRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "members");
+        const csil_fv = try csil_required_field(m, "members");
         if (csil_fv != .array) return error.WrongType;
         out.members = try alloc.alloc(types.GroupMember, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1628,7 +1902,7 @@ fn dec_SetGroupMembersRequest(alloc: std.mem.Allocator, m: Value, out: *types.Se
         }
     }
     {
-        const csil_fv = try req(m, "group_id");
+        const csil_fv = try csil_required_field(m, "group_id");
         out.group_id = try as_text(csil_fv);
     }
     {
@@ -1652,7 +1926,7 @@ fn enc_GroupList(out: *std.ArrayList(u8), v: *const types.GroupList) CodecError!
 fn dec_GroupList(alloc: std.mem.Allocator, m: Value, out: *types.GroupList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "groups");
+        const csil_fv = try csil_required_field(m, "groups");
         if (csil_fv != .array) return error.WrongType;
         out.groups = try alloc.alloc(types.Group, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1683,17 +1957,14 @@ fn enc_Delegation(out: *std.ArrayList(u8), v: *const types.Delegation) CodecErro
     try w_text(out, "principal");
     try enc_PersonSummary(out, &(v.principal));
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     if (v.expires_at) |csil_x| {
         try w_text(out, "expires_at");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     if (v.revoked_at) |csil_x| {
         try w_text(out, "revoked_at");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     if (v.calendar_ids) |csil_arr| {
         try w_text(out, "calendar_ids");
@@ -1720,7 +1991,7 @@ fn dec_Delegation(alloc: std.mem.Allocator, m: Value, out: *types.Delegation) Co
         }
     }
     {
-        const csil_fv = try req(m, "scopes");
+        const csil_fv = try csil_required_field(m, "scopes");
         if (csil_fv != .array) return error.WrongType;
         out.scopes = try alloc.alloc(types.Scope, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1728,27 +1999,36 @@ fn dec_Delegation(alloc: std.mem.Allocator, m: Value, out: *types.Delegation) Co
         }
     }
     {
-        const csil_fv = try req(m, "delegate");
+        const csil_fv = try csil_required_field(m, "delegate");
         try dec_IdentityRef(alloc, csil_fv, &(out.delegate));
     }
     {
-        const csil_fv = try req(m, "principal");
+        const csil_fv = try csil_required_field(m, "principal");
         try dec_PersonSummary(alloc, csil_fv, &(out.principal));
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "expires_at")) |csil_fv| {
-            out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.expires_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.expires_at = null;
         }
     }
     {
         if (mget(m, "revoked_at")) |csil_fv| {
-            out.revoked_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.revoked_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.revoked_at = null;
         }
@@ -1766,13 +2046,13 @@ fn dec_Delegation(alloc: std.mem.Allocator, m: Value, out: *types.Delegation) Co
         }
     }
     {
-        const csil_fv = try req(m, "delegation_id");
+        const csil_fv = try csil_required_field(m, "delegation_id");
         out.delegation_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "delegate_person")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.delegate_person = csil_tmp;
         } else {
             out.delegate_person = null;
@@ -1792,7 +2072,7 @@ fn enc_DelegationList(out: *std.ArrayList(u8), v: *const types.DelegationList) C
 fn dec_DelegationList(alloc: std.mem.Allocator, m: Value, out: *types.DelegationList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "delegations");
+        const csil_fv = try csil_required_field(m, "delegations");
         if (csil_fv != .array) return error.WrongType;
         out.delegations = try alloc.alloc(types.Delegation, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -1811,7 +2091,7 @@ fn dec_AssumePrincipalRequest(alloc: std.mem.Allocator, m: Value, out: *types.As
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "principal_user_id");
+        const csil_fv = try csil_required_field(m, "principal_user_id");
         out.principal_user_id = try as_text(csil_fv);
     }
 }
@@ -1827,16 +2107,14 @@ fn enc_Recurrence(out: *std.ArrayList(u8), v: *const types.Recurrence) CodecErro
         try w_text(out, "rdates");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_tag(out, 0);
-            try w_text(out, (csil_it).rfc3339);
+            try csil_w_timestamp(out, (csil_it).rfc3339);
         }
     }
     if (v.exdates) |csil_arr| {
         try w_text(out, "exdates");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_tag(out, 0);
-            try w_text(out, (csil_it).rfc3339);
+            try csil_w_timestamp(out, (csil_it).rfc3339);
         }
     }
 }
@@ -1844,7 +2122,7 @@ fn enc_Recurrence(out: *std.ArrayList(u8), v: *const types.Recurrence) CodecErro
 fn dec_Recurrence(alloc: std.mem.Allocator, m: Value, out: *types.Recurrence) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "rrule");
+        const csil_fv = try csil_required_field(m, "rrule");
         out.rrule = try as_text(csil_fv);
     }
     {
@@ -1852,7 +2130,10 @@ fn dec_Recurrence(alloc: std.mem.Allocator, m: Value, out: *types.Recurrence) Co
             if (csil_fv != .array) return error.WrongType;
             const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
+                {
+                    const csil_ts = try csil_as_timestamp(alloc, csil_it);
+                    csil_tmp[csil_i] = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+                }
             }
             out.rdates = csil_tmp;
         } else {
@@ -1864,7 +2145,10 @@ fn dec_Recurrence(alloc: std.mem.Allocator, m: Value, out: *types.Recurrence) Co
             if (csil_fv != .array) return error.WrongType;
             const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
+                {
+                    const csil_ts = try csil_as_timestamp(alloc, csil_it);
+                    csil_tmp[csil_i] = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+                }
             }
             out.exdates = csil_tmp;
         } else {
@@ -1930,7 +2214,7 @@ fn dec_Attendee(alloc: std.mem.Allocator, m: Value, out: *types.Attendee) CodecE
     {
         if (mget(m, "role")) |csil_fv| {
             var csil_tmp: types.AttendeeRole = undefined;
-            try dec_AttendeeRole(alloc, csil_fv, &csil_tmp);
+            try dec_AttendeeRole(alloc, csil_fv, &(csil_tmp));
             out.role = csil_tmp;
         } else {
             out.role = null;
@@ -1953,7 +2237,7 @@ fn dec_Attendee(alloc: std.mem.Allocator, m: Value, out: *types.Attendee) CodecE
     {
         if (mget(m, "person")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.person = csil_tmp;
         } else {
             out.person = null;
@@ -1962,7 +2246,7 @@ fn dec_Attendee(alloc: std.mem.Allocator, m: Value, out: *types.Attendee) CodecE
     {
         if (mget(m, "status")) |csil_fv| {
             var csil_tmp: types.ParticipationStatus = undefined;
-            try dec_ParticipationStatus(alloc, csil_fv, &csil_tmp);
+            try dec_ParticipationStatus(alloc, csil_fv, &(csil_tmp));
             out.status = csil_tmp;
         } else {
             out.status = null;
@@ -1971,7 +2255,7 @@ fn dec_Attendee(alloc: std.mem.Allocator, m: Value, out: *types.Attendee) CodecE
     {
         if (mget(m, "identity")) |csil_fv| {
             var csil_tmp: types.IdentityRef = undefined;
-            try dec_IdentityRef(alloc, csil_fv, &csil_tmp);
+            try dec_IdentityRef(alloc, csil_fv, &(csil_tmp));
             out.identity = csil_tmp;
         } else {
             out.identity = null;
@@ -1980,7 +2264,7 @@ fn dec_Attendee(alloc: std.mem.Allocator, m: Value, out: *types.Attendee) CodecE
     {
         if (mget(m, "responded_by")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.responded_by = csil_tmp;
         } else {
             out.responded_by = null;
@@ -2005,14 +2289,14 @@ fn dec_Reminder(alloc: std.mem.Allocator, m: Value, out: *types.Reminder) CodecE
     {
         if (mget(m, "method")) |csil_fv| {
             var csil_tmp: types.ReminderMethod = undefined;
-            try dec_ReminderMethod(alloc, csil_fv, &csil_tmp);
+            try dec_ReminderMethod(alloc, csil_fv, &(csil_tmp));
             out.method = csil_tmp;
         } else {
             out.method = null;
         }
     }
     {
-        const csil_fv = try req(m, "minutes_before");
+        const csil_fv = try csil_required_field(m, "minutes_before");
         out.minutes_before = try as_i64(csil_fv);
     }
 }
@@ -2047,8 +2331,7 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     try w_map_head(out, csil_n);
     if (v.end) |csil_x| {
         try w_text(out, "end");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     if (v.uid) |csil_x| {
         try w_text(out, "uid");
@@ -2064,8 +2347,7 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.start) |csil_x| {
         try w_text(out, "start");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     try w_text(out, "title");
     try w_text(out, v.title);
@@ -2120,8 +2402,7 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
         }
     }
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     if (v.created_by) |csil_x| {
         try w_text(out, "created_by");
         try enc_PersonSummary(out, &(csil_x));
@@ -2136,8 +2417,7 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
         try w_text(out, try calendar_date(csil_x));
     }
     try w_text(out, "updated_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.updated_at).rfc3339);
+    try csil_w_timestamp(out, (v.updated_at).rfc3339);
     if (v.updated_by) |csil_x| {
         try w_text(out, "updated_by");
         try enc_PersonSummary(out, &(csil_x));
@@ -2162,8 +2442,7 @@ fn enc_Event(out: *std.ArrayList(u8), v: *const types.Event) CodecError!void {
     }
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     if (v.conference_url) |csil_x| {
         try w_text(out, "conference_url");
@@ -2179,7 +2458,10 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     if (m != .map) return error.WrongType;
     {
         if (mget(m, "end")) |csil_fv| {
-            out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.end = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.end = null;
         }
@@ -2207,19 +2489,22 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "start")) |csil_fv| {
-            out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.start = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.start = null;
         }
     }
     {
-        const csil_fv = try req(m, "title");
+        const csil_fv = try csil_required_field(m, "title");
         out.title = try as_text(csil_fv);
     }
     {
         if (mget(m, "status")) |csil_fv| {
             var csil_tmp: types.EventStatus = undefined;
-            try dec_EventStatus(alloc, csil_fv, &csil_tmp);
+            try dec_EventStatus(alloc, csil_fv, &(csil_tmp));
             out.status = csil_tmp;
         } else {
             out.status = null;
@@ -2240,7 +2525,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
         }
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
@@ -2251,7 +2536,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
         }
     }
     {
-        const csil_fv = try req(m, "sequence");
+        const csil_fv = try csil_required_field(m, "sequence");
         out.sequence = try as_i64(csil_fv);
     }
     {
@@ -2276,7 +2561,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     {
         if (mget(m, "organizer")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.organizer = csil_tmp;
         } else {
             out.organizer = null;
@@ -2307,13 +2592,16 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
         }
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "created_by")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.created_by = csil_tmp;
         } else {
             out.created_by = null;
@@ -2322,7 +2610,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     {
         if (mget(m, "recurrence")) |csil_fv| {
             var csil_tmp: types.Recurrence = undefined;
-            try dec_Recurrence(alloc, csil_fv, &csil_tmp);
+            try dec_Recurrence(alloc, csil_fv, &(csil_tmp));
             out.recurrence = csil_tmp;
         } else {
             out.recurrence = null;
@@ -2336,13 +2624,16 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
         }
     }
     {
-        const csil_fv = try req(m, "updated_at");
-        out.updated_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "updated_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.updated_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "updated_by")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.updated_by = csil_tmp;
         } else {
             out.updated_by = null;
@@ -2351,14 +2642,14 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     {
         if (mget(m, "visibility")) |csil_fv| {
             var csil_tmp: types.EventVisibility = undefined;
-            try dec_EventVisibility(alloc, csil_fv, &csil_tmp);
+            try dec_EventVisibility(alloc, csil_fv, &(csil_tmp));
             out.visibility = csil_tmp;
         } else {
             out.visibility = null;
         }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
@@ -2371,7 +2662,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     {
         if (mget(m, "updated_via")) |csil_fv| {
             var csil_tmp: types.ActingVia = undefined;
-            try dec_ActingVia(alloc, csil_fv, &csil_tmp);
+            try dec_ActingVia(alloc, csil_fv, &(csil_tmp));
             out.updated_via = csil_tmp;
         } else {
             out.updated_via = null;
@@ -2380,7 +2671,7 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     {
         if (mget(m, "transparency")) |csil_fv| {
             var csil_tmp: types.EventTransparency = undefined;
-            try dec_EventTransparency(alloc, csil_fv, &csil_tmp);
+            try dec_EventTransparency(alloc, csil_fv, &(csil_tmp));
             out.transparency = csil_tmp;
         } else {
             out.transparency = null;
@@ -2388,7 +2679,10 @@ fn dec_Event(alloc: std.mem.Allocator, m: Value, out: *types.Event) CodecError!v
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -2414,13 +2708,11 @@ fn enc_Occurrence(out: *std.ArrayList(u8), v: *const types.Occurrence) CodecErro
     if (v.recurrence_id != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "end");
-    try w_tag(out, 0);
-    try w_text(out, (v.end).rfc3339);
+    try csil_w_timestamp(out, (v.end).rfc3339);
     try w_text(out, "event");
     try enc_Event(out, &(v.event));
     try w_text(out, "start");
-    try w_tag(out, 0);
-    try w_text(out, (v.start).rfc3339);
+    try csil_w_timestamp(out, (v.start).rfc3339);
     try w_text(out, "access");
     try enc_AccessRole(out, &(v.access));
     try w_text(out, "invited");
@@ -2429,40 +2721,48 @@ fn enc_Occurrence(out: *std.ArrayList(u8), v: *const types.Occurrence) CodecErro
     try w_bool(out, v.busy_only);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_Occurrence(alloc: std.mem.Allocator, m: Value, out: *types.Occurrence) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "end");
-        out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "end");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.end = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
-        const csil_fv = try req(m, "start");
-        out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "start");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.start = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "access");
+        const csil_fv = try csil_required_field(m, "access");
         try dec_AccessRole(alloc, csil_fv, &(out.access));
     }
     {
-        const csil_fv = try req(m, "invited");
+        const csil_fv = try csil_required_field(m, "invited");
         out.invited = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "busy_only");
+        const csil_fv = try csil_required_field(m, "busy_only");
         out.busy_only = try as_bool(csil_fv);
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -2475,11 +2775,9 @@ fn enc_ListEventsRequest(out: *std.ArrayList(u8), v: *const types.ListEventsRequ
     if (v.include_invitations != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "range_end");
-    try w_tag(out, 0);
-    try w_text(out, (v.range_end).rfc3339);
+    try csil_w_timestamp(out, (v.range_end).rfc3339);
     try w_text(out, "range_start");
-    try w_tag(out, 0);
-    try w_text(out, (v.range_start).rfc3339);
+    try csil_w_timestamp(out, (v.range_start).rfc3339);
     if (v.calendar_ids) |csil_arr| {
         try w_text(out, "calendar_ids");
         try w_array_head(out, csil_arr.len);
@@ -2496,12 +2794,18 @@ fn enc_ListEventsRequest(out: *std.ArrayList(u8), v: *const types.ListEventsRequ
 fn dec_ListEventsRequest(alloc: std.mem.Allocator, m: Value, out: *types.ListEventsRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "range_end");
-        out.range_end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "range_end");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.range_end = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "range_start");
-        out.range_start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "range_start");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.range_start = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "calendar_ids")) |csil_fv| {
@@ -2538,11 +2842,11 @@ fn enc_OccurrenceList(out: *std.ArrayList(u8), v: *const types.OccurrenceList) C
 fn dec_OccurrenceList(alloc: std.mem.Allocator, m: Value, out: *types.OccurrenceList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "truncated");
+        const csil_fv = try csil_required_field(m, "truncated");
         out.truncated = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "occurrences");
+        const csil_fv = try csil_required_field(m, "occurrences");
         if (csil_fv != .array) return error.WrongType;
         out.occurrences = try alloc.alloc(types.Occurrence, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -2564,21 +2868,20 @@ fn enc_UpdateEventRequest(out: *std.ArrayList(u8), v: *const types.UpdateEventRe
     }
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_UpdateEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.UpdateEventRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
         if (mget(m, "scope")) |csil_fv| {
             var csil_tmp: types.RecurrenceScope = undefined;
-            try dec_RecurrenceScope(alloc, csil_fv, &csil_tmp);
+            try dec_RecurrenceScope(alloc, csil_fv, &(csil_tmp));
             out.scope = csil_tmp;
         } else {
             out.scope = null;
@@ -2586,7 +2889,10 @@ fn dec_UpdateEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Update
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -2606,8 +2912,7 @@ fn enc_DeleteEventRequest(out: *std.ArrayList(u8), v: *const types.DeleteEventRe
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
@@ -2616,19 +2921,22 @@ fn dec_DeleteEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Delete
     {
         if (mget(m, "scope")) |csil_fv| {
             var csil_tmp: types.RecurrenceScope = undefined;
-            try dec_RecurrenceScope(alloc, csil_fv, &csil_tmp);
+            try dec_RecurrenceScope(alloc, csil_fv, &(csil_tmp));
             out.scope = csil_tmp;
         } else {
             out.scope = null;
         }
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -2669,11 +2977,11 @@ fn dec_MoveEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.MoveEven
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
 }
@@ -2697,75 +3005,81 @@ fn enc_TrashEntry(out: *std.ArrayList(u8), v: *const types.TrashEntry) CodecErro
     try w_text(out, "trash_id");
     try w_text(out, v.trash_id);
     try w_text(out, "deleted_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.deleted_at).rfc3339);
+    try csil_w_timestamp(out, (v.deleted_at).rfc3339);
     if (v.deleted_by) |csil_x| {
         try w_text(out, "deleted_by");
         try enc_PersonSummary(out, &(csil_x));
     }
     try w_text(out, "expires_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.expires_at).rfc3339);
+    try csil_w_timestamp(out, (v.expires_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_TrashEntry(alloc: std.mem.Allocator, m: Value, out: *types.TrashEntry) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
-        const csil_fv = try req(m, "scope");
+        const csil_fv = try csil_required_field(m, "scope");
         try dec_RecurrenceScope(alloc, csil_fv, &(out.scope));
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "instance")) |csil_fv| {
             var csil_tmp: types.Event = undefined;
-            try dec_Event(alloc, csil_fv, &csil_tmp);
+            try dec_Event(alloc, csil_fv, &(csil_tmp));
             out.instance = csil_tmp;
         } else {
             out.instance = null;
         }
     }
     {
-        const csil_fv = try req(m, "trash_id");
+        const csil_fv = try csil_required_field(m, "trash_id");
         out.trash_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "deleted_at");
-        out.deleted_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "deleted_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.deleted_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "deleted_by")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.deleted_by = csil_tmp;
         } else {
             out.deleted_by = null;
         }
     }
     {
-        const csil_fv = try req(m, "expires_at");
-        out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "expires_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.expires_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -2795,7 +3109,7 @@ fn dec_ListTrashRequest(alloc: std.mem.Allocator, m: Value, out: *types.ListTras
         }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
 }
@@ -2812,7 +3126,7 @@ fn enc_TrashList(out: *std.ArrayList(u8), v: *const types.TrashList) CodecError!
 fn dec_TrashList(alloc: std.mem.Allocator, m: Value, out: *types.TrashList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "entries");
+        const csil_fv = try csil_required_field(m, "entries");
         if (csil_fv != .array) return error.WrongType;
         out.entries = try alloc.alloc(types.TrashEntry, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -2831,7 +3145,7 @@ fn dec_RestoreEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Resto
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "trash_id");
+        const csil_fv = try csil_required_field(m, "trash_id");
         out.trash_id = try as_text(csil_fv);
     }
 }
@@ -2844,8 +3158,7 @@ fn enc_ImportEventRequest(out: *std.ArrayList(u8), v: *const types.ImportEventRe
     try enc_Event(out, &(v.event));
     if (v.created_at) |csil_x| {
         try w_text(out, "created_at");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
     try w_text(out, "created_by");
     try enc_IdentityRef(out, &(v.created_by));
@@ -2854,18 +3167,21 @@ fn enc_ImportEventRequest(out: *std.ArrayList(u8), v: *const types.ImportEventRe
 fn dec_ImportEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.ImportEventRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
         if (mget(m, "created_at")) |csil_fv| {
-            out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.created_at = null;
         }
     }
     {
-        const csil_fv = try req(m, "created_by");
+        const csil_fv = try csil_required_field(m, "created_by");
         try dec_IdentityRef(alloc, csil_fv, &(out.created_by));
     }
 }
@@ -2881,11 +3197,11 @@ fn enc_CreateEventOnceRequest(out: *std.ArrayList(u8), v: *const types.CreateEve
 fn dec_CreateEventOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.CreateEventOnceRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
 }
@@ -2902,11 +3218,11 @@ fn dec_CreateReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.Crea
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
 }
@@ -2931,8 +3247,7 @@ fn enc_CreateEventReceipt(out: *std.ArrayList(u8), v: *const types.CreateEventRe
         try w_text(out, csil_x);
     }
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     try w_text(out, "idempotency_key");
@@ -2944,22 +3259,22 @@ fn dec_CreateEventReceipt(alloc: std.mem.Allocator, m: Value, out: *types.Create
     {
         if (mget(m, "event")) |csil_fv| {
             var csil_tmp: types.Event = undefined;
-            try dec_Event(alloc, csil_fv, &csil_tmp);
+            try dec_Event(alloc, csil_fv, &(csil_tmp));
             out.event = csil_tmp;
         } else {
             out.event = null;
         }
     }
     {
-        const csil_fv = try req(m, "state");
+        const csil_fv = try csil_required_field(m, "state");
         try dec_CreateReceiptState(alloc, csil_fv, &(out.state));
     }
     {
-        const csil_fv = try req(m, "created");
+        const csil_fv = try csil_required_field(m, "created");
         out.created = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
@@ -2970,15 +3285,18 @@ fn dec_CreateEventReceipt(alloc: std.mem.Allocator, m: Value, out: *types.Create
         }
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
 }
@@ -2990,16 +3308,14 @@ fn enc_SplitSeriesOnceRequest(out: *std.ArrayList(u8), v: *const types.SplitSeri
     try w_text(out, "event");
     try enc_Event(out, &(v.event));
     try w_text(out, "recurrence_id");
-    try w_tag(out, 0);
-    try w_text(out, (v.recurrence_id).rfc3339);
+    try csil_w_timestamp(out, (v.recurrence_id).rfc3339);
     try w_text(out, "idempotency_key");
     try w_text(out, v.idempotency_key);
     if (v.map_recurrence_ids) |csil_arr| {
         try w_text(out, "map_recurrence_ids");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_tag(out, 0);
-            try w_text(out, (csil_it).rfc3339);
+            try csil_w_timestamp(out, (csil_it).rfc3339);
         }
     }
 }
@@ -3007,15 +3323,18 @@ fn enc_SplitSeriesOnceRequest(out: *std.ArrayList(u8), v: *const types.SplitSeri
 fn dec_SplitSeriesOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.SplitSeriesOnceRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event");
+        const csil_fv = try csil_required_field(m, "event");
         try dec_Event(alloc, csil_fv, &(out.event));
     }
     {
-        const csil_fv = try req(m, "recurrence_id");
-        out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "recurrence_id");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
     {
@@ -3023,7 +3342,10 @@ fn dec_SplitSeriesOnceRequest(alloc: std.mem.Allocator, m: Value, out: *types.Sp
             if (csil_fv != .array) return error.WrongType;
             const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
+                {
+                    const csil_ts = try csil_as_timestamp(alloc, csil_it);
+                    csil_tmp[csil_i] = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+                }
             }
             out.map_recurrence_ids = csil_tmp;
         } else {
@@ -3044,8 +3366,7 @@ fn enc_SplitReceiptRequest(out: *std.ArrayList(u8), v: *const types.SplitReceipt
         try w_text(out, "map_recurrence_ids");
         try w_array_head(out, csil_arr.len);
         for (csil_arr) |csil_it| {
-            try w_tag(out, 0);
-            try w_text(out, (csil_it).rfc3339);
+            try csil_w_timestamp(out, (csil_it).rfc3339);
         }
     }
 }
@@ -3053,11 +3374,11 @@ fn enc_SplitReceiptRequest(out: *std.ArrayList(u8), v: *const types.SplitReceipt
 fn dec_SplitReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.SplitReceiptRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "series_id");
+        const csil_fv = try csil_required_field(m, "series_id");
         out.series_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
     {
@@ -3065,7 +3386,10 @@ fn dec_SplitReceiptRequest(alloc: std.mem.Allocator, m: Value, out: *types.Split
             if (csil_fv != .array) return error.WrongType;
             const csil_tmp = try alloc.alloc(types.CsilTimestamp, csil_fv.array.len);
             for (csil_fv.array, 0..) |csil_it, csil_i| {
-                csil_tmp[csil_i] = .{ .rfc3339 = try as_tagged_text(csil_it, 0), .epoch_seconds = 0 };
+                {
+                    const csil_ts = try csil_as_timestamp(alloc, csil_it);
+                    csil_tmp[csil_i] = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+                }
             }
             out.map_recurrence_ids = csil_tmp;
         } else {
@@ -3108,19 +3432,17 @@ fn enc_SplitOccurrenceMapping(out: *std.ArrayList(u8), v: *const types.SplitOccu
         try w_text(out, csil_x);
     }
     try w_text(out, "recurrence_id");
-    try w_tag(out, 0);
-    try w_text(out, (v.recurrence_id).rfc3339);
+    try csil_w_timestamp(out, (v.recurrence_id).rfc3339);
     if (v.mapped_recurrence_id) |csil_x| {
         try w_text(out, "mapped_recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_SplitOccurrenceMapping(alloc: std.mem.Allocator, m: Value, out: *types.SplitOccurrenceMapping) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "result");
+        const csil_fv = try csil_required_field(m, "result");
         try dec_SplitMapResult(alloc, csil_fv, &(out.result));
     }
     {
@@ -3131,12 +3453,18 @@ fn dec_SplitOccurrenceMapping(alloc: std.mem.Allocator, m: Value, out: *types.Sp
         }
     }
     {
-        const csil_fv = try req(m, "recurrence_id");
-        out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "recurrence_id");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "mapped_recurrence_id")) |csil_fv| {
-            out.mapped_recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.mapped_recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.mapped_recurrence_id = null;
         }
@@ -3164,8 +3492,7 @@ fn enc_SplitSeriesReceipt(out: *std.ArrayList(u8), v: *const types.SplitSeriesRe
         try enc_SplitOccurrenceMapping(out, &(csil_it));
     }
     try w_text(out, "split_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.split_at).rfc3339);
+    try csil_w_timestamp(out, (v.split_at).rfc3339);
     try w_text(out, "series_id");
     try w_text(out, v.series_id);
     if (v.successor) |csil_x| {
@@ -3173,8 +3500,7 @@ fn enc_SplitSeriesReceipt(out: *std.ArrayList(u8), v: *const types.SplitSeriesRe
         try enc_Event(out, &(csil_x));
     }
     try w_text(out, "created_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.created_at).rfc3339);
+    try csil_w_timestamp(out, (v.created_at).rfc3339);
     try w_text(out, "calendar_id");
     try w_text(out, v.calendar_id);
     try w_text(out, "series_state");
@@ -3200,22 +3526,22 @@ fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitS
     {
         if (mget(m, "series")) |csil_fv| {
             var csil_tmp: types.Event = undefined;
-            try dec_Event(alloc, csil_fv, &csil_tmp);
+            try dec_Event(alloc, csil_fv, &(csil_tmp));
             out.series = csil_tmp;
         } else {
             out.series = null;
         }
     }
     {
-        const csil_fv = try req(m, "created");
+        const csil_fv = try csil_required_field(m, "created");
         out.created = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "in_place");
+        const csil_fv = try csil_required_field(m, "in_place");
         out.in_place = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "mappings");
+        const csil_fv = try csil_required_field(m, "mappings");
         if (csil_fv != .array) return error.WrongType;
         out.mappings = try alloc.alloc(types.SplitOccurrenceMapping, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3223,40 +3549,46 @@ fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitS
         }
     }
     {
-        const csil_fv = try req(m, "split_at");
-        out.split_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "split_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.split_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "series_id");
+        const csil_fv = try csil_required_field(m, "series_id");
         out.series_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "successor")) |csil_fv| {
             var csil_tmp: types.Event = undefined;
-            try dec_Event(alloc, csil_fv, &csil_tmp);
+            try dec_Event(alloc, csil_fv, &(csil_tmp));
             out.successor = csil_tmp;
         } else {
             out.successor = null;
         }
     }
     {
-        const csil_fv = try req(m, "created_at");
-        out.created_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "created_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.created_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "series_state");
+        const csil_fv = try csil_required_field(m, "series_state");
         try dec_CreateReceiptState(alloc, csil_fv, &(out.series_state));
     }
     {
-        const csil_fv = try req(m, "successor_id");
+        const csil_fv = try csil_required_field(m, "successor_id");
         out.successor_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "idempotency_key");
+        const csil_fv = try csil_required_field(m, "idempotency_key");
         out.idempotency_key = try as_text(csil_fv);
     }
     {
@@ -3267,7 +3599,7 @@ fn dec_SplitSeriesReceipt(alloc: std.mem.Allocator, m: Value, out: *types.SplitS
         }
     }
     {
-        const csil_fv = try req(m, "successor_state");
+        const csil_fv = try csil_required_field(m, "successor_state");
         try dec_CreateReceiptState(alloc, csil_fv, &(out.successor_state));
     }
     {
@@ -3287,21 +3619,22 @@ fn enc_GetOccurrenceRequest(out: *std.ArrayList(u8), v: *const types.GetOccurren
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_GetOccurrenceRequest(alloc: std.mem.Allocator, m: Value, out: *types.GetOccurrenceRequest) CodecError!void {
-    _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -3323,15 +3656,14 @@ fn enc_RespondRequest(out: *std.ArrayList(u8), v: *const types.RespondRequest) C
     try w_text(out, v.event_id);
     if (v.recurrence_id) |csil_x| {
         try w_text(out, "recurrence_id");
-        try w_tag(out, 0);
-        try w_text(out, (csil_x).rfc3339);
+        try csil_w_timestamp(out, (csil_x).rfc3339);
     }
 }
 
 fn dec_RespondRequest(alloc: std.mem.Allocator, m: Value, out: *types.RespondRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "status");
+        const csil_fv = try csil_required_field(m, "status");
         try dec_ParticipationStatus(alloc, csil_fv, &(out.status));
     }
     {
@@ -3342,12 +3674,15 @@ fn dec_RespondRequest(alloc: std.mem.Allocator, m: Value, out: *types.RespondReq
         }
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
     {
         if (mget(m, "recurrence_id")) |csil_fv| {
-            out.recurrence_id = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+            {
+                const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+                out.recurrence_id = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+            }
         } else {
             out.recurrence_id = null;
         }
@@ -3377,7 +3712,7 @@ fn dec_SearchEventsRequest(alloc: std.mem.Allocator, m: Value, out: *types.Searc
         }
     }
     {
-        const csil_fv = try req(m, "query");
+        const csil_fv = try csil_required_field(m, "query");
         out.query = try as_text(csil_fv);
     }
 }
@@ -3394,7 +3729,7 @@ fn enc_EventList(out: *std.ArrayList(u8), v: *const types.EventList) CodecError!
 fn dec_EventList(alloc: std.mem.Allocator, m: Value, out: *types.EventList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "events");
+        const csil_fv = try csil_required_field(m, "events");
         if (csil_fv != .array) return error.WrongType;
         out.events = try alloc.alloc(types.Event, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3408,11 +3743,9 @@ fn enc_BusyInterval(out: *std.ArrayList(u8), v: *const types.BusyInterval) Codec
     if (v.tentative != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "end");
-    try w_tag(out, 0);
-    try w_text(out, (v.end).rfc3339);
+    try csil_w_timestamp(out, (v.end).rfc3339);
     try w_text(out, "start");
-    try w_tag(out, 0);
-    try w_text(out, (v.start).rfc3339);
+    try csil_w_timestamp(out, (v.start).rfc3339);
     if (v.tentative) |csil_x| {
         try w_text(out, "tentative");
         try w_bool(out, csil_x);
@@ -3420,15 +3753,20 @@ fn enc_BusyInterval(out: *std.ArrayList(u8), v: *const types.BusyInterval) Codec
 }
 
 fn dec_BusyInterval(alloc: std.mem.Allocator, m: Value, out: *types.BusyInterval) CodecError!void {
-    _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "end");
-        out.end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "end");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.end = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "start");
-        out.start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "start");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.start = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
         if (mget(m, "tentative")) |csil_fv| {
@@ -3447,17 +3785,15 @@ fn enc_FreeBusyRequest(out: *std.ArrayList(u8), v: *const types.FreeBusyRequest)
         try enc_IdentityRef(out, &(csil_it));
     }
     try w_text(out, "range_end");
-    try w_tag(out, 0);
-    try w_text(out, (v.range_end).rfc3339);
+    try csil_w_timestamp(out, (v.range_end).rfc3339);
     try w_text(out, "range_start");
-    try w_tag(out, 0);
-    try w_text(out, (v.range_start).rfc3339);
+    try csil_w_timestamp(out, (v.range_start).rfc3339);
 }
 
 fn dec_FreeBusyRequest(alloc: std.mem.Allocator, m: Value, out: *types.FreeBusyRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "people");
+        const csil_fv = try csil_required_field(m, "people");
         if (csil_fv != .array) return error.WrongType;
         out.people = try alloc.alloc(types.IdentityRef, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3465,12 +3801,18 @@ fn dec_FreeBusyRequest(alloc: std.mem.Allocator, m: Value, out: *types.FreeBusyR
         }
     }
     {
-        const csil_fv = try req(m, "range_end");
-        out.range_end = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "range_end");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.range_end = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "range_start");
-        out.range_start = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "range_start");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.range_start = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
 }
 
@@ -3496,7 +3838,7 @@ fn enc_PersonFreeBusy(out: *std.ArrayList(u8), v: *const types.PersonFreeBusy) C
 fn dec_PersonFreeBusy(alloc: std.mem.Allocator, m: Value, out: *types.PersonFreeBusy) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "busy");
+        const csil_fv = try csil_required_field(m, "busy");
         if (csil_fv != .array) return error.WrongType;
         out.busy = try alloc.alloc(types.BusyInterval, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3506,18 +3848,18 @@ fn dec_PersonFreeBusy(alloc: std.mem.Allocator, m: Value, out: *types.PersonFree
     {
         if (mget(m, "person")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.person = csil_tmp;
         } else {
             out.person = null;
         }
     }
     {
-        const csil_fv = try req(m, "visible");
+        const csil_fv = try csil_required_field(m, "visible");
         out.visible = try as_bool(csil_fv);
     }
     {
-        const csil_fv = try req(m, "identity");
+        const csil_fv = try csil_required_field(m, "identity");
         try dec_IdentityRef(alloc, csil_fv, &(out.identity));
     }
 }
@@ -3534,7 +3876,7 @@ fn enc_FreeBusyResponse(out: *std.ArrayList(u8), v: *const types.FreeBusyRespons
 fn dec_FreeBusyResponse(alloc: std.mem.Allocator, m: Value, out: *types.FreeBusyResponse) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "people");
+        const csil_fv = try csil_required_field(m, "people");
         if (csil_fv != .array) return error.WrongType;
         out.people = try alloc.alloc(types.PersonFreeBusy, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3555,11 +3897,11 @@ fn dec_ImportIcsRequest(alloc: std.mem.Allocator, m: Value, out: *types.ImportIc
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "ics");
+        const csil_fv = try csil_required_field(m, "ics");
         out.ics = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
 }
@@ -3586,15 +3928,15 @@ fn enc_ImportResult(out: *std.ArrayList(u8), v: *const types.ImportResult) Codec
 fn dec_ImportResult(alloc: std.mem.Allocator, m: Value, out: *types.ImportResult) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "created");
+        const csil_fv = try csil_required_field(m, "created");
         out.created = try as_u64(csil_fv);
     }
     {
-        const csil_fv = try req(m, "skipped");
+        const csil_fv = try csil_required_field(m, "skipped");
         out.skipped = try as_u64(csil_fv);
     }
     {
-        const csil_fv = try req(m, "updated");
+        const csil_fv = try csil_required_field(m, "updated");
         out.updated = try as_u64(csil_fv);
     }
     {
@@ -3621,7 +3963,7 @@ fn dec_ExportCalendarRequest(alloc: std.mem.Allocator, m: Value, out: *types.Exp
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "calendar_id");
+        const csil_fv = try csil_required_field(m, "calendar_id");
         out.calendar_id = try as_text(csil_fv);
     }
 }
@@ -3649,7 +3991,7 @@ fn dec_ExportEventRequest(alloc: std.mem.Allocator, m: Value, out: *types.Export
         }
     }
     {
-        const csil_fv = try req(m, "event_id");
+        const csil_fv = try csil_required_field(m, "event_id");
         out.event_id = try as_text(csil_fv);
     }
 }
@@ -3666,11 +4008,11 @@ fn dec_IcsDocument(alloc: std.mem.Allocator, m: Value, out: *types.IcsDocument) 
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "ics");
+        const csil_fv = try csil_required_field(m, "ics");
         out.ics = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "filename");
+        const csil_fv = try csil_required_field(m, "filename");
         out.filename = try as_text(csil_fv);
     }
 }
@@ -3681,8 +4023,7 @@ fn enc_AuditEntry(out: *std.ArrayList(u8), v: *const types.AuditEntry) CodecErro
     if (v.application != null) csil_n += 1;
     try w_map_head(out, csil_n);
     try w_text(out, "at");
-    try w_tag(out, 0);
-    try w_text(out, (v.at).rfc3339);
+    try csil_w_timestamp(out, (v.at).rfc3339);
     try w_text(out, "via");
     try enc_ActingVia(out, &(v.via));
     try w_text(out, "actor");
@@ -3708,15 +4049,18 @@ fn enc_AuditEntry(out: *std.ArrayList(u8), v: *const types.AuditEntry) CodecErro
 fn dec_AuditEntry(alloc: std.mem.Allocator, m: Value, out: *types.AuditEntry) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "at");
-        out.at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "via");
+        const csil_fv = try csil_required_field(m, "via");
         try dec_ActingVia(alloc, csil_fv, &(out.via));
     }
     {
-        const csil_fv = try req(m, "actor");
+        const csil_fv = try csil_required_field(m, "actor");
         try dec_PersonSummary(alloc, csil_fv, &(out.actor));
     }
     {
@@ -3727,19 +4071,19 @@ fn dec_AuditEntry(alloc: std.mem.Allocator, m: Value, out: *types.AuditEntry) Co
         }
     }
     {
-        const csil_fv = try req(m, "outcome");
+        const csil_fv = try csil_required_field(m, "outcome");
         out.outcome = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "audit_id");
+        const csil_fv = try csil_required_field(m, "audit_id");
         out.audit_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "operation");
+        const csil_fv = try csil_required_field(m, "operation");
         out.operation = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "principal");
+        const csil_fv = try csil_required_field(m, "principal");
         try dec_PersonSummary(alloc, csil_fv, &(out.principal));
     }
     {
@@ -3797,7 +4141,7 @@ fn enc_AuditList(out: *std.ArrayList(u8), v: *const types.AuditList) CodecError!
 fn dec_AuditList(alloc: std.mem.Allocator, m: Value, out: *types.AuditList) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "entries");
+        const csil_fv = try csil_required_field(m, "entries");
         if (csil_fv != .array) return error.WrongType;
         out.entries = try alloc.alloc(types.AuditEntry, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3829,7 +4173,7 @@ fn dec_CompleteRequest(alloc: std.mem.Allocator, m: Value, out: *types.CompleteR
         }
     }
     {
-        const csil_fv = try req(m, "encrypted_token");
+        const csil_fv = try csil_required_field(m, "encrypted_token");
         out.encrypted_token = try as_text(csil_fv);
     }
 }
@@ -3857,22 +4201,21 @@ fn enc_LoginResponse(out: *std.ArrayList(u8), v: *const types.LoginResponse) Cod
         try enc_PersonSummary(out, &(csil_x));
     }
     try w_text(out, "expires_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.expires_at).rfc3339);
+    try csil_w_timestamp(out, (v.expires_at).rfc3339);
 }
 
 fn dec_LoginResponse(alloc: std.mem.Allocator, m: Value, out: *types.LoginResponse) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "via");
+        const csil_fv = try csil_required_field(m, "via");
         try dec_ActingVia(alloc, csil_fv, &(out.via));
     }
     {
-        const csil_fv = try req(m, "user");
+        const csil_fv = try csil_required_field(m, "user");
         try dec_PersonSummary(alloc, csil_fv, &(out.user));
     }
     {
-        const csil_fv = try req(m, "token");
+        const csil_fv = try csil_required_field(m, "token");
         out.token = try as_text(csil_fv);
     }
     {
@@ -3890,15 +4233,18 @@ fn dec_LoginResponse(alloc: std.mem.Allocator, m: Value, out: *types.LoginRespon
     {
         if (mget(m, "acting_as")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.acting_as = csil_tmp;
         } else {
             out.acting_as = null;
         }
     }
     {
-        const csil_fv = try req(m, "expires_at");
-        out.expires_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "expires_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.expires_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
 }
 
@@ -3932,11 +4278,11 @@ fn enc_MeResponse(out: *std.ArrayList(u8), v: *const types.MeResponse) CodecErro
 fn dec_MeResponse(alloc: std.mem.Allocator, m: Value, out: *types.MeResponse) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "via");
+        const csil_fv = try csil_required_field(m, "via");
         try dec_ActingVia(alloc, csil_fv, &(out.via));
     }
     {
-        const csil_fv = try req(m, "user");
+        const csil_fv = try csil_required_field(m, "user");
         try dec_User(alloc, csil_fv, &(out.user));
     }
     {
@@ -3954,14 +4300,14 @@ fn dec_MeResponse(alloc: std.mem.Allocator, m: Value, out: *types.MeResponse) Co
     {
         if (mget(m, "acting_as")) |csil_fv| {
             var csil_tmp: types.PersonSummary = undefined;
-            try dec_PersonSummary(alloc, csil_fv, &csil_tmp);
+            try dec_PersonSummary(alloc, csil_fv, &(csil_tmp));
             out.acting_as = csil_tmp;
         } else {
             out.acting_as = null;
         }
     }
     {
-        const csil_fv = try req(m, "principals");
+        const csil_fv = try csil_required_field(m, "principals");
         if (csil_fv != .array) return error.WrongType;
         out.principals = try alloc.alloc(types.PersonSummary, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -3980,7 +4326,7 @@ fn dec_ExchangeActAsCredentialRequest(alloc: std.mem.Allocator, m: Value, out: *
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "credential");
+        const csil_fv = try csil_required_field(m, "credential");
         out.credential = try as_bytes(csil_fv);
     }
 }
@@ -4039,15 +4385,15 @@ fn dec_ScopeSetRequest(alloc: std.mem.Allocator, m: Value, out: *types.ScopeSetR
         }
     }
     {
-        const csil_fv = try req(m, "grantee_domain");
+        const csil_fv = try csil_required_field(m, "grantee_domain");
         out.grantee_domain = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "grantee_user_id");
+        const csil_fv = try csil_required_field(m, "grantee_user_id");
         out.grantee_user_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "grantee_application_id");
+        const csil_fv = try csil_required_field(m, "grantee_application_id");
         out.grantee_application_id = try as_text(csil_fv);
     }
 }
@@ -4062,7 +4408,7 @@ fn dec_ScopeSetResponse(alloc: std.mem.Allocator, m: Value, out: *types.ScopeSet
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "signed_scope_set");
+        const csil_fv = try csil_required_field(m, "signed_scope_set");
         out.signed_scope_set = try as_bytes(csil_fv);
     }
 }
@@ -4081,15 +4427,15 @@ fn dec_ApplicationRef(alloc: std.mem.Allocator, m: Value, out: *types.Applicatio
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "application_id");
+        const csil_fv = try csil_required_field(m, "application_id");
         out.application_id = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "subject_domain");
+        const csil_fv = try csil_required_field(m, "subject_domain");
         out.subject_domain = try as_text(csil_fv);
     }
     {
-        const csil_fv = try req(m, "subject_user_id");
+        const csil_fv = try csil_required_field(m, "subject_user_id");
         out.subject_user_id = try as_text(csil_fv);
     }
 }
@@ -4103,8 +4449,7 @@ fn enc_ApplicationPresentation(out: *std.ArrayList(u8), v: *const types.Applicat
     try w_text(out, "audience");
     try enc_ApplicationRef(out, &(v.audience));
     try w_text(out, "presented_at");
-    try w_tag(out, 0);
-    try w_text(out, (v.presented_at).rfc3339);
+    try csil_w_timestamp(out, (v.presented_at).rfc3339);
     try w_text(out, "request_digest");
     try w_bytes(out, v.request_digest);
     try w_text(out, "signer_instance_id");
@@ -4114,27 +4459,30 @@ fn enc_ApplicationPresentation(out: *std.ArrayList(u8), v: *const types.Applicat
 fn dec_ApplicationPresentation(alloc: std.mem.Allocator, m: Value, out: *types.ApplicationPresentation) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "nonce");
+        const csil_fv = try csil_required_field(m, "nonce");
         out.nonce = try as_bytes(csil_fv);
     }
     {
-        const csil_fv = try req(m, "signer");
+        const csil_fv = try csil_required_field(m, "signer");
         try dec_ApplicationRef(alloc, csil_fv, &(out.signer));
     }
     {
-        const csil_fv = try req(m, "audience");
+        const csil_fv = try csil_required_field(m, "audience");
         try dec_ApplicationRef(alloc, csil_fv, &(out.audience));
     }
     {
-        const csil_fv = try req(m, "presented_at");
-        out.presented_at = .{ .rfc3339 = try as_tagged_text(csil_fv, 0), .epoch_seconds = 0 };
+        const csil_fv = try csil_required_field(m, "presented_at");
+        {
+            const csil_ts = try csil_as_timestamp(alloc, csil_fv);
+            out.presented_at = .{ .rfc3339 = csil_ts.rfc3339, .epoch_seconds = csil_ts.epoch_seconds };
+        }
     }
     {
-        const csil_fv = try req(m, "request_digest");
+        const csil_fv = try csil_required_field(m, "request_digest");
         out.request_digest = try as_bytes(csil_fv);
     }
     {
-        const csil_fv = try req(m, "signer_instance_id");
+        const csil_fv = try csil_required_field(m, "signer_instance_id");
         out.signer_instance_id = try as_text(csil_fv);
     }
 }
@@ -4153,15 +4501,15 @@ fn dec_SignedApplicationPresentation(alloc: std.mem.Allocator, m: Value, out: *t
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "signature");
+        const csil_fv = try csil_required_field(m, "signature");
         out.signature = try as_bytes(csil_fv);
     }
     {
-        const csil_fv = try req(m, "presentation");
+        const csil_fv = try csil_required_field(m, "presentation");
         out.presentation = try as_bytes(csil_fv);
     }
     {
-        const csil_fv = try req(m, "signed_by_key_id");
+        const csil_fv = try csil_required_field(m, "signed_by_key_id");
         out.signed_by_key_id = try as_text(csil_fv);
     }
 }
@@ -4175,7 +4523,7 @@ fn enc_ExchangeApplicationPresentationRequest(out: *std.ArrayList(u8), v: *const
 fn dec_ExchangeApplicationPresentationRequest(alloc: std.mem.Allocator, m: Value, out: *types.ExchangeApplicationPresentationRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "presentation");
+        const csil_fv = try csil_required_field(m, "presentation");
         try dec_SignedApplicationPresentation(alloc, csil_fv, &(out.presentation));
     }
 }
@@ -4189,7 +4537,7 @@ fn enc_ApplicationIdentityResponse(out: *std.ArrayList(u8), v: *const types.Appl
 fn dec_ApplicationIdentityResponse(alloc: std.mem.Allocator, m: Value, out: *types.ApplicationIdentityResponse) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "audience");
+        const csil_fv = try csil_required_field(m, "audience");
         try dec_ApplicationRef(alloc, csil_fv, &(out.audience));
     }
 }
@@ -4217,7 +4565,7 @@ fn dec_DevUser(alloc: std.mem.Allocator, m: Value, out: *types.DevUser) CodecErr
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "domain");
+        const csil_fv = try csil_required_field(m, "domain");
         out.domain = try as_text(csil_fv);
     }
     {
@@ -4228,7 +4576,7 @@ fn dec_DevUser(alloc: std.mem.Allocator, m: Value, out: *types.DevUser) CodecErr
         }
     }
     {
-        const csil_fv = try req(m, "user_id");
+        const csil_fv = try csil_required_field(m, "user_id");
         out.user_id = try as_text(csil_fv);
     }
     {
@@ -4252,7 +4600,7 @@ fn enc_DevUsersResponse(out: *std.ArrayList(u8), v: *const types.DevUsersRespons
 fn dec_DevUsersResponse(alloc: std.mem.Allocator, m: Value, out: *types.DevUsersResponse) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "users");
+        const csil_fv = try csil_required_field(m, "users");
         if (csil_fv != .array) return error.WrongType;
         out.users = try alloc.alloc(types.DevUser, csil_fv.array.len);
         for (csil_fv.array, 0..) |csil_it, csil_i| {
@@ -4316,7 +4664,7 @@ fn enc_LookupPersonRequest(out: *std.ArrayList(u8), v: *const types.LookupPerson
 fn dec_LookupPersonRequest(alloc: std.mem.Allocator, m: Value, out: *types.LookupPersonRequest) CodecError!void {
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "identity");
+        const csil_fv = try csil_required_field(m, "identity");
         try dec_IdentityRef(alloc, csil_fv, &(out.identity));
     }
 }
@@ -4389,11 +4737,11 @@ fn dec_ServiceError(alloc: std.mem.Allocator, m: Value, out: *types.ServiceError
     _ = alloc;
     if (m != .map) return error.WrongType;
     {
-        const csil_fv = try req(m, "code");
+        const csil_fv = try csil_required_field(m, "code");
         out.code = try as_u64(csil_fv);
     }
     {
-        const csil_fv = try req(m, "message");
+        const csil_fv = try csil_required_field(m, "message");
         out.message = try as_text(csil_fv);
     }
 }
@@ -5888,6 +6236,78 @@ pub fn decode_ServiceError(alloc: std.mem.Allocator, bytes: []const u8, out: *ty
 
 pub const RpcReply = struct { variant: []const u8, payload: []u8 };
 
+pub fn encode_CalendarServiceGetCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_CalendarServiceDeleteCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_CalendarServiceRefreshSubscriptionReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_ShareServiceListSharesReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_ShareServiceDeleteShareReplyRequest(alloc: std.mem.Allocator, req: *const types.ShareID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_GroupServiceGetGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_GroupServiceDeleteGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_DelegationServiceRevokeDelegationReplyRequest(alloc: std.mem.Allocator, req: *const types.DelegationID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
+pub fn encode_EventServiceGetEventReplyRequest(alloc: std.mem.Allocator, req: *const types.EventID) CodecError![]u8 {
+    var buf = std.ArrayList(u8).init(alloc);
+    errdefer buf.deinit();
+    const out = &buf;
+    try w_text(out, req.*);
+    return buf.toOwnedSlice();
+}
+
 pub fn encode_AuthServiceCompleteReply(alloc: std.mem.Allocator, value: types.AuthServiceCompleteReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -6432,14 +6852,6 @@ pub fn decode_CalendarServiceListCalendarsReply(alloc: std.mem.Allocator, varian
     return error.WrongType;
 }
 
-pub fn encode_CalendarServiceGetCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
-}
-
 pub fn encode_CalendarServiceGetCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceGetCalendarReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -6542,14 +6954,6 @@ pub fn decode_CalendarServiceUpdateCalendarReply(alloc: std.mem.Allocator, varia
     return error.WrongType;
 }
 
-pub fn encode_CalendarServiceDeleteCalendarReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
-}
-
 pub fn encode_CalendarServiceDeleteCalendarReply(alloc: std.mem.Allocator, value: types.CalendarServiceDeleteCalendarReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -6616,14 +7020,6 @@ pub fn decode_CalendarServiceSubscribeCalendarReply(alloc: std.mem.Allocator, va
         return;
     }
     return error.WrongType;
-}
-
-pub fn encode_CalendarServiceRefreshSubscriptionReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
 }
 
 pub fn encode_CalendarServiceRefreshSubscriptionReply(alloc: std.mem.Allocator, value: types.CalendarServiceRefreshSubscriptionReply) CodecError!RpcReply {
@@ -6694,14 +7090,6 @@ pub fn decode_CalendarServiceSetFeedReply(alloc: std.mem.Allocator, variant: ?[]
     return error.WrongType;
 }
 
-pub fn encode_ShareServiceListSharesReplyRequest(alloc: std.mem.Allocator, req: *const types.CalendarID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
-}
-
 pub fn encode_ShareServiceListSharesReply(alloc: std.mem.Allocator, value: types.ShareServiceListSharesReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -6770,14 +7158,6 @@ pub fn decode_ShareServicePutShareReply(alloc: std.mem.Allocator, variant: ?[]co
     return error.WrongType;
 }
 
-pub fn encode_ShareServiceDeleteShareReplyRequest(alloc: std.mem.Allocator, req: *const types.ShareID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
-}
-
 pub fn encode_ShareServiceDeleteShareReply(alloc: std.mem.Allocator, value: types.ShareServiceDeleteShareReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -6844,14 +7224,6 @@ pub fn decode_GroupServiceListGroupsReply(alloc: std.mem.Allocator, variant: ?[]
         return;
     }
     return error.WrongType;
-}
-
-pub fn encode_GroupServiceGetGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
 }
 
 pub fn encode_GroupServiceGetGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceGetGroupReply) CodecError!RpcReply {
@@ -6988,14 +7360,6 @@ pub fn decode_GroupServiceSetMembersReply(alloc: std.mem.Allocator, variant: ?[]
         return;
     }
     return error.WrongType;
-}
-
-pub fn encode_GroupServiceDeleteGroupReplyRequest(alloc: std.mem.Allocator, req: *const types.GroupID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
 }
 
 pub fn encode_GroupServiceDeleteGroupReply(alloc: std.mem.Allocator, value: types.GroupServiceDeleteGroupReply) CodecError!RpcReply {
@@ -7168,14 +7532,6 @@ pub fn decode_DelegationServiceUpdateDelegationReply(alloc: std.mem.Allocator, v
     return error.WrongType;
 }
 
-pub fn encode_DelegationServiceRevokeDelegationReplyRequest(alloc: std.mem.Allocator, req: *const types.DelegationID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
-}
-
 pub fn encode_DelegationServiceRevokeDelegationReply(alloc: std.mem.Allocator, value: types.DelegationServiceRevokeDelegationReply) CodecError!RpcReply {
     var buf = std.ArrayList(u8).init(alloc);
     errdefer buf.deinit();
@@ -7242,14 +7598,6 @@ pub fn decode_EventServiceListEventsReply(alloc: std.mem.Allocator, variant: ?[]
         return;
     }
     return error.WrongType;
-}
-
-pub fn encode_EventServiceGetEventReplyRequest(alloc: std.mem.Allocator, req: *const types.EventID) CodecError![]u8 {
-    var buf = std.ArrayList(u8).init(alloc);
-    errdefer buf.deinit();
-    const out = &buf;
-    try w_text(out, req.*);
-    return buf.toOwnedSlice();
 }
 
 pub fn encode_EventServiceGetEventReply(alloc: std.mem.Allocator, value: types.EventServiceGetEventReply) CodecError!RpcReply {

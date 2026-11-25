@@ -64,19 +64,19 @@ pub const AccessPath = enum {
 
 /// Scope is an enumeration.
 pub const Scope = enum {
-    @"calendars.read",
-    @"freebusy.read",
-    @"events.write",
-    @"events.respond",
-    @"calendars.manage",
+    calendars_read,
+    freebusy_read,
+    events_write,
+    events_respond,
+    calendars_manage,
 
     pub fn wire_name(self: Scope) []const u8 {
         return switch (self) {
-            .@"calendars.read" => "calendars.read",
-            .@"freebusy.read" => "freebusy.read",
-            .@"events.write" => "events.write",
-            .@"events.respond" => "events.respond",
-            .@"calendars.manage" => "calendars.manage",
+            .calendars_read => "calendars.read",
+            .freebusy_read => "freebusy.read",
+            .events_write => "events.write",
+            .events_respond => "events.respond",
+            .calendars_manage => "calendars.manage",
         };
     }
 };

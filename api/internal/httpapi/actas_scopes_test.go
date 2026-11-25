@@ -24,12 +24,12 @@ func TestScopeSetRequestedScopes(t *testing.T) {
 	own := api.ApplicationRef{SubjectUserId: "catalystcal-account", SubjectDomain: "catalystcal.example", ApplicationId: "catalystcal"}
 	e.deps.ActAs = &actas.Verifier{
 		Own: own, InstanceID: "catalystcal-1",
-		Signers: []regularrp.ApplicationSigner{{KeyID: "k1", Algorithm: "ed25519", PrivateKeyBytes: seed}},
+		Signers: []regularrp.ApplicationSigner{{KeyID: "k1", Algorithm: regularrp.AlgorithmEd25519, PrivateKeyBytes: seed}},
 	}
 	now := time.Now().UTC()
 	keys := []regularrp.ApplicationKeyRef{{
-		KeyID: "k1", KeyUsage: "sign", Algorithm: "ed25519", PublicKey: pub, Fingerprint: regularrp.Fingerprint(pub),
-		CreatedAt: now.Add(-time.Hour).Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339),
+		KeyID: "k1", KeyUsage: regularrp.KeyUsageSign, Algorithm: regularrp.AlgorithmEd25519, PublicKey: pub, Fingerprint: regularrp.Fingerprint(pub),
+		CreatedAt: now.Add(-time.Hour).Truncate(time.Second), ExpiresAt: now.Add(time.Hour).Truncate(time.Second),
 	}}
 	ask := func(scopes []string) reply[csil.ScopeSetResponse] {
 		return call(e.client(), "AuthService", "get-act-as-scope-set", csil.ScopeSetRequest{

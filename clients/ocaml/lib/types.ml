@@ -16,11 +16,11 @@ and access_role = None | Free_busy | Read | Contribute | Write | Manage | Owner
 and access_path = Owner | Share | Delegation | Attendee
 
 and scope =
-  | Calendars.read
-  | Freebusy.read
-  | Events.write
-  | Events.respond
-  | Calendars.manage
+  | Calendars_read
+  | Freebusy_read
+  | Events_write
+  | Events_respond
+  | Calendars_manage
 
 and calendar_kind = Local | Subscription
 and event_status = Confirmed | Tentative | Cancelled

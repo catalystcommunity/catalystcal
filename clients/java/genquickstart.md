@@ -54,6 +54,16 @@ final class HttpRpcCarrier implements Transport {
 
     @Override
     public byte[] call(String service, String op, byte[] req) throws ClientException {
+        return exchange(service, op, req).payload();
+    }
+
+    @Override
+    public WireReply callReply(String service, String op, byte[] req) throws ClientException {
+        Rpc.Response decoded = exchange(service, op, req);
+        return new WireReply(decoded.variant(), decoded.payload());
+    }
+
+    private Rpc.Response exchange(String service, String op, byte[] req) throws ClientException {
         // The library builds the request envelope; the carrier never hand-rolls CBOR.
         byte[] envelope = Rpc.Request.of(service, op, req == null ? new byte[0] : req).encode();
         HttpResponse<byte[]> resp;
@@ -82,7 +92,7 @@ final class HttpRpcCarrier implements Transport {
         if (te != null) {
             throw new ClientException("csil-rpc " + service + "/" + op + ": " + te.getMessage(), te);
         }
-        return CsilCbor.resolveRpcReply(service, op, decoded.variant(), decoded.payload());
+        return decoded;
     }
 }
 

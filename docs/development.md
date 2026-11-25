@@ -12,7 +12,7 @@ You need:
 
 You need these tools only for some tasks:
 
-- csilgen 0.2.15 (`./tools gen`, `./tools gen-check`, `./tools lint`)
+- csilgen 0.3.3 (`./tools gen`, `./tools gen-check`, `./tools lint`)
 - Docker with the compose plugin (`./tools build-images`, `./tools compose-up`)
 - helm 3 (`./tools helm-lint`)
 
@@ -118,11 +118,25 @@ client manifest carries the version), and commits the result with the
 version bump. It then tags that commit `clients/go/vX.Y.Z`, so a Go
 program can `go get github.com/catalystcommunity/catalystcal/clients/go@vX.Y.Z`.
 
-`csil/regenerate.sh` requires csilgen 0.2.15 exactly. A different version
-can change the generated code without a schema change. If you have more than
-one csilgen version, use an isolated install: put the 0.2.15 CLI first on
-`PATH` and its generators in `$HOME/.csilgen/generators` of a separate
-`HOME`. `.reactorcide/jobs/scripts/lib.sh` (`install_csilgen`) shows how.
+Use the csilgen 0.3.3 CLI and its generator bundle together. Put the CLI
+first on `PATH`. For an isolated install, put the generators in
+`$HOME/.csilgen/generators` in the install's home directory. See
+`install_csilgen` in `.reactorcide/jobs/scripts/lib.sh`.
+
+### Update a client to csilgen 0.3.3
+
+For a custom Go transport, implement `CallReply`. For a custom TypeScript
+transport, implement `callReply`. Return the variant and payload from each
+status-zero reply. The generated client uses the variant to select the
+declared result. Go callers can use `errors.As` with
+`*RPCApplicationError[ServiceError]` to read a service error. TypeScript
+callers can read the code and message from `ServiceErrorRefusal.value`.
+
+The Go HTTP transport returns `*ClientError` for transport failures. Use
+`errors.Is(err, context.Canceled)` to detect a canceled request.
+
+Check the error from each generated Go `Encode` function before you send,
+sign, or store the bytes. Set each required enum field to a declared value.
 
 ### Calendar dates and instants
 

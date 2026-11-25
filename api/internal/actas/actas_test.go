@@ -34,14 +34,14 @@ func (s staticKeys) RevokedGrants(context.Context, string, []string) ([]string, 
 }
 
 type keyVec struct {
-	KeyID        string  `json:"key_id"`
-	KeyUsage     string  `json:"key_usage"`
-	Algorithm    string  `json:"algorithm"`
-	PublicKeyHex string  `json:"public_key_hex"`
-	Fingerprint  string  `json:"fingerprint"`
-	CreatedAt    string  `json:"created_at"`
-	ExpiresAt    string  `json:"expires_at"`
-	RevokedAt    *string `json:"revoked_at"`
+	KeyID        string           `json:"key_id"`
+	KeyUsage     api.KeyUsage     `json:"key_usage"`
+	Algorithm    api.KeyAlgorithm `json:"algorithm"`
+	PublicKeyHex string           `json:"public_key_hex"`
+	Fingerprint  string           `json:"fingerprint"`
+	CreatedAt    time.Time        `json:"created_at"`
+	ExpiresAt    time.Time        `json:"expires_at"`
+	RevokedAt    *time.Time       `json:"revoked_at"`
 }
 
 func mustHex(t *testing.T, s string) []byte {
@@ -207,7 +207,7 @@ func TestSignScopeSetVerifies(t *testing.T) {
 	v := &Verifier{
 		Own:        own,
 		InstanceID: "catalystcal-1",
-		Signers:    []regularrp.ApplicationSigner{{KeyID: "k1", Algorithm: "ed25519", PrivateKeyBytes: seed}},
+		Signers:    []regularrp.ApplicationSigner{{KeyID: "k1", Algorithm: regularrp.AlgorithmEd25519, PrivateKeyBytes: seed}},
 		Now:        func() time.Time { return now },
 	}
 	raw, err := v.SignScopeSet(context.Background(), ScopeSetRequest{
@@ -224,8 +224,8 @@ func TestSignScopeSetVerifies(t *testing.T) {
 		t.Fatalf("signer instance %q", signed.SignerInstanceId)
 	}
 	keys := []regularrp.ApplicationKeyRef{{
-		KeyID: "k1", KeyUsage: "sign", Algorithm: "ed25519", PublicKey: pub,
-		Fingerprint: regularrp.Fingerprint(pub), CreatedAt: "2026-01-01T00:00:00Z", ExpiresAt: "2027-01-01T00:00:00Z",
+		KeyID: "k1", KeyUsage: regularrp.KeyUsageSign, Algorithm: regularrp.AlgorithmEd25519, PublicKey: pub,
+		Fingerprint: regularrp.Fingerprint(pub), CreatedAt: now.Add(-time.Hour), ExpiresAt: now.Add(time.Hour),
 	}}
 	set, err := regularrp.VerifyScopeSet(signed, own, keys, regularrp.AcceptBeforeRevocation)
 	if err != nil {

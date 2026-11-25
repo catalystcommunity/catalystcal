@@ -85,9 +85,13 @@ function encInto(v: CborValue, out: number[]): void {
     head(4, v.length, out);
     for (const x of v) encInto(x, out);
   } else if (v instanceof Map) {
-    head(5, v.size, out);
-    for (const [k, val] of v) {
-      encInto(k, out);
+    // RFC 8949 section 4.2.1: entries go in bytewise order of the encoded keys, so
+    // every peer emits the same bytes and a decoder can check the order in one pass.
+    const entries = Array.from(v, ([k, val]): [Uint8Array, CborValue] => [encodeValue(k), val]);
+    entries.sort(([a], [b]) => csilCompareBytes(a, b));
+    head(5, entries.length, out);
+    for (const [k, val] of entries) {
+      for (const b of k) out.push(b);
       encInto(val, out);
     }
   } else {
@@ -101,6 +105,34 @@ export function encodeValue(value: CborValue): Uint8Array {
   const out: number[] = [];
   encInto(value, out);
   return Uint8Array.from(out);
+}
+
+function csilCompareBytes(a: Uint8Array, b: Uint8Array): number {
+  const n = Math.min(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return a.length - b.length;
+}
+
+// A record accepts its fields in any order, so the decoder only marks a map whose
+// keys are out of canonical order; a dynamic-map reader refuses a marked map.
+const csilUnorderedMaps = new WeakSet<Map<CborValue, CborValue>>();
+
+// A key with a longer head than needed is a second byte form of the same key, so
+// the order and duplicate checks on raw bytes would miss it.
+function csilShortestHead(b: Uint8Array, at: number): boolean {
+  const major = b[at] >> 5;
+  const low = b[at] & 0x1f;
+  if (major === 7 || low < 24) return true;
+  if (low === 24) return b[at + 1] >= 24;
+  if (low === 25) return b[at + 1] !== 0;
+  if (low === 26) return b[at + 1] !== 0 || b[at + 2] !== 0;
+  return b[at + 1] !== 0 || b[at + 2] !== 0 || b[at + 3] !== 0 || b[at + 4] !== 0;
+}
+
+function csilKeyLabel(key: CborValue): string {
+  return typeof key === "string" ? JSON.stringify(key) : String(key);
 }
 
 type Cursor = { b: Uint8Array; pos: number };
@@ -144,8 +176,24 @@ function smallInt(arg: bigint): number | bigint {
   return arg <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(arg) : arg;
 }
 
+/** Widen an IEEE 754 half-precision value (RFC 8949 Appendix D) exactly to binary64. */
+function csilHalfToFloat64(half: number): number {
+  const exp = (half >> 10) & 0x1f;
+  const mant = half & 0x3ff;
+  let magnitude: number;
+  if (exp === 0) magnitude = mant * 2 ** -24;
+  else if (exp === 31) magnitude = mant === 0 ? Infinity : NaN;
+  else magnitude = (mant + 1024) * 2 ** (exp - 25);
+  return half & 0x8000 ? -magnitude : magnitude;
+}
+
 function readFloat(st: Cursor, low: number): number {
   const bits = readArg(st, low);
+  if (low === 25) {
+    const view = new DataView(new ArrayBuffer(2));
+    view.setUint16(0, Number(bits), false);
+    return csilHalfToFloat64(view.getUint16(0, false));
+  }
   if (low === 26) {
     const view = new DataView(new ArrayBuffer(4));
     view.setUint32(0, Number(bits), false);
@@ -175,7 +223,7 @@ function decInto(st: Cursor, depth: number): CborValue {
       st.pos += 1;
       return null;
     }
-    if (low === 26 || low === 27) return readFloat(st, low);
+    if (low === 25 || low === 26 || low === 27) return readFloat(st, low);
     throw new Error("malformed CBOR simple value");
   }
   const arg = readArg(st, low);
@@ -211,8 +259,21 @@ function decInto(st: Cursor, depth: number): CborValue {
       if (arg > BigInt(st.b.length - st.pos)) throw new Error("CBOR map length exceeds remaining input");
       const n = Number(arg);
       const m = new Map<CborValue, CborValue>();
+      // Raw key bytes catch a repeated byte-string key and a key encoded twice in
+      // different widths, which a JS `Map` cannot tell apart from distinct keys.
+      const seen = new Set<string>();
+      let prev: Uint8Array | null = null;
       for (let i = 0; i < n; i++) {
+        const start = st.pos;
         const k = decInto(st, depth + 1);
+        if (!csilShortestHead(st.b, start)) throw new Error("csil cbor: map key is not in shortest form");
+        const raw = st.b.subarray(start, st.pos);
+        let id = "";
+        for (const b of raw) id += String.fromCharCode(b);
+        if (seen.has(id) || m.has(k)) throw new Error(`csil cbor: duplicate key ${csilKeyLabel(k)}`);
+        seen.add(id);
+        if (prev !== null && csilCompareBytes(prev, raw) > 0) csilUnorderedMaps.add(m);
+        prev = raw;
         const val = decInto(st, depth + 1);
         m.set(k, val);
       }
@@ -276,6 +337,13 @@ export function asArray(value: CborValue): CborValue[] {
 export function asMap(value: CborValue): Map<CborValue, CborValue> {
   if (value instanceof Map) return value;
   throw new Error("expected a map");
+}
+
+/** A `{ * K => V }` map: its keys must arrive in canonical order (RFC 8949 section 4.2.1). */
+export function asDynamicMap(value: CborValue): Map<CborValue, CborValue> {
+  const m = asMap(value);
+  if (csilUnorderedMaps.has(m)) throw new Error("csil cbor: map keys are not in canonical order");
+  return m;
 }
 
 /** A decoded integer may surface as `bigint` (see `decInto`'s large-value path), so a
@@ -360,7 +428,92 @@ function asTagged(value: CborValue, tag: number): CborValue {
 
 /** Decode a tag-0 (RFC 3339, UTC) timestamp into a `Date`. */
 export function asTimestamp(value: CborValue): Date {
-  return new Date(asString(asTagged(value, 0)));
+  return csilTsFromText(asString(asTagged(value, 0)));
+}
+
+// `Date` parsing accepts many shapes the wire contract forbids (a space for `T`, no
+// offset, leap seconds rolled over), so the grammar is checked by hand. `[0-9]` stays
+// ASCII-only, and `$` without the `m` flag matches only at the true end of input.
+const CSIL_TS_PATTERN =
+  /^([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?(?:[Zz]|([+-])([0-9]{2}):([0-9]{2}))$/;
+
+/** Parse canonical tag-0 text strictly. `Date` holds milliseconds, so a nonzero digit
+ * past the third fraction digit is an error rather than a silent rounding. */
+export function csilTsFromText(text: string): Date {
+  const m = CSIL_TS_PATTERN.exec(text);
+  if (m === null) throw new Error(`invalid RFC 3339 timestamp ${JSON.stringify(text)}`);
+  const [year, month, day, hour, minute, second] = m.slice(1, 7).map(Number);
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > monthDays[month - 1]) {
+    throw new Error(`invalid calendar date in timestamp ${JSON.stringify(text)}`);
+  }
+  if (hour > 23 || minute > 59 || second > 59) {
+    throw new Error(`invalid time of day in timestamp ${JSON.stringify(text)}`);
+  }
+  const fraction = m[7] ?? "";
+  if (/[1-9]/.test(fraction.slice(3))) {
+    throw new Error(`timestamp ${JSON.stringify(text)} is finer than milliseconds`);
+  }
+  let offsetMinutes = 0;
+  if (m[8] !== undefined) {
+    const offsetHour = Number(m[9]);
+    const offsetMinute = Number(m[10]);
+    if (offsetHour > 23 || offsetMinute > 59) {
+      throw new Error(`invalid offset in timestamp ${JSON.stringify(text)}`);
+    }
+    offsetMinutes = (m[8] === "-" ? -1 : 1) * (offsetHour * 60 + offsetMinute);
+  }
+  // `Date.UTC` maps years 0-99 to 1900-1999, so the year is set on its own.
+  const local = new Date(0);
+  local.setUTCFullYear(year, month - 1, day);
+  local.setUTCHours(hour, minute, second, Number(fraction.padEnd(3, "0").slice(0, 3)));
+  const instant = new Date(local.getTime() - offsetMinutes * 60000);
+  const utcYear = instant.getUTCFullYear();
+  if (utcYear < 1 || utcYear > 9999) {
+    throw new Error(`timestamp ${JSON.stringify(text)} is outside years 0001-9999 in UTC`);
+  }
+  return instant;
+}
+
+const CSIL_EPOCH_FIRST = -62135596800;
+const CSIL_EPOCH_LAST = 253402300799;
+
+/** Decode tag-1 epoch seconds (`cddl_time`) into a `Date`. A `Date` holds
+ * milliseconds, so a float fraction is rounded to three digits by the shared rule. */
+export function asCddlTime(value: CborValue): Date {
+  const inner = asTagged(value, 1);
+  // An integer past 2^53 decodes as a `bigint`; every one of those is out of range.
+  if (typeof inner === "bigint") throw new Error("cddl_time is outside years 0001-9999");
+  if (typeof inner !== "number") throw new Error("cddl_time content must be a number");
+  if (!Number.isFinite(inner)) throw new Error("cddl_time must be finite");
+  if (inner < CSIL_EPOCH_FIRST - 1 || inner > CSIL_EPOCH_LAST + 1) {
+    throw new Error("cddl_time is outside years 0001-9999");
+  }
+  // An integer and a float with the same value decode to the same `number`, and the
+  // rule gives an integer a zero fraction, so one path serves both.
+  let seconds = Math.floor(inner);
+  let units = Math.floor((inner - seconds) * 1000 + 0.5);
+  if (units === 1000) {
+    seconds += 1;
+    units = 0;
+  }
+  if (seconds < CSIL_EPOCH_FIRST || seconds > CSIL_EPOCH_LAST) {
+    throw new Error("cddl_time is outside years 0001-9999");
+  }
+  return new Date(seconds * 1000 + units);
+}
+
+/** A `Date` as tag-1 content: whole seconds as an integer, else a binary64 float. */
+export function csilEpochFromDate(d: Date): number {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) throw new Error("expected a valid Date");
+  const millis = d.getTime();
+  const seconds = Math.floor(millis / 1000);
+  if (seconds < CSIL_EPOCH_FIRST || seconds > CSIL_EPOCH_LAST) {
+    throw new Error("cddl_time is outside years 0001-9999");
+  }
+  const units = millis - seconds * 1000;
+  return units === 0 ? seconds : seconds + units / 1000;
 }
 
 /** Decode a tag-4 decimal fraction into its `[exponent, mantissa]` payload. */
@@ -375,6 +528,11 @@ export function asDecimalPayload(value: CborValue): [number | bigint, number | b
 
 /** A `Date` rendered as the canonical tag-0 text: RFC 3339, UTC, `Z` offset. */
 export function csilTsToText(d: Date): string {
+  // An Invalid Date or a year outside 0001-9999 has no canonical text, and
+  // `toISOString` would write an expanded `+YYYYYY` year for the latter.
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) throw new Error("expected a valid Date");
+  const year = d.getUTCFullYear();
+  if (year < 1 || year > 9999) throw new Error("timestamp is outside years 0001-9999");
   return d.toISOString().replace(/\.000Z$/, "Z");
 }
 
@@ -388,6 +546,7 @@ export function toIdentityRefCborValue(v: IdentityRef): CborValue {
 }
 
 export function fromIdentityRefCborValue(value: CborValue): IdentityRef {
+  asMap(value);
   return {
     domain: asString(requireKey(value, "domain")),
     userId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "user_id")),
@@ -420,6 +579,7 @@ export function toUserCborValue(v: User): CborValue {
 }
 
 export function fromUserCborValue(value: CborValue): User {
+  asMap(value);
   return {
     userId: asString(requireKey(value, "user_id")),
     domain: asString(requireKey(value, "domain")),
@@ -454,6 +614,7 @@ export function toPersonSummaryCborValue(v: PersonSummary): CborValue {
 }
 
 export function fromPersonSummaryCborValue(value: CborValue): PersonSummary {
+  asMap(value);
   return {
     userId: asString(requireKey(value, "user_id")),
     domain: asString(requireKey(value, "domain")),
@@ -494,6 +655,7 @@ export function toCalendarCborValue(v: Calendar): CborValue {
 }
 
 export function fromCalendarCborValue(value: CborValue): Calendar {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     owner: fromPersonSummaryCborValue(requireKey(value, "owner")),
@@ -532,6 +694,7 @@ export function toCreateCalendarRequestCborValue(v: CreateCalendarRequest): Cbor
 }
 
 export function fromCreateCalendarRequestCborValue(value: CborValue): CreateCalendarRequest {
+  asMap(value);
   return {
     name: asString(requireKey(value, "name")),
     description: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "description")),
@@ -559,6 +722,7 @@ export function toUpdateCalendarRequestCborValue(v: UpdateCalendarRequest): Cbor
 }
 
 export function fromUpdateCalendarRequestCborValue(value: CborValue): UpdateCalendarRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     name: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "name")),
@@ -585,6 +749,7 @@ export function toSubscribeCalendarRequestCborValue(v: SubscribeCalendarRequest)
 }
 
 export function fromSubscribeCalendarRequestCborValue(value: CborValue): SubscribeCalendarRequest {
+  asMap(value);
   return {
     name: asString(requireKey(value, "name")),
     sourceUrl: asString(requireKey(value, "source_url")),
@@ -608,6 +773,7 @@ export function toSetFeedRequestCborValue(v: SetFeedRequest): CborValue {
 }
 
 export function fromSetFeedRequestCborValue(value: CborValue): SetFeedRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     enabled: asBool(requireKey(value, "enabled")),
@@ -629,6 +795,7 @@ export function toCalendarListCborValue(v: CalendarList): CborValue {
 }
 
 export function fromCalendarListCborValue(value: CborValue): CalendarList {
+  asMap(value);
   return {
     calendars: asArray(requireKey(value, "calendars")).map((csilE) => fromCalendarCborValue(csilE)),
   };
@@ -656,6 +823,7 @@ export function toShareCborValue(v: Share): CborValue {
 }
 
 export function fromShareCborValue(value: CborValue): Share {
+  asMap(value);
   return {
     shareId: asString(requireKey(value, "share_id")),
     calendarId: asString(requireKey(value, "calendar_id")),
@@ -683,6 +851,7 @@ export function toShareListCborValue(v: ShareList): CborValue {
 }
 
 export function fromShareListCborValue(value: CborValue): ShareList {
+  asMap(value);
   return {
     shares: asArray(requireKey(value, "shares")).map((csilE) => fromShareCborValue(csilE)),
   };
@@ -706,6 +875,7 @@ export function toGroupMemberCborValue(v: GroupMember): CborValue {
 }
 
 export function fromGroupMemberCborValue(value: CborValue): GroupMember {
+  asMap(value);
   return {
     identity: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromIdentityRefCborValue(csilV))(mapGet(value, "identity")),
     groupId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "group_id")),
@@ -736,6 +906,7 @@ export function toGroupCborValue(v: Group): CborValue {
 }
 
 export function fromGroupCborValue(value: CborValue): Group {
+  asMap(value);
   return {
     groupId: asString(requireKey(value, "group_id")),
     owner: fromPersonSummaryCborValue(requireKey(value, "owner")),
@@ -765,6 +936,7 @@ export function toCreateGroupRequestCborValue(v: CreateGroupRequest): CborValue 
 }
 
 export function fromCreateGroupRequestCborValue(value: CborValue): CreateGroupRequest {
+  asMap(value);
   return {
     name: asString(requireKey(value, "name")),
     description: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "description")),
@@ -789,6 +961,7 @@ export function toUpdateGroupRequestCborValue(v: UpdateGroupRequest): CborValue 
 }
 
 export function fromUpdateGroupRequestCborValue(value: CborValue): UpdateGroupRequest {
+  asMap(value);
   return {
     groupId: asString(requireKey(value, "group_id")),
     name: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "name")),
@@ -813,6 +986,7 @@ export function toSetGroupMembersRequestCborValue(v: SetGroupMembersRequest): Cb
 }
 
 export function fromSetGroupMembersRequestCborValue(value: CborValue): SetGroupMembersRequest {
+  asMap(value);
   return {
     groupId: asString(requireKey(value, "group_id")),
     expectedRevision: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "expected_revision")),
@@ -835,6 +1009,7 @@ export function toGroupListCborValue(v: GroupList): CborValue {
 }
 
 export function fromGroupListCborValue(value: CborValue): GroupList {
+  asMap(value);
   return {
     groups: asArray(requireKey(value, "groups")).map((csilE) => fromGroupCborValue(csilE)),
   };
@@ -864,6 +1039,7 @@ export function toDelegationCborValue(v: Delegation): CborValue {
 }
 
 export function fromDelegationCborValue(value: CborValue): Delegation {
+  asMap(value);
   return {
     delegationId: asString(requireKey(value, "delegation_id")),
     principal: fromPersonSummaryCborValue(requireKey(value, "principal")),
@@ -893,6 +1069,7 @@ export function toDelegationListCborValue(v: DelegationList): CborValue {
 }
 
 export function fromDelegationListCborValue(value: CborValue): DelegationList {
+  asMap(value);
   return {
     delegations: asArray(requireKey(value, "delegations")).map((csilE) => fromDelegationCborValue(csilE)),
   };
@@ -913,6 +1090,7 @@ export function toAssumePrincipalRequestCborValue(v: AssumePrincipalRequest): Cb
 }
 
 export function fromAssumePrincipalRequestCborValue(value: CborValue): AssumePrincipalRequest {
+  asMap(value);
   return {
     principalUserId: asString(requireKey(value, "principal_user_id")),
   };
@@ -935,6 +1113,7 @@ export function toRecurrenceCborValue(v: Recurrence): CborValue {
 }
 
 export function fromRecurrenceCborValue(value: CborValue): Recurrence {
+  asMap(value);
   return {
     rrule: asString(requireKey(value, "rrule")),
     exdates: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asArray(csilV).map((csilE) => asTimestamp(csilE)))(mapGet(value, "exdates")),
@@ -964,6 +1143,7 @@ export function toAttendeeCborValue(v: Attendee): CborValue {
 }
 
 export function fromAttendeeCborValue(value: CborValue): Attendee {
+  asMap(value);
   return {
     identity: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromIdentityRefCborValue(csilV))(mapGet(value, "identity")),
     email: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "email")),
@@ -992,6 +1172,7 @@ export function toReminderCborValue(v: Reminder): CborValue {
 }
 
 export function fromReminderCborValue(value: CborValue): Reminder {
+  asMap(value);
   return {
     minutesBefore: asNumber(requireKey(value, "minutes_before")),
     method: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : (asEnumMember(asString(csilV), ["display", "email"]) as "display" | "email"))(mapGet(value, "method")),
@@ -1043,6 +1224,7 @@ export function toEventCborValue(v: Event): CborValue {
 }
 
 export function fromEventCborValue(value: CborValue): Event {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     calendarId: asString(requireKey(value, "calendar_id")),
@@ -1099,6 +1281,7 @@ export function toOccurrenceCborValue(v: Occurrence): CborValue {
 }
 
 export function fromOccurrenceCborValue(value: CborValue): Occurrence {
+  asMap(value);
   return {
     event: fromEventCborValue(requireKey(value, "event")),
     start: asTimestamp(requireKey(value, "start")),
@@ -1128,6 +1311,7 @@ export function toListEventsRequestCborValue(v: ListEventsRequest): CborValue {
 }
 
 export function fromListEventsRequestCborValue(value: CborValue): ListEventsRequest {
+  asMap(value);
   return {
     rangeStart: asTimestamp(requireKey(value, "range_start")),
     rangeEnd: asTimestamp(requireKey(value, "range_end")),
@@ -1152,6 +1336,7 @@ export function toOccurrenceListCborValue(v: OccurrenceList): CborValue {
 }
 
 export function fromOccurrenceListCborValue(value: CborValue): OccurrenceList {
+  asMap(value);
   return {
     occurrences: asArray(requireKey(value, "occurrences")).map((csilE) => fromOccurrenceCborValue(csilE)),
     truncated: asBool(requireKey(value, "truncated")),
@@ -1175,6 +1360,7 @@ export function toUpdateEventRequestCborValue(v: UpdateEventRequest): CborValue 
 }
 
 export function fromUpdateEventRequestCborValue(value: CborValue): UpdateEventRequest {
+  asMap(value);
   return {
     event: fromEventCborValue(requireKey(value, "event")),
     scope: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : (asEnumMember(asString(csilV), ["all", "this", "this_and_future"]) as "all" | "this" | "this_and_future"))(mapGet(value, "scope")),
@@ -1199,6 +1385,7 @@ export function toDeleteEventRequestCborValue(v: DeleteEventRequest): CborValue 
 }
 
 export function fromDeleteEventRequestCborValue(value: CborValue): DeleteEventRequest {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     scope: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : (asEnumMember(asString(csilV), ["all", "this", "this_and_future"]) as "all" | "this" | "this_and_future"))(mapGet(value, "scope")),
@@ -1221,6 +1408,7 @@ export function toDeleteEventResponseCborValue(v: DeleteEventResponse): CborValu
 }
 
 export function fromDeleteEventResponseCborValue(value: CborValue): DeleteEventResponse {
+  asMap(value);
   return {
     trashId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "trash_id")),
   };
@@ -1242,6 +1430,7 @@ export function toMoveEventRequestCborValue(v: MoveEventRequest): CborValue {
 }
 
 export function fromMoveEventRequestCborValue(value: CborValue): MoveEventRequest {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     calendarId: asString(requireKey(value, "calendar_id")),
@@ -1272,6 +1461,7 @@ export function toTrashEntryCborValue(v: TrashEntry): CborValue {
 }
 
 export function fromTrashEntryCborValue(value: CborValue): TrashEntry {
+  asMap(value);
   return {
     trashId: asString(requireKey(value, "trash_id")),
     calendarId: asString(requireKey(value, "calendar_id")),
@@ -1302,6 +1492,7 @@ export function toListTrashRequestCborValue(v: ListTrashRequest): CborValue {
 }
 
 export function fromListTrashRequestCborValue(value: CborValue): ListTrashRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     limit: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "limit")),
@@ -1323,6 +1514,7 @@ export function toTrashListCborValue(v: TrashList): CborValue {
 }
 
 export function fromTrashListCborValue(value: CborValue): TrashList {
+  asMap(value);
   return {
     entries: asArray(requireKey(value, "entries")).map((csilE) => fromTrashEntryCborValue(csilE)),
   };
@@ -1343,6 +1535,7 @@ export function toRestoreEventRequestCborValue(v: RestoreEventRequest): CborValu
 }
 
 export function fromRestoreEventRequestCborValue(value: CborValue): RestoreEventRequest {
+  asMap(value);
   return {
     trashId: asString(requireKey(value, "trash_id")),
   };
@@ -1365,6 +1558,7 @@ export function toImportEventRequestCborValue(v: ImportEventRequest): CborValue 
 }
 
 export function fromImportEventRequestCborValue(value: CborValue): ImportEventRequest {
+  asMap(value);
   return {
     event: fromEventCborValue(requireKey(value, "event")),
     createdBy: fromIdentityRefCborValue(requireKey(value, "created_by")),
@@ -1388,6 +1582,7 @@ export function toCreateEventOnceRequestCborValue(v: CreateEventOnceRequest): Cb
 }
 
 export function fromCreateEventOnceRequestCborValue(value: CborValue): CreateEventOnceRequest {
+  asMap(value);
   return {
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
     event: fromEventCborValue(requireKey(value, "event")),
@@ -1410,6 +1605,7 @@ export function toCreateReceiptRequestCborValue(v: CreateReceiptRequest): CborVa
 }
 
 export function fromCreateReceiptRequestCborValue(value: CborValue): CreateReceiptRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
@@ -1438,6 +1634,7 @@ export function toCreateEventReceiptCborValue(v: CreateEventReceipt): CborValue 
 }
 
 export function fromCreateEventReceiptCborValue(value: CborValue): CreateEventReceipt {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
@@ -1468,6 +1665,7 @@ export function toSplitSeriesOnceRequestCborValue(v: SplitSeriesOnceRequest): Cb
 }
 
 export function fromSplitSeriesOnceRequestCborValue(value: CborValue): SplitSeriesOnceRequest {
+  asMap(value);
   return {
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
     event: fromEventCborValue(requireKey(value, "event")),
@@ -1493,6 +1691,7 @@ export function toSplitReceiptRequestCborValue(v: SplitReceiptRequest): CborValu
 }
 
 export function fromSplitReceiptRequestCborValue(value: CborValue): SplitReceiptRequest {
+  asMap(value);
   return {
     seriesId: asString(requireKey(value, "series_id")),
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
@@ -1518,6 +1717,7 @@ export function toSplitOccurrenceMappingCborValue(v: SplitOccurrenceMapping): Cb
 }
 
 export function fromSplitOccurrenceMappingCborValue(value: CborValue): SplitOccurrenceMapping {
+  asMap(value);
   return {
     recurrenceId: asTimestamp(requireKey(value, "recurrence_id")),
     result: (asEnumMember(asString(requireKey(value, "result")), ["original", "successor", "none"]) as "original" | "successor" | "none"),
@@ -1555,6 +1755,7 @@ export function toSplitSeriesReceiptCborValue(v: SplitSeriesReceipt): CborValue 
 }
 
 export function fromSplitSeriesReceiptCborValue(value: CborValue): SplitSeriesReceipt {
+  asMap(value);
   return {
     seriesId: asString(requireKey(value, "series_id")),
     idempotencyKey: asString(requireKey(value, "idempotency_key")),
@@ -1590,6 +1791,7 @@ export function toGetOccurrenceRequestCborValue(v: GetOccurrenceRequest): CborVa
 }
 
 export function fromGetOccurrenceRequestCborValue(value: CborValue): GetOccurrenceRequest {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     recurrenceId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asTimestamp(csilV))(mapGet(value, "recurrence_id")),
@@ -1614,6 +1816,7 @@ export function toRespondRequestCborValue(v: RespondRequest): CborValue {
 }
 
 export function fromRespondRequestCborValue(value: CborValue): RespondRequest {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     status: (asEnumMember(asString(requireKey(value, "status")), ["needs_action", "accepted", "declined", "tentative", "delegated"]) as "needs_action" | "accepted" | "declined" | "tentative" | "delegated"),
@@ -1638,6 +1841,7 @@ export function toSearchEventsRequestCborValue(v: SearchEventsRequest): CborValu
 }
 
 export function fromSearchEventsRequestCborValue(value: CborValue): SearchEventsRequest {
+  asMap(value);
   return {
     query: asString(requireKey(value, "query")),
     limit: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "limit")),
@@ -1659,6 +1863,7 @@ export function toEventListCborValue(v: EventList): CborValue {
 }
 
 export function fromEventListCborValue(value: CborValue): EventList {
+  asMap(value);
   return {
     events: asArray(requireKey(value, "events")).map((csilE) => fromEventCborValue(csilE)),
   };
@@ -1681,6 +1886,7 @@ export function toBusyIntervalCborValue(v: BusyInterval): CborValue {
 }
 
 export function fromBusyIntervalCborValue(value: CborValue): BusyInterval {
+  asMap(value);
   return {
     start: asTimestamp(requireKey(value, "start")),
     end: asTimestamp(requireKey(value, "end")),
@@ -1705,6 +1911,7 @@ export function toFreeBusyRequestCborValue(v: FreeBusyRequest): CborValue {
 }
 
 export function fromFreeBusyRequestCborValue(value: CborValue): FreeBusyRequest {
+  asMap(value);
   return {
     people: asArray(requireKey(value, "people")).map((csilE) => fromIdentityRefCborValue(csilE)),
     rangeStart: asTimestamp(requireKey(value, "range_start")),
@@ -1730,6 +1937,7 @@ export function toPersonFreeBusyCborValue(v: PersonFreeBusy): CborValue {
 }
 
 export function fromPersonFreeBusyCborValue(value: CborValue): PersonFreeBusy {
+  asMap(value);
   return {
     identity: fromIdentityRefCborValue(requireKey(value, "identity")),
     person: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromPersonSummaryCborValue(csilV))(mapGet(value, "person")),
@@ -1753,6 +1961,7 @@ export function toFreeBusyResponseCborValue(v: FreeBusyResponse): CborValue {
 }
 
 export function fromFreeBusyResponseCborValue(value: CborValue): FreeBusyResponse {
+  asMap(value);
   return {
     people: asArray(requireKey(value, "people")).map((csilE) => fromPersonFreeBusyCborValue(csilE)),
   };
@@ -1774,6 +1983,7 @@ export function toImportIcsRequestCborValue(v: ImportIcsRequest): CborValue {
 }
 
 export function fromImportIcsRequestCborValue(value: CborValue): ImportIcsRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
     ics: asString(requireKey(value, "ics")),
@@ -1798,6 +2008,7 @@ export function toImportResultCborValue(v: ImportResult): CborValue {
 }
 
 export function fromImportResultCborValue(value: CborValue): ImportResult {
+  asMap(value);
   return {
     created: asNumber(requireKey(value, "created")),
     updated: asNumber(requireKey(value, "updated")),
@@ -1821,6 +2032,7 @@ export function toExportCalendarRequestCborValue(v: ExportCalendarRequest): Cbor
 }
 
 export function fromExportCalendarRequestCborValue(value: CborValue): ExportCalendarRequest {
+  asMap(value);
   return {
     calendarId: asString(requireKey(value, "calendar_id")),
   };
@@ -1842,6 +2054,7 @@ export function toExportEventRequestCborValue(v: ExportEventRequest): CborValue 
 }
 
 export function fromExportEventRequestCborValue(value: CborValue): ExportEventRequest {
+  asMap(value);
   return {
     eventId: asString(requireKey(value, "event_id")),
     method: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "method")),
@@ -1864,6 +2077,7 @@ export function toIcsDocumentCborValue(v: IcsDocument): CborValue {
 }
 
 export function fromIcsDocumentCborValue(value: CborValue): IcsDocument {
+  asMap(value);
   return {
     ics: asString(requireKey(value, "ics")),
     filename: asString(requireKey(value, "filename")),
@@ -1893,6 +2107,7 @@ export function toAuditEntryCborValue(v: AuditEntry): CborValue {
 }
 
 export function fromAuditEntryCborValue(value: CborValue): AuditEntry {
+  asMap(value);
   return {
     auditId: asString(requireKey(value, "audit_id")),
     at: asTimestamp(requireKey(value, "at")),
@@ -1922,6 +2137,7 @@ export function toAuditQueryCborValue(v: AuditQuery): CborValue {
 }
 
 export function fromAuditQueryCborValue(value: CborValue): AuditQuery {
+  asMap(value);
   return {
     limit: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asNumber(csilV))(mapGet(value, "limit")),
     delegatedOnly: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asBool(csilV))(mapGet(value, "delegated_only")),
@@ -1943,6 +2159,7 @@ export function toAuditListCborValue(v: AuditList): CborValue {
 }
 
 export function fromAuditListCborValue(value: CborValue): AuditList {
+  asMap(value);
   return {
     entries: asArray(requireKey(value, "entries")).map((csilE) => fromAuditEntryCborValue(csilE)),
   };
@@ -1964,6 +2181,7 @@ export function toCompleteRequestCborValue(v: CompleteRequest): CborValue {
 }
 
 export function fromCompleteRequestCborValue(value: CborValue): CompleteRequest {
+  asMap(value);
   return {
     encryptedToken: asString(requireKey(value, "encrypted_token")),
     domain: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "domain")),
@@ -1990,6 +2208,7 @@ export function toLoginResponseCborValue(v: LoginResponse): CborValue {
 }
 
 export function fromLoginResponseCborValue(value: CborValue): LoginResponse {
+  asMap(value);
   return {
     token: asString(requireKey(value, "token")),
     expiresAt: asTimestamp(requireKey(value, "expires_at")),
@@ -2019,6 +2238,7 @@ export function toMeResponseCborValue(v: MeResponse): CborValue {
 }
 
 export function fromMeResponseCborValue(value: CborValue): MeResponse {
+  asMap(value);
   return {
     user: fromUserCborValue(requireKey(value, "user")),
     actingAs: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : fromPersonSummaryCborValue(csilV))(mapGet(value, "acting_as")),
@@ -2043,6 +2263,7 @@ export function toExchangeActAsCredentialRequestCborValue(v: ExchangeActAsCreden
 }
 
 export function fromExchangeActAsCredentialRequestCborValue(value: CborValue): ExchangeActAsCredentialRequest {
+  asMap(value);
   return {
     credential: asBytes(requireKey(value, "credential")),
   };
@@ -2067,6 +2288,7 @@ export function toScopeSetRequestCborValue(v: ScopeSetRequest): CborValue {
 }
 
 export function fromScopeSetRequestCborValue(value: CborValue): ScopeSetRequest {
+  asMap(value);
   return {
     granteeDomain: asString(requireKey(value, "grantee_domain")),
     granteeUserId: asString(requireKey(value, "grantee_user_id")),
@@ -2091,6 +2313,7 @@ export function toScopeSetResponseCborValue(v: ScopeSetResponse): CborValue {
 }
 
 export function fromScopeSetResponseCborValue(value: CborValue): ScopeSetResponse {
+  asMap(value);
   return {
     signedScopeSet: asBytes(requireKey(value, "signed_scope_set")),
   };
@@ -2113,6 +2336,7 @@ export function toApplicationRefCborValue(v: ApplicationRef): CborValue {
 }
 
 export function fromApplicationRefCborValue(value: CborValue): ApplicationRef {
+  asMap(value);
   return {
     subjectUserId: asString(requireKey(value, "subject_user_id")),
     subjectDomain: asString(requireKey(value, "subject_domain")),
@@ -2140,6 +2364,7 @@ export function toApplicationPresentationCborValue(v: ApplicationPresentation): 
 }
 
 export function fromApplicationPresentationCborValue(value: CborValue): ApplicationPresentation {
+  asMap(value);
   return {
     signer: fromApplicationRefCborValue(requireKey(value, "signer")),
     signerInstanceId: asString(requireKey(value, "signer_instance_id")),
@@ -2167,6 +2392,7 @@ export function toSignedApplicationPresentationCborValue(v: SignedApplicationPre
 }
 
 export function fromSignedApplicationPresentationCborValue(value: CborValue): SignedApplicationPresentation {
+  asMap(value);
   return {
     presentation: asBytes(requireKey(value, "presentation")),
     signedByKeyId: asString(requireKey(value, "signed_by_key_id")),
@@ -2189,6 +2415,7 @@ export function toExchangeApplicationPresentationRequestCborValue(v: ExchangeApp
 }
 
 export function fromExchangeApplicationPresentationRequestCborValue(value: CborValue): ExchangeApplicationPresentationRequest {
+  asMap(value);
   return {
     presentation: fromSignedApplicationPresentationCborValue(requireKey(value, "presentation")),
   };
@@ -2209,6 +2436,7 @@ export function toApplicationIdentityResponseCborValue(v: ApplicationIdentityRes
 }
 
 export function fromApplicationIdentityResponseCborValue(value: CborValue): ApplicationIdentityResponse {
+  asMap(value);
   return {
     audience: fromApplicationRefCborValue(requireKey(value, "audience")),
   };
@@ -2232,6 +2460,7 @@ export function toDevUserCborValue(v: DevUser): CborValue {
 }
 
 export function fromDevUserCborValue(value: CborValue): DevUser {
+  asMap(value);
   return {
     userId: asString(requireKey(value, "user_id")),
     handle: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "handle")),
@@ -2255,6 +2484,7 @@ export function toDevUsersResponseCborValue(v: DevUsersResponse): CborValue {
 }
 
 export function fromDevUsersResponseCborValue(value: CborValue): DevUsersResponse {
+  asMap(value);
   return {
     users: asArray(requireKey(value, "users")).map((csilE) => fromDevUserCborValue(csilE)),
   };
@@ -2277,6 +2507,7 @@ export function toDevLoginRequestCborValue(v: DevLoginRequest): CborValue {
 }
 
 export function fromDevLoginRequestCborValue(value: CborValue): DevLoginRequest {
+  asMap(value);
   return {
     userId: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "user_id")),
     handle: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "handle")),
@@ -2299,6 +2530,7 @@ export function toLookupPersonRequestCborValue(v: LookupPersonRequest): CborValu
 }
 
 export function fromLookupPersonRequestCborValue(value: CborValue): LookupPersonRequest {
+  asMap(value);
   return {
     identity: fromIdentityRefCborValue(requireKey(value, "identity")),
   };
@@ -2320,6 +2552,7 @@ export function toUpdateProfileRequestCborValue(v: UpdateProfileRequest): CborVa
 }
 
 export function fromUpdateProfileRequestCborValue(value: CborValue): UpdateProfileRequest {
+  asMap(value);
   return {
     displayName: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "display_name")),
     timezone: ((csilV: CborValue | undefined) => csilV === undefined ? undefined : asString(csilV))(mapGet(value, "timezone")),
@@ -2340,7 +2573,7 @@ export function toEmptyRequestCborValue(v: EmptyRequest): CborValue {
 }
 
 export function fromEmptyRequestCborValue(value: CborValue): EmptyRequest {
-  void value;
+  asMap(value);
   return {} as EmptyRequest;
 }
 
@@ -2358,7 +2591,7 @@ export function toEmptyResponseCborValue(v: EmptyResponse): CborValue {
 }
 
 export function fromEmptyResponseCborValue(value: CborValue): EmptyResponse {
-  void value;
+  asMap(value);
   return {} as EmptyResponse;
 }
 
@@ -2378,6 +2611,7 @@ export function toServiceErrorCborValue(v: ServiceError): CborValue {
 }
 
 export function fromServiceErrorCborValue(value: CborValue): ServiceError {
+  asMap(value);
   return {
     code: asNumber(requireKey(value, "code")),
     message: asString(requireKey(value, "message")),

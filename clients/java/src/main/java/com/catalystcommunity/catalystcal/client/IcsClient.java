@@ -14,14 +14,17 @@ public final class IcsClient {
     }
 
     public ImportResult importIcs(ImportIcsRequest req) throws ClientException {
-        return CsilCbor.decodeImportResult(transport.call("IcsService", "import-ics", CsilCbor.encodeImportIcsRequest(req)));
+        WireReply reply = transport.callReply("IcsService", "import-ics", CsilCbor.encodeImportIcsRequest(req));
+        return CsilCbor.decodeImportResult(CsilCbor.resolveRpcReply("IcsService", "import-ics", reply.variant(), reply.payload()));
     }
 
     public IcsDocument exportCalendar(ExportCalendarRequest req) throws ClientException {
-        return CsilCbor.decodeIcsDocument(transport.call("IcsService", "export-calendar", CsilCbor.encodeExportCalendarRequest(req)));
+        WireReply reply = transport.callReply("IcsService", "export-calendar", CsilCbor.encodeExportCalendarRequest(req));
+        return CsilCbor.decodeIcsDocument(CsilCbor.resolveRpcReply("IcsService", "export-calendar", reply.variant(), reply.payload()));
     }
 
     public IcsDocument exportEvent(ExportEventRequest req) throws ClientException {
-        return CsilCbor.decodeIcsDocument(transport.call("IcsService", "export-event", CsilCbor.encodeExportEventRequest(req)));
+        WireReply reply = transport.callReply("IcsService", "export-event", CsilCbor.encodeExportEventRequest(req));
+        return CsilCbor.decodeIcsDocument(CsilCbor.resolveRpcReply("IcsService", "export-event", reply.variant(), reply.payload()));
     }
 }

@@ -8,6 +8,8 @@ package com.catalystcommunity.catalystcal.client;
  * error — application errors ride inside the decoded payload, distinct from this.
  */
 public class ClientException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     public ClientException(String message) {
         super(message);
     }

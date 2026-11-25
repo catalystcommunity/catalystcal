@@ -70,6 +70,60 @@ static inline int csilc_buf_append(csilc_buf *b, const uint8_t *p, size_t n) {
     return 0;
 }
 
+/* The bytewise order of the encoded keys of map entries i and j (RFC 8949 4.2.1).
+ * marks[2k] is where entry k's key starts and marks[2k+1] where its value starts. */
+static inline int csilc_key_cmp(const uint8_t *base, const size_t *marks, size_t i, size_t j) {
+    size_t li = marks[2 * i + 1] - marks[2 * i];
+    size_t lj = marks[2 * j + 1] - marks[2 * j];
+    int c = memcmp(base + marks[2 * i], base + marks[2 * j], li < lj ? li : lj);
+    if (c) return c;
+    return li < lj ? -1 : (li > lj ? 1 : 0);
+}
+
+/* Reorder the n map entries already written into b (bounded by marks, with
+ * marks[2n] the end of the last entry) into canonical key order. A bottom-up merge
+ * sort needs no comparator context, which qsort cannot carry. Two equal keys are
+ * an error: canonical CBOR has no duplicate map keys. */
+static inline int csilc_sort_map_entries(csilc_buf *b, const size_t *marks, size_t n) {
+    if (n < 2) return 0;
+    if (n > SIZE_MAX / (2 * sizeof(size_t))) return -1;
+    size_t *order = (size_t *)malloc(2 * n * sizeof(size_t));
+    if (!order) return -1;
+    size_t *tmp = order + n;
+    for (size_t i = 0; i < n; i++) order[i] = i;
+    for (size_t w = 1; w < n; w = w > n / 2 ? n : w * 2) {
+        for (size_t lo = 0; lo < n; lo += 2 * w) {
+            size_t mid = w < n - lo ? lo + w : n;
+            size_t hi = 2 * w < n - lo ? lo + 2 * w : n;
+            size_t i = lo, j = mid, k = lo;
+            while (i < mid && j < hi) {
+                tmp[k++] = csilc_key_cmp(b->data, marks, order[j], order[i]) < 0 ? order[j++] : order[i++];
+            }
+            while (i < mid) tmp[k++] = order[i++];
+            while (j < hi) tmp[k++] = order[j++];
+        }
+        memcpy(order, tmp, n * sizeof(size_t));
+    }
+    for (size_t i = 1; i < n; i++) {
+        if (csilc_key_cmp(b->data, marks, order[i - 1], order[i]) == 0) { free(order); return -1; }
+    }
+    size_t start = marks[0];
+    size_t total = marks[2 * n] - start;
+    uint8_t *copy = (uint8_t *)malloc(total);
+    if (!copy) { free(order); return -1; }
+    memcpy(copy, b->data + start, total);
+    size_t at = start;
+    for (size_t i = 0; i < n; i++) {
+        size_t e = order[i];
+        size_t len = marks[2 * e + 2] - marks[2 * e];
+        memcpy(b->data + at, copy + (marks[2 * e] - start), len);
+        at += len;
+    }
+    free(copy);
+    free(order);
+    return 0;
+}
+
 /* Emit the initial byte (major type in the high three bits) plus the shortest-form
  * argument bytes for n, per deterministic encoding. */
 static inline int csilc_head(csilc_buf *b, uint8_t major, uint64_t n) {
@@ -224,6 +278,11 @@ typedef struct csilc_value csilc_value;
 typedef struct csilc_pair {
     csilc_value *key;
     csilc_value *val;
+    /* Where the key's encoded bytes start, relative to the map's own first byte,
+     * and how many there are. Offsets, not pointers, because the input buffer does
+     * not outlive the decode call. */
+    size_t key_at;
+    size_t key_len;
 } csilc_pair;
 
 struct csilc_value {
@@ -244,6 +303,15 @@ struct csilc_value {
         struct {
             csilc_pair *pairs;
             size_t count;
+            /* The encoded keys are strictly ascending in bytewise order (RFC 8949
+             * 4.2.1). A dynamic map must arrive so; a record may not. */
+            bool canonical;
+            /* Some encoded key occurs twice. Only computed when not canonical. */
+            bool duplicate;
+            /* Some key's head is longer than its value or length needs
+             * ("csil cbor: map key is not in shortest form"). Such a map is not
+             * canonical either, because one key would have two byte forms. */
+            bool long_key;
         } map;
         struct {
             uint64_t num;
@@ -344,6 +412,58 @@ static inline double csilc_half_to_double(uint16_t h) {
     return (double)f;
 }
 
+/* Whether the head of the already decoded item at b uses the shortest argument for
+ * its value or length (RFC 8949 4.2.1). A float (major 7) has no such rule. */
+static inline bool csilc_shortest_head(const uint8_t *b) {
+    uint8_t major = b[0] >> 5;
+    uint8_t low = b[0] & 0x1f;
+    if (major == 7 || low < 24) return true;
+    uint64_t arg = 0;
+    size_t width = (size_t)1 << (low - 24);
+    for (size_t i = 1; i <= width; i++) arg = (arg << 8) | (uint64_t)b[i];
+    static const uint64_t floor_of[] = {24u, 0x100u, 0x10000u, 0x100000000u};
+    return arg >= floor_of[low - 24];
+}
+
+/* The bytewise order of two encoded map keys of one map that starts at base. */
+static inline int csilc_span_cmp(const uint8_t *base, const csilc_pair *x, const csilc_pair *y) {
+    size_t n = x->key_len < y->key_len ? x->key_len : y->key_len;
+    int c = memcmp(base + x->key_at, base + y->key_at, n);
+    if (c) return c;
+    return x->key_len < y->key_len ? -1 : (x->key_len > y->key_len ? 1 : 0);
+}
+
+/* 1 when two of the n keys have the same encoding, 0 when not, -1 when out of
+ * memory. A merge sort of the key spans keeps this O(n log n) for a hostile map
+ * that is not in canonical order; a canonical map never comes here. */
+static inline int csilc_has_duplicate_key(const uint8_t *base, const csilc_pair *pairs, size_t n) {
+    if (n < 2) return 0;
+    if (n > SIZE_MAX / (2 * sizeof(size_t))) return -1;
+    size_t *order = (size_t *)malloc(2 * n * sizeof(size_t));
+    if (!order) return -1;
+    size_t *tmp = order + n;
+    for (size_t i = 0; i < n; i++) order[i] = i;
+    for (size_t w = 1; w < n; w = w > n / 2 ? n : w * 2) {
+        for (size_t lo = 0; lo < n; lo += 2 * w) {
+            size_t mid = w < n - lo ? lo + w : n;
+            size_t hi = 2 * w < n - lo ? lo + 2 * w : n;
+            size_t i = lo, j = mid, k = lo;
+            while (i < mid && j < hi) {
+                tmp[k++] = csilc_span_cmp(base, &pairs[order[j]], &pairs[order[i]]) < 0 ? order[j++] : order[i++];
+            }
+            while (i < mid) tmp[k++] = order[i++];
+            while (j < hi) tmp[k++] = order[j++];
+        }
+        memcpy(order, tmp, n * sizeof(size_t));
+    }
+    int dup = 0;
+    for (size_t i = 1; i < n && !dup; i++) {
+        if (csilc_span_cmp(base, &pairs[order[i - 1]], &pairs[order[i]]) == 0) dup = 1;
+    }
+    free(order);
+    return dup;
+}
+
 static inline int csilc_decode_value(CsilCodecArena *a, const uint8_t *b, size_t len,
                               csilc_value *out, size_t *consumed, size_t depth) {
     if (depth > 64) return -1;
@@ -414,6 +534,8 @@ static inline int csilc_decode_value(CsilCodecArena *a, const uint8_t *b, size_t
             if (!pairs) return -1;
         }
         size_t off = head;
+        bool canonical = true;
+        bool long_key = false;
         for (uint64_t i = 0; i < arg; i++) {
             if (i == cap) {
                 size_t grown = cap * 2 < (size_t)arg ? cap * 2 : (size_t)arg;
@@ -426,6 +548,11 @@ static inline int csilc_decode_value(CsilCodecArena *a, const uint8_t *b, size_t
             if (!k || !v) return -1;
             size_t m = 0;
             if (csilc_decode_value(a, b + off, len - off, k, &m, depth + 1)) return -1;
+            pairs[i].key_at = off;
+            pairs[i].key_len = m;
+            if (!csilc_shortest_head(b + off)) long_key = true;
+            /* Comparing each key with the one before keeps the order check O(n). */
+            if (canonical && i > 0 && csilc_span_cmp(b, &pairs[i - 1], &pairs[i]) >= 0) canonical = false;
             off += m;
             if (csilc_decode_value(a, b + off, len - off, v, &m, depth + 1)) return -1;
             off += m;
@@ -435,6 +562,15 @@ static inline int csilc_decode_value(CsilCodecArena *a, const uint8_t *b, size_t
         out->kind = CSILC_MAP;
         out->as.map.pairs = pairs;
         out->as.map.count = (size_t)arg;
+        if (long_key) canonical = false;
+        out->as.map.canonical = canonical;
+        out->as.map.duplicate = false;
+        out->as.map.long_key = long_key;
+        if (!canonical) {
+            int dup = csilc_has_duplicate_key(b, pairs, (size_t)arg);
+            if (dup < 0) return -1;
+            out->as.map.duplicate = dup == 1;
+        }
         *consumed = off;
         return 0;
     }
@@ -605,6 +741,225 @@ static inline bool csilc_valid_date(const char *s) {
 static inline bool csilc_get_date(const csilc_value *v, const char **out) {
     return csilc_get_tagged_text(v, 1004, out) && v->as.tag.content->as.bytes.len == 10
         && csilc_valid_date(*out);
+}
+
+/* The longest canonical timestamp, `YYYY-MM-DDThh:mm:ss.fffffffffZ`, plus its NUL. */
+#define CSILC_TIMESTAMP_CAP 31
+/* `0001-01-01T00:00:00Z` and `9999-12-31T23:59:59Z` as epoch seconds. */
+#define CSILC_EPOCH_FIRST INT64_C(-62135596800)
+#define CSILC_EPOCH_LAST INT64_C(253402300799)
+
+static inline bool csilc_ts_digits(const char *s, size_t n, size_t at, size_t width, int64_t *out) {
+    if (at + width > n) return false;
+    int64_t v = 0;
+    for (size_t i = at; i < at + width; i++) {
+        if (s[i] < '0' || s[i] > '9') return false;
+        v = v * 10 + (s[i] - '0');
+    }
+    *out = v;
+    return true;
+}
+
+/* C division truncates toward zero; the civil-date arithmetic needs floor. */
+static inline int64_t csilc_floor_div(int64_t a, int64_t b) {
+    int64_t q = a / b;
+    return (a % b != 0 && ((a < 0) != (b < 0))) ? q - 1 : q;
+}
+
+static inline int64_t csilc_days_from_civil(int64_t y, int64_t m, int64_t d) {
+    y -= m <= 2;
+    int64_t era = csilc_floor_div(y, 400);
+    int64_t yoe = y - era * 400;
+    int64_t doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;
+    int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+static inline void csilc_ts_put(char *out, size_t at, int64_t v, size_t width) {
+    while (width > 0) {
+        width--;
+        out[at + width] = (char)('0' + v % 10);
+        v /= 10;
+    }
+}
+
+/* Read the strict RFC 3339 form of the wire contract into UTC epoch seconds and
+ * nanoseconds. The year must be 0001 to 9999 after conversion to UTC. */
+static inline bool csilc_timestamp_parse(const char *s, size_t n, int64_t *epoch, int64_t *nanos_out) {
+    int64_t year, month, day, hour, minute, second, nanos = 0, offset = 0;
+    if (n < 20 || s[4] != '-' || s[7] != '-' || (s[10] != 'T' && s[10] != 't') ||
+        s[13] != ':' || s[16] != ':') {
+        return 0;
+    }
+    if (!csilc_ts_digits(s, n, 0, 4, &year) || !csilc_ts_digits(s, n, 5, 2, &month) ||
+        !csilc_ts_digits(s, n, 8, 2, &day) || !csilc_ts_digits(s, n, 11, 2, &hour) ||
+        !csilc_ts_digits(s, n, 14, 2, &minute) || !csilc_ts_digits(s, n, 17, 2, &second)) {
+        return 0;
+    }
+    bool leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    const int64_t days[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > days[month - 1] || hour > 23 ||
+        minute > 59 || second > 59) {
+        return 0;
+    }
+    size_t i = 19;
+    if (s[i] == '.') {
+        size_t start = ++i;
+        while (i < n && s[i] >= '0' && s[i] <= '9') i++;
+        size_t width = i - start;
+        if (width < 1 || width > 9 || !csilc_ts_digits(s, n, start, width, &nanos)) return 0;
+        for (; width < 9; width++) nanos *= 10;
+    }
+    if (i >= n) return 0;
+    if ((s[i] == 'Z' || s[i] == 'z') && i + 1 == n) {
+        offset = 0;
+    } else if ((s[i] == '+' || s[i] == '-') && i + 6 == n && s[i + 3] == ':') {
+        int64_t oh, om;
+        if (!csilc_ts_digits(s, n, i + 1, 2, &oh) || !csilc_ts_digits(s, n, i + 4, 2, &om) ||
+            oh > 23 || om > 59) {
+            return 0;
+        }
+        offset = (oh * 3600 + om * 60) * (s[i] == '-' ? -1 : 1);
+    } else {
+        return 0;
+    }
+    int64_t utc = csilc_days_from_civil(year, month, day) * 86400 + hour * 3600 + minute * 60 +
+                  second - offset;
+    if (utc < CSILC_EPOCH_FIRST || utc > CSILC_EPOCH_LAST) return false;
+    *epoch = utc;
+    *nanos_out = nanos;
+    return true;
+}
+
+/* Write the canonical UTC text for an instant already known to lie in years
+ * 0001 to 9999, so that both wire forms produce the same text. */
+static inline size_t csilc_timestamp_write(int64_t utc, int64_t nanos, char out[CSILC_TIMESTAMP_CAP]) {
+    int64_t z = csilc_floor_div(utc, 86400) + 719468;
+    int64_t sod = utc - csilc_floor_div(utc, 86400) * 86400;
+    int64_t era = csilc_floor_div(z, 146097);
+    int64_t doe = z - era * 146097;
+    int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    int64_t mp = (5 * doy + 2) / 153;
+    int64_t d = doy - (153 * mp + 2) / 5 + 1;
+    int64_t m = mp < 10 ? mp + 3 : mp - 9;
+    int64_t y = yoe + era * 400 + (m <= 2);
+    csilc_ts_put(out, 0, y, 4);
+    out[4] = '-';
+    csilc_ts_put(out, 5, m, 2);
+    out[7] = '-';
+    csilc_ts_put(out, 8, d, 2);
+    out[10] = 'T';
+    csilc_ts_put(out, 11, sod / 3600, 2);
+    out[13] = ':';
+    csilc_ts_put(out, 14, sod / 60 % 60, 2);
+    out[16] = ':';
+    csilc_ts_put(out, 17, sod % 60, 2);
+    size_t len = 19;
+    if (nanos != 0) {
+        /* The fewest of 3, 6, or 9 digits that hold the value exactly, so every
+         * peer writes the same bytes for the same instant. */
+        size_t width = nanos % 1000000 == 0 ? 3 : nanos % 1000 == 0 ? 6 : 9;
+        int64_t scaled = width == 3 ? nanos / 1000000 : width == 6 ? nanos / 1000 : nanos;
+        out[len++] = '.';
+        csilc_ts_put(out, len, scaled, width);
+        len += width;
+    }
+    out[len++] = 'Z';
+    out[len] = 0;
+    return len;
+}
+
+/* Validate the strict RFC 3339 form of the wire contract and write the canonical
+ * UTC spelling to `out`, so equal instants compare equal as text. Returns the
+ * canonical length, or 0 when `s` is not a valid timestamp. */
+static inline size_t csilc_timestamp_canon(const char *s, size_t n, char out[CSILC_TIMESTAMP_CAP],
+                                           int64_t *epoch) {
+    int64_t nanos;
+    if (!csilc_timestamp_parse(s, n, epoch, &nanos)) return 0;
+    return csilc_timestamp_write(*epoch, nanos, out);
+}
+
+/* Decoded text that is already canonical is borrowed as is; only a value that
+ * needs normalizing costs an arena copy. */
+static inline bool csilc_get_timestamp(const csilc_value *v, CsilCodecArena *a, const char **text,
+                                       int64_t *epoch) {
+    const char *raw;
+    if (!csilc_get_tagged_text(v, 0, &raw)) return false;
+    size_t n = v->as.tag.content->as.bytes.len;
+    char buf[CSILC_TIMESTAMP_CAP];
+    size_t len = csilc_timestamp_canon(raw, n, buf, epoch);
+    if (!len) return false;
+    if (len == n && memcmp(buf, raw, n) == 0) {
+        *text = raw;
+        return true;
+    }
+    char *copy = (char *)csilc_arena_alloc(a, len + 1);
+    if (!copy) return false;
+    memcpy(copy, buf, len + 1);
+    *text = copy;
+    return true;
+}
+
+/* A caller-built value is normalized too, so the wire never carries an offset,
+ * lowercase separators, or a non-minimal fraction. */
+static inline int csilc_w_timestamp(csilc_buf *b, const char *text) {
+    char buf[CSILC_TIMESTAMP_CAP];
+    int64_t epoch;
+    size_t len = text ? csilc_timestamp_canon(text, strlen(text), buf, &epoch) : 0;
+    if (!len || csilc_w_tag(b, 0)) return -1;
+    return csilc_w_text(b, buf, len);
+}
+
+/* `cddl_time`: tag 1 around epoch seconds, kept as the same canonical text as a
+ * `timestamp` so both wire forms compare equal for one instant. */
+static inline bool csilc_get_epoch(const csilc_value *v, CsilCodecArena *a, const char **text,
+                                   int64_t *epoch) {
+    if (!v || v->kind != CSILC_TAG || v->as.tag.num != 1) return false;
+    const csilc_value *c = v->as.tag.content;
+    int64_t seconds, units = 0;
+    if (c->kind == CSILC_UINT) {
+        if (c->as.u > (uint64_t)CSILC_EPOCH_LAST) return false;
+        seconds = (int64_t)c->as.u;
+    } else if (c->kind == CSILC_NINT) {
+        seconds = c->as.i;
+    } else if (c->kind == CSILC_FLOAT) {
+        double value = c->as.f;
+        /* The range test also refuses NaN and infinity, and it comes before the
+         * conversion to an integer, which is undefined behavior out of range. */
+        if (!(value >= (double)(CSILC_EPOCH_FIRST - 1) && value <= (double)(CSILC_EPOCH_LAST + 1)))
+            return false;
+        seconds = (int64_t)value;
+        if ((double)seconds > value) seconds--;
+        /* Separate volatile stores keep the compiler from fusing the multiply and
+         * the add into one operation, which can round differently. */
+        volatile double scaled = (value - (double)seconds) * 1e9;
+        volatile double shifted = scaled + 0.5;
+        units = (int64_t)shifted;
+        if (units == 1000000000) {
+            seconds++;
+            units = 0;
+        }
+    } else {
+        return false;
+    }
+    if (seconds < CSILC_EPOCH_FIRST || seconds > CSILC_EPOCH_LAST) return false;
+    char buf[CSILC_TIMESTAMP_CAP];
+    size_t len = csilc_timestamp_write(seconds, units, buf);
+    char *copy = (char *)csilc_arena_alloc(a, len + 1);
+    if (!copy) return false;
+    memcpy(copy, buf, len + 1);
+    *text = copy;
+    *epoch = seconds;
+    return true;
+}
+
+static inline int csilc_w_epoch(csilc_buf *b, const char *text) {
+    int64_t seconds, nanos;
+    if (!text || !csilc_timestamp_parse(text, strlen(text), &seconds, &nanos) || csilc_w_tag(b, 1))
+        return -1;
+    if (nanos == 0) return csilc_w_int(b, seconds);
+    return csilc_w_f64(b, (double)seconds + (double)nanos / 1e9);
 }
 
 static inline bool csilc_get_decimal(const csilc_value *v, int64_t *exp, int64_t *mant) {
@@ -1225,7 +1580,7 @@ static inline int csilc_enc_IdentityRef(csilc_buf *b, const IdentityRef *v) {
 static inline int csilc_dec_IdentityRef(const csilc_value *m, CsilCodecArena *a, IdentityRef *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "domain");
     if (!csilc_get_text(csilc_f, &(out->domain))) return -1;
     csilc_f = csilc_map_get(m, "handle");
@@ -1265,11 +1620,9 @@ static inline int csilc_enc_User(csilc_buf *b, const User *v) {
         if (csilc_w_text(b, (v->timezone), (v->timezone) ? strlen(v->timezone) : 0)) return -1;
     }
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "updated_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->updated_at).rfc3339, (v->updated_at).rfc3339 ? strlen((v->updated_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->updated_at).rfc3339)) return -1;
     if (v->display_name) {
         if (csilc_w_text(b, "display_name", 12)) return -1;
         if (csilc_w_text(b, (v->display_name), (v->display_name) ? strlen(v->display_name) : 0)) return -1;
@@ -1285,7 +1638,7 @@ static inline int csilc_enc_User(csilc_buf *b, const User *v) {
 static inline int csilc_dec_User(const csilc_value *m, CsilCodecArena *a, User *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "email");
     out->email = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "domain");
@@ -1299,11 +1652,9 @@ static inline int csilc_dec_User(const csilc_value *m, CsilCodecArena *a, User *
     csilc_f = csilc_map_get(m, "timezone");
     out->timezone = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "updated_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->updated_at).rfc3339)) return -1;
-    (out->updated_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->updated_at).rfc3339, &(out->updated_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "display_name");
     out->display_name = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "application_id");
@@ -1343,7 +1694,7 @@ static inline int csilc_enc_PersonSummary(csilc_buf *b, const PersonSummary *v) 
 static inline int csilc_dec_PersonSummary(const csilc_value *m, CsilCodecArena *a, PersonSummary *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "domain");
     if (!csilc_get_text(csilc_f, &(out->domain))) return -1;
     csilc_f = csilc_map_get(m, "handle");
@@ -1391,8 +1742,7 @@ static inline int csilc_enc_Calendar(csilc_buf *b, const Calendar *v) {
         if (csilc_w_text(b, (v->feed_path), (v->feed_path) ? strlen(v->feed_path) : 0)) return -1;
     }
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "is_default", 10)) return -1;
     if (csilc_w_bool(b, (v->is_default))) return -1;
     if (v->source_url) {
@@ -1404,8 +1754,7 @@ static inline int csilc_enc_Calendar(csilc_buf *b, const Calendar *v) {
         if (csilc_w_text(b, (v->sync_error), (v->sync_error) ? strlen(v->sync_error) : 0)) return -1;
     }
     if (csilc_w_text(b, "updated_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->updated_at).rfc3339, (v->updated_at).rfc3339 ? strlen((v->updated_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->updated_at).rfc3339)) return -1;
     if (csilc_w_text(b, "access_path", 11)) return -1;
     if (csilc_enc_AccessPath(b, &(v->access_path))) return -1;
     if (csilc_w_text(b, "calendar_id", 11)) return -1;
@@ -1416,8 +1765,7 @@ static inline int csilc_enc_Calendar(csilc_buf *b, const Calendar *v) {
     }
     if (v->last_synced_at) {
         if (csilc_w_text(b, "last_synced_at", 14)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->last_synced_at)).rfc3339, ((*v->last_synced_at)).rfc3339 ? strlen(((*v->last_synced_at)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->last_synced_at)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -1426,7 +1774,7 @@ static inline int csilc_enc_Calendar(csilc_buf *b, const Calendar *v) {
 static inline int csilc_dec_Calendar(const csilc_value *m, CsilCodecArena *a, Calendar *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "kind");
     if (csilc_dec_CalendarKind(csilc_f, a, &(out->kind))) return -1;
     csilc_f = csilc_map_get(m, "name");
@@ -1442,8 +1790,7 @@ static inline int csilc_dec_Calendar(const csilc_value *m, CsilCodecArena *a, Ca
     csilc_f = csilc_map_get(m, "feed_path");
     out->feed_path = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "is_default");
     if (!csilc_as_bool(csilc_f, &(out->is_default))) return -1;
     csilc_f = csilc_map_get(m, "source_url");
@@ -1451,8 +1798,7 @@ static inline int csilc_dec_Calendar(const csilc_value *m, CsilCodecArena *a, Ca
     csilc_f = csilc_map_get(m, "sync_error");
     out->sync_error = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "updated_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->updated_at).rfc3339)) return -1;
-    (out->updated_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->updated_at).rfc3339, &(out->updated_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "access_path");
     if (csilc_dec_AccessPath(csilc_f, a, &(out->access_path))) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
@@ -1464,8 +1810,7 @@ static inline int csilc_dec_Calendar(const csilc_value *m, CsilCodecArena *a, Ca
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->last_synced_at = csilc_p;
     }
     return 0;
@@ -1499,7 +1844,7 @@ static inline int csilc_enc_CreateCalendarRequest(csilc_buf *b, const CreateCale
 static inline int csilc_dec_CreateCalendarRequest(const csilc_value *m, CsilCodecArena *a, CreateCalendarRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     if (!csilc_get_text(csilc_f, &(out->name))) return -1;
     csilc_f = csilc_map_get(m, "color");
@@ -1544,7 +1889,7 @@ static inline int csilc_enc_UpdateCalendarRequest(csilc_buf *b, const UpdateCale
 static inline int csilc_dec_UpdateCalendarRequest(const csilc_value *m, CsilCodecArena *a, UpdateCalendarRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     out->name = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "color");
@@ -1578,7 +1923,7 @@ static inline int csilc_enc_SubscribeCalendarRequest(csilc_buf *b, const Subscri
 static inline int csilc_dec_SubscribeCalendarRequest(const csilc_value *m, CsilCodecArena *a, SubscribeCalendarRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     if (!csilc_get_text(csilc_f, &(out->name))) return -1;
     csilc_f = csilc_map_get(m, "color");
@@ -1603,7 +1948,7 @@ static inline int csilc_enc_SetFeedRequest(csilc_buf *b, const SetFeedRequest *v
 static inline int csilc_dec_SetFeedRequest(const csilc_value *m, CsilCodecArena *a, SetFeedRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "enabled");
     if (!csilc_as_bool(csilc_f, &(out->enabled))) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
@@ -1627,7 +1972,7 @@ static inline int csilc_enc_CalendarList(csilc_buf *b, const CalendarList *v) {
 static inline int csilc_dec_CalendarList(const csilc_value *m, CsilCodecArena *a, CalendarList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "calendars");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->calendars_count = csilc_f->as.array.count;
@@ -1659,8 +2004,7 @@ static inline int csilc_enc_Share(csilc_buf *b, const Share *v) {
     if (csilc_w_text(b, "share_id", 8)) return -1;
     if (csilc_w_text(b, (v->share_id), (v->share_id) ? strlen(v->share_id) : 0)) return -1;
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "calendar_id", 11)) return -1;
     if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
     if (v->grantee_person) {
@@ -1682,7 +2026,7 @@ static inline int csilc_enc_Share(csilc_buf *b, const Share *v) {
 static inline int csilc_dec_Share(const csilc_value *m, CsilCodecArena *a, Share *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "role");
     if (csilc_dec_ShareRole(csilc_f, a, &(out->role))) return -1;
     csilc_f = csilc_map_get(m, "grantee");
@@ -1696,8 +2040,7 @@ static inline int csilc_dec_Share(const csilc_value *m, CsilCodecArena *a, Share
     csilc_f = csilc_map_get(m, "share_id");
     if (!csilc_get_text(csilc_f, &(out->share_id))) return -1;
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     csilc_f = csilc_map_get(m, "grantee_person");
@@ -1737,7 +2080,7 @@ static inline int csilc_enc_ShareList(csilc_buf *b, const ShareList *v) {
 static inline int csilc_dec_ShareList(const csilc_value *m, CsilCodecArena *a, ShareList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "shares");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->shares_count = csilc_f->as.array.count;
@@ -1783,7 +2126,7 @@ static inline int csilc_enc_GroupMember(csilc_buf *b, const GroupMember *v) {
 static inline int csilc_dec_GroupMember(const csilc_value *m, CsilCodecArena *a, GroupMember *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "person");
     out->person = NULL;
     if (csilc_f) {
@@ -1832,11 +2175,9 @@ static inline int csilc_enc_Group(csilc_buf *b, const Group *v) {
     if (csilc_w_text(b, "revision", 8)) return -1;
     if (csilc_w_uint(b, (uint64_t)(v->revision))) return -1;
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "updated_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->updated_at).rfc3339, (v->updated_at).rfc3339 ? strlen((v->updated_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->updated_at).rfc3339)) return -1;
     if (v->description) {
         if (csilc_w_text(b, "description", 11)) return -1;
         if (csilc_w_text(b, (v->description), (v->description) ? strlen(v->description) : 0)) return -1;
@@ -1848,7 +2189,7 @@ static inline int csilc_enc_Group(csilc_buf *b, const Group *v) {
 static inline int csilc_dec_Group(const csilc_value *m, CsilCodecArena *a, Group *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     if (!csilc_get_text(csilc_f, &(out->name))) return -1;
     csilc_f = csilc_map_get(m, "owner");
@@ -1869,11 +2210,9 @@ static inline int csilc_dec_Group(const csilc_value *m, CsilCodecArena *a, Group
     csilc_f = csilc_map_get(m, "revision");
     if (!csilc_as_u64(csilc_f, &(out->revision))) return -1;
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "updated_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->updated_at).rfc3339)) return -1;
-    (out->updated_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->updated_at).rfc3339, &(out->updated_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "description");
     out->description = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     return 0;
@@ -1905,7 +2244,7 @@ static inline int csilc_enc_CreateGroupRequest(csilc_buf *b, const CreateGroupRe
 static inline int csilc_dec_CreateGroupRequest(const csilc_value *m, CsilCodecArena *a, CreateGroupRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     if (!csilc_get_text(csilc_f, &(out->name))) return -1;
     csilc_f = csilc_map_get(m, "members");
@@ -1947,7 +2286,7 @@ static inline int csilc_enc_UpdateGroupRequest(csilc_buf *b, const UpdateGroupRe
 static inline int csilc_dec_UpdateGroupRequest(const csilc_value *m, CsilCodecArena *a, UpdateGroupRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     out->name = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "group_id");
@@ -1980,7 +2319,7 @@ static inline int csilc_enc_SetGroupMembersRequest(csilc_buf *b, const SetGroupM
 static inline int csilc_dec_SetGroupMembersRequest(const csilc_value *m, CsilCodecArena *a, SetGroupMembersRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "members");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->members_count = csilc_f->as.array.count;
@@ -2021,7 +2360,7 @@ static inline int csilc_enc_GroupList(csilc_buf *b, const GroupList *v) {
 static inline int csilc_dec_GroupList(const csilc_value *m, CsilCodecArena *a, GroupList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "groups");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->groups_count = csilc_f->as.array.count;
@@ -2059,17 +2398,14 @@ static inline int csilc_enc_Delegation(csilc_buf *b, const Delegation *v) {
     if (csilc_w_text(b, "principal", 9)) return -1;
     if (csilc_enc_PersonSummary(b, &(v->principal))) return -1;
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (v->expires_at) {
         if (csilc_w_text(b, "expires_at", 10)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->expires_at)).rfc3339, ((*v->expires_at)).rfc3339 ? strlen(((*v->expires_at)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->expires_at)).rfc3339)) return -1;
     }
     if (v->revoked_at) {
         if (csilc_w_text(b, "revoked_at", 10)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->revoked_at)).rfc3339, ((*v->revoked_at)).rfc3339 ? strlen(((*v->revoked_at)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->revoked_at)).rfc3339)) return -1;
     }
     if (v->calendar_ids_count) {
         if (csilc_w_text(b, "calendar_ids", 12)) return -1;
@@ -2091,7 +2427,7 @@ static inline int csilc_enc_Delegation(csilc_buf *b, const Delegation *v) {
 static inline int csilc_dec_Delegation(const csilc_value *m, CsilCodecArena *a, Delegation *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "note");
     out->note = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "scopes");
@@ -2110,15 +2446,13 @@ static inline int csilc_dec_Delegation(const csilc_value *m, CsilCodecArena *a, 
     csilc_f = csilc_map_get(m, "principal");
     if (csilc_dec_PersonSummary(csilc_f, a, &(out->principal))) return -1;
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "expires_at");
     out->expires_at = NULL;
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->expires_at = csilc_p;
     }
     csilc_f = csilc_map_get(m, "revoked_at");
@@ -2126,8 +2460,7 @@ static inline int csilc_dec_Delegation(const csilc_value *m, CsilCodecArena *a, 
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->revoked_at = csilc_p;
     }
     csilc_f = csilc_map_get(m, "calendar_ids");
@@ -2170,7 +2503,7 @@ static inline int csilc_enc_DelegationList(csilc_buf *b, const DelegationList *v
 static inline int csilc_dec_DelegationList(const csilc_value *m, CsilCodecArena *a, DelegationList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "delegations");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->delegations_count = csilc_f->as.array.count;
@@ -2198,7 +2531,7 @@ static inline int csilc_enc_AssumePrincipalRequest(csilc_buf *b, const AssumePri
 static inline int csilc_dec_AssumePrincipalRequest(const csilc_value *m, CsilCodecArena *a, AssumePrincipalRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "principal_user_id");
     if (!csilc_get_text(csilc_f, &(out->principal_user_id))) return -1;
     return 0;
@@ -2216,16 +2549,14 @@ static inline int csilc_enc_Recurrence(csilc_buf *b, const Recurrence *v) {
         if (csilc_w_text(b, "rdates", 6)) return -1;
         if (csilc_w_array_head(b, v->rdates_count)) return -1;
         for (size_t csilc_i = 0; csilc_i < v->rdates_count; csilc_i++) {
-            if (csilc_w_tag(b, 0)) return -1;
-            if (csilc_w_text(b, (v->rdates[csilc_i]).rfc3339, (v->rdates[csilc_i]).rfc3339 ? strlen((v->rdates[csilc_i]).rfc3339) : 0)) return -1;
+            if (csilc_w_timestamp(b, (v->rdates[csilc_i]).rfc3339)) return -1;
         }
     }
     if (v->exdates_count) {
         if (csilc_w_text(b, "exdates", 7)) return -1;
         if (csilc_w_array_head(b, v->exdates_count)) return -1;
         for (size_t csilc_i = 0; csilc_i < v->exdates_count; csilc_i++) {
-            if (csilc_w_tag(b, 0)) return -1;
-            if (csilc_w_text(b, (v->exdates[csilc_i]).rfc3339, (v->exdates[csilc_i]).rfc3339 ? strlen((v->exdates[csilc_i]).rfc3339) : 0)) return -1;
+            if (csilc_w_timestamp(b, (v->exdates[csilc_i]).rfc3339)) return -1;
         }
     }
     return 0;
@@ -2235,7 +2566,7 @@ static inline int csilc_enc_Recurrence(csilc_buf *b, const Recurrence *v) {
 static inline int csilc_dec_Recurrence(const csilc_value *m, CsilCodecArena *a, Recurrence *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "rrule");
     if (!csilc_get_text(csilc_f, &(out->rrule))) return -1;
     csilc_f = csilc_map_get(m, "rdates");
@@ -2246,8 +2577,7 @@ static inline int csilc_dec_Recurrence(const csilc_value *m, CsilCodecArena *a, 
         out->rdates = (CsilTimestamp *)csilc_arena_alloc(a, out->rdates_count * sizeof(CsilTimestamp));
         if (!out->rdates) return -1;
         for (size_t csilc_i = 0; csilc_i < out->rdates_count; csilc_i++) {
-            if (!csilc_get_tagged_text(&csilc_f->as.array.items[csilc_i], 0, &(out->rdates[csilc_i]).rfc3339)) return -1;
-            (out->rdates[csilc_i]).epoch_seconds = 0;
+            if (!csilc_get_timestamp(&csilc_f->as.array.items[csilc_i], a, &(out->rdates[csilc_i]).rfc3339, &(out->rdates[csilc_i]).epoch_seconds)) return -1;
         }
     }
     csilc_f = csilc_map_get(m, "exdates");
@@ -2258,8 +2588,7 @@ static inline int csilc_dec_Recurrence(const csilc_value *m, CsilCodecArena *a, 
         out->exdates = (CsilTimestamp *)csilc_arena_alloc(a, out->exdates_count * sizeof(CsilTimestamp));
         if (!out->exdates) return -1;
         for (size_t csilc_i = 0; csilc_i < out->exdates_count; csilc_i++) {
-            if (!csilc_get_tagged_text(&csilc_f->as.array.items[csilc_i], 0, &(out->exdates[csilc_i]).rfc3339)) return -1;
-            (out->exdates[csilc_i]).epoch_seconds = 0;
+            if (!csilc_get_timestamp(&csilc_f->as.array.items[csilc_i], a, &(out->exdates[csilc_i]).rfc3339, &(out->exdates[csilc_i]).epoch_seconds)) return -1;
         }
     }
     return 0;
@@ -2316,7 +2645,7 @@ static inline int csilc_enc_Attendee(csilc_buf *b, const Attendee *v) {
 static inline int csilc_dec_Attendee(const csilc_value *m, CsilCodecArena *a, Attendee *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "name");
     out->name = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "role");
@@ -2390,7 +2719,7 @@ static inline int csilc_enc_Reminder(csilc_buf *b, const Reminder *v) {
 static inline int csilc_dec_Reminder(const csilc_value *m, CsilCodecArena *a, Reminder *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "method");
     out->method = NULL;
     if (csilc_f) {
@@ -2435,8 +2764,7 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
     if (csilc_w_map_head(b, csilc_n)) return -1;
     if (v->end) {
         if (csilc_w_text(b, "end", 3)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->end)).rfc3339, ((*v->end)).rfc3339 ? strlen(((*v->end)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->end)).rfc3339)) return -1;
     }
     if (v->uid) {
         if (csilc_w_text(b, "uid", 3)) return -1;
@@ -2452,8 +2780,7 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
     }
     if (v->start) {
         if (csilc_w_text(b, "start", 5)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->start)).rfc3339, ((*v->start)).rfc3339 ? strlen(((*v->start)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->start)).rfc3339)) return -1;
     }
     if (csilc_w_text(b, "title", 5)) return -1;
     if (csilc_w_text(b, (v->title), (v->title) ? strlen(v->title) : 0)) return -1;
@@ -2507,8 +2834,7 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
         }
     }
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (v->created_by) {
         if (csilc_w_text(b, "created_by", 10)) return -1;
         if (csilc_enc_PersonSummary(b, &((*v->created_by)))) return -1;
@@ -2522,8 +2848,7 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
         if (!csilc_valid_date(v->start_date) || csilc_w_tag(b, 1004) || csilc_w_text(b, v->start_date, 10)) return -1;
     }
     if (csilc_w_text(b, "updated_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->updated_at).rfc3339, (v->updated_at).rfc3339 ? strlen((v->updated_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->updated_at).rfc3339)) return -1;
     if (v->updated_by) {
         if (csilc_w_text(b, "updated_by", 10)) return -1;
         if (csilc_enc_PersonSummary(b, &((*v->updated_by)))) return -1;
@@ -2548,8 +2873,7 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
     }
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     if (v->conference_url) {
         if (csilc_w_text(b, "conference_url", 14)) return -1;
@@ -2566,14 +2890,13 @@ static inline int csilc_enc_Event(csilc_buf *b, const Event *v) {
 static inline int csilc_dec_Event(const csilc_value *m, CsilCodecArena *a, Event *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "end");
     out->end = NULL;
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->end = csilc_p;
     }
     csilc_f = csilc_map_get(m, "uid");
@@ -2587,8 +2910,7 @@ static inline int csilc_dec_Event(const csilc_value *m, CsilCodecArena *a, Event
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->start = csilc_p;
     }
     csilc_f = csilc_map_get(m, "title");
@@ -2662,8 +2984,7 @@ static inline int csilc_dec_Event(const csilc_value *m, CsilCodecArena *a, Event
         }
     }
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "created_by");
     out->created_by = NULL;
     if (csilc_f) {
@@ -2684,8 +3005,7 @@ static inline int csilc_dec_Event(const csilc_value *m, CsilCodecArena *a, Event
     out->start_date = NULL;
     if (csilc_f && !csilc_get_date(csilc_f, &out->start_date)) return -1;
     csilc_f = csilc_map_get(m, "updated_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->updated_at).rfc3339)) return -1;
-    (out->updated_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->updated_at).rfc3339, &(out->updated_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "updated_by");
     out->updated_by = NULL;
     if (csilc_f) {
@@ -2727,8 +3047,7 @@ static inline int csilc_dec_Event(const csilc_value *m, CsilCodecArena *a, Event
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     csilc_f = csilc_map_get(m, "conference_url");
@@ -2750,13 +3069,11 @@ static inline int csilc_enc_Occurrence(csilc_buf *b, const Occurrence *v) {
     if (v->recurrence_id) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
     if (csilc_w_text(b, "end", 3)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->end).rfc3339, (v->end).rfc3339 ? strlen((v->end).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->end).rfc3339)) return -1;
     if (csilc_w_text(b, "event", 5)) return -1;
     if (csilc_enc_Event(b, &(v->event))) return -1;
     if (csilc_w_text(b, "start", 5)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->start).rfc3339, (v->start).rfc3339 ? strlen((v->start).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->start).rfc3339)) return -1;
     if (csilc_w_text(b, "access", 6)) return -1;
     if (csilc_enc_AccessRole(b, &(v->access))) return -1;
     if (csilc_w_text(b, "invited", 7)) return -1;
@@ -2765,8 +3082,7 @@ static inline int csilc_enc_Occurrence(csilc_buf *b, const Occurrence *v) {
     if (csilc_w_bool(b, (v->busy_only))) return -1;
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -2775,15 +3091,13 @@ static inline int csilc_enc_Occurrence(csilc_buf *b, const Occurrence *v) {
 static inline int csilc_dec_Occurrence(const csilc_value *m, CsilCodecArena *a, Occurrence *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "end");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->end).rfc3339)) return -1;
-    (out->end).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->end).rfc3339, &(out->end).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "start");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->start).rfc3339)) return -1;
-    (out->start).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->start).rfc3339, &(out->start).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "access");
     if (csilc_dec_AccessRole(csilc_f, a, &(out->access))) return -1;
     csilc_f = csilc_map_get(m, "invited");
@@ -2795,8 +3109,7 @@ static inline int csilc_dec_Occurrence(const csilc_value *m, CsilCodecArena *a, 
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -2809,11 +3122,9 @@ static inline int csilc_enc_ListEventsRequest(csilc_buf *b, const ListEventsRequ
     if (v->include_invitations) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
     if (csilc_w_text(b, "range_end", 9)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->range_end).rfc3339, (v->range_end).rfc3339 ? strlen((v->range_end).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->range_end).rfc3339)) return -1;
     if (csilc_w_text(b, "range_start", 11)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->range_start).rfc3339, (v->range_start).rfc3339 ? strlen((v->range_start).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->range_start).rfc3339)) return -1;
     if (v->calendar_ids_count) {
         if (csilc_w_text(b, "calendar_ids", 12)) return -1;
         if (csilc_w_array_head(b, v->calendar_ids_count)) return -1;
@@ -2832,13 +3143,11 @@ static inline int csilc_enc_ListEventsRequest(csilc_buf *b, const ListEventsRequ
 static inline int csilc_dec_ListEventsRequest(const csilc_value *m, CsilCodecArena *a, ListEventsRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "range_end");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->range_end).rfc3339)) return -1;
-    (out->range_end).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->range_end).rfc3339, &(out->range_end).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "range_start");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->range_start).rfc3339)) return -1;
-    (out->range_start).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->range_start).rfc3339, &(out->range_start).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "calendar_ids");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->calendar_ids_count = csilc_f->as.array.count;
@@ -2879,7 +3188,7 @@ static inline int csilc_enc_OccurrenceList(csilc_buf *b, const OccurrenceList *v
 static inline int csilc_dec_OccurrenceList(const csilc_value *m, CsilCodecArena *a, OccurrenceList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "truncated");
     if (!csilc_as_bool(csilc_f, &(out->truncated))) return -1;
     csilc_f = csilc_map_get(m, "occurrences");
@@ -2910,8 +3219,7 @@ static inline int csilc_enc_UpdateEventRequest(csilc_buf *b, const UpdateEventRe
     }
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -2920,7 +3228,7 @@ static inline int csilc_enc_UpdateEventRequest(csilc_buf *b, const UpdateEventRe
 static inline int csilc_dec_UpdateEventRequest(const csilc_value *m, CsilCodecArena *a, UpdateEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "scope");
@@ -2936,8 +3244,7 @@ static inline int csilc_dec_UpdateEventRequest(const csilc_value *m, CsilCodecAr
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -2957,8 +3264,7 @@ static inline int csilc_enc_DeleteEventRequest(csilc_buf *b, const DeleteEventRe
     if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -2967,7 +3273,7 @@ static inline int csilc_enc_DeleteEventRequest(csilc_buf *b, const DeleteEventRe
 static inline int csilc_dec_DeleteEventRequest(const csilc_value *m, CsilCodecArena *a, DeleteEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "scope");
     out->scope = NULL;
     if (csilc_f) {
@@ -2983,8 +3289,7 @@ static inline int csilc_dec_DeleteEventRequest(const csilc_value *m, CsilCodecAr
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -3006,7 +3311,7 @@ static inline int csilc_enc_DeleteEventResponse(csilc_buf *b, const DeleteEventR
 static inline int csilc_dec_DeleteEventResponse(const csilc_value *m, CsilCodecArena *a, DeleteEventResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "trash_id");
     out->trash_id = NULL;
     if (csilc_f) {
@@ -3033,7 +3338,7 @@ static inline int csilc_enc_MoveEventRequest(csilc_buf *b, const MoveEventReques
 static inline int csilc_dec_MoveEventRequest(const csilc_value *m, CsilCodecArena *a, MoveEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event_id");
     if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
@@ -3061,21 +3366,18 @@ static inline int csilc_enc_TrashEntry(csilc_buf *b, const TrashEntry *v) {
     if (csilc_w_text(b, "trash_id", 8)) return -1;
     if (csilc_w_text(b, (v->trash_id), (v->trash_id) ? strlen(v->trash_id) : 0)) return -1;
     if (csilc_w_text(b, "deleted_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->deleted_at).rfc3339, (v->deleted_at).rfc3339 ? strlen((v->deleted_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->deleted_at).rfc3339)) return -1;
     if (v->deleted_by) {
         if (csilc_w_text(b, "deleted_by", 10)) return -1;
         if (csilc_enc_PersonSummary(b, &((*v->deleted_by)))) return -1;
     }
     if (csilc_w_text(b, "expires_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->expires_at).rfc3339, (v->expires_at).rfc3339 ? strlen((v->expires_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->expires_at).rfc3339)) return -1;
     if (csilc_w_text(b, "calendar_id", 11)) return -1;
     if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -3084,7 +3386,7 @@ static inline int csilc_enc_TrashEntry(csilc_buf *b, const TrashEntry *v) {
 static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, TrashEntry *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "scope");
@@ -3102,8 +3404,7 @@ static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, 
     csilc_f = csilc_map_get(m, "trash_id");
     if (!csilc_get_text(csilc_f, &(out->trash_id))) return -1;
     csilc_f = csilc_map_get(m, "deleted_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->deleted_at).rfc3339)) return -1;
-    (out->deleted_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->deleted_at).rfc3339, &(out->deleted_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "deleted_by");
     out->deleted_by = NULL;
     if (csilc_f) {
@@ -3113,8 +3414,7 @@ static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, 
         out->deleted_by = csilc_p;
     }
     csilc_f = csilc_map_get(m, "expires_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->expires_at).rfc3339)) return -1;
-    (out->expires_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->expires_at).rfc3339, &(out->expires_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     csilc_f = csilc_map_get(m, "recurrence_id");
@@ -3122,8 +3422,7 @@ static inline int csilc_dec_TrashEntry(const csilc_value *m, CsilCodecArena *a, 
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -3147,7 +3446,7 @@ static inline int csilc_enc_ListTrashRequest(csilc_buf *b, const ListTrashReques
 static inline int csilc_dec_ListTrashRequest(const csilc_value *m, CsilCodecArena *a, ListTrashRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "limit");
     out->limit = NULL;
     if (csilc_f) {
@@ -3177,7 +3476,7 @@ static inline int csilc_enc_TrashList(csilc_buf *b, const TrashList *v) {
 static inline int csilc_dec_TrashList(const csilc_value *m, CsilCodecArena *a, TrashList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "entries");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->entries_count = csilc_f->as.array.count;
@@ -3205,7 +3504,7 @@ static inline int csilc_enc_RestoreEventRequest(csilc_buf *b, const RestoreEvent
 static inline int csilc_dec_RestoreEventRequest(const csilc_value *m, CsilCodecArena *a, RestoreEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "trash_id");
     if (!csilc_get_text(csilc_f, &(out->trash_id))) return -1;
     return 0;
@@ -3220,8 +3519,7 @@ static inline int csilc_enc_ImportEventRequest(csilc_buf *b, const ImportEventRe
     if (csilc_enc_Event(b, &(v->event))) return -1;
     if (v->created_at) {
         if (csilc_w_text(b, "created_at", 10)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->created_at)).rfc3339, ((*v->created_at)).rfc3339 ? strlen(((*v->created_at)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->created_at)).rfc3339)) return -1;
     }
     if (csilc_w_text(b, "created_by", 10)) return -1;
     if (csilc_enc_IdentityRef(b, &(v->created_by))) return -1;
@@ -3232,7 +3530,7 @@ static inline int csilc_enc_ImportEventRequest(csilc_buf *b, const ImportEventRe
 static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecArena *a, ImportEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "created_at");
@@ -3240,8 +3538,7 @@ static inline int csilc_dec_ImportEventRequest(const csilc_value *m, CsilCodecAr
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->created_at = csilc_p;
     }
     csilc_f = csilc_map_get(m, "created_by");
@@ -3264,7 +3561,7 @@ static inline int csilc_enc_CreateEventOnceRequest(csilc_buf *b, const CreateEve
 static inline int csilc_dec_CreateEventOnceRequest(const csilc_value *m, CsilCodecArena *a, CreateEventOnceRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "idempotency_key");
@@ -3287,7 +3584,7 @@ static inline int csilc_enc_CreateReceiptRequest(csilc_buf *b, const CreateRecei
 static inline int csilc_dec_CreateReceiptRequest(const csilc_value *m, CsilCodecArena *a, CreateReceiptRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     csilc_f = csilc_map_get(m, "idempotency_key");
@@ -3316,8 +3613,7 @@ static inline int csilc_enc_CreateEventReceipt(csilc_buf *b, const CreateEventRe
         if (csilc_w_text(b, ((*v->trash_id)), ((*v->trash_id)) ? strlen((*v->trash_id)) : 0)) return -1;
     }
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "calendar_id", 11)) return -1;
     if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
     if (csilc_w_text(b, "idempotency_key", 15)) return -1;
@@ -3329,7 +3625,7 @@ static inline int csilc_enc_CreateEventReceipt(csilc_buf *b, const CreateEventRe
 static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecArena *a, CreateEventReceipt *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     out->event = NULL;
     if (csilc_f) {
@@ -3353,8 +3649,7 @@ static inline int csilc_dec_CreateEventReceipt(const csilc_value *m, CsilCodecAr
         out->trash_id = csilc_p;
     }
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     csilc_f = csilc_map_get(m, "idempotency_key");
@@ -3370,16 +3665,14 @@ static inline int csilc_enc_SplitSeriesOnceRequest(csilc_buf *b, const SplitSeri
     if (csilc_w_text(b, "event", 5)) return -1;
     if (csilc_enc_Event(b, &(v->event))) return -1;
     if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->recurrence_id).rfc3339, (v->recurrence_id).rfc3339 ? strlen((v->recurrence_id).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->recurrence_id).rfc3339)) return -1;
     if (csilc_w_text(b, "idempotency_key", 15)) return -1;
     if (csilc_w_text(b, (v->idempotency_key), (v->idempotency_key) ? strlen(v->idempotency_key) : 0)) return -1;
     if (v->map_recurrence_ids_count) {
         if (csilc_w_text(b, "map_recurrence_ids", 18)) return -1;
         if (csilc_w_array_head(b, v->map_recurrence_ids_count)) return -1;
         for (size_t csilc_i = 0; csilc_i < v->map_recurrence_ids_count; csilc_i++) {
-            if (csilc_w_tag(b, 0)) return -1;
-            if (csilc_w_text(b, (v->map_recurrence_ids[csilc_i]).rfc3339, (v->map_recurrence_ids[csilc_i]).rfc3339 ? strlen((v->map_recurrence_ids[csilc_i]).rfc3339) : 0)) return -1;
+            if (csilc_w_timestamp(b, (v->map_recurrence_ids[csilc_i]).rfc3339)) return -1;
         }
     }
     return 0;
@@ -3389,12 +3682,11 @@ static inline int csilc_enc_SplitSeriesOnceRequest(csilc_buf *b, const SplitSeri
 static inline int csilc_dec_SplitSeriesOnceRequest(const csilc_value *m, CsilCodecArena *a, SplitSeriesOnceRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event");
     if (csilc_dec_Event(csilc_f, a, &(out->event))) return -1;
     csilc_f = csilc_map_get(m, "recurrence_id");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->recurrence_id).rfc3339)) return -1;
-    (out->recurrence_id).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->recurrence_id).rfc3339, &(out->recurrence_id).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "idempotency_key");
     if (!csilc_get_text(csilc_f, &(out->idempotency_key))) return -1;
     csilc_f = csilc_map_get(m, "map_recurrence_ids");
@@ -3405,8 +3697,7 @@ static inline int csilc_dec_SplitSeriesOnceRequest(const csilc_value *m, CsilCod
         out->map_recurrence_ids = (CsilTimestamp *)csilc_arena_alloc(a, out->map_recurrence_ids_count * sizeof(CsilTimestamp));
         if (!out->map_recurrence_ids) return -1;
         for (size_t csilc_i = 0; csilc_i < out->map_recurrence_ids_count; csilc_i++) {
-            if (!csilc_get_tagged_text(&csilc_f->as.array.items[csilc_i], 0, &(out->map_recurrence_ids[csilc_i]).rfc3339)) return -1;
-            (out->map_recurrence_ids[csilc_i]).epoch_seconds = 0;
+            if (!csilc_get_timestamp(&csilc_f->as.array.items[csilc_i], a, &(out->map_recurrence_ids[csilc_i]).rfc3339, &(out->map_recurrence_ids[csilc_i]).epoch_seconds)) return -1;
         }
     }
     return 0;
@@ -3425,8 +3716,7 @@ static inline int csilc_enc_SplitReceiptRequest(csilc_buf *b, const SplitReceipt
         if (csilc_w_text(b, "map_recurrence_ids", 18)) return -1;
         if (csilc_w_array_head(b, v->map_recurrence_ids_count)) return -1;
         for (size_t csilc_i = 0; csilc_i < v->map_recurrence_ids_count; csilc_i++) {
-            if (csilc_w_tag(b, 0)) return -1;
-            if (csilc_w_text(b, (v->map_recurrence_ids[csilc_i]).rfc3339, (v->map_recurrence_ids[csilc_i]).rfc3339 ? strlen((v->map_recurrence_ids[csilc_i]).rfc3339) : 0)) return -1;
+            if (csilc_w_timestamp(b, (v->map_recurrence_ids[csilc_i]).rfc3339)) return -1;
         }
     }
     return 0;
@@ -3436,7 +3726,7 @@ static inline int csilc_enc_SplitReceiptRequest(csilc_buf *b, const SplitReceipt
 static inline int csilc_dec_SplitReceiptRequest(const csilc_value *m, CsilCodecArena *a, SplitReceiptRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "series_id");
     if (!csilc_get_text(csilc_f, &(out->series_id))) return -1;
     csilc_f = csilc_map_get(m, "idempotency_key");
@@ -3449,8 +3739,7 @@ static inline int csilc_dec_SplitReceiptRequest(const csilc_value *m, CsilCodecA
         out->map_recurrence_ids = (CsilTimestamp *)csilc_arena_alloc(a, out->map_recurrence_ids_count * sizeof(CsilTimestamp));
         if (!out->map_recurrence_ids) return -1;
         for (size_t csilc_i = 0; csilc_i < out->map_recurrence_ids_count; csilc_i++) {
-            if (!csilc_get_tagged_text(&csilc_f->as.array.items[csilc_i], 0, &(out->map_recurrence_ids[csilc_i]).rfc3339)) return -1;
-            (out->map_recurrence_ids[csilc_i]).epoch_seconds = 0;
+            if (!csilc_get_timestamp(&csilc_f->as.array.items[csilc_i], a, &(out->map_recurrence_ids[csilc_i]).rfc3339, &(out->map_recurrence_ids[csilc_i]).epoch_seconds)) return -1;
         }
     }
     return 0;
@@ -3494,12 +3783,10 @@ static inline int csilc_enc_SplitOccurrenceMapping(csilc_buf *b, const SplitOccu
         if (csilc_w_text(b, ((*v->event_id)), ((*v->event_id)) ? strlen((*v->event_id)) : 0)) return -1;
     }
     if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->recurrence_id).rfc3339, (v->recurrence_id).rfc3339 ? strlen((v->recurrence_id).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->recurrence_id).rfc3339)) return -1;
     if (v->mapped_recurrence_id) {
         if (csilc_w_text(b, "mapped_recurrence_id", 20)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->mapped_recurrence_id)).rfc3339, ((*v->mapped_recurrence_id)).rfc3339 ? strlen(((*v->mapped_recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->mapped_recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -3508,7 +3795,7 @@ static inline int csilc_enc_SplitOccurrenceMapping(csilc_buf *b, const SplitOccu
 static inline int csilc_dec_SplitOccurrenceMapping(const csilc_value *m, CsilCodecArena *a, SplitOccurrenceMapping *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "result");
     if (csilc_dec_SplitMapResult(csilc_f, a, &(out->result))) return -1;
     csilc_f = csilc_map_get(m, "event_id");
@@ -3520,15 +3807,13 @@ static inline int csilc_dec_SplitOccurrenceMapping(const csilc_value *m, CsilCod
         out->event_id = csilc_p;
     }
     csilc_f = csilc_map_get(m, "recurrence_id");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->recurrence_id).rfc3339)) return -1;
-    (out->recurrence_id).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->recurrence_id).rfc3339, &(out->recurrence_id).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "mapped_recurrence_id");
     out->mapped_recurrence_id = NULL;
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->mapped_recurrence_id = csilc_p;
     }
     return 0;
@@ -3556,8 +3841,7 @@ static inline int csilc_enc_SplitSeriesReceipt(csilc_buf *b, const SplitSeriesRe
         if (csilc_enc_SplitOccurrenceMapping(b, &(v->mappings[csilc_i]))) return -1;
     }
     if (csilc_w_text(b, "split_at", 8)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->split_at).rfc3339, (v->split_at).rfc3339 ? strlen((v->split_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->split_at).rfc3339)) return -1;
     if (csilc_w_text(b, "series_id", 9)) return -1;
     if (csilc_w_text(b, (v->series_id), (v->series_id) ? strlen(v->series_id) : 0)) return -1;
     if (v->successor) {
@@ -3565,8 +3849,7 @@ static inline int csilc_enc_SplitSeriesReceipt(csilc_buf *b, const SplitSeriesRe
         if (csilc_enc_Event(b, &((*v->successor)))) return -1;
     }
     if (csilc_w_text(b, "created_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->created_at).rfc3339, (v->created_at).rfc3339 ? strlen((v->created_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->created_at).rfc3339)) return -1;
     if (csilc_w_text(b, "calendar_id", 11)) return -1;
     if (csilc_w_text(b, (v->calendar_id), (v->calendar_id) ? strlen(v->calendar_id) : 0)) return -1;
     if (csilc_w_text(b, "series_state", 12)) return -1;
@@ -3592,7 +3875,7 @@ static inline int csilc_enc_SplitSeriesReceipt(csilc_buf *b, const SplitSeriesRe
 static inline int csilc_dec_SplitSeriesReceipt(const csilc_value *m, CsilCodecArena *a, SplitSeriesReceipt *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "series");
     out->series = NULL;
     if (csilc_f) {
@@ -3617,8 +3900,7 @@ static inline int csilc_dec_SplitSeriesReceipt(const csilc_value *m, CsilCodecAr
         }
     }
     csilc_f = csilc_map_get(m, "split_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->split_at).rfc3339)) return -1;
-    (out->split_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->split_at).rfc3339, &(out->split_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "series_id");
     if (!csilc_get_text(csilc_f, &(out->series_id))) return -1;
     csilc_f = csilc_map_get(m, "successor");
@@ -3630,8 +3912,7 @@ static inline int csilc_dec_SplitSeriesReceipt(const csilc_value *m, CsilCodecAr
         out->successor = csilc_p;
     }
     csilc_f = csilc_map_get(m, "created_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->created_at).rfc3339)) return -1;
-    (out->created_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->created_at).rfc3339, &(out->created_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     csilc_f = csilc_map_get(m, "series_state");
@@ -3670,8 +3951,7 @@ static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurren
     if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -3680,7 +3960,7 @@ static inline int csilc_enc_GetOccurrenceRequest(csilc_buf *b, const GetOccurren
 static inline int csilc_dec_GetOccurrenceRequest(const csilc_value *m, CsilCodecArena *a, GetOccurrenceRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "event_id");
     if (!csilc_get_text(csilc_f, &(out->event_id))) return -1;
     csilc_f = csilc_map_get(m, "recurrence_id");
@@ -3688,8 +3968,7 @@ static inline int csilc_dec_GetOccurrenceRequest(const csilc_value *m, CsilCodec
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -3711,8 +3990,7 @@ static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v
     if (csilc_w_text(b, (v->event_id), (v->event_id) ? strlen(v->event_id) : 0)) return -1;
     if (v->recurrence_id) {
         if (csilc_w_text(b, "recurrence_id", 13)) return -1;
-        if (csilc_w_tag(b, 0)) return -1;
-        if (csilc_w_text(b, ((*v->recurrence_id)).rfc3339, ((*v->recurrence_id)).rfc3339 ? strlen(((*v->recurrence_id)).rfc3339) : 0)) return -1;
+        if (csilc_w_timestamp(b, ((*v->recurrence_id)).rfc3339)) return -1;
     }
     return 0;
 }
@@ -3721,7 +3999,7 @@ static inline int csilc_enc_RespondRequest(csilc_buf *b, const RespondRequest *v
 static inline int csilc_dec_RespondRequest(const csilc_value *m, CsilCodecArena *a, RespondRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "status");
     if (csilc_dec_ParticipationStatus(csilc_f, a, &(out->status))) return -1;
     csilc_f = csilc_map_get(m, "comment");
@@ -3733,8 +4011,7 @@ static inline int csilc_dec_RespondRequest(const csilc_value *m, CsilCodecArena 
     if (csilc_f) {
         CsilTimestamp *csilc_p = (CsilTimestamp *)csilc_arena_alloc(a, sizeof(CsilTimestamp));
         if (!csilc_p) return -1;
-        if (!csilc_get_tagged_text(csilc_f, 0, &((*csilc_p)).rfc3339)) return -1;
-        ((*csilc_p)).epoch_seconds = 0;
+        if (!csilc_get_timestamp(csilc_f, a, &((*csilc_p)).rfc3339, &((*csilc_p)).epoch_seconds)) return -1;
         out->recurrence_id = csilc_p;
     }
     return 0;
@@ -3758,7 +4035,7 @@ static inline int csilc_enc_SearchEventsRequest(csilc_buf *b, const SearchEvents
 static inline int csilc_dec_SearchEventsRequest(const csilc_value *m, CsilCodecArena *a, SearchEventsRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "limit");
     out->limit = NULL;
     if (csilc_f) {
@@ -3788,7 +4065,7 @@ static inline int csilc_enc_EventList(csilc_buf *b, const EventList *v) {
 static inline int csilc_dec_EventList(const csilc_value *m, CsilCodecArena *a, EventList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "events");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->events_count = csilc_f->as.array.count;
@@ -3809,11 +4086,9 @@ static inline int csilc_enc_BusyInterval(csilc_buf *b, const BusyInterval *v) {
     if (v->tentative) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
     if (csilc_w_text(b, "end", 3)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->end).rfc3339, (v->end).rfc3339 ? strlen((v->end).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->end).rfc3339)) return -1;
     if (csilc_w_text(b, "start", 5)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->start).rfc3339, (v->start).rfc3339 ? strlen((v->start).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->start).rfc3339)) return -1;
     if (v->tentative) {
         if (csilc_w_text(b, "tentative", 9)) return -1;
         if (csilc_w_bool(b, ((*v->tentative)))) return -1;
@@ -3825,13 +4100,11 @@ static inline int csilc_enc_BusyInterval(csilc_buf *b, const BusyInterval *v) {
 static inline int csilc_dec_BusyInterval(const csilc_value *m, CsilCodecArena *a, BusyInterval *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "end");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->end).rfc3339)) return -1;
-    (out->end).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->end).rfc3339, &(out->end).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "start");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->start).rfc3339)) return -1;
-    (out->start).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->start).rfc3339, &(out->start).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "tentative");
     out->tentative = NULL;
     if (csilc_f) {
@@ -3853,11 +4126,9 @@ static inline int csilc_enc_FreeBusyRequest(csilc_buf *b, const FreeBusyRequest 
         if (csilc_enc_IdentityRef(b, &(v->people[csilc_i]))) return -1;
     }
     if (csilc_w_text(b, "range_end", 9)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->range_end).rfc3339, (v->range_end).rfc3339 ? strlen((v->range_end).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->range_end).rfc3339)) return -1;
     if (csilc_w_text(b, "range_start", 11)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->range_start).rfc3339, (v->range_start).rfc3339 ? strlen((v->range_start).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->range_start).rfc3339)) return -1;
     return 0;
 }
 
@@ -3865,7 +4136,7 @@ static inline int csilc_enc_FreeBusyRequest(csilc_buf *b, const FreeBusyRequest 
 static inline int csilc_dec_FreeBusyRequest(const csilc_value *m, CsilCodecArena *a, FreeBusyRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "people");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->people_count = csilc_f->as.array.count;
@@ -3878,11 +4149,9 @@ static inline int csilc_dec_FreeBusyRequest(const csilc_value *m, CsilCodecArena
         }
     }
     csilc_f = csilc_map_get(m, "range_end");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->range_end).rfc3339)) return -1;
-    (out->range_end).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->range_end).rfc3339, &(out->range_end).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "range_start");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->range_start).rfc3339)) return -1;
-    (out->range_start).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->range_start).rfc3339, &(out->range_start).epoch_seconds)) return -1;
     return 0;
 }
 
@@ -3911,7 +4180,7 @@ static inline int csilc_enc_PersonFreeBusy(csilc_buf *b, const PersonFreeBusy *v
 static inline int csilc_dec_PersonFreeBusy(const csilc_value *m, CsilCodecArena *a, PersonFreeBusy *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "busy");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->busy_count = csilc_f->as.array.count;
@@ -3954,7 +4223,7 @@ static inline int csilc_enc_FreeBusyResponse(csilc_buf *b, const FreeBusyRespons
 static inline int csilc_dec_FreeBusyResponse(const csilc_value *m, CsilCodecArena *a, FreeBusyResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "people");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->people_count = csilc_f->as.array.count;
@@ -3984,7 +4253,7 @@ static inline int csilc_enc_ImportIcsRequest(csilc_buf *b, const ImportIcsReques
 static inline int csilc_dec_ImportIcsRequest(const csilc_value *m, CsilCodecArena *a, ImportIcsRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "ics");
     if (!csilc_get_text(csilc_f, &(out->ics))) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
@@ -4017,7 +4286,7 @@ static inline int csilc_enc_ImportResult(csilc_buf *b, const ImportResult *v) {
 static inline int csilc_dec_ImportResult(const csilc_value *m, CsilCodecArena *a, ImportResult *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "created");
     if (!csilc_as_u64(csilc_f, &(out->created))) return -1;
     csilc_f = csilc_map_get(m, "skipped");
@@ -4051,7 +4320,7 @@ static inline int csilc_enc_ExportCalendarRequest(csilc_buf *b, const ExportCale
 static inline int csilc_dec_ExportCalendarRequest(const csilc_value *m, CsilCodecArena *a, ExportCalendarRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "calendar_id");
     if (!csilc_get_text(csilc_f, &(out->calendar_id))) return -1;
     return 0;
@@ -4075,7 +4344,7 @@ static inline int csilc_enc_ExportEventRequest(csilc_buf *b, const ExportEventRe
 static inline int csilc_dec_ExportEventRequest(const csilc_value *m, CsilCodecArena *a, ExportEventRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "method");
     out->method = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "event_id");
@@ -4098,7 +4367,7 @@ static inline int csilc_enc_IcsDocument(csilc_buf *b, const IcsDocument *v) {
 static inline int csilc_dec_IcsDocument(const csilc_value *m, CsilCodecArena *a, IcsDocument *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "ics");
     if (!csilc_get_text(csilc_f, &(out->ics))) return -1;
     csilc_f = csilc_map_get(m, "filename");
@@ -4113,8 +4382,7 @@ static inline int csilc_enc_AuditEntry(csilc_buf *b, const AuditEntry *v) {
     if (v->application) csilc_n++;
     if (csilc_w_map_head(b, csilc_n)) return -1;
     if (csilc_w_text(b, "at", 2)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->at).rfc3339, (v->at).rfc3339 ? strlen((v->at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->at).rfc3339)) return -1;
     if (csilc_w_text(b, "via", 3)) return -1;
     if (csilc_enc_ActingVia(b, &(v->via))) return -1;
     if (csilc_w_text(b, "actor", 5)) return -1;
@@ -4142,10 +4410,9 @@ static inline int csilc_enc_AuditEntry(csilc_buf *b, const AuditEntry *v) {
 static inline int csilc_dec_AuditEntry(const csilc_value *m, CsilCodecArena *a, AuditEntry *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->at).rfc3339)) return -1;
-    (out->at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->at).rfc3339, &(out->at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "via");
     if (csilc_dec_ActingVia(csilc_f, a, &(out->via))) return -1;
     csilc_f = csilc_map_get(m, "actor");
@@ -4186,7 +4453,7 @@ static inline int csilc_enc_AuditQuery(csilc_buf *b, const AuditQuery *v) {
 static inline int csilc_dec_AuditQuery(const csilc_value *m, CsilCodecArena *a, AuditQuery *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "limit");
     out->limit = NULL;
     if (csilc_f) {
@@ -4222,7 +4489,7 @@ static inline int csilc_enc_AuditList(csilc_buf *b, const AuditList *v) {
 static inline int csilc_dec_AuditList(const csilc_value *m, CsilCodecArena *a, AuditList *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "entries");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->entries_count = csilc_f->as.array.count;
@@ -4255,7 +4522,7 @@ static inline int csilc_enc_CompleteRequest(csilc_buf *b, const CompleteRequest 
 static inline int csilc_dec_CompleteRequest(const csilc_value *m, CsilCodecArena *a, CompleteRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "domain");
     out->domain = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "encrypted_token");
@@ -4287,8 +4554,7 @@ static inline int csilc_enc_LoginResponse(csilc_buf *b, const LoginResponse *v) 
         if (csilc_enc_PersonSummary(b, &((*v->acting_as)))) return -1;
     }
     if (csilc_w_text(b, "expires_at", 10)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->expires_at).rfc3339, (v->expires_at).rfc3339 ? strlen((v->expires_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->expires_at).rfc3339)) return -1;
     return 0;
 }
 
@@ -4296,7 +4562,7 @@ static inline int csilc_enc_LoginResponse(csilc_buf *b, const LoginResponse *v) 
 static inline int csilc_dec_LoginResponse(const csilc_value *m, CsilCodecArena *a, LoginResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "via");
     if (csilc_dec_ActingVia(csilc_f, a, &(out->via))) return -1;
     csilc_f = csilc_map_get(m, "user");
@@ -4323,8 +4589,7 @@ static inline int csilc_dec_LoginResponse(const csilc_value *m, CsilCodecArena *
         out->acting_as = csilc_p;
     }
     csilc_f = csilc_map_get(m, "expires_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->expires_at).rfc3339)) return -1;
-    (out->expires_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->expires_at).rfc3339, &(out->expires_at).epoch_seconds)) return -1;
     return 0;
 }
 
@@ -4361,7 +4626,7 @@ static inline int csilc_enc_MeResponse(csilc_buf *b, const MeResponse *v) {
 static inline int csilc_dec_MeResponse(const csilc_value *m, CsilCodecArena *a, MeResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "via");
     if (csilc_dec_ActingVia(csilc_f, a, &(out->via))) return -1;
     csilc_f = csilc_map_get(m, "user");
@@ -4412,7 +4677,7 @@ static inline int csilc_enc_ExchangeActAsCredentialRequest(csilc_buf *b, const E
 static inline int csilc_dec_ExchangeActAsCredentialRequest(const csilc_value *m, CsilCodecArena *a, ExchangeActAsCredentialRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "credential");
     if (!csilc_get_bytes(csilc_f, &(out->credential).data, &(out->credential).len)) return -1;
     return 0;
@@ -4451,7 +4716,7 @@ static inline int csilc_enc_ScopeSetRequest(csilc_buf *b, const ScopeSetRequest 
 static inline int csilc_dec_ScopeSetRequest(const csilc_value *m, CsilCodecArena *a, ScopeSetRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "scopes");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->scopes_count = csilc_f->as.array.count;
@@ -4496,7 +4761,7 @@ static inline int csilc_enc_ScopeSetResponse(csilc_buf *b, const ScopeSetRespons
 static inline int csilc_dec_ScopeSetResponse(const csilc_value *m, CsilCodecArena *a, ScopeSetResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "signed_scope_set");
     if (!csilc_get_bytes(csilc_f, &(out->signed_scope_set).data, &(out->signed_scope_set).len)) return -1;
     return 0;
@@ -4519,7 +4784,7 @@ static inline int csilc_enc_ApplicationRef(csilc_buf *b, const ApplicationRef *v
 static inline int csilc_dec_ApplicationRef(const csilc_value *m, CsilCodecArena *a, ApplicationRef *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "application_id");
     if (!csilc_get_text(csilc_f, &(out->application_id))) return -1;
     csilc_f = csilc_map_get(m, "subject_domain");
@@ -4540,8 +4805,7 @@ static inline int csilc_enc_ApplicationPresentation(csilc_buf *b, const Applicat
     if (csilc_w_text(b, "audience", 8)) return -1;
     if (csilc_enc_ApplicationRef(b, &(v->audience))) return -1;
     if (csilc_w_text(b, "presented_at", 12)) return -1;
-    if (csilc_w_tag(b, 0)) return -1;
-    if (csilc_w_text(b, (v->presented_at).rfc3339, (v->presented_at).rfc3339 ? strlen((v->presented_at).rfc3339) : 0)) return -1;
+    if (csilc_w_timestamp(b, (v->presented_at).rfc3339)) return -1;
     if (csilc_w_text(b, "request_digest", 14)) return -1;
     if (csilc_w_bytes(b, (v->request_digest).data, (v->request_digest).len)) return -1;
     if (csilc_w_text(b, "signer_instance_id", 18)) return -1;
@@ -4553,7 +4817,7 @@ static inline int csilc_enc_ApplicationPresentation(csilc_buf *b, const Applicat
 static inline int csilc_dec_ApplicationPresentation(const csilc_value *m, CsilCodecArena *a, ApplicationPresentation *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "nonce");
     if (!csilc_get_bytes(csilc_f, &(out->nonce).data, &(out->nonce).len)) return -1;
     csilc_f = csilc_map_get(m, "signer");
@@ -4561,8 +4825,7 @@ static inline int csilc_dec_ApplicationPresentation(const csilc_value *m, CsilCo
     csilc_f = csilc_map_get(m, "audience");
     if (csilc_dec_ApplicationRef(csilc_f, a, &(out->audience))) return -1;
     csilc_f = csilc_map_get(m, "presented_at");
-    if (!csilc_get_tagged_text(csilc_f, 0, &(out->presented_at).rfc3339)) return -1;
-    (out->presented_at).epoch_seconds = 0;
+    if (!csilc_get_timestamp(csilc_f, a, &(out->presented_at).rfc3339, &(out->presented_at).epoch_seconds)) return -1;
     csilc_f = csilc_map_get(m, "request_digest");
     if (!csilc_get_bytes(csilc_f, &(out->request_digest).data, &(out->request_digest).len)) return -1;
     csilc_f = csilc_map_get(m, "signer_instance_id");
@@ -4587,7 +4850,7 @@ static inline int csilc_enc_SignedApplicationPresentation(csilc_buf *b, const Si
 static inline int csilc_dec_SignedApplicationPresentation(const csilc_value *m, CsilCodecArena *a, SignedApplicationPresentation *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "signature");
     if (!csilc_get_bytes(csilc_f, &(out->signature).data, &(out->signature).len)) return -1;
     csilc_f = csilc_map_get(m, "presentation");
@@ -4610,7 +4873,7 @@ static inline int csilc_enc_ExchangeApplicationPresentationRequest(csilc_buf *b,
 static inline int csilc_dec_ExchangeApplicationPresentationRequest(const csilc_value *m, CsilCodecArena *a, ExchangeApplicationPresentationRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "presentation");
     if (csilc_dec_SignedApplicationPresentation(csilc_f, a, &(out->presentation))) return -1;
     return 0;
@@ -4629,7 +4892,7 @@ static inline int csilc_enc_ApplicationIdentityResponse(csilc_buf *b, const Appl
 static inline int csilc_dec_ApplicationIdentityResponse(const csilc_value *m, CsilCodecArena *a, ApplicationIdentityResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "audience");
     if (csilc_dec_ApplicationRef(csilc_f, a, &(out->audience))) return -1;
     return 0;
@@ -4660,7 +4923,7 @@ static inline int csilc_enc_DevUser(csilc_buf *b, const DevUser *v) {
 static inline int csilc_dec_DevUser(const csilc_value *m, CsilCodecArena *a, DevUser *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "domain");
     if (!csilc_get_text(csilc_f, &(out->domain))) return -1;
     csilc_f = csilc_map_get(m, "handle");
@@ -4688,7 +4951,7 @@ static inline int csilc_enc_DevUsersResponse(csilc_buf *b, const DevUsersRespons
 static inline int csilc_dec_DevUsersResponse(const csilc_value *m, CsilCodecArena *a, DevUsersResponse *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "users");
     if (!csilc_f || csilc_f->kind != CSILC_ARRAY) return -1;
     out->users_count = csilc_f->as.array.count;
@@ -4729,7 +4992,7 @@ static inline int csilc_enc_DevLoginRequest(csilc_buf *b, const DevLoginRequest 
 static inline int csilc_dec_DevLoginRequest(const csilc_value *m, CsilCodecArena *a, DevLoginRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "handle");
     out->handle = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "user_id");
@@ -4758,7 +5021,7 @@ static inline int csilc_enc_LookupPersonRequest(csilc_buf *b, const LookupPerson
 static inline int csilc_dec_LookupPersonRequest(const csilc_value *m, CsilCodecArena *a, LookupPersonRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "identity");
     if (csilc_dec_IdentityRef(csilc_f, a, &(out->identity))) return -1;
     return 0;
@@ -4785,7 +5048,7 @@ static inline int csilc_enc_UpdateProfileRequest(csilc_buf *b, const UpdateProfi
 static inline int csilc_dec_UpdateProfileRequest(const csilc_value *m, CsilCodecArena *a, UpdateProfileRequest *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "timezone");
     out->timezone = (csilc_f && csilc_f->kind == CSILC_TEXT) ? (char *)csilc_f->as.bytes.ptr : NULL;
     csilc_f = csilc_map_get(m, "display_name");
@@ -4805,7 +5068,7 @@ static inline int csilc_enc_EmptyRequest(csilc_buf *b, const EmptyRequest *v) {
 static inline int csilc_dec_EmptyRequest(const csilc_value *m, CsilCodecArena *a, EmptyRequest *out) {
     (void)a;
     (void)out;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     return 0;
 }
 
@@ -4821,7 +5084,7 @@ static inline int csilc_enc_EmptyResponse(csilc_buf *b, const EmptyResponse *v) 
 static inline int csilc_dec_EmptyResponse(const csilc_value *m, CsilCodecArena *a, EmptyResponse *out) {
     (void)a;
     (void)out;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     return 0;
 }
 
@@ -4840,7 +5103,7 @@ static inline int csilc_enc_ServiceError(csilc_buf *b, const ServiceError *v) {
 static inline int csilc_dec_ServiceError(const csilc_value *m, CsilCodecArena *a, ServiceError *out) {
     (void)a;
     const csilc_value *csilc_f;
-    if (!m || m->kind != CSILC_MAP) return -1;
+    if (!m || m->kind != CSILC_MAP || m->as.map.duplicate || m->as.map.long_key) return -1;
     csilc_f = csilc_map_get(m, "code");
     if (!csilc_as_u64(csilc_f, &(out->code))) return -1;
     csilc_f = csilc_map_get(m, "message");
@@ -4850,6 +5113,7 @@ static inline int csilc_dec_ServiceError(const csilc_value *m, CsilCodecArena *a
 
 /* csilc_enc_CalendarID writes a bare CalendarID value. */
 static inline int csilc_enc_CalendarID(csilc_buf *b, const CalendarID *v) {
+    (void)v;
     if (csilc_w_text(b, ((*v)), ((*v)) ? strlen((*v)) : 0)) return -1;
     return 0;
 }
@@ -4857,12 +5121,14 @@ static inline int csilc_enc_CalendarID(csilc_buf *b, const CalendarID *v) {
 /* csilc_dec_CalendarID reads a bare CalendarID value (arena-borrowed). */
 static inline int csilc_dec_CalendarID(const csilc_value *m, CsilCodecArena *a, CalendarID *out) {
     (void)a;
+    (void)out;
     if (!csilc_get_text(m, &((*out)))) return -1;
     return 0;
 }
 
 /* csilc_enc_ShareID writes a bare ShareID value. */
 static inline int csilc_enc_ShareID(csilc_buf *b, const ShareID *v) {
+    (void)v;
     if (csilc_w_text(b, ((*v)), ((*v)) ? strlen((*v)) : 0)) return -1;
     return 0;
 }
@@ -4870,12 +5136,14 @@ static inline int csilc_enc_ShareID(csilc_buf *b, const ShareID *v) {
 /* csilc_dec_ShareID reads a bare ShareID value (arena-borrowed). */
 static inline int csilc_dec_ShareID(const csilc_value *m, CsilCodecArena *a, ShareID *out) {
     (void)a;
+    (void)out;
     if (!csilc_get_text(m, &((*out)))) return -1;
     return 0;
 }
 
 /* csilc_enc_GroupID writes a bare GroupID value. */
 static inline int csilc_enc_GroupID(csilc_buf *b, const GroupID *v) {
+    (void)v;
     if (csilc_w_text(b, ((*v)), ((*v)) ? strlen((*v)) : 0)) return -1;
     return 0;
 }
@@ -4883,12 +5151,14 @@ static inline int csilc_enc_GroupID(csilc_buf *b, const GroupID *v) {
 /* csilc_dec_GroupID reads a bare GroupID value (arena-borrowed). */
 static inline int csilc_dec_GroupID(const csilc_value *m, CsilCodecArena *a, GroupID *out) {
     (void)a;
+    (void)out;
     if (!csilc_get_text(m, &((*out)))) return -1;
     return 0;
 }
 
 /* csilc_enc_DelegationID writes a bare DelegationID value. */
 static inline int csilc_enc_DelegationID(csilc_buf *b, const DelegationID *v) {
+    (void)v;
     if (csilc_w_text(b, ((*v)), ((*v)) ? strlen((*v)) : 0)) return -1;
     return 0;
 }
@@ -4896,12 +5166,14 @@ static inline int csilc_enc_DelegationID(csilc_buf *b, const DelegationID *v) {
 /* csilc_dec_DelegationID reads a bare DelegationID value (arena-borrowed). */
 static inline int csilc_dec_DelegationID(const csilc_value *m, CsilCodecArena *a, DelegationID *out) {
     (void)a;
+    (void)out;
     if (!csilc_get_text(m, &((*out)))) return -1;
     return 0;
 }
 
 /* csilc_enc_EventID writes a bare EventID value. */
 static inline int csilc_enc_EventID(csilc_buf *b, const EventID *v) {
+    (void)v;
     if (csilc_w_text(b, ((*v)), ((*v)) ? strlen((*v)) : 0)) return -1;
     return 0;
 }
@@ -4909,6 +5181,7 @@ static inline int csilc_enc_EventID(csilc_buf *b, const EventID *v) {
 /* csilc_dec_EventID reads a bare EventID value (arena-borrowed). */
 static inline int csilc_dec_EventID(const csilc_value *m, CsilCodecArena *a, EventID *out) {
     (void)a;
+    (void)out;
     if (!csilc_get_text(m, &((*out)))) return -1;
     return 0;
 }

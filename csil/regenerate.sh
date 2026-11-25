@@ -16,26 +16,19 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC="$REPO/csil/catalystcal.csil"
 GO_OUT="$REPO/api/internal/csil"
 
-# csilgen is installed via `cargo install` and lives at ~/.cargo/bin/csilgen.
-# That directory isn't always on the non-interactive PATH (e.g. shells spawned
-# by editors/tools that don't source the user rc), so add it here rather than
-# forcing every caller to fix their environment.
-if [ -d "$HOME/.cargo/bin" ]; then
-    export PATH="$HOME/.cargo/bin:$PATH"
-fi
-
+# Honor the caller's CLI first. Cargo's bin directory is a fallback.
+export PATH="$PATH:$HOME/.cargo/bin"
+CSILGEN_PIN="0.3.3"
 if ! command -v csilgen >/dev/null; then
-    echo "ERROR: csilgen not on PATH (looked in \$PATH and ~/.cargo/bin)" >&2
-    echo "       install with: cargo install --git https://github.com/catalystcommunity/csilgen" >&2
+    echo "ERROR: install csilgen $CSILGEN_PIN and its generators. See docs/development.md." >&2
     exit 1
 fi
-
-# The pinned csilgen release. A different CLI (or its generators) changes the
-# generated code silently, so stop here instead.
-CSILGEN_PIN="0.2.15"
-if [ "$(csilgen --version 2>/dev/null)" != "csilgen $CSILGEN_PIN" ]; then
+if [ "$(csilgen --version)" != "csilgen $CSILGEN_PIN" ]; then
     echo "ERROR: need csilgen $CSILGEN_PIN, found: $(csilgen --version 2>&1)" >&2
     exit 1
+fi
+if [ "${1:-}" = "--check-version" ]; then
+    exit 0
 fi
 
 csilgen validate --input "$SPEC"

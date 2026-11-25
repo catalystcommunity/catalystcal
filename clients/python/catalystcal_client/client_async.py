@@ -29,6 +29,15 @@ class AsyncTransport(Protocol):
     """
     async def call(self, service: str, method: str, req: bytes) -> bytes: ...
 
+    async def call_reply(
+        self, service: str, method: str, req: bytes
+    ) -> "tuple[Optional[str], bytes]":
+        """Perform an operation that declares more than one reply arm. Return
+        the CSIL-RPC response variant (the CSIL name of the arm, or None) and
+        its payload bytes; the client decodes the arm that the variant names.
+        """
+        ...
+
 class AuthAsyncClient:
     """Typed client for the AuthService service."""
     def __init__(self, transport: AsyncTransport):
@@ -36,43 +45,53 @@ class AuthAsyncClient:
 
     async def complete(self, req: CompleteRequest) -> LoginResponse:
         """complete"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "complete", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "complete", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "complete", variant, payload))
 
     async def resume_session(self, req: EmptyRequest) -> LoginResponse:
         """resume-session"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "resume-session", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "resume-session", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "resume-session", variant, payload))
 
     async def end_session(self, req: EmptyRequest) -> EmptyResponse:
         """end-session"""
-        return EmptyResponse.from_cbor(await self._transport.call("AuthService", "end-session", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "end-session", req.to_cbor())
+        return EmptyResponse.from_cbor(resolve_rpc_reply("AuthService", "end-session", variant, payload))
 
     async def me(self, req: EmptyRequest) -> MeResponse:
         """me"""
-        return MeResponse.from_cbor(await self._transport.call("AuthService", "me", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "me", req.to_cbor())
+        return MeResponse.from_cbor(resolve_rpc_reply("AuthService", "me", variant, payload))
 
     async def assume_principal(self, req: AssumePrincipalRequest) -> LoginResponse:
         """assume-principal"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "assume-principal", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "assume-principal", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "assume-principal", variant, payload))
 
     async def release_principal(self, req: EmptyRequest) -> LoginResponse:
         """release-principal"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "release-principal", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "release-principal", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "release-principal", variant, payload))
 
     async def exchange_act_as_credential(self, req: ExchangeActAsCredentialRequest) -> LoginResponse:
         """exchange-act-as-credential"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "exchange-act-as-credential", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "exchange-act-as-credential", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "exchange-act-as-credential", variant, payload))
 
     async def get_act_as_scope_set(self, req: ScopeSetRequest) -> ScopeSetResponse:
         """get-act-as-scope-set"""
-        return ScopeSetResponse.from_cbor(await self._transport.call("AuthService", "get-act-as-scope-set", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "get-act-as-scope-set", req.to_cbor())
+        return ScopeSetResponse.from_cbor(resolve_rpc_reply("AuthService", "get-act-as-scope-set", variant, payload))
 
     async def get_application_identity(self, req: EmptyRequest) -> ApplicationIdentityResponse:
         """get-application-identity"""
-        return ApplicationIdentityResponse.from_cbor(await self._transport.call("AuthService", "get-application-identity", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "get-application-identity", req.to_cbor())
+        return ApplicationIdentityResponse.from_cbor(resolve_rpc_reply("AuthService", "get-application-identity", variant, payload))
 
     async def exchange_application_presentation(self, req: ExchangeApplicationPresentationRequest) -> LoginResponse:
         """exchange-application-presentation"""
-        return LoginResponse.from_cbor(await self._transport.call("AuthService", "exchange-application-presentation", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuthService", "exchange-application-presentation", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("AuthService", "exchange-application-presentation", variant, payload))
 
 class DevAuthAsyncClient:
     """Typed client for the DevAuthService service."""
@@ -81,11 +100,13 @@ class DevAuthAsyncClient:
 
     async def list_dev_users(self, req: EmptyRequest) -> DevUsersResponse:
         """list-dev-users"""
-        return DevUsersResponse.from_cbor(await self._transport.call("DevAuthService", "list-dev-users", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DevAuthService", "list-dev-users", req.to_cbor())
+        return DevUsersResponse.from_cbor(resolve_rpc_reply("DevAuthService", "list-dev-users", variant, payload))
 
     async def dev_login(self, req: DevLoginRequest) -> LoginResponse:
         """dev-login"""
-        return LoginResponse.from_cbor(await self._transport.call("DevAuthService", "dev-login", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DevAuthService", "dev-login", req.to_cbor())
+        return LoginResponse.from_cbor(resolve_rpc_reply("DevAuthService", "dev-login", variant, payload))
 
 class UserAsyncClient:
     """Typed client for the UserService service."""
@@ -94,15 +115,18 @@ class UserAsyncClient:
 
     async def get_profile(self, req: EmptyRequest) -> User:
         """get-profile"""
-        return User.from_cbor(await self._transport.call("UserService", "get-profile", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("UserService", "get-profile", req.to_cbor())
+        return User.from_cbor(resolve_rpc_reply("UserService", "get-profile", variant, payload))
 
     async def update_profile(self, req: UpdateProfileRequest) -> User:
         """update-profile"""
-        return User.from_cbor(await self._transport.call("UserService", "update-profile", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("UserService", "update-profile", req.to_cbor())
+        return User.from_cbor(resolve_rpc_reply("UserService", "update-profile", variant, payload))
 
     async def lookup_person(self, req: LookupPersonRequest) -> PersonSummary:
         """lookup-person"""
-        return PersonSummary.from_cbor(await self._transport.call("UserService", "lookup-person", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("UserService", "lookup-person", req.to_cbor())
+        return PersonSummary.from_cbor(resolve_rpc_reply("UserService", "lookup-person", variant, payload))
 
 class CalendarAsyncClient:
     """Typed client for the CalendarService service."""
@@ -111,35 +135,43 @@ class CalendarAsyncClient:
 
     async def list_calendars(self, req: EmptyRequest) -> CalendarList:
         """list-calendars"""
-        return CalendarList.from_cbor(await self._transport.call("CalendarService", "list-calendars", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("CalendarService", "list-calendars", req.to_cbor())
+        return CalendarList.from_cbor(resolve_rpc_reply("CalendarService", "list-calendars", variant, payload))
 
     async def get_calendar(self, req: CalendarId) -> Calendar:
         """get-calendar"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "get-calendar", encode_calendar_get_calendar_request(req)))
+        variant, payload = await self._transport.call_reply("CalendarService", "get-calendar", encode_calendar_get_calendar_request(req))
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "get-calendar", variant, payload))
 
     async def create_calendar(self, req: CreateCalendarRequest) -> Calendar:
         """create-calendar"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "create-calendar", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("CalendarService", "create-calendar", req.to_cbor())
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "create-calendar", variant, payload))
 
     async def update_calendar(self, req: UpdateCalendarRequest) -> Calendar:
         """update-calendar"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "update-calendar", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("CalendarService", "update-calendar", req.to_cbor())
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "update-calendar", variant, payload))
 
     async def delete_calendar(self, req: CalendarId) -> EmptyResponse:
         """delete-calendar"""
-        return EmptyResponse.from_cbor(await self._transport.call("CalendarService", "delete-calendar", encode_calendar_delete_calendar_request(req)))
+        variant, payload = await self._transport.call_reply("CalendarService", "delete-calendar", encode_calendar_delete_calendar_request(req))
+        return EmptyResponse.from_cbor(resolve_rpc_reply("CalendarService", "delete-calendar", variant, payload))
 
     async def subscribe_calendar(self, req: SubscribeCalendarRequest) -> Calendar:
         """subscribe-calendar"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "subscribe-calendar", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("CalendarService", "subscribe-calendar", req.to_cbor())
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "subscribe-calendar", variant, payload))
 
     async def refresh_subscription(self, req: CalendarId) -> Calendar:
         """refresh-subscription"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "refresh-subscription", encode_calendar_refresh_subscription_request(req)))
+        variant, payload = await self._transport.call_reply("CalendarService", "refresh-subscription", encode_calendar_refresh_subscription_request(req))
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "refresh-subscription", variant, payload))
 
     async def set_feed(self, req: SetFeedRequest) -> Calendar:
         """set-feed"""
-        return Calendar.from_cbor(await self._transport.call("CalendarService", "set-feed", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("CalendarService", "set-feed", req.to_cbor())
+        return Calendar.from_cbor(resolve_rpc_reply("CalendarService", "set-feed", variant, payload))
 
 class ShareAsyncClient:
     """Typed client for the ShareService service."""
@@ -148,15 +180,18 @@ class ShareAsyncClient:
 
     async def list_shares(self, req: CalendarId) -> ShareList:
         """list-shares"""
-        return ShareList.from_cbor(await self._transport.call("ShareService", "list-shares", encode_share_list_shares_request(req)))
+        variant, payload = await self._transport.call_reply("ShareService", "list-shares", encode_share_list_shares_request(req))
+        return ShareList.from_cbor(resolve_rpc_reply("ShareService", "list-shares", variant, payload))
 
     async def put_share(self, req: Share) -> Share:
         """put-share"""
-        return Share.from_cbor(await self._transport.call("ShareService", "put-share", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("ShareService", "put-share", req.to_cbor())
+        return Share.from_cbor(resolve_rpc_reply("ShareService", "put-share", variant, payload))
 
     async def delete_share(self, req: ShareId) -> EmptyResponse:
         """delete-share"""
-        return EmptyResponse.from_cbor(await self._transport.call("ShareService", "delete-share", encode_share_delete_share_request(req)))
+        variant, payload = await self._transport.call_reply("ShareService", "delete-share", encode_share_delete_share_request(req))
+        return EmptyResponse.from_cbor(resolve_rpc_reply("ShareService", "delete-share", variant, payload))
 
 class GroupAsyncClient:
     """Typed client for the GroupService service."""
@@ -165,27 +200,33 @@ class GroupAsyncClient:
 
     async def list_groups(self, req: EmptyRequest) -> GroupList:
         """list-groups"""
-        return GroupList.from_cbor(await self._transport.call("GroupService", "list-groups", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("GroupService", "list-groups", req.to_cbor())
+        return GroupList.from_cbor(resolve_rpc_reply("GroupService", "list-groups", variant, payload))
 
     async def get_group(self, req: GroupId) -> Group:
         """get-group"""
-        return Group.from_cbor(await self._transport.call("GroupService", "get-group", encode_group_get_group_request(req)))
+        variant, payload = await self._transport.call_reply("GroupService", "get-group", encode_group_get_group_request(req))
+        return Group.from_cbor(resolve_rpc_reply("GroupService", "get-group", variant, payload))
 
     async def create_group(self, req: CreateGroupRequest) -> Group:
         """create-group"""
-        return Group.from_cbor(await self._transport.call("GroupService", "create-group", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("GroupService", "create-group", req.to_cbor())
+        return Group.from_cbor(resolve_rpc_reply("GroupService", "create-group", variant, payload))
 
     async def update_group(self, req: UpdateGroupRequest) -> Group:
         """update-group"""
-        return Group.from_cbor(await self._transport.call("GroupService", "update-group", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("GroupService", "update-group", req.to_cbor())
+        return Group.from_cbor(resolve_rpc_reply("GroupService", "update-group", variant, payload))
 
     async def set_members(self, req: SetGroupMembersRequest) -> Group:
         """set-members"""
-        return Group.from_cbor(await self._transport.call("GroupService", "set-members", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("GroupService", "set-members", req.to_cbor())
+        return Group.from_cbor(resolve_rpc_reply("GroupService", "set-members", variant, payload))
 
     async def delete_group(self, req: GroupId) -> EmptyResponse:
         """delete-group"""
-        return EmptyResponse.from_cbor(await self._transport.call("GroupService", "delete-group", encode_group_delete_group_request(req)))
+        variant, payload = await self._transport.call_reply("GroupService", "delete-group", encode_group_delete_group_request(req))
+        return EmptyResponse.from_cbor(resolve_rpc_reply("GroupService", "delete-group", variant, payload))
 
 class DelegationAsyncClient:
     """Typed client for the DelegationService service."""
@@ -194,23 +235,28 @@ class DelegationAsyncClient:
 
     async def list_granted(self, req: EmptyRequest) -> DelegationList:
         """list-granted"""
-        return DelegationList.from_cbor(await self._transport.call("DelegationService", "list-granted", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DelegationService", "list-granted", req.to_cbor())
+        return DelegationList.from_cbor(resolve_rpc_reply("DelegationService", "list-granted", variant, payload))
 
     async def list_received(self, req: EmptyRequest) -> DelegationList:
         """list-received"""
-        return DelegationList.from_cbor(await self._transport.call("DelegationService", "list-received", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DelegationService", "list-received", req.to_cbor())
+        return DelegationList.from_cbor(resolve_rpc_reply("DelegationService", "list-received", variant, payload))
 
     async def create_delegation(self, req: Delegation) -> Delegation:
         """create-delegation"""
-        return Delegation.from_cbor(await self._transport.call("DelegationService", "create-delegation", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DelegationService", "create-delegation", req.to_cbor())
+        return Delegation.from_cbor(resolve_rpc_reply("DelegationService", "create-delegation", variant, payload))
 
     async def update_delegation(self, req: Delegation) -> Delegation:
         """update-delegation"""
-        return Delegation.from_cbor(await self._transport.call("DelegationService", "update-delegation", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("DelegationService", "update-delegation", req.to_cbor())
+        return Delegation.from_cbor(resolve_rpc_reply("DelegationService", "update-delegation", variant, payload))
 
     async def revoke_delegation(self, req: DelegationId) -> EmptyResponse:
         """revoke-delegation"""
-        return EmptyResponse.from_cbor(await self._transport.call("DelegationService", "revoke-delegation", encode_delegation_revoke_delegation_request(req)))
+        variant, payload = await self._transport.call_reply("DelegationService", "revoke-delegation", encode_delegation_revoke_delegation_request(req))
+        return EmptyResponse.from_cbor(resolve_rpc_reply("DelegationService", "revoke-delegation", variant, payload))
 
 class EventAsyncClient:
     """Typed client for the EventService service."""
@@ -219,71 +265,88 @@ class EventAsyncClient:
 
     async def list_events(self, req: ListEventsRequest) -> OccurrenceList:
         """list-events"""
-        return OccurrenceList.from_cbor(await self._transport.call("EventService", "list-events", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "list-events", req.to_cbor())
+        return OccurrenceList.from_cbor(resolve_rpc_reply("EventService", "list-events", variant, payload))
 
     async def get_event(self, req: EventId) -> Event:
         """get-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "get-event", encode_event_get_event_request(req)))
+        variant, payload = await self._transport.call_reply("EventService", "get-event", encode_event_get_event_request(req))
+        return Event.from_cbor(resolve_rpc_reply("EventService", "get-event", variant, payload))
 
     async def get_occurrence(self, req: GetOccurrenceRequest) -> Occurrence:
         """get-occurrence"""
-        return Occurrence.from_cbor(await self._transport.call("EventService", "get-occurrence", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "get-occurrence", req.to_cbor())
+        return Occurrence.from_cbor(resolve_rpc_reply("EventService", "get-occurrence", variant, payload))
 
     async def create_event(self, req: Event) -> Event:
         """create-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "create-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "create-event", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "create-event", variant, payload))
 
     async def update_event(self, req: UpdateEventRequest) -> Event:
         """update-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "update-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "update-event", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "update-event", variant, payload))
 
     async def delete_event(self, req: DeleteEventRequest) -> DeleteEventResponse:
         """delete-event"""
-        return DeleteEventResponse.from_cbor(await self._transport.call("EventService", "delete-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "delete-event", req.to_cbor())
+        return DeleteEventResponse.from_cbor(resolve_rpc_reply("EventService", "delete-event", variant, payload))
 
     async def move_event(self, req: MoveEventRequest) -> Event:
         """move-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "move-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "move-event", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "move-event", variant, payload))
 
     async def respond(self, req: RespondRequest) -> Event:
         """respond"""
-        return Event.from_cbor(await self._transport.call("EventService", "respond", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "respond", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "respond", variant, payload))
 
     async def list_invitations(self, req: EmptyRequest) -> EventList:
         """list-invitations"""
-        return EventList.from_cbor(await self._transport.call("EventService", "list-invitations", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "list-invitations", req.to_cbor())
+        return EventList.from_cbor(resolve_rpc_reply("EventService", "list-invitations", variant, payload))
 
     async def search_events(self, req: SearchEventsRequest) -> EventList:
         """search-events"""
-        return EventList.from_cbor(await self._transport.call("EventService", "search-events", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "search-events", req.to_cbor())
+        return EventList.from_cbor(resolve_rpc_reply("EventService", "search-events", variant, payload))
 
     async def list_trash(self, req: ListTrashRequest) -> TrashList:
         """list-trash"""
-        return TrashList.from_cbor(await self._transport.call("EventService", "list-trash", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "list-trash", req.to_cbor())
+        return TrashList.from_cbor(resolve_rpc_reply("EventService", "list-trash", variant, payload))
 
     async def restore_event(self, req: RestoreEventRequest) -> Event:
         """restore-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "restore-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "restore-event", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "restore-event", variant, payload))
 
     async def import_event(self, req: ImportEventRequest) -> Event:
         """import-event"""
-        return Event.from_cbor(await self._transport.call("EventService", "import-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "import-event", req.to_cbor())
+        return Event.from_cbor(resolve_rpc_reply("EventService", "import-event", variant, payload))
 
     async def create_event_once(self, req: CreateEventOnceRequest) -> CreateEventReceipt:
         """create-event-once"""
-        return CreateEventReceipt.from_cbor(await self._transport.call("EventService", "create-event-once", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "create-event-once", req.to_cbor())
+        return CreateEventReceipt.from_cbor(resolve_rpc_reply("EventService", "create-event-once", variant, payload))
 
     async def get_create_receipt(self, req: CreateReceiptRequest) -> CreateEventReceipt:
         """get-create-receipt"""
-        return CreateEventReceipt.from_cbor(await self._transport.call("EventService", "get-create-receipt", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "get-create-receipt", req.to_cbor())
+        return CreateEventReceipt.from_cbor(resolve_rpc_reply("EventService", "get-create-receipt", variant, payload))
 
     async def split_series_once(self, req: SplitSeriesOnceRequest) -> SplitSeriesReceipt:
         """split-series-once"""
-        return SplitSeriesReceipt.from_cbor(await self._transport.call("EventService", "split-series-once", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "split-series-once", req.to_cbor())
+        return SplitSeriesReceipt.from_cbor(resolve_rpc_reply("EventService", "split-series-once", variant, payload))
 
     async def get_split_receipt(self, req: SplitReceiptRequest) -> SplitSeriesReceipt:
         """get-split-receipt"""
-        return SplitSeriesReceipt.from_cbor(await self._transport.call("EventService", "get-split-receipt", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("EventService", "get-split-receipt", req.to_cbor())
+        return SplitSeriesReceipt.from_cbor(resolve_rpc_reply("EventService", "get-split-receipt", variant, payload))
 
 class FreeBusyAsyncClient:
     """Typed client for the FreeBusyService service."""
@@ -292,7 +355,8 @@ class FreeBusyAsyncClient:
 
     async def query(self, req: FreeBusyRequest) -> FreeBusyResponse:
         """query"""
-        return FreeBusyResponse.from_cbor(await self._transport.call("FreeBusyService", "query", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("FreeBusyService", "query", req.to_cbor())
+        return FreeBusyResponse.from_cbor(resolve_rpc_reply("FreeBusyService", "query", variant, payload))
 
 class IcsAsyncClient:
     """Typed client for the IcsService service."""
@@ -301,15 +365,18 @@ class IcsAsyncClient:
 
     async def import_ics(self, req: ImportIcsRequest) -> ImportResult:
         """import-ics"""
-        return ImportResult.from_cbor(await self._transport.call("IcsService", "import-ics", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("IcsService", "import-ics", req.to_cbor())
+        return ImportResult.from_cbor(resolve_rpc_reply("IcsService", "import-ics", variant, payload))
 
     async def export_calendar(self, req: ExportCalendarRequest) -> IcsDocument:
         """export-calendar"""
-        return IcsDocument.from_cbor(await self._transport.call("IcsService", "export-calendar", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("IcsService", "export-calendar", req.to_cbor())
+        return IcsDocument.from_cbor(resolve_rpc_reply("IcsService", "export-calendar", variant, payload))
 
     async def export_event(self, req: ExportEventRequest) -> IcsDocument:
         """export-event"""
-        return IcsDocument.from_cbor(await self._transport.call("IcsService", "export-event", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("IcsService", "export-event", req.to_cbor())
+        return IcsDocument.from_cbor(resolve_rpc_reply("IcsService", "export-event", variant, payload))
 
 class AuditAsyncClient:
     """Typed client for the AuditService service."""
@@ -318,5 +385,6 @@ class AuditAsyncClient:
 
     async def list_audit(self, req: AuditQuery) -> AuditList:
         """list-audit"""
-        return AuditList.from_cbor(await self._transport.call("AuditService", "list-audit", req.to_cbor()))
+        variant, payload = await self._transport.call_reply("AuditService", "list-audit", req.to_cbor())
+        return AuditList.from_cbor(resolve_rpc_reply("AuditService", "list-audit", variant, payload))
 

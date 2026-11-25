@@ -43,11 +43,11 @@ typedef enum AccessPath {
 
 /* Scope is an enumeration. */
 typedef enum Scope {
-    SCOPE_CALENDARS.READ,
-    SCOPE_FREEBUSY.READ,
-    SCOPE_EVENTS.WRITE,
-    SCOPE_EVENTS.RESPOND,
-    SCOPE_CALENDARS.MANAGE,
+    SCOPE_CALENDARS_READ,
+    SCOPE_FREEBUSY_READ,
+    SCOPE_EVENTS_WRITE,
+    SCOPE_EVENTS_RESPOND,
+    SCOPE_CALENDARS_MANAGE,
 } Scope;
 
 /* CalendarKind is an enumeration. */

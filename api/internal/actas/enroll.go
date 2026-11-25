@@ -84,13 +84,13 @@ func (k AppKeys) proofs() ([]keyProof, error) {
 	return out, nil
 }
 
-func (k AppKeys) challenge(ctx context.Context, c *api.ApplicationKeysClient, purpose string, pub ed25519.PublicKey) (api.StartApplicationKeyChallengeResponse, error) {
+func (k AppKeys) challenge(ctx context.Context, c *api.ApplicationKeysClient, purpose api.ApplicationKeyChallengePurpose, pub ed25519.PublicKey) (api.StartApplicationKeyChallengeResponse, error) {
 	ch, err := c.StartKeyChallenge(ctx, api.StartApplicationKeyChallengeRequest{
 		SubjectUserId: k.UserID, ApplicationId: k.ApplicationID, InstanceId: k.InstanceID,
-		Purpose: purpose, KeyUsage: "sign", Algorithm: "ed25519", PublicKey: pub,
+		Purpose: purpose, KeyUsage: regularrp.KeyUsageSign, Algorithm: regularrp.AlgorithmEd25519, PublicKey: pub,
 	})
 	if err != nil {
-		return ch, fmt.Errorf("start %s challenge: %w", purpose, err)
+		return ch, fmt.Errorf("start %v challenge: %w", purpose, err)
 	}
 	if ch.Challenge == nil {
 		return ch, errors.New("the home domain gave no signing challenge")
@@ -113,15 +113,15 @@ func Enroll(ctx context.Context, t api.Transport, k AppKeys) error {
 	c := api.NewApplicationKeysClient(t)
 	signed := make([]api.SignedApplicationKeyAddition, 0, len(proofs))
 	for _, p := range proofs {
-		ch, err := k.challenge(ctx, c, "add", p.pub)
+		ch, err := k.challenge(ctx, c, api.ApplicationKeyChallengePurposeAdd, p.pub)
 		if err != nil {
 			return err
 		}
 		add, err := regularrp.SignAddition(api.ApplicationKeyAddition{
 			SubjectUserId: k.UserID, SubjectDomain: k.Ref().SubjectDomain, ApplicationId: k.ApplicationID, InstanceId: k.InstanceID,
-			KeyId: p.id, KeyUsage: "sign", Algorithm: "ed25519", PublicKey: p.pub, Fingerprint: regularrp.Fingerprint(p.pub),
+			KeyId: p.id, KeyUsage: regularrp.KeyUsageSign, Algorithm: regularrp.AlgorithmEd25519, PublicKey: p.pub, Fingerprint: regularrp.Fingerprint(p.pub),
 			RequestedKeyLifetimeSeconds: int64(KeyLifetime / time.Second), ChallengeId: ch.ChallengeId, Challenge: *ch.Challenge,
-			RequestedAt: time.Now().UTC().Format(time.RFC3339), ExpiresAt: ch.ExpiresAt,
+			RequestedAt: time.Now().UTC().Truncate(time.Second), ExpiresAt: ch.ExpiresAt,
 		}, nil, &p.signer)
 		if err != nil {
 			return err
@@ -161,14 +161,14 @@ func RenewAttestations(ctx context.Context, t api.Transport, k AppKeys) error {
 }
 
 func (k AppKeys) renewOne(ctx context.Context, c *api.ApplicationKeysClient, p keyProof) error {
-	ch, err := k.challenge(ctx, c, "renew", p.pub)
+	ch, err := k.challenge(ctx, c, api.ApplicationKeyChallengePurposeRenew, p.pub)
 	if err != nil {
 		return err
 	}
 	req, err := regularrp.SignRenewal(api.ApplicationKeyRenewal{
 		SubjectUserId: k.UserID, SubjectDomain: k.Ref().SubjectDomain, ApplicationId: k.ApplicationID, InstanceId: k.InstanceID,
 		KeyId: p.id, ChallengeId: ch.ChallengeId, Challenge: *ch.Challenge,
-		RequestedAt: time.Now().UTC().Format(time.RFC3339), ExpiresAt: ch.ExpiresAt,
+		RequestedAt: time.Now().UTC().Truncate(time.Second), ExpiresAt: ch.ExpiresAt,
 	}, nil, &p.signer)
 	if err != nil {
 		return err

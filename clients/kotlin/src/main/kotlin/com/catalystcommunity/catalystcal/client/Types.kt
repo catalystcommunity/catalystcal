@@ -40,7 +40,7 @@ enum class AccessRole { None, FreeBusy, Read, Contribute, Write, Manage, Owner }
 enum class AccessPath { Owner, Share, Delegation, Attendee }
 
 /** Scope enum (bare-literal wire). */
-enum class Scope { Calendars.read, Freebusy.read, Events.write, Events.respond, Calendars.manage }
+enum class Scope { CalendarsRead, FreebusyRead, EventsWrite, EventsRespond, CalendarsManage }
 
 /** CalendarKind enum (bare-literal wire). */
 enum class CalendarKind { Local, Subscription }

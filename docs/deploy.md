@@ -58,7 +58,7 @@ The API reads `CATALYSTCAL_*` environment variables.
 | `CATALYSTCAL_LINKKEYS_IDP_DOMAIN` | no | The default LinkKeys identity domain, for a sign-in with no login name |
 | `CATALYSTCAL_LINKKEYS_IDP_URL` | no | The base URL of the default IDP. Other domains use DNS. |
 | `CATALYSTCAL_LINKKEYS_RP_DOMAIN` | no | This instance's relying-party domain |
-| `CATALYSTCAL_LINKKEYS_APPLICATION_ID` | no | The application ID in each sign-in request (1 to 128 of `A-Z a-z 0-9 - _ .`). Default: the act-as key file application ID, else the RP account username. |
+| `CATALYSTCAL_LINKKEYS_APPLICATION_ID` | no | Expected application ID in a verified sign-in assertion. If empty, use the ID in the act-as key file when available. |
 | `CATALYSTCAL_LINKKEYS_PKI_API_KEY` | **yes** | RP API key |
 | `CATALYSTCAL_LINKKEYS_TCP_ADDR` | no | RP CSIL-RPC/TCP `host:port`. Empty: DNS discovery. |
 | `CATALYSTCAL_LINKKEYS_TCP_FINGERPRINTS` | no | Pinned SHA-256 certificate fingerprints. Empty: DNS discovery. |
@@ -190,24 +190,21 @@ Set these values (Helm `config.linkkeys.*`):
   LinkKeys refuses an `http` callback (`callback_not_https`). The callback
   host does not have to be in the RP domain. The user's IDP must run
   LinkKeys 0.16.7 or later for a callback host outside the RP domain.
-- Application ID (`config.linkkeys.applicationId`): the application that
-  each sign-in request names. An RP before LinkKeys 0.16.7 ignores it.
+- Set `config.linkkeys.applicationId` if catalystcal must check for a
+  specific application ID. By default it checks the ID in the act-as key
+  file when that file is configured.
 
 ### Consent for each application
 
-LinkKeys 0.16.7 and later keep standing consent for each application: the RP
-API-key account and an application ID. A grant for one application does not
-apply to another application of the same RP domain.
+Use LinkKeys 0.16.11 for the RP and IDP. The RP gets the application ID
+from the account that owns the API key. Give the account a display name
+that users recognize on the consent screen, such as "CatalystCal".
 
-- The consent screen shows the display name of the RP API-key account. Give
-  that account a name that people know, for example "CatalystCal".
-- catalystcal sends the application ID of its act-as keys, so that sign-in
-  and act-as grants use one application identity. Set
-  `CATALYSTCAL_LINKKEYS_APPLICATION_ID` to use a different ID. Without act-as
-  keys and without the setting, the RP uses the account username. A username
-  that is not a valid ID makes each sign-in fail: then set the ID.
-- After the upgrade, each person sees the consent screen one more time,
-  because the earlier grants name no application.
+When you upgrade LinkKeys, it converts each active account with an API key
+and no password to an application account. Its username becomes its
+application ID. Check that this ID matches the expected sign-in ID and the
+ID in the act-as key file, if configured. LinkKeys removes act-as grants
+in the old encoding. Users must grant that access again.
 
 ### Claims
 
@@ -237,7 +234,7 @@ Make an API key on that instance. The key needs only the `api_access`
 relation:
 
 ```sh
-linkkeys user create catalystcal-api "catalystcal API" --api-key --relation api_access
+linkkeys user create catalystcal-api "CatalystCal" --application-id catalystcal --relation api_access
 ```
 
 Put the key in the API Secret as `CATALYSTCAL_LINKKEYS_PKI_API_KEY`.
@@ -257,7 +254,7 @@ first deploy:
 
 1. Open a shell in the RP pod.
 2. Run `linkkeys domain init` to make the domain keys.
-3. Run `linkkeys user create catalystcal-api "catalystcal API" --api-key`. Save the key
+3. Run `linkkeys user create catalystcal-api "CatalystCal" --application-id catalystcal`. Save the key
    in `linkkeysRp.apiKey` (or in your existing Secret).
 4. Run `linkkeys domain dns-check`. Publish the TXT record that it shows.
 5. Put the fingerprints from that record in `linkkeysRp.tcpFingerprints`.
@@ -275,8 +272,8 @@ The file contains private key seeds. Treat it as a secret.
 Without the file, the API works, but act-as grants do not.
 
 1. Make the key file and enroll it at the LinkKeys server of your domain.
-   The account can be a service account. Its API key authorizes the
-   enrollment. Read the key from a file; do not type it in a command.
+   Use the application ID of the RP account for the key file. The API key
+   of the application account authorizes enrollment. Read the key from a file; do not type it in a command.
 
    ```sh
    catalystcal app-keys generate --file ./act-as-app-keys.json \

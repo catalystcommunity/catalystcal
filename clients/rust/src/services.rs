@@ -435,6 +435,9 @@ pub trait AuditService {
     type Context;
     #[allow(clippy::result_large_err)]
     /// list-audit (request/response).
-    fn list_audit(&self, ctx: &Self::Context, input: AuditQuery)
-        -> Result<AuditList, ServiceError>;
+    fn list_audit(
+        &self,
+        ctx: &Self::Context,
+        input_value: AuditQuery,
+    ) -> Result<AuditList, ServiceError>;
 }

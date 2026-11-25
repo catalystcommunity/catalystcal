@@ -17,7 +17,7 @@ and encode_access_path (v : access_path) : Cbor.t =
   match v with Owner -> Cbor.Text "owner" | Share -> Cbor.Text "share" | Delegation -> Cbor.Text "delegation" | Attendee -> Cbor.Text "attendee"
 
 and encode_scope (v : scope) : Cbor.t =
-  match v with Calendars.read -> Cbor.Text "calendars.read" | Freebusy.read -> Cbor.Text "freebusy.read" | Events.write -> Cbor.Text "events.write" | Events.respond -> Cbor.Text "events.respond" | Calendars.manage -> Cbor.Text "calendars.manage"
+  match v with Calendars_read -> Cbor.Text "calendars.read" | Freebusy_read -> Cbor.Text "freebusy.read" | Events_write -> Cbor.Text "events.write" | Events_respond -> Cbor.Text "events.respond" | Calendars_manage -> Cbor.Text "calendars.manage"
 
 and encode_calendar_kind (v : calendar_kind) : Cbor.t =
   match v with Local -> Cbor.Text "local" | Subscription -> Cbor.Text "subscription"
@@ -71,8 +71,8 @@ and encode_user (v : user) : Cbor.t =
          Some (Cbor.Text "subject", (Cbor.Text v.subject));
          Some (Cbor.Text "user_id", (Cbor.Text v.user_id));
          (match v.timezone with Some csil_x -> Some (Cbor.Text "timezone", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
-         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.updated_at))));
          (match v.display_name with Some csil_x -> Some (Cbor.Text "display_name", (Cbor.Text csil_x)) | None -> None);
          (match v.application_id with Some csil_x -> Some (Cbor.Text "application_id", (Cbor.Text csil_x)) | None -> None);
        ])
@@ -102,15 +102,15 @@ and encode_calendar (v : calendar) : Cbor.t =
          Some (Cbor.Text "access", (encode_access_role v.access));
          (match v.timezone with Some csil_x -> Some (Cbor.Text "timezone", (Cbor.Text csil_x)) | None -> None);
          (match v.feed_path with Some csil_x -> Some (Cbor.Text "feed_path", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
          Some (Cbor.Text "is_default", (Cbor.Bool v.is_default));
          (match v.source_url with Some csil_x -> Some (Cbor.Text "source_url", (Cbor.Text csil_x)) | None -> None);
          (match v.sync_error with Some csil_x -> Some (Cbor.Text "sync_error", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.updated_at))));
          Some (Cbor.Text "access_path", (encode_access_path v.access_path));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
-         (match v.last_synced_at with Some csil_x -> Some (Cbor.Text "last_synced_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.last_synced_at with Some csil_x -> Some (Cbor.Text "last_synced_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_create_calendar_request (v : create_calendar_request) : Cbor.t =
@@ -171,7 +171,7 @@ and encode_share (v : share) : Cbor.t =
          Some (Cbor.Text "role", (encode_share_role v.role));
          (match v.grantee with Some csil_x -> Some (Cbor.Text "grantee", (encode_identity_ref csil_x)) | None -> None);
          Some (Cbor.Text "share_id", (Cbor.Text v.share_id));
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.grantee_person with Some csil_x -> Some (Cbor.Text "grantee_person", (encode_person_summary csil_x)) | None -> None);
          (match v.grantee_group_id with Some csil_x -> Some (Cbor.Text "grantee_group_id", (Cbor.Text csil_x)) | None -> None);
@@ -207,8 +207,8 @@ and encode_group (v : group) : Cbor.t =
          Some (Cbor.Text "members", (Cbor.Array (List.map (fun csil_e -> (encode_group_member csil_e)) v.members)));
          Some (Cbor.Text "group_id", (Cbor.Text v.group_id));
          Some (Cbor.Text "revision", (Cbor.int64 v.revision));
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
-         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.updated_at))));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
        ])
 
@@ -259,9 +259,9 @@ and encode_delegation (v : delegation) : Cbor.t =
          Some (Cbor.Text "scopes", (Cbor.Array (List.map (fun csil_e -> (encode_scope csil_e)) v.scopes)));
          Some (Cbor.Text "delegate", (encode_identity_ref v.delegate));
          Some (Cbor.Text "principal", (encode_person_summary v.principal));
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
-         (match v.expires_at with Some csil_x -> Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
-         (match v.revoked_at with Some csil_x -> Some (Cbor.Text "revoked_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
+         (match v.expires_at with Some csil_x -> Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
+         (match v.revoked_at with Some csil_x -> Some (Cbor.Text "revoked_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
          (match v.calendar_ids with Some csil_x -> Some (Cbor.Text "calendar_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          Some (Cbor.Text "delegation_id", (Cbor.Text v.delegation_id));
          (match v.delegate_person with Some csil_x -> Some (Cbor.Text "delegate_person", (encode_person_summary csil_x)) | None -> None);
@@ -289,8 +289,8 @@ and encode_recurrence (v : recurrence) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "rrule", (Cbor.Text v.rrule));
-         (match v.rdates with Some csil_x -> Some (Cbor.Text "rdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
-         (match v.exdates with Some csil_x -> Some (Cbor.Text "exdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
+         (match v.rdates with Some csil_x -> Some (Cbor.Text "rdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_e)))) csil_x))) | None -> None);
+         (match v.exdates with Some csil_x -> Some (Cbor.Text "exdates", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_e)))) csil_x))) | None -> None);
        ])
 
 and encode_attendee (v : attendee) : Cbor.t =
@@ -322,11 +322,11 @@ and encode_event (v : event) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         (match v.end_ with Some csil_x -> Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.end_ with Some csil_x -> Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
          (match v.uid with Some csil_x -> Some (Cbor.Text "uid", (Cbor.Text csil_x)) | None -> None);
          (match v.url with Some csil_x -> Some (Cbor.Text "url", (Cbor.Text csil_x)) | None -> None);
          (match v.color with Some csil_x -> Some (Cbor.Text "color", (Cbor.Text csil_x)) | None -> None);
-         (match v.start with Some csil_x -> Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.start with Some csil_x -> Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
          Some (Cbor.Text "title", (Cbor.Text v.title));
          (match v.status with Some csil_x -> Some (Cbor.Text "status", (encode_event_status csil_x)) | None -> None);
          (match v.all_day with Some csil_x -> Some (Cbor.Text "all_day", (Cbor.Bool csil_x)) | None -> None);
@@ -339,18 +339,18 @@ and encode_event (v : event) : Cbor.t =
          (match v.organizer with Some csil_x -> Some (Cbor.Text "organizer", (encode_person_summary csil_x)) | None -> None);
          (match v.reminders with Some csil_x -> Some (Cbor.Text "reminders", (Cbor.Array (List.map (fun csil_e -> (encode_reminder csil_e)) csil_x))) | None -> None);
          (match v.categories with Some csil_x -> Some (Cbor.Text "categories", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
          (match v.created_by with Some csil_x -> Some (Cbor.Text "created_by", (encode_person_summary csil_x)) | None -> None);
          (match v.recurrence with Some csil_x -> Some (Cbor.Text "recurrence", (encode_recurrence csil_x)) | None -> None);
          (match v.start_date with Some csil_x -> Some (Cbor.Text "start_date", (Cbor.Tag (1004, Cbor.Text (Cbor.calendar_date csil_x)))) | None -> None);
-         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text v.updated_at)));
+         Some (Cbor.Text "updated_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.updated_at))));
          (match v.updated_by with Some csil_x -> Some (Cbor.Text "updated_by", (encode_person_summary csil_x)) | None -> None);
          (match v.visibility with Some csil_x -> Some (Cbor.Text "visibility", (encode_event_visibility csil_x)) | None -> None);
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          (match v.description with Some csil_x -> Some (Cbor.Text "description", (Cbor.Text csil_x)) | None -> None);
          (match v.updated_via with Some csil_x -> Some (Cbor.Text "updated_via", (encode_acting_via csil_x)) | None -> None);
          (match v.transparency with Some csil_x -> Some (Cbor.Text "transparency", (encode_event_transparency csil_x)) | None -> None);
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
          (match v.conference_url with Some csil_x -> Some (Cbor.Text "conference_url", (Cbor.Text csil_x)) | None -> None);
          (match v.master_event_id with Some csil_x -> Some (Cbor.Text "master_event_id", (Cbor.Text csil_x)) | None -> None);
        ])
@@ -360,13 +360,13 @@ and encode_occurrence (v : occurrence) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text v.end_)));
+         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.end_))));
          Some (Cbor.Text "event", (encode_event v.event));
-         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text v.start)));
+         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.start))));
          Some (Cbor.Text "access", (encode_access_role v.access));
          Some (Cbor.Text "invited", (Cbor.Bool v.invited));
          Some (Cbor.Text "busy_only", (Cbor.Bool v.busy_only));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_list_events_request (v : list_events_request) : Cbor.t =
@@ -374,8 +374,8 @@ and encode_list_events_request (v : list_events_request) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text v.range_end)));
-         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text v.range_start)));
+         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.range_end))));
+         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.range_start))));
          (match v.calendar_ids with Some csil_x -> Some (Cbor.Text "calendar_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Text csil_e)) csil_x))) | None -> None);
          (match v.include_invitations with Some csil_x -> Some (Cbor.Text "include_invitations", (Cbor.Bool csil_x)) | None -> None);
        ])
@@ -396,7 +396,7 @@ and encode_update_event_request (v : update_event_request) : Cbor.t =
        [
          Some (Cbor.Text "event", (encode_event v.event));
          (match v.scope with Some csil_x -> Some (Cbor.Text "scope", (encode_recurrence_scope csil_x)) | None -> None);
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_delete_event_request (v : delete_event_request) : Cbor.t =
@@ -406,7 +406,7 @@ and encode_delete_event_request (v : delete_event_request) : Cbor.t =
        [
          (match v.scope with Some csil_x -> Some (Cbor.Text "scope", (encode_recurrence_scope csil_x)) | None -> None);
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_delete_event_response (v : delete_event_response) : Cbor.t =
@@ -436,11 +436,11 @@ and encode_trash_entry (v : trash_entry) : Cbor.t =
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          (match v.instance with Some csil_x -> Some (Cbor.Text "instance", (encode_event csil_x)) | None -> None);
          Some (Cbor.Text "trash_id", (Cbor.Text v.trash_id));
-         Some (Cbor.Text "deleted_at", (Cbor.Tag (0, Cbor.Text v.deleted_at)));
+         Some (Cbor.Text "deleted_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.deleted_at))));
          (match v.deleted_by with Some csil_x -> Some (Cbor.Text "deleted_by", (encode_person_summary csil_x)) | None -> None);
-         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text v.expires_at)));
+         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.expires_at))));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_list_trash_request (v : list_trash_request) : Cbor.t =
@@ -474,7 +474,7 @@ and encode_import_event_request (v : import_event_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event", (encode_event v.event));
-         (match v.created_at with Some csil_x -> Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.created_at with Some csil_x -> Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
          Some (Cbor.Text "created_by", (encode_identity_ref v.created_by));
        ])
 
@@ -506,7 +506,7 @@ and encode_create_event_receipt (v : create_event_receipt) : Cbor.t =
          Some (Cbor.Text "created", (Cbor.Bool v.created));
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
          (match v.trash_id with Some csil_x -> Some (Cbor.Text "trash_id", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
        ])
@@ -517,9 +517,9 @@ and encode_split_series_once_request (v : split_series_once_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event", (encode_event v.event));
-         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text v.recurrence_id)));
+         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.recurrence_id))));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
-         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_e)))) csil_x))) | None -> None);
        ])
 
 and encode_split_receipt_request (v : split_receipt_request) : Cbor.t =
@@ -529,7 +529,7 @@ and encode_split_receipt_request (v : split_receipt_request) : Cbor.t =
        [
          Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
          Some (Cbor.Text "idempotency_key", (Cbor.Text v.idempotency_key));
-         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text csil_e))) csil_x))) | None -> None);
+         (match v.map_recurrence_ids with Some csil_x -> Some (Cbor.Text "map_recurrence_ids", (Cbor.Array (List.map (fun csil_e -> (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_e)))) csil_x))) | None -> None);
        ])
 
 and encode_split_map_result (v : split_map_result) : Cbor.t =
@@ -542,8 +542,8 @@ and encode_split_occurrence_mapping (v : split_occurrence_mapping) : Cbor.t =
        [
          Some (Cbor.Text "result", (encode_split_map_result v.result));
          (match v.event_id with Some csil_x -> Some (Cbor.Text "event_id", (Cbor.Text csil_x)) | None -> None);
-         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text v.recurrence_id)));
-         (match v.mapped_recurrence_id with Some csil_x -> Some (Cbor.Text "mapped_recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.recurrence_id))));
+         (match v.mapped_recurrence_id with Some csil_x -> Some (Cbor.Text "mapped_recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_split_series_receipt (v : split_series_receipt) : Cbor.t =
@@ -555,10 +555,10 @@ and encode_split_series_receipt (v : split_series_receipt) : Cbor.t =
          Some (Cbor.Text "created", (Cbor.Bool v.created));
          Some (Cbor.Text "in_place", (Cbor.Bool v.in_place));
          Some (Cbor.Text "mappings", (Cbor.Array (List.map (fun csil_e -> (encode_split_occurrence_mapping csil_e)) v.mappings)));
-         Some (Cbor.Text "split_at", (Cbor.Tag (0, Cbor.Text v.split_at)));
+         Some (Cbor.Text "split_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.split_at))));
          Some (Cbor.Text "series_id", (Cbor.Text v.series_id));
          (match v.successor with Some csil_x -> Some (Cbor.Text "successor", (encode_event csil_x)) | None -> None);
-         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text v.created_at)));
+         Some (Cbor.Text "created_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.created_at))));
          Some (Cbor.Text "calendar_id", (Cbor.Text v.calendar_id));
          Some (Cbor.Text "series_state", (encode_create_receipt_state v.series_state));
          Some (Cbor.Text "successor_id", (Cbor.Text v.successor_id));
@@ -574,7 +574,7 @@ and encode_get_occurrence_request (v : get_occurrence_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_respond_request (v : respond_request) : Cbor.t =
@@ -585,7 +585,7 @@ and encode_respond_request (v : respond_request) : Cbor.t =
          Some (Cbor.Text "status", (encode_participation_status v.status));
          (match v.comment with Some csil_x -> Some (Cbor.Text "comment", (Cbor.Text csil_x)) | None -> None);
          Some (Cbor.Text "event_id", (Cbor.Text v.event_id));
-         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text csil_x))) | None -> None);
+         (match v.recurrence_id with Some csil_x -> Some (Cbor.Text "recurrence_id", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp csil_x)))) | None -> None);
        ])
 
 and encode_search_events_request (v : search_events_request) : Cbor.t =
@@ -610,8 +610,8 @@ and encode_busy_interval (v : busy_interval) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text v.end_)));
-         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text v.start)));
+         Some (Cbor.Text "end", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.end_))));
+         Some (Cbor.Text "start", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.start))));
          (match v.tentative with Some csil_x -> Some (Cbor.Text "tentative", (Cbor.Bool csil_x)) | None -> None);
        ])
 
@@ -621,8 +621,8 @@ and encode_free_busy_request (v : free_busy_request) : Cbor.t =
        (fun x -> x)
        [
          Some (Cbor.Text "people", (Cbor.Array (List.map (fun csil_e -> (encode_identity_ref csil_e)) v.people)));
-         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text v.range_end)));
-         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text v.range_start)));
+         Some (Cbor.Text "range_end", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.range_end))));
+         Some (Cbor.Text "range_start", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.range_start))));
        ])
 
 and encode_person_free_busy (v : person_free_busy) : Cbor.t =
@@ -695,7 +695,7 @@ and encode_audit_entry (v : audit_entry) : Cbor.t =
     (List.filter_map
        (fun x -> x)
        [
-         Some (Cbor.Text "at", (Cbor.Tag (0, Cbor.Text v.at)));
+         Some (Cbor.Text "at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.at))));
          Some (Cbor.Text "via", (encode_acting_via v.via));
          Some (Cbor.Text "actor", (encode_person_summary v.actor));
          (match v.target with Some csil_x -> Some (Cbor.Text "target", (Cbor.Text csil_x)) | None -> None);
@@ -742,7 +742,7 @@ and encode_login_response (v : login_response) : Cbor.t =
          Some (Cbor.Text "token", (Cbor.Text v.token));
          (match v.scopes with Some csil_x -> Some (Cbor.Text "scopes", (Cbor.Array (List.map (fun csil_e -> (encode_scope csil_e)) csil_x))) | None -> None);
          (match v.acting_as with Some csil_x -> Some (Cbor.Text "acting_as", (encode_person_summary csil_x)) | None -> None);
-         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text v.expires_at)));
+         Some (Cbor.Text "expires_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.expires_at))));
        ])
 
 and encode_me_response (v : me_response) : Cbor.t =
@@ -803,7 +803,7 @@ and encode_application_presentation (v : application_presentation) : Cbor.t =
          Some (Cbor.Text "nonce", (Cbor.Bytes v.nonce));
          Some (Cbor.Text "signer", (encode_application_ref v.signer));
          Some (Cbor.Text "audience", (encode_application_ref v.audience));
-         Some (Cbor.Text "presented_at", (Cbor.Tag (0, Cbor.Text v.presented_at)));
+         Some (Cbor.Text "presented_at", (Cbor.Tag (0, Cbor.Text (Cbor.canonical_timestamp v.presented_at))));
          Some (Cbor.Text "request_digest", (Cbor.Bytes v.request_digest));
          Some (Cbor.Text "signer_instance_id", (Cbor.Text v.signer_instance_id));
        ])
@@ -903,7 +903,7 @@ and decode_access_path (csil_c : Cbor.t) : access_path =
   match Cbor.to_text csil_c with "owner" -> Owner | "share" -> Share | "delegation" -> Delegation | "attendee" -> Attendee | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
 
 and decode_scope (csil_c : Cbor.t) : scope =
-  match Cbor.to_text csil_c with "calendars.read" -> Calendars.read | "freebusy.read" -> Freebusy.read | "events.write" -> Events.write | "events.respond" -> Events.respond | "calendars.manage" -> Calendars.manage | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
+  match Cbor.to_text csil_c with "calendars.read" -> Calendars_read | "freebusy.read" -> Freebusy_read | "events.write" -> Events_write | "events.respond" -> Events_respond | "calendars.manage" -> Calendars_manage | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
 
 and decode_calendar_kind (csil_c : Cbor.t) : calendar_kind =
   match Cbor.to_text csil_c with "local" -> Local | "subscription" -> Subscription | csil_s -> failwith ("csilgen: unknown enum literal " ^ csil_s)
@@ -966,8 +966,8 @@ and decode_user (csil_c : Cbor.t) : user =
         subject = (Cbor.to_text (csil_req "subject"));
         user_id = (Cbor.to_text (csil_req "user_id"));
         timezone = (match csil_field "timezone" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         display_name = (match csil_field "display_name" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         application_id = (match csil_field "application_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
@@ -1007,15 +1007,15 @@ and decode_calendar (csil_c : Cbor.t) : calendar =
         access = (decode_access_role (csil_req "access"));
         timezone = (match csil_field "timezone" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         feed_path = (match csil_field "feed_path" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         is_default = (Cbor.to_bool (csil_req "is_default"));
         source_url = (match csil_field "source_url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         sync_error = (match csil_field "sync_error" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         access_path = (decode_access_path (csil_req "access_path"));
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        last_synced_at = (match csil_field "last_synced_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        last_synced_at = (match csil_field "last_synced_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for calendar"
 
@@ -1106,7 +1106,7 @@ and decode_share (csil_c : Cbor.t) : share =
         role = (decode_share_role (csil_req "role"));
         grantee = (match csil_field "grantee" with Some csil_v -> Some (decode_identity_ref csil_v) | None -> None);
         share_id = (Cbor.to_text (csil_req "share_id"));
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         grantee_person = (match csil_field "grantee_person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         grantee_group_id = (match csil_field "grantee_group_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
@@ -1157,8 +1157,8 @@ and decode_group (csil_c : Cbor.t) : group =
         members = (match (csil_req "members") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_group_member csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
         group_id = (Cbor.to_text (csil_req "group_id"));
         revision = (Cbor.to_i64 (csil_req "revision"));
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for group"
@@ -1234,9 +1234,9 @@ and decode_delegation (csil_c : Cbor.t) : delegation =
         scopes = (match (csil_req "scopes") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_scope csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
         delegate = (decode_identity_ref (csil_req "delegate"));
         principal = (decode_person_summary (csil_req "principal"));
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        expires_at = (match csil_field "expires_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
-        revoked_at = (match csil_field "revoked_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        expires_at = (match csil_field "expires_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        revoked_at = (match csil_field "revoked_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         calendar_ids = (match csil_field "calendar_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         delegation_id = (Cbor.to_text (csil_req "delegation_id"));
         delegate_person = (match csil_field "delegate_person" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
@@ -1279,8 +1279,8 @@ and decode_recurrence (csil_c : Cbor.t) : recurrence =
       ignore csil_req;
       {
         rrule = (Cbor.to_text (csil_req "rrule"));
-        rdates = (match csil_field "rdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
-        exdates = (match csil_field "exdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        rdates = (match csil_field "rdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        exdates = (match csil_field "exdates" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for recurrence"
 
@@ -1327,11 +1327,11 @@ and decode_event (csil_c : Cbor.t) : event =
       in
       ignore csil_req;
       {
-        end_ = (match csil_field "end" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        end_ = (match csil_field "end" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         uid = (match csil_field "uid" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         url = (match csil_field "url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         color = (match csil_field "color" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        start = (match csil_field "start" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        start = (match csil_field "start" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         title = (Cbor.to_text (csil_req "title"));
         status = (match csil_field "status" with Some csil_v -> Some (decode_event_status csil_v) | None -> None);
         all_day = (match csil_field "all_day" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
@@ -1344,18 +1344,18 @@ and decode_event (csil_c : Cbor.t) : event =
         organizer = (match csil_field "organizer" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         reminders = (match csil_field "reminders" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_reminder csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         categories = (match csil_field "categories" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         created_by = (match csil_field "created_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         recurrence = (match csil_field "recurrence" with Some csil_v -> Some (decode_recurrence csil_v) | None -> None);
         start_date = (match csil_field "start_date" with Some csil_v -> Some (match csil_v with Cbor.Tag (1004, Cbor.Text s) -> Cbor.calendar_date s | _ -> failwith "expected calendar date tag 1004") | None -> None);
-        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        updated_at = (match (csil_req "updated_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         updated_by = (match csil_field "updated_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
         visibility = (match csil_field "visibility" with Some csil_v -> Some (decode_event_visibility csil_v) | None -> None);
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         description = (match csil_field "description" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         updated_via = (match csil_field "updated_via" with Some csil_v -> Some (decode_acting_via csil_v) | None -> None);
         transparency = (match csil_field "transparency" with Some csil_v -> Some (decode_event_transparency csil_v) | None -> None);
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         conference_url = (match csil_field "conference_url" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         master_event_id = (match csil_field "master_event_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
       }
@@ -1370,13 +1370,13 @@ and decode_occurrence (csil_c : Cbor.t) : occurrence =
       in
       ignore csil_req;
       {
-        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         event = (decode_event (csil_req "event"));
-        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         access = (decode_access_role (csil_req "access"));
         invited = (Cbor.to_bool (csil_req "invited"));
         busy_only = (Cbor.to_bool (csil_req "busy_only"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for occurrence"
 
@@ -1389,8 +1389,8 @@ and decode_list_events_request (csil_c : Cbor.t) : list_events_request =
       in
       ignore csil_req;
       {
-        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_ids = (match csil_field "calendar_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (Cbor.to_text csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         include_invitations = (match csil_field "include_invitations" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
       }
@@ -1421,7 +1421,7 @@ and decode_update_event_request (csil_c : Cbor.t) : update_event_request =
       {
         event = (decode_event (csil_req "event"));
         scope = (match csil_field "scope" with Some csil_v -> Some (decode_recurrence_scope csil_v) | None -> None);
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for update_event_request"
 
@@ -1436,7 +1436,7 @@ and decode_delete_event_request (csil_c : Cbor.t) : delete_event_request =
       {
         scope = (match csil_field "scope" with Some csil_v -> Some (decode_recurrence_scope csil_v) | None -> None);
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for delete_event_request"
 
@@ -1481,11 +1481,11 @@ and decode_trash_entry (csil_c : Cbor.t) : trash_entry =
         event_id = (Cbor.to_text (csil_req "event_id"));
         instance = (match csil_field "instance" with Some csil_v -> Some (decode_event csil_v) | None -> None);
         trash_id = (Cbor.to_text (csil_req "trash_id"));
-        deleted_at = (match (csil_req "deleted_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        deleted_at = (match (csil_req "deleted_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         deleted_by = (match csil_field "deleted_by" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
-        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for trash_entry"
 
@@ -1539,7 +1539,7 @@ and decode_import_event_request (csil_c : Cbor.t) : import_event_request =
       ignore csil_req;
       {
         event = (decode_event (csil_req "event"));
-        created_at = (match csil_field "created_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        created_at = (match csil_field "created_at" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
         created_by = (decode_identity_ref (csil_req "created_by"));
       }
   | _ -> failwith "csilgen: expected map for import_event_request"
@@ -1586,7 +1586,7 @@ and decode_create_event_receipt (csil_c : Cbor.t) : create_event_receipt =
         created = (Cbor.to_bool (csil_req "created"));
         event_id = (Cbor.to_text (csil_req "event_id"));
         trash_id = (match csil_field "trash_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
       }
@@ -1602,9 +1602,9 @@ and decode_split_series_once_request (csil_c : Cbor.t) : split_series_once_reque
       ignore csil_req;
       {
         event = (decode_event (csil_req "event"));
-        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
-        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_series_once_request"
 
@@ -1619,7 +1619,7 @@ and decode_split_receipt_request (csil_c : Cbor.t) : split_receipt_request =
       {
         series_id = (Cbor.to_text (csil_req "series_id"));
         idempotency_key = (Cbor.to_text (csil_req "idempotency_key"));
-        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
+        map_recurrence_ids = (match csil_field "map_recurrence_ids" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (match csil_e with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp")) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_receipt_request"
 
@@ -1637,8 +1637,8 @@ and decode_split_occurrence_mapping (csil_c : Cbor.t) : split_occurrence_mapping
       {
         result = (decode_split_map_result (csil_req "result"));
         event_id = (match csil_field "event_id" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
-        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        mapped_recurrence_id = (match csil_field "mapped_recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match (csil_req "recurrence_id") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        mapped_recurrence_id = (match csil_field "mapped_recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for split_occurrence_mapping"
 
@@ -1655,10 +1655,10 @@ and decode_split_series_receipt (csil_c : Cbor.t) : split_series_receipt =
         created = (Cbor.to_bool (csil_req "created"));
         in_place = (Cbor.to_bool (csil_req "in_place"));
         mappings = (match (csil_req "mappings") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_split_occurrence_mapping csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
-        split_at = (match (csil_req "split_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        split_at = (match (csil_req "split_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         series_id = (Cbor.to_text (csil_req "series_id"));
         successor = (match csil_field "successor" with Some csil_v -> Some (decode_event csil_v) | None -> None);
-        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        created_at = (match (csil_req "created_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         calendar_id = (Cbor.to_text (csil_req "calendar_id"));
         series_state = (decode_create_receipt_state (csil_req "series_state"));
         successor_id = (Cbor.to_text (csil_req "successor_id"));
@@ -1679,7 +1679,7 @@ and decode_get_occurrence_request (csil_c : Cbor.t) : get_occurrence_request =
       ignore csil_req;
       {
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for get_occurrence_request"
 
@@ -1695,7 +1695,7 @@ and decode_respond_request (csil_c : Cbor.t) : respond_request =
         status = (decode_participation_status (csil_req "status"));
         comment = (match csil_field "comment" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
         event_id = (Cbor.to_text (csil_req "event_id"));
-        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
+        recurrence_id = (match csil_field "recurrence_id" with Some csil_v -> Some (match csil_v with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp") | None -> None);
       }
   | _ -> failwith "csilgen: expected map for respond_request"
 
@@ -1735,8 +1735,8 @@ and decode_busy_interval (csil_c : Cbor.t) : busy_interval =
       in
       ignore csil_req;
       {
-        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        end_ = (match (csil_req "end") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        start = (match (csil_req "start") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         tentative = (match csil_field "tentative" with Some csil_v -> Some (Cbor.to_bool csil_v) | None -> None);
       }
   | _ -> failwith "csilgen: expected map for busy_interval"
@@ -1751,8 +1751,8 @@ and decode_free_busy_request (csil_c : Cbor.t) : free_busy_request =
       ignore csil_req;
       {
         people = (match (csil_req "people") with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_identity_ref csil_e)) csil_xs | _ -> failwith "csilgen: expected array");
-        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
-        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_end = (match (csil_req "range_end") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
+        range_start = (match (csil_req "range_start") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
       }
   | _ -> failwith "csilgen: expected map for free_busy_request"
 
@@ -1865,7 +1865,7 @@ and decode_audit_entry (csil_c : Cbor.t) : audit_entry =
       in
       ignore csil_req;
       {
-        at = (match (csil_req "at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        at = (match (csil_req "at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         via = (decode_acting_via (csil_req "via"));
         actor = (decode_person_summary (csil_req "actor"));
         target = (match csil_field "target" with Some csil_v -> Some (Cbor.to_text csil_v) | None -> None);
@@ -1932,7 +1932,7 @@ and decode_login_response (csil_c : Cbor.t) : login_response =
         token = (Cbor.to_text (csil_req "token"));
         scopes = (match csil_field "scopes" with Some csil_v -> Some (match csil_v with Cbor.Array csil_xs -> List.map (fun csil_e -> (decode_scope csil_e)) csil_xs | _ -> failwith "csilgen: expected array") | None -> None);
         acting_as = (match csil_field "acting_as" with Some csil_v -> Some (decode_person_summary csil_v) | None -> None);
-        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        expires_at = (match (csil_req "expires_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
       }
   | _ -> failwith "csilgen: expected map for login_response"
 
@@ -2023,7 +2023,7 @@ and decode_application_presentation (csil_c : Cbor.t) : application_presentation
         nonce = (Cbor.to_bytes (csil_req "nonce"));
         signer = (decode_application_ref (csil_req "signer"));
         audience = (decode_application_ref (csil_req "audience"));
-        presented_at = (match (csil_req "presented_at") with Cbor.Tag (0, Cbor.Text csil_s) -> csil_s | _ -> failwith "csilgen: bad timestamp");
+        presented_at = (match (csil_req "presented_at") with Cbor.Tag (0, Cbor.Text csil_s) -> Cbor.canonical_timestamp csil_s | _ -> failwith "csilgen: bad timestamp");
         request_digest = (Cbor.to_bytes (csil_req "request_digest"));
         signer_instance_id = (Cbor.to_text (csil_req "signer_instance_id"));
       }

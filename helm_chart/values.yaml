@@ -70,9 +70,8 @@ config:
     # This instance's relying-party (RP) domain: the audience of each
     # sign-in assertion. Usually the host name of publicUrl.
     rpDomain: ""
-    # The application ID that each sign-in request names (LinkKeys 0.16.7
-    # and later). LinkKeys keeps standing consent per application. Empty:
-    # the application ID of the act-as keys, else the RP account username.
+    # Expected application ID in a verified sign-in assertion. If empty,
+    # use the ID in the act-as key file when available.
     applicationId: ""
   # More CATALYSTCAL_* variables, as a map. Values must be strings.
   extraEnv: {}
@@ -132,13 +131,13 @@ actAs:
 #   A) External RP (enabled: false). Set the tcp* values to a LinkKeys
 #      instance that serves RP endpoints, or leave them empty for DNS
 #      discovery. apiKey is an API key from
-#      `linkkeys user create catalystcal-api "catalystcal API" --api-key` on that instance.
+#      `linkkeys user create catalystcal-api "CatalystCal" --application-id catalystcal` on that instance.
 #
 #   B) In-cluster RP (enabled: true). The chart runs a LinkKeys container in
 #      RP mode with its own Service, and points the API at its TCP port.
 #      After the first deploy:
 #        1. exec into the RP pod and run `linkkeys domain init`.
-#        2. run `linkkeys user create catalystcal-api "catalystcal API" --api-key` and put
+#        2. run `linkkeys user create catalystcal-api "CatalystCal" --application-id catalystcal` and put
 #           the key in linkkeysRp.apiKey.
 #        3. publish the TXT record that `linkkeys domain dns-check` shows.
 #        4. put the fingerprints from that record in tcpFingerprints.
@@ -148,8 +147,7 @@ linkkeysRp:
   image:
     repository: containers.catalystsquad.com/public/catalystcommunity/linkkeys
     pullPolicy: IfNotPresent
-    # 0.16.7 or later keeps consent per application (application_id).
-    tag: "0.16.7"
+    tag: "0.16.11"
   # HTTPS port of the in-cluster RP (B).
   port: 8443
   # CSIL-RPC/TCP port of the in-cluster RP (B).

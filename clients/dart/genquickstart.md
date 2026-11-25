@@ -52,15 +52,23 @@ class HttpRpcCarrier implements AsyncCsilTransport {
   final CsilRpcSender _send;
 
   @override
-  Future<Uint8List> call(String service, String op, List<int> request) async {
+  Future<Uint8List> call(String service, String op, List<int> request) async =>
+      (await _roundTrip(service, op, request)).payload;
+
+  @override
+  Future<(String?, Uint8List)> callReply(String service, String op, List<int> request) async {
+    final resp = await _roundTrip(service, op, request);
+    return (resp.variant, resp.payload);
+  }
+
+  Future<RpcResponse> _roundTrip(String service, String op, List<int> request) async {
     final uri = Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}/csil/v1/rpc');
     // The library builds the request envelope; the carrier never hand-rolls CBOR.
     final envelope = RpcRequest(service, op, Uint8List.fromList(request)).encode();
     final bytes = await _send(uri, envelope);
     // RpcResponse.decode + intoTransportError throws a StatusException for any non-zero
     // transport status, distinct from an application error.
-    final resp = RpcResponse.decode(bytes).intoTransportError();
-    return resolveRpcReply(service, op, resp.variant, resp.payload);
+    return RpcResponse.decode(bytes).intoTransportError();
   }
 
   static Future<Uint8List> _httpSend(Uri uri, Uint8List body) async {

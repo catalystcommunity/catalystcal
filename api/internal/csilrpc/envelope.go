@@ -106,12 +106,12 @@ func (d *Dispatcher) ServeRPC(w http.ResponseWriter, r *http.Request) {
 		if errors.As(callErr, &serr) {
 			// Application error → the declared ServiceError output arm at status 0.
 			// Preserves the {code, message} contract the client already consumes.
-			d.writeRPC(w, id, transport.NewRpcResponseOk("ServiceError",
-				csil.EncodeServiceError(csil.ServiceError{
-					Code:    uint64(serr.Code),
-					Message: serr.Message,
-				})))
-			return
+			payload, err := csil.EncodeServiceError(csil.ServiceError{Code: uint64(serr.Code), Message: serr.Message})
+			if err == nil {
+				d.writeRPC(w, id, transport.NewRpcResponseOk("ServiceError", payload))
+				return
+			}
+			callErr = err
 		}
 		// Unstructured error → a real transport-level internal failure. Log the
 		// detail; never leak it to the caller.

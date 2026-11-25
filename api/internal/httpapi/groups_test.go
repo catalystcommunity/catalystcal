@@ -210,7 +210,7 @@ func enableApps(e *env) *appKeys {
 	k.resolver = &staticResolver{keys: []regularrp.VerifiedApplicationKey{{
 		Attestation: api.ApplicationKeyAttestation{
 			SubjectUserId: k.signer.SubjectUserID, SubjectDomain: k.signer.SubjectDomain, ApplicationId: k.signer.ApplicationID,
-			InstanceId: "lh-1", KeyId: "k1", KeyUsage: "sign", Algorithm: "ed25519", PublicKey: priv.Public().(ed25519.PublicKey),
+			InstanceId: "lh-1", KeyId: "k1", KeyUsage: regularrp.KeyUsageSign, Algorithm: regularrp.AlgorithmEd25519, PublicKey: priv.Public().(ed25519.PublicKey),
 		},
 		Status: regularrp.KeyStatus{Kind: regularrp.KeyStatusUsable},
 	}}}
@@ -218,13 +218,17 @@ func enableApps(e *env) *appKeys {
 	return k
 }
 
-func (k *appKeys) present(nonce string) csil.ExchangeApplicationPresentationRequest {
-	p := csil.EncodeApplicationPresentation(csil.ApplicationPresentation{
+func (k *appKeys) present(t *testing.T, nonce string) csil.ExchangeApplicationPresentationRequest {
+	t.Helper()
+	p, err := csil.EncodeApplicationPresentation(csil.ApplicationPresentation{
 		Signer: k.signer.CSIL(), SignerInstanceId: "lh-1", Audience: k.own.CSIL(),
 		RequestDigest: apppresent.RequestDigest(),
 		PresentedAt:   time.Now().UTC().Truncate(time.Second),
 		Nonce:         []byte(nonce),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	return csil.ExchangeApplicationPresentationRequest{Presentation: csil.SignedApplicationPresentation{
 		Presentation: p, SignedByKeyId: "k1", Signature: ed25519.Sign(k.priv, apppresent.SignatureInput(p)),
 	}}
@@ -247,7 +251,7 @@ func TestApplicationPrincipal(t *testing.T) {
 		t.Fatalf("audience %+v", ident.Audience)
 	}
 
-	req := k.present("nonce-0123456789")
+	req := k.present(t, "nonce-0123456789")
 	login := must(t, exchangeApp(anon, req))
 	if login.Via != "self" || login.User.ApplicationId == nil || *login.User.ApplicationId != "longhouse" || login.User.Subject != "lh-uuid" {
 		t.Fatalf("app login: %+v", login)
@@ -287,7 +291,7 @@ func TestApplicationPrincipal(t *testing.T) {
 
 	// A presentation for another audience is refused.
 	k.own.ApplicationID = "elsewhere"
-	bad := k.present("nonce-abcdefghijk")
+	bad := k.present(t, "nonce-abcdefghijk")
 	wantCode(t, exchangeApp(anon, bad), 401)
 
 	// Removing the application from the allow list stops its bearer at

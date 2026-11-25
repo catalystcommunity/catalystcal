@@ -14,6 +14,7 @@ public final class AuditClient {
     }
 
     public AuditList listAudit(AuditQuery req) throws ClientException {
-        return CsilCbor.decodeAuditList(transport.call("AuditService", "list-audit", CsilCbor.encodeAuditQuery(req)));
+        WireReply reply = transport.callReply("AuditService", "list-audit", CsilCbor.encodeAuditQuery(req));
+        return CsilCbor.decodeAuditList(CsilCbor.resolveRpcReply("AuditService", "list-audit", reply.variant(), reply.payload()));
     }
 }

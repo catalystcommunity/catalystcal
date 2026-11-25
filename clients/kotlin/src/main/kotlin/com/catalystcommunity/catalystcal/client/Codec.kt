@@ -18,7 +18,9 @@ sealed class CborValue {
         override fun hashCode(): Int = value.contentHashCode()
     }
     data class CArray(val items: List<CborValue>) : CborValue()
-    data class CMap(val entries: List<Pair<CborValue, CborValue>>) : CborValue()
+    // `canonical` is false when a decoded map's encoded keys were not strictly ascending
+    // bytewise (RFC 8949 section 4.2.1): a dynamic map rejects that, a record does not.
+    data class CMap(val entries: List<Pair<CborValue, CborValue>>, val canonical: Boolean = true) : CborValue()
     data class CTag(val tag: ULong, val value: CborValue) : CborValue()
 }
 
@@ -121,6 +123,18 @@ object CsilCbor {
         return v
     }
 
+    // Float.float16ToFloat needs JDK 20; the generated package targets JDK 17.
+    private fun halfToDouble(h: Int): Double {
+        val exp = (h shr 10) and 0x1f
+        val mant = h and 0x3ff
+        val magnitude = when (exp) {
+            0 -> Math.scalb(mant.toDouble(), -24)
+            31 -> if (mant == 0) Double.POSITIVE_INFINITY else Double.NaN
+            else -> Math.scalb((mant or 0x400).toDouble(), exp - 25)
+        }
+        return if ((h and 0x8000) != 0) -magnitude else magnitude
+    }
+
     private fun readArg(cur: Cursor, low: Int): ULong {
         if (low < 24) {
             cur.pos += 1
@@ -192,6 +206,10 @@ object CsilCbor {
                     cur.pos += 1
                     CborValue.CNull
                 }
+                25 -> {
+                    val bits = readArg(cur, low)
+                    CborValue.CFloat(halfToDouble(bits.toInt()))
+                }
                 26 -> {
                     val bits = readArg(cur, low)
                     CborValue.CFloat(Float.fromBits((bits and 0xffffffffuL).toInt()).toDouble())
@@ -235,12 +253,30 @@ object CsilCbor {
                 if (arg > (cur.b.size - cur.pos).toULong()) throw CborError("map length exceeds remaining input")
                 val n = arg.toInt()
                 val entries = ArrayList<Pair<CborValue, CborValue>>(minOf(n, PREALLOC_LIMIT))
+                // Each key is compared with the one before it as raw bytes, so the order
+                // check is O(n). Only a map out of order can repeat a key, so the set of
+                // seen keys is built only then.
+                val keyRanges = ArrayList<IntArray>(minOf(n, PREALLOC_LIMIT))
+                var seen: HashSet<java.nio.ByteBuffer>? = null
                 repeat(n) {
+                    val keyStart = cur.pos
                     val k = dec(cur, depth + 1)
+                    val keyEnd = cur.pos
+                    if (!shortestHead(cur.b, keyStart)) throw CborError("csil cbor: map key is not in shortest form")
+                    if (seen == null && keyRanges.isNotEmpty()) {
+                        val prev = keyRanges[keyRanges.size - 1]
+                        if (java.util.Arrays.compareUnsigned(cur.b, prev[0], prev[1], cur.b, keyStart, keyEnd) >= 0) {
+                            seen = keyRanges.mapTo(HashSet()) { java.nio.ByteBuffer.wrap(cur.b, it[0], it[1] - it[0]) }
+                        }
+                    }
+                    if (seen?.add(java.nio.ByteBuffer.wrap(cur.b, keyStart, keyEnd - keyStart)) == false) {
+                        throw CborError("csil cbor: duplicate key ${describeKey(k)}")
+                    }
+                    keyRanges.add(intArrayOf(keyStart, keyEnd))
                     val value = dec(cur, depth + 1)
                     entries.add(k to value)
                 }
-                CborValue.CMap(entries)
+                CborValue.CMap(entries, seen == null)
             }
             6 -> CborValue.CTag(arg, dec(cur, depth + 1))
             else -> throw CborError("malformed CBOR major type")
@@ -304,6 +340,35 @@ object CsilCbor {
     fun asMap(v: CborValue): List<Pair<CborValue, CborValue>> =
         (v as? CborValue.CMap)?.entries ?: throw CborError("expected map")
 
+    /** The entries of a dynamic map, which must arrive in canonical key order. */
+    fun asDynamicMap(v: CborValue): List<Pair<CborValue, CborValue>> {
+        if (v is CborValue.CMap && !v.canonical) throw CborError("csil cbor: map keys are not in canonical order")
+        return asMap(v)
+    }
+
+    /** `entries` in canonical order: bytewise order of each key's encoding, which is not
+     * the order of the Kotlin keys. */
+    fun canonicalEntries(entries: List<Pair<CborValue, CborValue>>): List<Pair<CborValue, CborValue>> =
+        entries.map { encode(it.first) to it }
+            .sortedWith { x, y -> java.util.Arrays.compareUnsigned(x.first, y.first) }
+            .map { it.second }
+
+    /** Whether the head at [at] uses the shortest argument for its value. A float head
+     * (major 7) carries no length, so it is not checked. */
+    private fun shortestHead(b: ByteArray, at: Int): Boolean {
+        val major = (b[at].toInt() and 0xff) shr 5
+        val low = b[at].toInt() and 0x1f
+        if (major == 7 || low < 24) return true
+        val width = 1 shl (low - 24)
+        var arg = 0uL
+        for (i in 1..width) arg = (arg shl 8) or (b[at + i].toInt() and 0xff).toULong()
+        val floor = if (low == 24) 24uL else 1uL shl (8 * (width / 2))
+        return arg >= floor
+    }
+
+    private fun describeKey(k: CborValue): String =
+        if (k is CborValue.CText) "\"${k.value}\"" else encode(k).joinToString("") { "%02x".format(it) }
+
     fun encDate(date: java.time.LocalDate): CborValue {
         val text = date.toString()
         require(text.length == 10) { "date requires a four-digit year" }
@@ -314,6 +379,155 @@ object CsilCbor {
         val text = asTaggedText(v, 1004uL)
         require(text.length == 10) { "expected YYYY-MM-DD" }
         return java.time.LocalDate.parse(text)
+    }
+
+    // The timestamp shape is checked by hand because Instant.parse accepts forms the
+    // wire contract rejects, and Instant.toString picks fraction widths the contract does
+    // not allow (it requires 3, 6, or 9 digits).
+    fun encTimestamp(t: java.time.Instant): CborValue {
+        val u = t.atOffset(java.time.ZoneOffset.UTC)
+        if (u.year < 1 || u.year > 9999) throw CborError("timestamp year outside 0001-9999")
+        val b = StringBuilder(30)
+        b.append(tsDigits(u.year, 4)).append('-').append(tsDigits(u.monthValue, 2)).append('-')
+            .append(tsDigits(u.dayOfMonth, 2)).append('T').append(tsDigits(u.hour, 2)).append(':')
+            .append(tsDigits(u.minute, 2)).append(':').append(tsDigits(u.second, 2))
+        val nano = u.nano
+        if (nano != 0) {
+            b.append('.')
+            when {
+                nano % 1_000_000 == 0 -> b.append(tsDigits(nano / 1_000_000, 3))
+                nano % 1_000 == 0 -> b.append(tsDigits(nano / 1_000, 6))
+                else -> b.append(tsDigits(nano, 9))
+            }
+        }
+        b.append('Z')
+        return CborValue.CTag(0uL, CborValue.CText(b.toString()))
+    }
+
+    private fun tsDigits(value: Int, width: Int): String = value.toString().padStart(width, '0')
+
+    fun asTimestamp(v: CborValue): java.time.Instant {
+        if (v is CborValue.CTag && v.tag == 0uL && v.value is CborValue.CText) {
+            return parseTimestamp(v.value.value)
+        }
+        throw CborError("expected CBOR tag 0 timestamp")
+    }
+
+    private fun tsField(s: String, at: Int, width: Int): Int {
+        if (at + width > s.length) throw CborError("invalid timestamp text")
+        var value = 0
+        for (i in at until at + width) {
+            val c = s[i]
+            if (c < '0' || c > '9') throw CborError("invalid timestamp text")
+            value = value * 10 + (c - '0')
+        }
+        return value
+    }
+
+    private fun tsSeparator(s: String, at: Int, a: Char, b: Char) {
+        if (at >= s.length || (s[at] != a && s[at] != b)) throw CborError("invalid timestamp text")
+    }
+
+    private val tsMinEpoch = java.time.LocalDate.of(1, 1, 1).toEpochDay() * 86_400L
+    private val tsEndEpoch = java.time.LocalDate.of(10000, 1, 1).toEpochDay() * 86_400L
+
+    private fun parseTimestamp(s: String): java.time.Instant {
+        val year = tsField(s, 0, 4)
+        tsSeparator(s, 4, '-', '-')
+        val month = tsField(s, 5, 2)
+        tsSeparator(s, 7, '-', '-')
+        val day = tsField(s, 8, 2)
+        tsSeparator(s, 10, 'T', 't')
+        val hour = tsField(s, 11, 2)
+        tsSeparator(s, 13, ':', ':')
+        val minute = tsField(s, 14, 2)
+        tsSeparator(s, 16, ':', ':')
+        val second = tsField(s, 17, 2)
+        if (year < 1 || month < 1 || month > 12 || day < 1 ||
+            day > java.time.YearMonth.of(year, month).lengthOfMonth() ||
+            hour > 23 || minute > 59 || second > 59
+        ) {
+            throw CborError("invalid timestamp value")
+        }
+        var at = 19
+        var nano = 0
+        if (at < s.length && s[at] == '.') {
+            val start = ++at
+            while (at < s.length && s[at] >= '0' && s[at] <= '9') at++
+            val digits = at - start
+            if (digits < 1 || digits > 9) throw CborError("invalid timestamp fraction")
+            nano = tsField(s, start, digits)
+            repeat(9 - digits) { nano *= 10 }
+        }
+        if (at >= s.length) throw CborError("timestamp has no offset")
+        val zone = s[at]
+        val offset: Int
+        if (zone == 'Z' || zone == 'z') {
+            offset = 0
+            at += 1
+        } else if (zone == '+' || zone == '-') {
+            val offsetHour = tsField(s, at + 1, 2)
+            tsSeparator(s, at + 3, ':', ':')
+            val offsetMinute = tsField(s, at + 4, 2)
+            if (offsetHour > 23 || offsetMinute > 59) throw CborError("invalid timestamp offset")
+            offset = (if (zone == '-') -1 else 1) * (offsetHour * 3600 + offsetMinute * 60)
+            at += 6
+        } else {
+            throw CborError("invalid timestamp offset")
+        }
+        if (at != s.length) throw CborError("trailing timestamp text")
+        val epoch = java.time.LocalDate.of(year, month, day).toEpochDay() * 86_400L +
+            hour * 3_600L + minute * 60L + second - offset
+        // The range is checked again after conversion to UTC, because an offset can move
+        // a written year 0001 or 9999 value outside it.
+        if (epoch < tsMinEpoch || epoch >= tsEndEpoch) throw CborError("timestamp year outside 0001-9999")
+        return java.time.Instant.ofEpochSecond(epoch, nano.toLong())
+    }
+
+    private const val CDDL_TIME_FIRST = -62_135_596_800L
+    private const val CDDL_TIME_LAST = 253_402_300_799L
+
+    fun encCddlTime(t: java.time.Instant): CborValue {
+        val seconds = t.epochSecond
+        val nanos = t.nano
+        if (seconds < CDDL_TIME_FIRST || seconds > CDDL_TIME_LAST) throw CborError("cddl_time year outside 0001-9999")
+        if (nanos == 0) return CborValue.CTag(1uL, CborValue.CInt(seconds))
+        return CborValue.CTag(1uL, CborValue.CFloat(seconds.toDouble() + nanos.toDouble() / 1e9))
+    }
+
+    // The float split is spelled out step by step because the wire contract fixes each
+    // binary64 operation, so every target lands on the same instant.
+    fun asCddlTime(v: CborValue): java.time.Instant {
+        if (v !is CborValue.CTag || v.tag != 1uL) throw CborError("expected CBOR tag 1 cddl_time")
+        var seconds: Long
+        var nanos = 0L
+        when (val inner = v.value) {
+            is CborValue.CUint -> {
+                if (inner.value > CDDL_TIME_LAST.toULong()) throw CborError("cddl_time year outside 0001-9999")
+                seconds = inner.value.toLong()
+            }
+            is CborValue.CInt -> seconds = inner.value
+            is CborValue.CFloat -> {
+                val value = inner.value
+                if (!value.isFinite()) throw CborError("cddl_time is not finite")
+                // Refused before the integer conversion so that the cast cannot saturate.
+                if (value < (CDDL_TIME_FIRST - 1).toDouble() || value > (CDDL_TIME_LAST + 1).toDouble()) {
+                    throw CborError("cddl_time year outside 0001-9999")
+                }
+                val whole = kotlin.math.floor(value)
+                val scaled = (value - whole) * 1e9
+                val units = kotlin.math.floor(scaled + 0.5)
+                seconds = whole.toLong()
+                nanos = units.toLong()
+                if (nanos == 1_000_000_000L) {
+                    seconds += 1
+                    nanos = 0
+                }
+            }
+            else -> throw CborError("cddl_time tag 1 requires a number")
+        }
+        if (seconds < CDDL_TIME_FIRST || seconds > CDDL_TIME_LAST) throw CborError("cddl_time year outside 0001-9999")
+        return java.time.Instant.ofEpochSecond(seconds, nanos)
     }
 
     fun asTaggedText(v: CborValue, tag: ULong): String {
@@ -397,20 +611,20 @@ fun accessPathFromCborValue(cbor: CborValue): AccessPath = when (CsilCbor.asText
 
 /** Encode a Scope enum as its bare literal value. */
 fun Scope.toCborValue(): CborValue = when (this) {
-    Scope.Calendars.read -> CborValue.CText("calendars.read")
-    Scope.Freebusy.read -> CborValue.CText("freebusy.read")
-    Scope.Events.write -> CborValue.CText("events.write")
-    Scope.Events.respond -> CborValue.CText("events.respond")
-    Scope.Calendars.manage -> CborValue.CText("calendars.manage")
+    Scope.CalendarsRead -> CborValue.CText("calendars.read")
+    Scope.FreebusyRead -> CborValue.CText("freebusy.read")
+    Scope.EventsWrite -> CborValue.CText("events.write")
+    Scope.EventsRespond -> CborValue.CText("events.respond")
+    Scope.CalendarsManage -> CborValue.CText("calendars.manage")
 }
 
 /** Decode a bare literal value into a Scope enum. */
 fun scopeFromCborValue(cbor: CborValue): Scope = when (CsilCbor.asText(cbor)) {
-    "calendars.read" -> Scope.Calendars.read
-    "freebusy.read" -> Scope.Freebusy.read
-    "events.write" -> Scope.Events.write
-    "events.respond" -> Scope.Events.respond
-    "calendars.manage" -> Scope.Calendars.manage
+    "calendars.read" -> Scope.CalendarsRead
+    "freebusy.read" -> Scope.FreebusyRead
+    "events.write" -> Scope.EventsWrite
+    "events.respond" -> Scope.EventsRespond
+    "calendars.manage" -> Scope.CalendarsManage
     else -> throw CborError("unknown Scope value")
 }
 
@@ -602,8 +816,8 @@ fun User.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("subject") to CborValue.CText(this.subject))
     csilEntries.add(CborValue.CText("user_id") to CborValue.CText(this.userId))
     this.timezone?.let { csilV -> csilEntries.add(CborValue.CText("timezone") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
+    csilEntries.add(CborValue.CText("updated_at") to CsilCbor.encTimestamp(this.updatedAt))
     this.displayName?.let { csilV -> csilEntries.add(CborValue.CText("display_name") to CborValue.CText(csilV)) }
     this.applicationId?.let { csilV -> csilEntries.add(CborValue.CText("application_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -622,8 +836,8 @@ fun userFromCborValue(cbor: CborValue): User {
     val displayName = CsilCbor.mapGet(cbor, "display_name")?.let { csilV -> CsilCbor.asText(csilV) }
     val email = CsilCbor.mapGet(cbor, "email")?.let { csilV -> CsilCbor.asText(csilV) }
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
-    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
+    val updatedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "updated_at"))
     return User(userId = userId, domain = domain, subject = subject, applicationId = applicationId, handle = handle, displayName = displayName, email = email, timezone = timezone, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -669,15 +883,15 @@ fun Calendar.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("access") to this.access.toCborValue())
     this.timezone?.let { csilV -> csilEntries.add(CborValue.CText("timezone") to CborValue.CText(csilV)) }
     this.feedPath?.let { csilV -> csilEntries.add(CborValue.CText("feed_path") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
     csilEntries.add(CborValue.CText("is_default") to CborValue.CBool(this.isDefault))
     this.sourceUrl?.let { csilV -> csilEntries.add(CborValue.CText("source_url") to CborValue.CText(csilV)) }
     this.syncError?.let { csilV -> csilEntries.add(CborValue.CText("sync_error") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
+    csilEntries.add(CborValue.CText("updated_at") to CsilCbor.encTimestamp(this.updatedAt))
     csilEntries.add(CborValue.CText("access_path") to this.accessPath.toCborValue())
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
-    this.lastSyncedAt?.let { csilV -> csilEntries.add(CborValue.CText("last_synced_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.lastSyncedAt?.let { csilV -> csilEntries.add(CborValue.CText("last_synced_at") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -694,14 +908,14 @@ fun calendarFromCborValue(cbor: CborValue): Calendar {
     val timezone = CsilCbor.mapGet(cbor, "timezone")?.let { csilV -> CsilCbor.asText(csilV) }
     val kind = calendarKindFromCborValue(CsilCbor.require(cbor, "kind"))
     val sourceUrl = CsilCbor.mapGet(cbor, "source_url")?.let { csilV -> CsilCbor.asText(csilV) }
-    val lastSyncedAt = CsilCbor.mapGet(cbor, "last_synced_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val lastSyncedAt = CsilCbor.mapGet(cbor, "last_synced_at")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val syncError = CsilCbor.mapGet(cbor, "sync_error")?.let { csilV -> CsilCbor.asText(csilV) }
     val isDefault = CsilCbor.asBoolean(CsilCbor.require(cbor, "is_default"))
     val access = accessRoleFromCborValue(CsilCbor.require(cbor, "access"))
     val accessPath = accessPathFromCborValue(CsilCbor.require(cbor, "access_path"))
     val feedPath = CsilCbor.mapGet(cbor, "feed_path")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
-    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
+    val updatedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "updated_at"))
     return Calendar(calendarId = calendarId, owner = owner, name = name, description = description, color = color, timezone = timezone, kind = kind, sourceUrl = sourceUrl, lastSyncedAt = lastSyncedAt, syncError = syncError, isDefault = isDefault, access = access, accessPath = accessPath, feedPath = feedPath, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -829,7 +1043,7 @@ fun Share.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("role") to this.role.toCborValue())
     this.grantee?.let { csilV -> csilEntries.add(CborValue.CText("grantee") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("share_id") to CborValue.CText(this.shareId))
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.granteePerson?.let { csilV -> csilEntries.add(CborValue.CText("grantee_person") to csilV.toCborValue()) }
     this.granteeGroupId?.let { csilV -> csilEntries.add(CborValue.CText("grantee_group_id") to CborValue.CText(csilV)) }
@@ -849,7 +1063,7 @@ fun shareFromCborValue(cbor: CborValue): Share {
     val role = shareRoleFromCborValue(CsilCbor.require(cbor, "role"))
     val granteePerson = CsilCbor.mapGet(cbor, "grantee_person")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val granteeGroupName = CsilCbor.mapGet(cbor, "grantee_group_name")?.let { csilV -> CsilCbor.asText(csilV) }
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
     return Share(shareId = shareId, calendarId = calendarId, grantee = grantee, granteeGroupId = granteeGroupId, role = role, granteePerson = granteePerson, granteeGroupName = granteeGroupName, createdAt = createdAt)
 }
 
@@ -908,8 +1122,8 @@ fun Group.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("members") to CborValue.CArray((this.members).map { csilE -> csilE.toCborValue() }))
     csilEntries.add(CborValue.CText("group_id") to CborValue.CText(this.groupId))
     csilEntries.add(CborValue.CText("revision") to CborValue.CUint(this.revision))
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
+    csilEntries.add(CborValue.CText("updated_at") to CsilCbor.encTimestamp(this.updatedAt))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
 }
@@ -925,8 +1139,8 @@ fun groupFromCborValue(cbor: CborValue): Group {
     val description = CsilCbor.mapGet(cbor, "description")?.let { csilV -> CsilCbor.asText(csilV) }
     val revision = CsilCbor.asULong(CsilCbor.require(cbor, "revision"))
     val members = CsilCbor.asArray(CsilCbor.require(cbor, "members")).map { csilE -> groupMemberFromCborValue(csilE) }
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
-    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
+    val updatedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "updated_at"))
     return Group(groupId = groupId, owner = owner, name = name, description = description, revision = revision, members = members, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -1028,9 +1242,9 @@ fun Delegation.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("scopes") to CborValue.CArray((this.scopes).map { csilE -> csilE.toCborValue() }))
     csilEntries.add(CborValue.CText("delegate") to this.delegate.toCborValue())
     csilEntries.add(CborValue.CText("principal") to this.principal.toCborValue())
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
-    this.expiresAt?.let { csilV -> csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
-    this.revokedAt?.let { csilV -> csilEntries.add(CborValue.CText("revoked_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
+    this.expiresAt?.let { csilV -> csilEntries.add(CborValue.CText("expires_at") to CsilCbor.encTimestamp(csilV)) }
+    this.revokedAt?.let { csilV -> csilEntries.add(CborValue.CText("revoked_at") to CsilCbor.encTimestamp(csilV)) }
     this.calendarIds?.let { csilV -> csilEntries.add(CborValue.CText("calendar_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     csilEntries.add(CborValue.CText("delegation_id") to CborValue.CText(this.delegationId))
     this.delegatePerson?.let { csilV -> csilEntries.add(CborValue.CText("delegate_person") to csilV.toCborValue()) }
@@ -1049,9 +1263,9 @@ fun delegationFromCborValue(cbor: CborValue): Delegation {
     val scopes = CsilCbor.asArray(CsilCbor.require(cbor, "scopes")).map { csilE -> scopeFromCborValue(csilE) }
     val calendarIds = CsilCbor.mapGet(cbor, "calendar_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
     val note = CsilCbor.mapGet(cbor, "note")?.let { csilV -> CsilCbor.asText(csilV) }
-    val expiresAt = CsilCbor.mapGet(cbor, "expires_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
-    val revokedAt = CsilCbor.mapGet(cbor, "revoked_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val expiresAt = CsilCbor.mapGet(cbor, "expires_at")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
+    val revokedAt = CsilCbor.mapGet(cbor, "revoked_at")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return Delegation(delegationId = delegationId, principal = principal, delegate = delegate, delegatePerson = delegatePerson, scopes = scopes, calendarIds = calendarIds, note = note, expiresAt = expiresAt, createdAt = createdAt, revokedAt = revokedAt)
 }
 
@@ -1100,8 +1314,8 @@ fun assumePrincipalRequestFromCbor(bytes: ByteArray): AssumePrincipalRequest = a
 fun Recurrence.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("rrule") to CborValue.CText(this.rrule))
-    this.rdates?.let { csilV -> csilEntries.add(CborValue.CText("rdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
-    this.exdates?.let { csilV -> csilEntries.add(CborValue.CText("exdates") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
+    this.rdates?.let { csilV -> csilEntries.add(CborValue.CText("rdates") to CborValue.CArray((csilV).map { csilE -> CsilCbor.encTimestamp(csilE) })) }
+    this.exdates?.let { csilV -> csilEntries.add(CborValue.CText("exdates") to CborValue.CArray((csilV).map { csilE -> CsilCbor.encTimestamp(csilE) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1111,8 +1325,8 @@ fun Recurrence.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a Recurrence from a decoded CBOR value tree. */
 fun recurrenceFromCborValue(cbor: CborValue): Recurrence {
     val rrule = CsilCbor.asText(CsilCbor.require(cbor, "rrule"))
-    val exdates = CsilCbor.mapGet(cbor, "exdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
-    val rdates = CsilCbor.mapGet(cbor, "rdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
+    val exdates = CsilCbor.mapGet(cbor, "exdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asTimestamp(csilE) } }
+    val rdates = CsilCbor.mapGet(cbor, "rdates")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asTimestamp(csilE) } }
     return Recurrence(rrule = rrule, exdates = exdates, rdates = rdates)
 }
 
@@ -1176,11 +1390,11 @@ fun reminderFromCbor(bytes: ByteArray): Reminder = reminderFromCborValue(CsilCbo
 /** The CBOR value tree for a Event (deep, canonical key order). */
 fun Event.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    this.end?.let { csilV -> csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.end?.let { csilV -> csilEntries.add(CborValue.CText("end") to CsilCbor.encTimestamp(csilV)) }
     this.uid?.let { csilV -> csilEntries.add(CborValue.CText("uid") to CborValue.CText(csilV)) }
     this.url?.let { csilV -> csilEntries.add(CborValue.CText("url") to CborValue.CText(csilV)) }
     this.color?.let { csilV -> csilEntries.add(CborValue.CText("color") to CborValue.CText(csilV)) }
-    this.start?.let { csilV -> csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.start?.let { csilV -> csilEntries.add(CborValue.CText("start") to CsilCbor.encTimestamp(csilV)) }
     csilEntries.add(CborValue.CText("title") to CborValue.CText(this.title))
     this.status?.let { csilV -> csilEntries.add(CborValue.CText("status") to csilV.toCborValue()) }
     this.allDay?.let { csilV -> csilEntries.add(CborValue.CText("all_day") to CborValue.CBool(csilV)) }
@@ -1193,18 +1407,18 @@ fun Event.toCborValue(): CborValue {
     this.organizer?.let { csilV -> csilEntries.add(CborValue.CText("organizer") to csilV.toCborValue()) }
     this.reminders?.let { csilV -> csilEntries.add(CborValue.CText("reminders") to CborValue.CArray((csilV).map { csilE -> csilE.toCborValue() })) }
     this.categories?.let { csilV -> csilEntries.add(CborValue.CText("categories") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
     this.createdBy?.let { csilV -> csilEntries.add(CborValue.CText("created_by") to csilV.toCborValue()) }
     this.recurrence?.let { csilV -> csilEntries.add(CborValue.CText("recurrence") to csilV.toCborValue()) }
     this.startDate?.let { csilV -> csilEntries.add(CborValue.CText("start_date") to CsilCbor.encDate(csilV)) }
-    csilEntries.add(CborValue.CText("updated_at") to CborValue.CTag(0uL, CborValue.CText((this.updatedAt).toString())))
+    csilEntries.add(CborValue.CText("updated_at") to CsilCbor.encTimestamp(this.updatedAt))
     this.updatedBy?.let { csilV -> csilEntries.add(CborValue.CText("updated_by") to csilV.toCborValue()) }
     this.visibility?.let { csilV -> csilEntries.add(CborValue.CText("visibility") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     this.description?.let { csilV -> csilEntries.add(CborValue.CText("description") to CborValue.CText(csilV)) }
     this.updatedVia?.let { csilV -> csilEntries.add(CborValue.CText("updated_via") to csilV.toCborValue()) }
     this.transparency?.let { csilV -> csilEntries.add(CborValue.CText("transparency") to csilV.toCborValue()) }
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     this.conferenceUrl?.let { csilV -> csilEntries.add(CborValue.CText("conference_url") to CborValue.CText(csilV)) }
     this.masterEventId?.let { csilV -> csilEntries.add(CborValue.CText("master_event_id") to CborValue.CText(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -1223,8 +1437,8 @@ fun eventFromCborValue(cbor: CborValue): Event {
     val location = CsilCbor.mapGet(cbor, "location")?.let { csilV -> CsilCbor.asText(csilV) }
     val url = CsilCbor.mapGet(cbor, "url")?.let { csilV -> CsilCbor.asText(csilV) }
     val conferenceUrl = CsilCbor.mapGet(cbor, "conference_url")?.let { csilV -> CsilCbor.asText(csilV) }
-    val start = CsilCbor.mapGet(cbor, "start")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
-    val end = CsilCbor.mapGet(cbor, "end")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val start = CsilCbor.mapGet(cbor, "start")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
+    val end = CsilCbor.mapGet(cbor, "end")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val allDay = CsilCbor.mapGet(cbor, "all_day")?.let { csilV -> CsilCbor.asBoolean(csilV) }
     val startDate = CsilCbor.mapGet(cbor, "start_date")?.let { csilV -> CsilCbor.asDate(csilV) }
     val endDate = CsilCbor.mapGet(cbor, "end_date")?.let { csilV -> CsilCbor.asDate(csilV) }
@@ -1234,7 +1448,7 @@ fun eventFromCborValue(cbor: CborValue): Event {
     val visibility = CsilCbor.mapGet(cbor, "visibility")?.let { csilV -> eventVisibilityFromCborValue(csilV) }
     val recurrence = CsilCbor.mapGet(cbor, "recurrence")?.let { csilV -> recurrenceFromCborValue(csilV) }
     val masterEventId = CsilCbor.mapGet(cbor, "master_event_id")?.let { csilV -> CsilCbor.asText(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val attendees = CsilCbor.mapGet(cbor, "attendees")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> attendeeFromCborValue(csilE) } }
     val reminders = CsilCbor.mapGet(cbor, "reminders")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> reminderFromCborValue(csilE) } }
     val categories = CsilCbor.mapGet(cbor, "categories")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
@@ -1244,8 +1458,8 @@ fun eventFromCborValue(cbor: CborValue): Event {
     val updatedBy = CsilCbor.mapGet(cbor, "updated_by")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val updatedVia = CsilCbor.mapGet(cbor, "updated_via")?.let { csilV -> actingViaFromCborValue(csilV) }
     val sequence = CsilCbor.asLong(CsilCbor.require(cbor, "sequence"))
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
-    val updatedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "updated_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
+    val updatedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "updated_at"))
     return Event(eventId = eventId, calendarId = calendarId, uid = uid, title = title, description = description, location = location, url = url, conferenceUrl = conferenceUrl, start = start, end = end, allDay = allDay, startDate = startDate, endDate = endDate, timezone = timezone, status = status, transparency = transparency, visibility = visibility, recurrence = recurrence, masterEventId = masterEventId, recurrenceId = recurrenceId, attendees = attendees, reminders = reminders, categories = categories, color = color, organizer = organizer, createdBy = createdBy, updatedBy = updatedBy, updatedVia = updatedVia, sequence = sequence, createdAt = createdAt, updatedAt = updatedAt)
 }
 
@@ -1255,13 +1469,13 @@ fun eventFromCbor(bytes: ByteArray): Event = eventFromCborValue(CsilCbor.decode(
 /** The CBOR value tree for a Occurrence (deep, canonical key order). */
 fun Occurrence.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((this.end).toString())))
+    csilEntries.add(CborValue.CText("end") to CsilCbor.encTimestamp(this.end))
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((this.start).toString())))
+    csilEntries.add(CborValue.CText("start") to CsilCbor.encTimestamp(this.start))
     csilEntries.add(CborValue.CText("access") to this.access.toCborValue())
     csilEntries.add(CborValue.CText("invited") to CborValue.CBool(this.invited))
     csilEntries.add(CborValue.CText("busy_only") to CborValue.CBool(this.busyOnly))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1271,9 +1485,9 @@ fun Occurrence.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a Occurrence from a decoded CBOR value tree. */
 fun occurrenceFromCborValue(cbor: CborValue): Occurrence {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
-    val start = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "start"), 0uL))
-    val end = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "end"), 0uL))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val start = CsilCbor.asTimestamp(CsilCbor.require(cbor, "start"))
+    val end = CsilCbor.asTimestamp(CsilCbor.require(cbor, "end"))
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val access = accessRoleFromCborValue(CsilCbor.require(cbor, "access"))
     val busyOnly = CsilCbor.asBoolean(CsilCbor.require(cbor, "busy_only"))
     val invited = CsilCbor.asBoolean(CsilCbor.require(cbor, "invited"))
@@ -1286,8 +1500,8 @@ fun occurrenceFromCbor(bytes: ByteArray): Occurrence = occurrenceFromCborValue(C
 /** The CBOR value tree for a ListEventsRequest (deep, canonical key order). */
 fun ListEventsRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("range_end") to CborValue.CTag(0uL, CborValue.CText((this.rangeEnd).toString())))
-    csilEntries.add(CborValue.CText("range_start") to CborValue.CTag(0uL, CborValue.CText((this.rangeStart).toString())))
+    csilEntries.add(CborValue.CText("range_end") to CsilCbor.encTimestamp(this.rangeEnd))
+    csilEntries.add(CborValue.CText("range_start") to CsilCbor.encTimestamp(this.rangeStart))
     this.calendarIds?.let { csilV -> csilEntries.add(CborValue.CText("calendar_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CText(csilE) })) }
     this.includeInvitations?.let { csilV -> csilEntries.add(CborValue.CText("include_invitations") to CborValue.CBool(csilV)) }
     return CborValue.CMap(csilEntries)
@@ -1298,8 +1512,8 @@ fun ListEventsRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 
 /** Reconstruct a ListEventsRequest from a decoded CBOR value tree. */
 fun listEventsRequestFromCborValue(cbor: CborValue): ListEventsRequest {
-    val rangeStart = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_start"), 0uL))
-    val rangeEnd = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_end"), 0uL))
+    val rangeStart = CsilCbor.asTimestamp(CsilCbor.require(cbor, "range_start"))
+    val rangeEnd = CsilCbor.asTimestamp(CsilCbor.require(cbor, "range_end"))
     val calendarIds = CsilCbor.mapGet(cbor, "calendar_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asText(csilE) } }
     val includeInvitations = CsilCbor.mapGet(cbor, "include_invitations")?.let { csilV -> CsilCbor.asBoolean(csilV) }
     return ListEventsRequest(rangeStart = rangeStart, rangeEnd = rangeEnd, calendarIds = calendarIds, includeInvitations = includeInvitations)
@@ -1334,7 +1548,7 @@ fun UpdateEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
     this.scope?.let { csilV -> csilEntries.add(CborValue.CText("scope") to csilV.toCborValue()) }
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1345,7 +1559,7 @@ fun UpdateEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun updateEventRequestFromCborValue(cbor: CborValue): UpdateEventRequest {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val scope = CsilCbor.mapGet(cbor, "scope")?.let { csilV -> recurrenceScopeFromCborValue(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return UpdateEventRequest(event = event, scope = scope, recurrenceId = recurrenceId)
 }
 
@@ -1357,7 +1571,7 @@ fun DeleteEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     this.scope?.let { csilV -> csilEntries.add(CborValue.CText("scope") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1368,7 +1582,7 @@ fun DeleteEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun deleteEventRequestFromCborValue(cbor: CborValue): DeleteEventRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val scope = CsilCbor.mapGet(cbor, "scope")?.let { csilV -> recurrenceScopeFromCborValue(csilV) }
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return DeleteEventRequest(eventId = eventId, scope = scope, recurrenceId = recurrenceId)
 }
 
@@ -1423,11 +1637,11 @@ fun TrashEntry.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
     this.instance?.let { csilV -> csilEntries.add(CborValue.CText("instance") to csilV.toCborValue()) }
     csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(this.trashId))
-    csilEntries.add(CborValue.CText("deleted_at") to CborValue.CTag(0uL, CborValue.CText((this.deletedAt).toString())))
+    csilEntries.add(CborValue.CText("deleted_at") to CsilCbor.encTimestamp(this.deletedAt))
     this.deletedBy?.let { csilV -> csilEntries.add(CborValue.CText("deleted_by") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((this.expiresAt).toString())))
+    csilEntries.add(CborValue.CText("expires_at") to CsilCbor.encTimestamp(this.expiresAt))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1440,12 +1654,12 @@ fun trashEntryFromCborValue(cbor: CborValue): TrashEntry {
     val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val scope = recurrenceScopeFromCborValue(CsilCbor.require(cbor, "scope"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val instance = CsilCbor.mapGet(cbor, "instance")?.let { csilV -> eventFromCborValue(csilV) }
     val deletedBy = CsilCbor.mapGet(cbor, "deleted_by")?.let { csilV -> personSummaryFromCborValue(csilV) }
-    val deletedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "deleted_at"), 0uL))
-    val expiresAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "expires_at"), 0uL))
+    val deletedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "deleted_at"))
+    val expiresAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "expires_at"))
     return TrashEntry(trashId = trashId, calendarId = calendarId, eventId = eventId, scope = scope, recurrenceId = recurrenceId, event = event, instance = instance, deletedBy = deletedBy, deletedAt = deletedAt, expiresAt = expiresAt)
 }
 
@@ -1515,7 +1729,7 @@ fun restoreEventRequestFromCbor(bytes: ByteArray): RestoreEventRequest = restore
 fun ImportEventRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    this.createdAt?.let { csilV -> csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.createdAt?.let { csilV -> csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(csilV)) }
     csilEntries.add(CborValue.CText("created_by") to this.createdBy.toCborValue())
     return CborValue.CMap(csilEntries)
 }
@@ -1527,7 +1741,7 @@ fun ImportEventRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun importEventRequestFromCborValue(cbor: CborValue): ImportEventRequest {
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
     val createdBy = identityRefFromCborValue(CsilCbor.require(cbor, "created_by"))
-    val createdAt = CsilCbor.mapGet(cbor, "created_at")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val createdAt = CsilCbor.mapGet(cbor, "created_at")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return ImportEventRequest(event = event, createdBy = createdBy, createdAt = createdAt)
 }
 
@@ -1584,7 +1798,7 @@ fun CreateEventReceipt.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
     this.trashId?.let { csilV -> csilEntries.add(CborValue.CText("trash_id") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
     return CborValue.CMap(csilEntries)
@@ -1600,7 +1814,7 @@ fun createEventReceiptFromCborValue(cbor: CborValue): CreateEventReceipt {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val state = createReceiptStateFromCborValue(CsilCbor.require(cbor, "state"))
     val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
     val event = CsilCbor.mapGet(cbor, "event")?.let { csilV -> eventFromCborValue(csilV) }
     val trashId = CsilCbor.mapGet(cbor, "trash_id")?.let { csilV -> CsilCbor.asText(csilV) }
     return CreateEventReceipt(calendarId = calendarId, idempotencyKey = idempotencyKey, eventId = eventId, state = state, created = created, createdAt = createdAt, event = event, trashId = trashId)
@@ -1613,9 +1827,9 @@ fun createEventReceiptFromCbor(bytes: ByteArray): CreateEventReceipt = createEve
 fun SplitSeriesOnceRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event") to this.event.toCborValue())
-    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((this.recurrenceId).toString())))
+    csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(this.recurrenceId))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
-    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CsilCbor.encTimestamp(csilE) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1626,8 +1840,8 @@ fun SplitSeriesOnceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValu
 fun splitSeriesOnceRequestFromCborValue(cbor: CborValue): SplitSeriesOnceRequest {
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
     val event = eventFromCborValue(CsilCbor.require(cbor, "event"))
-    val recurrenceId = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "recurrence_id"), 0uL))
-    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
+    val recurrenceId = CsilCbor.asTimestamp(CsilCbor.require(cbor, "recurrence_id"))
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asTimestamp(csilE) } }
     return SplitSeriesOnceRequest(idempotencyKey = idempotencyKey, event = event, recurrenceId = recurrenceId, mapRecurrenceIds = mapRecurrenceIds)
 }
 
@@ -1639,7 +1853,7 @@ fun SplitReceiptRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
     csilEntries.add(CborValue.CText("idempotency_key") to CborValue.CText(this.idempotencyKey))
-    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CborValue.CTag(0uL, CborValue.CText((csilE).toString())) })) }
+    this.mapRecurrenceIds?.let { csilV -> csilEntries.add(CborValue.CText("map_recurrence_ids") to CborValue.CArray((csilV).map { csilE -> CsilCbor.encTimestamp(csilE) })) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1650,7 +1864,7 @@ fun SplitReceiptRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue()
 fun splitReceiptRequestFromCborValue(cbor: CborValue): SplitReceiptRequest {
     val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
-    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> java.time.Instant.parse(CsilCbor.asTaggedText(csilE, 0uL)) } }
+    val mapRecurrenceIds = CsilCbor.mapGet(cbor, "map_recurrence_ids")?.let { csilV -> CsilCbor.asArray(csilV).map { csilE -> CsilCbor.asTimestamp(csilE) } }
     return SplitReceiptRequest(seriesId = seriesId, idempotencyKey = idempotencyKey, mapRecurrenceIds = mapRecurrenceIds)
 }
 
@@ -1677,8 +1891,8 @@ fun SplitOccurrenceMapping.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("result") to this.result.toCborValue())
     this.eventId?.let { csilV -> csilEntries.add(CborValue.CText("event_id") to CborValue.CText(csilV)) }
-    csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((this.recurrenceId).toString())))
-    this.mappedRecurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("mapped_recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(this.recurrenceId))
+    this.mappedRecurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("mapped_recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1687,10 +1901,10 @@ fun SplitOccurrenceMapping.toCbor(): ByteArray = CsilCbor.encode(this.toCborValu
 
 /** Reconstruct a SplitOccurrenceMapping from a decoded CBOR value tree. */
 fun splitOccurrenceMappingFromCborValue(cbor: CborValue): SplitOccurrenceMapping {
-    val recurrenceId = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "recurrence_id"), 0uL))
+    val recurrenceId = CsilCbor.asTimestamp(CsilCbor.require(cbor, "recurrence_id"))
     val result = splitMapResultFromCborValue(CsilCbor.require(cbor, "result"))
     val eventId = CsilCbor.mapGet(cbor, "event_id")?.let { csilV -> CsilCbor.asText(csilV) }
-    val mappedRecurrenceId = CsilCbor.mapGet(cbor, "mapped_recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val mappedRecurrenceId = CsilCbor.mapGet(cbor, "mapped_recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return SplitOccurrenceMapping(recurrenceId = recurrenceId, result = result, eventId = eventId, mappedRecurrenceId = mappedRecurrenceId)
 }
 
@@ -1704,10 +1918,10 @@ fun SplitSeriesReceipt.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("created") to CborValue.CBool(this.created))
     csilEntries.add(CborValue.CText("in_place") to CborValue.CBool(this.inPlace))
     csilEntries.add(CborValue.CText("mappings") to CborValue.CArray((this.mappings).map { csilE -> csilE.toCborValue() }))
-    csilEntries.add(CborValue.CText("split_at") to CborValue.CTag(0uL, CborValue.CText((this.splitAt).toString())))
+    csilEntries.add(CborValue.CText("split_at") to CsilCbor.encTimestamp(this.splitAt))
     csilEntries.add(CborValue.CText("series_id") to CborValue.CText(this.seriesId))
     this.successor?.let { csilV -> csilEntries.add(CborValue.CText("successor") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("created_at") to CborValue.CTag(0uL, CborValue.CText((this.createdAt).toString())))
+    csilEntries.add(CborValue.CText("created_at") to CsilCbor.encTimestamp(this.createdAt))
     csilEntries.add(CborValue.CText("calendar_id") to CborValue.CText(this.calendarId))
     csilEntries.add(CborValue.CText("series_state") to this.seriesState.toCborValue())
     csilEntries.add(CborValue.CText("successor_id") to CborValue.CText(this.successorId))
@@ -1726,10 +1940,10 @@ fun splitSeriesReceiptFromCborValue(cbor: CborValue): SplitSeriesReceipt {
     val seriesId = CsilCbor.asText(CsilCbor.require(cbor, "series_id"))
     val idempotencyKey = CsilCbor.asText(CsilCbor.require(cbor, "idempotency_key"))
     val successorId = CsilCbor.asText(CsilCbor.require(cbor, "successor_id"))
-    val splitAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "split_at"), 0uL))
+    val splitAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "split_at"))
     val inPlace = CsilCbor.asBoolean(CsilCbor.require(cbor, "in_place"))
     val created = CsilCbor.asBoolean(CsilCbor.require(cbor, "created"))
-    val createdAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "created_at"), 0uL))
+    val createdAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "created_at"))
     val calendarId = CsilCbor.asText(CsilCbor.require(cbor, "calendar_id"))
     val seriesState = createReceiptStateFromCborValue(CsilCbor.require(cbor, "series_state"))
     val series = CsilCbor.mapGet(cbor, "series")?.let { csilV -> eventFromCborValue(csilV) }
@@ -1748,7 +1962,7 @@ fun splitSeriesReceiptFromCbor(bytes: ByteArray): SplitSeriesReceipt = splitSeri
 fun GetOccurrenceRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1758,7 +1972,7 @@ fun GetOccurrenceRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue(
 /** Reconstruct a GetOccurrenceRequest from a decoded CBOR value tree. */
 fun getOccurrenceRequestFromCborValue(cbor: CborValue): GetOccurrenceRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     return GetOccurrenceRequest(eventId = eventId, recurrenceId = recurrenceId)
 }
 
@@ -1771,7 +1985,7 @@ fun RespondRequest.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("status") to this.status.toCborValue())
     this.comment?.let { csilV -> csilEntries.add(CborValue.CText("comment") to CborValue.CText(csilV)) }
     csilEntries.add(CborValue.CText("event_id") to CborValue.CText(this.eventId))
-    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CborValue.CTag(0uL, CborValue.CText((csilV).toString()))) }
+    this.recurrenceId?.let { csilV -> csilEntries.add(CborValue.CText("recurrence_id") to CsilCbor.encTimestamp(csilV)) }
     return CborValue.CMap(csilEntries)
 }
 
@@ -1782,7 +1996,7 @@ fun RespondRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 fun respondRequestFromCborValue(cbor: CborValue): RespondRequest {
     val eventId = CsilCbor.asText(CsilCbor.require(cbor, "event_id"))
     val status = participationStatusFromCborValue(CsilCbor.require(cbor, "status"))
-    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> java.time.Instant.parse(CsilCbor.asTaggedText(csilV, 0uL)) }
+    val recurrenceId = CsilCbor.mapGet(cbor, "recurrence_id")?.let { csilV -> CsilCbor.asTimestamp(csilV) }
     val comment = CsilCbor.mapGet(cbor, "comment")?.let { csilV -> CsilCbor.asText(csilV) }
     return RespondRequest(eventId = eventId, status = status, recurrenceId = recurrenceId, comment = comment)
 }
@@ -1833,8 +2047,8 @@ fun eventListFromCbor(bytes: ByteArray): EventList = eventListFromCborValue(Csil
 /** The CBOR value tree for a BusyInterval (deep, canonical key order). */
 fun BusyInterval.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("end") to CborValue.CTag(0uL, CborValue.CText((this.end).toString())))
-    csilEntries.add(CborValue.CText("start") to CborValue.CTag(0uL, CborValue.CText((this.start).toString())))
+    csilEntries.add(CborValue.CText("end") to CsilCbor.encTimestamp(this.end))
+    csilEntries.add(CborValue.CText("start") to CsilCbor.encTimestamp(this.start))
     this.tentative?.let { csilV -> csilEntries.add(CborValue.CText("tentative") to CborValue.CBool(csilV)) }
     return CborValue.CMap(csilEntries)
 }
@@ -1844,8 +2058,8 @@ fun BusyInterval.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 
 /** Reconstruct a BusyInterval from a decoded CBOR value tree. */
 fun busyIntervalFromCborValue(cbor: CborValue): BusyInterval {
-    val start = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "start"), 0uL))
-    val end = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "end"), 0uL))
+    val start = CsilCbor.asTimestamp(CsilCbor.require(cbor, "start"))
+    val end = CsilCbor.asTimestamp(CsilCbor.require(cbor, "end"))
     val tentative = CsilCbor.mapGet(cbor, "tentative")?.let { csilV -> CsilCbor.asBoolean(csilV) }
     return BusyInterval(start = start, end = end, tentative = tentative)
 }
@@ -1857,8 +2071,8 @@ fun busyIntervalFromCbor(bytes: ByteArray): BusyInterval = busyIntervalFromCborV
 fun FreeBusyRequest.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
     csilEntries.add(CborValue.CText("people") to CborValue.CArray((this.people).map { csilE -> csilE.toCborValue() }))
-    csilEntries.add(CborValue.CText("range_end") to CborValue.CTag(0uL, CborValue.CText((this.rangeEnd).toString())))
-    csilEntries.add(CborValue.CText("range_start") to CborValue.CTag(0uL, CborValue.CText((this.rangeStart).toString())))
+    csilEntries.add(CborValue.CText("range_end") to CsilCbor.encTimestamp(this.rangeEnd))
+    csilEntries.add(CborValue.CText("range_start") to CsilCbor.encTimestamp(this.rangeStart))
     return CborValue.CMap(csilEntries)
 }
 
@@ -1868,8 +2082,8 @@ fun FreeBusyRequest.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a FreeBusyRequest from a decoded CBOR value tree. */
 fun freeBusyRequestFromCborValue(cbor: CborValue): FreeBusyRequest {
     val people = CsilCbor.asArray(CsilCbor.require(cbor, "people")).map { csilE -> identityRefFromCborValue(csilE) }
-    val rangeStart = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_start"), 0uL))
-    val rangeEnd = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "range_end"), 0uL))
+    val rangeStart = CsilCbor.asTimestamp(CsilCbor.require(cbor, "range_start"))
+    val rangeEnd = CsilCbor.asTimestamp(CsilCbor.require(cbor, "range_end"))
     return FreeBusyRequest(people = people, rangeStart = rangeStart, rangeEnd = rangeEnd)
 }
 
@@ -2030,7 +2244,7 @@ fun icsDocumentFromCbor(bytes: ByteArray): IcsDocument = icsDocumentFromCborValu
 /** The CBOR value tree for a AuditEntry (deep, canonical key order). */
 fun AuditEntry.toCborValue(): CborValue {
     val csilEntries = ArrayList<Pair<CborValue, CborValue>>()
-    csilEntries.add(CborValue.CText("at") to CborValue.CTag(0uL, CborValue.CText((this.at).toString())))
+    csilEntries.add(CborValue.CText("at") to CsilCbor.encTimestamp(this.at))
     csilEntries.add(CborValue.CText("via") to this.via.toCborValue())
     csilEntries.add(CborValue.CText("actor") to this.actor.toCborValue())
     this.target?.let { csilV -> csilEntries.add(CborValue.CText("target") to CborValue.CText(csilV)) }
@@ -2048,7 +2262,7 @@ fun AuditEntry.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a AuditEntry from a decoded CBOR value tree. */
 fun auditEntryFromCborValue(cbor: CborValue): AuditEntry {
     val auditId = CsilCbor.asText(CsilCbor.require(cbor, "audit_id"))
-    val at = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "at"), 0uL))
+    val at = CsilCbor.asTimestamp(CsilCbor.require(cbor, "at"))
     val actor = personSummaryFromCborValue(CsilCbor.require(cbor, "actor"))
     val principal = personSummaryFromCborValue(CsilCbor.require(cbor, "principal"))
     val via = actingViaFromCborValue(CsilCbor.require(cbor, "via"))
@@ -2131,7 +2345,7 @@ fun LoginResponse.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("token") to CborValue.CText(this.token))
     this.scopes?.let { csilV -> csilEntries.add(CborValue.CText("scopes") to CborValue.CArray((csilV).map { csilE -> csilE.toCborValue() })) }
     this.actingAs?.let { csilV -> csilEntries.add(CborValue.CText("acting_as") to csilV.toCborValue()) }
-    csilEntries.add(CborValue.CText("expires_at") to CborValue.CTag(0uL, CborValue.CText((this.expiresAt).toString())))
+    csilEntries.add(CborValue.CText("expires_at") to CsilCbor.encTimestamp(this.expiresAt))
     return CborValue.CMap(csilEntries)
 }
 
@@ -2141,7 +2355,7 @@ fun LoginResponse.toCbor(): ByteArray = CsilCbor.encode(this.toCborValue())
 /** Reconstruct a LoginResponse from a decoded CBOR value tree. */
 fun loginResponseFromCborValue(cbor: CborValue): LoginResponse {
     val token = CsilCbor.asText(CsilCbor.require(cbor, "token"))
-    val expiresAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "expires_at"), 0uL))
+    val expiresAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "expires_at"))
     val user = personSummaryFromCborValue(CsilCbor.require(cbor, "user"))
     val actingAs = CsilCbor.mapGet(cbor, "acting_as")?.let { csilV -> personSummaryFromCborValue(csilV) }
     val via = actingViaFromCborValue(CsilCbor.require(cbor, "via"))
@@ -2273,7 +2487,7 @@ fun ApplicationPresentation.toCborValue(): CborValue {
     csilEntries.add(CborValue.CText("nonce") to CborValue.CBytes(this.nonce))
     csilEntries.add(CborValue.CText("signer") to this.signer.toCborValue())
     csilEntries.add(CborValue.CText("audience") to this.audience.toCborValue())
-    csilEntries.add(CborValue.CText("presented_at") to CborValue.CTag(0uL, CborValue.CText((this.presentedAt).toString())))
+    csilEntries.add(CborValue.CText("presented_at") to CsilCbor.encTimestamp(this.presentedAt))
     csilEntries.add(CborValue.CText("request_digest") to CborValue.CBytes(this.requestDigest))
     csilEntries.add(CborValue.CText("signer_instance_id") to CborValue.CText(this.signerInstanceId))
     return CborValue.CMap(csilEntries)
@@ -2288,7 +2502,7 @@ fun applicationPresentationFromCborValue(cbor: CborValue): ApplicationPresentati
     val signerInstanceId = CsilCbor.asText(CsilCbor.require(cbor, "signer_instance_id"))
     val audience = applicationRefFromCborValue(CsilCbor.require(cbor, "audience"))
     val requestDigest = CsilCbor.asBytes(CsilCbor.require(cbor, "request_digest"))
-    val presentedAt = java.time.Instant.parse(CsilCbor.asTaggedText(CsilCbor.require(cbor, "presented_at"), 0uL))
+    val presentedAt = CsilCbor.asTimestamp(CsilCbor.require(cbor, "presented_at"))
     val nonce = CsilCbor.asBytes(CsilCbor.require(cbor, "nonce"))
     return ApplicationPresentation(signer = signer, signerInstanceId = signerInstanceId, audience = audience, requestDigest = requestDigest, presentedAt = presentedAt, nonce = nonce)
 }
@@ -2772,6 +2986,9 @@ fun decodeEventGetEventRequest(bytes: ByteArray): EventID {
 }
 
 data class RpcReply(val variant: String, val payload: ByteArray)
+
+/** One RPC reply as the client transport received it; [variant] is null when the reply carried none. */
+class WireReply(val variant: String?, val payload: ByteArray)
 
 class ServiceErrorRefusal(val value: ServiceError) : RuntimeException("ServiceError")
 

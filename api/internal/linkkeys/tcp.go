@@ -11,11 +11,11 @@
 // Wire compatibility: the envelope is encoded by internal/transport, the
 // vendored csilgen transport, which wraps the request payload in CBOR tag 24
 // exactly as linkkeys' server-side csilgen-transport expects (verified against
-// shared conformance vectors). The inner request/response bodies are plain
-// CBOR maps with snake_case keys matching the linkkeys CSIL types.
+// shared conformance vectors). The LinkKeys SDK encodes and decodes the payloads.
 package linkkeys
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -27,20 +27,12 @@ import (
 	"time"
 
 	"github.com/catalystcommunity/catalystcal/api/internal/transport"
-	"github.com/fxamacker/cbor/v2"
+	api "github.com/catalystcommunity/linkkeys/sdks/regular-rp/go/generated"
 )
 
 // DefaultTCPPort is linkkeys' default CSIL-RPC/TCP port (liblinkkeys::dns::
 // DEFAULT_TCP_PORT). Used when a discovered or configured endpoint omits one.
 const DefaultTCPPort = "4987"
-
-const (
-	rpService     = "Rp"
-	opSignRequest = "sign-request"
-	opDecryptTok  = "decrypt-token"
-	opVerifyAsrt  = "verify-assertion"
-	opUserInfo    = "userinfo-fetch"
-)
 
 // TCPConfig configures a TCPClient. Addr and Fingerprints are optional: when
 // empty they are discovered from DNS off Domain (the IDP identity domain) via
@@ -48,9 +40,7 @@ const (
 type TCPConfig struct {
 	Domain string // default identity domain (DNS discovery root for the RP endpoint)
 	APIKey string // RP API key, presented in the envelope auth field
-	// ApplicationID names catalystcal under the API-key account in each
-	// sign-in request. The IDP keeps standing consent per application.
-	// Empty: the RP uses the account username.
+	// ApplicationID is the expected application ID in the verified assertion.
 	ApplicationID string
 	Addr          string   // optional host:port override (else DNS-discovered)
 	Fingerprints  []string // optional pinned SPKI sha256 hex (else DNS-discovered)
@@ -78,13 +68,13 @@ type TCPClient struct {
 // Assertion mirrors the relevant fields of linkkeys' IdentityAssertion.
 // Unknown fields are ignored on decode.
 type Assertion struct {
-	UserID      string `cbor:"user_id"`
-	Domain      string `cbor:"domain"`
-	Audience    string `cbor:"audience"`
-	Nonce       string `cbor:"nonce"`
-	IssuedAt    string `cbor:"issued_at"`
-	ExpiresAt   string `cbor:"expires_at"`
-	DisplayName string `cbor:"display_name,omitempty"`
+	UserID      string    `cbor:"user_id"`
+	Domain      string    `cbor:"domain"`
+	Audience    string    `cbor:"audience"`
+	Nonce       string    `cbor:"nonce"`
+	IssuedAt    time.Time `cbor:"issued_at"`
+	ExpiresAt   time.Time `cbor:"expires_at"`
+	DisplayName string    `cbor:"display_name,omitempty"`
 	// AuthorizedClaims is the set of claim_types the user's consent + the IDP's
 	// policy released to us for this redemption — the negotiated grant. The
 	// claim VALUES come from FetchUserInfo; this is just which were allowed.
@@ -185,19 +175,6 @@ func NewTCPClient(cfg TCPConfig) (*TCPClient, error) {
 	}, nil
 }
 
-// RequestedClaim is one claim that catalystcal asks the user to release.
-type RequestedClaim struct {
-	ClaimType string `cbor:"claim_type"`
-	Datatype  string `cbor:"datatype"`
-}
-
-// ClaimRequest is the requested_claims of Rp/sign-request. It drives the
-// consent screen at the user's home domain.
-type ClaimRequest struct {
-	Required []RequestedClaim `cbor:"required"`
-	Optional []RequestedClaim `cbor:"optional"`
-}
-
 // CatalystCalClaims is what catalystcal asks for at each sign-in. catalystcal sends it with each
 // request, because one LinkKeys RP can serve many applications and its own
 // RP_CLAIMS_CONFIG is often empty. Without a request, LinkKeys releases no
@@ -209,130 +186,102 @@ type ClaimRequest struct {
 // required claim is missing. A new optional claim is approved silently and
 // never released. When the person has no handle yet, the consent screen
 // asks for one. A person who declines the handle cannot sign in.
-var CatalystCalClaims = ClaimRequest{
-	Required: []RequestedClaim{
-		{ClaimType: "handle", Datatype: "text"},
+var CatalystCalClaims = api.ClaimRequest{
+	Required: []api.RequestedClaim{
+		{ClaimType: "handle", Datatype: api.ClaimValueTypeText},
 	},
-	Optional: []RequestedClaim{
-		{ClaimType: "display_name", Datatype: "text"},
-		{ClaimType: "email", Datatype: "email"},
+	Optional: []api.RequestedClaim{
+		{ClaimType: "display_name", Datatype: api.ClaimValueTypeText},
+		{ClaimType: "email", Datatype: api.ClaimValueTypeEmail},
 	},
 }
 
 // SignRequest asks the RP to sign an AuthRequest bound to callbackURL + nonce.
-// It asks for CatalystCalClaims, and names the application when one is set.
-// An RP before LinkKeys 0.16.7 ignores `application_id`.
+// The RP derives the application identity from its API-key account.
 func (c *TCPClient) SignRequest(callbackURL, nonce string) (string, error) {
-	var out struct {
-		SignedRequest string `cbor:"signed_request"`
-	}
-	in := struct {
-		CallbackURL     string       `cbor:"callback_url"`
-		Nonce           string       `cbor:"nonce"`
-		ApplicationID   string       `cbor:"application_id,omitempty"`
-		RequestedClaims ClaimRequest `cbor:"requested_claims"`
-	}{callbackURL, nonce, c.appID, CatalystCalClaims}
-	if err := c.call(opSignRequest, in, &out); err != nil {
-		return "", err
-	}
-	return out.SignedRequest, nil
+	out, err := api.NewRpClient(c).SignRequest(context.Background(), api.RpSignRequest{
+		CallbackUrl: callbackURL, Nonce: nonce, RequestedClaims: &CatalystCalClaims,
+	})
+	return out.SignedRequest, err
 }
 
-// DecryptToken decrypts the encrypted_token the IDP returns to the callback.
-// The result is signed but not yet verified — callers VerifyAssertion it next.
+// DecryptToken decrypts the encrypted token returned to the callback.
 func (c *TCPClient) DecryptToken(encryptedToken string) (string, error) {
-	var out struct {
-		SignedAssertion string `cbor:"signed_assertion"`
-	}
-	in := struct {
-		EncryptedToken string `cbor:"encrypted_token"`
-	}{encryptedToken}
-	if err := c.call(opDecryptTok, in, &out); err != nil {
-		return "", err
-	}
-	return out.SignedAssertion, nil
+	out, err := api.NewRpClient(c).DecryptToken(context.Background(), api.RpDecryptRequest{EncryptedToken: encryptedToken})
+	return out.SignedAssertion, err
 }
 
-// VerifyAssertion verifies a signed assertion against expectedDomain's keys and
-// returns the inner assertion fields when the signature checks out.
+// VerifyAssertion checks the signature through the RP and the configured application ID.
 func (c *TCPClient) VerifyAssertion(signedAssertion, expectedDomain string) (*Assertion, error) {
-	var out struct {
-		Assertion Assertion `cbor:"assertion"`
-		Verified  bool      `cbor:"verified"`
-	}
-	in := struct {
-		SignedAssertion string `cbor:"signed_assertion"`
-		ExpectedDomain  string `cbor:"expected_domain"`
-	}{signedAssertion, expectedDomain}
-	if err := c.call(opVerifyAsrt, in, &out); err != nil {
+	out, err := api.NewRpClient(c).VerifyAssertion(context.Background(), api.RpVerifyRequest{
+		SignedAssertion: signedAssertion, ExpectedDomain: expectedDomain,
+	})
+	if err != nil {
 		return nil, err
 	}
 	if !out.Verified {
 		return nil, fmt.Errorf("linkkeys: assertion rejected by RP")
 	}
-	return &out.Assertion, nil
+	a := out.Assertion
+	if c.appID != "" && a.Application.ApplicationId != c.appID {
+		return nil, fmt.Errorf("linkkeys: assertion names a different application")
+	}
+	result := &Assertion{UserID: a.UserId, Domain: a.Domain, Audience: a.Audience, Nonce: a.Nonce,
+		IssuedAt: a.IssuedAt, ExpiresAt: a.ExpiresAt, AuthorizedClaims: a.AuthorizedClaims}
+	if a.DisplayName != nil {
+		result.DisplayName = *a.DisplayName
+	}
+	return result, nil
 }
 
-// FetchUserInfo redeems a signed assertion token for the full UserInfo (display
-// name + released claims). domain is the user's identity domain (the assertion
-// domain); it lets linkkeys resolve the home IDP's tcp endpoint. apiBase is
-// that IDP's https base (ResolveBrowserBase); the RP uses it only to see that
-// the IDP is itself. The RP handles the mTLS + proof-of-possession to the IDP
-// internally — we only present our API key, so this works for an RP that
-// holds no domain key of its own.
+// FetchUserInfo redeems an assertion for the user's released claims.
 func (c *TCPClient) FetchUserInfo(token, domain, apiBase string) (*UserInfo, error) {
 	if domain == "" {
 		domain = c.domain
 	}
-	var out UserInfo
-	in := struct {
-		Token   string `cbor:"token"`
-		APIBase string `cbor:"api_base"`
-		Domain  string `cbor:"domain"`
-	}{token, apiBase, domain}
-	if err := c.call(opUserInfo, in, &out); err != nil {
+	out, err := api.NewRpClient(c).UserinfoFetch(context.Background(), api.RpUserInfoRequest{
+		Token: token, ApiBase: apiBase, Domain: domain,
+	})
+	if err != nil {
 		return nil, err
 	}
-	return &out, nil
+	info := &UserInfo{UserID: out.UserId, Domain: out.Domain, DisplayName: out.DisplayName}
+	for _, claim := range out.Claims {
+		info.Claims = append(info.Claims, Claim{ClaimID: claim.ClaimId, ClaimType: claim.ClaimType, ClaimValue: claim.ClaimValue})
+	}
+	return info, nil
 }
 
-// call marshals reqBody, runs one Rp/<op> round-trip over a fresh TLS
-// connection, and unmarshals the typed reply into respBody.
-func (c *TCPClient) call(op string, reqBody, respBody any) error {
-	payload, err := cbor.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("linkkeys tcp: encode %s/%s: %w", rpService, op, err)
-	}
+func (c *TCPClient) Call(ctx context.Context, service, op string, payload []byte) ([]byte, error) {
+	reply, err := c.CallReply(ctx, service, op, payload)
+	return reply.Payload, err
+}
 
-	conn, err := net.DialTimeout("tcp", c.addr, c.dialTimeout)
+// CallReply carries one SDK request over a fresh TLS connection.
+func (c *TCPClient) CallReply(ctx context.Context, service, op string, payload []byte) (api.WireReply, error) {
+	dialer := net.Dialer{Timeout: c.dialTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", c.addr)
 	if err != nil {
-		return fmt.Errorf("linkkeys tcp: dial %s: %w", c.addr, err)
+		return api.WireReply{}, fmt.Errorf("linkkeys tcp: dial %s: %w", c.addr, err)
 	}
 	defer conn.Close()
 	if c.ioTimeout > 0 {
 		_ = conn.SetDeadline(time.Now().Add(c.ioTimeout))
 	}
-
 	tlsConn := tls.Client(conn, c.tlsConfig())
-	if err := tlsConn.Handshake(); err != nil {
-		return fmt.Errorf("linkkeys tcp: tls handshake with %s: %w", c.addr, err)
+	if err := tlsConn.HandshakeContext(ctx); err != nil {
+		return api.WireReply{}, fmt.Errorf("linkkeys tcp: tls handshake with %s: %w", c.addr, err)
 	}
-
 	client := transport.NewRpcClient(transport.NewStreamCarrier(tlsConn), false)
 	var auth *string
 	if c.apiKey != "" {
 		auth = &c.apiKey
 	}
-	resp, err := client.Call(rpService, op, payload, auth)
+	resp, err := client.Call(service, op, payload, auth)
 	if err != nil {
-		return fmt.Errorf("linkkeys tcp: %s/%s: %w", rpService, op, err)
+		return api.WireReply{}, fmt.Errorf("linkkeys tcp: %s/%s: %w", service, op, err)
 	}
-	if respBody != nil {
-		if err := cbor.Unmarshal(resp.Payload, respBody); err != nil {
-			return fmt.Errorf("linkkeys tcp: decode %s/%s reply: %w", rpService, op, err)
-		}
-	}
-	return nil
+	return api.WireReply{Variant: resp.Variant, Payload: resp.Payload}, nil
 }
 
 // tlsConfig pins the server cert by SPKI fingerprint rather than trusting a CA

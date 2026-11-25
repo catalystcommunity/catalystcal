@@ -35,7 +35,16 @@ public final class CsilCbor {
     public record CborBytes(byte[] value) implements CborValue {}
     public record CborArray(List<CborValue> items) implements CborValue {}
     public record CborEntry(CborValue key, CborValue val) {}
-    public record CborMap(List<CborEntry> entries) implements CborValue {}
+    /**
+     * A map. {@code canonical} is false when a decoded map's encoded keys were not in
+     * strictly ascending bytewise order (RFC 8949 section 4.2.1); a dynamic map decoder
+     * rejects such a map, while a record accepts its fields in any order.
+     */
+    public record CborMap(List<CborEntry> entries, boolean canonical) implements CborValue {
+        public CborMap(List<CborEntry> entries) {
+            this(entries, true);
+        }
+    }
     public record CborTag(long num, CborValue inner) implements CborValue {}
 
     /**
@@ -44,6 +53,8 @@ public final class CsilCbor {
      * not a recoverable application error (those ride inside the decoded payload).
      */
     public static final class CsilCborException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
         public CsilCborException(String message) {
             super(message);
         }
@@ -143,6 +154,21 @@ public final class CsilCbor {
         }
     }
 
+    // Float.float16ToFloat needs JDK 20; the generated code targets JDK 17.
+    private static double halfToDouble(int h) {
+        int exp = (h >> 10) & 0x1f;
+        int mant = h & 0x3ff;
+        double magnitude;
+        if (exp == 0) {
+            magnitude = Math.scalb((double) mant, -24);
+        } else if (exp == 31) {
+            magnitude = mant == 0 ? Double.POSITIVE_INFINITY : Double.NaN;
+        } else {
+            magnitude = Math.scalb((double) (mant | 0x400), exp - 25);
+        }
+        return (h & 0x8000) != 0 ? -magnitude : magnitude;
+    }
+
     private static long readArg(byte[] b, int[] pos, int low) {
         if (low < 24) {
             pos[0] += 1;
@@ -221,6 +247,10 @@ public final class CsilCbor {
                 case 23:
                     pos[0] += 1;
                     return new CborNull();
+                case 25: {
+                    long bits = readArg(b, pos, low);
+                    return new CborFloat(halfToDouble((int) bits));
+                }
                 case 26: {
                     long bits = readArg(b, pos, low);
                     return new CborFloat(Float.intBitsToFloat((int) bits));
@@ -279,18 +309,72 @@ public final class CsilCbor {
                 }
                 int n = (int) arg;
                 List<CborEntry> entries = new ArrayList<>(Math.min(n, PREALLOC_LIMIT));
+                // Each key is compared with the one before it as raw bytes, so the order
+                // check is O(n). Only a map out of order can repeat a key, so the set of
+                // seen keys is built only then.
+                boolean ascending = true;
+                java.util.Set<java.nio.ByteBuffer> seen = null;
+                List<int[]> keyRanges = new ArrayList<>(Math.min(n, PREALLOC_LIMIT));
                 for (int i = 0; i < n; i++) {
+                    int keyStart = pos[0];
                     CborValue k = dec(b, pos, depth + 1);
+                    int keyEnd = pos[0];
+                    if (!shortestHead(b, keyStart)) {
+                        throw new CsilCborException("csil cbor: map key is not in shortest form");
+                    }
+                    if (i > 0 && ascending) {
+                        int[] prev = keyRanges.get(i - 1);
+                        if (Arrays.compareUnsigned(b, prev[0], prev[1], b, keyStart, keyEnd) >= 0) {
+                            ascending = false;
+                            seen = new java.util.HashSet<>();
+                            for (int[] r : keyRanges) {
+                                seen.add(java.nio.ByteBuffer.wrap(b, r[0], r[1] - r[0]));
+                            }
+                        }
+                    }
+                    if (!ascending && !seen.add(java.nio.ByteBuffer.wrap(b, keyStart, keyEnd - keyStart))) {
+                        throw new CsilCborException("csil cbor: duplicate key " + describeKey(k));
+                    }
+                    keyRanges.add(new int[] {keyStart, keyEnd});
                     CborValue val = dec(b, pos, depth + 1);
                     entries.add(new CborEntry(k, val));
                 }
-                return new CborMap(entries);
+                return new CborMap(entries, ascending);
             }
             case 6:
                 return new CborTag(arg, dec(b, pos, depth + 1));
             default:
                 throw new CsilCborException("csil cbor: unexpected major type");
         }
+    }
+
+    /** Whether the head at {@code at} uses the shortest argument for its value. A float
+     * head (major 7) carries no length, so it is not checked. */
+    private static boolean shortestHead(byte[] b, int at) {
+        int major = (b[at] & 0xff) >> 5;
+        int low = b[at] & 0x1f;
+        if (major == 7 || low < 24) {
+            return true;
+        }
+        int width = 1 << (low - 24);
+        long arg = 0;
+        for (int i = 1; i <= width; i++) {
+            arg = (arg << 8) | (b[at + i] & 0xffL);
+        }
+        long floor = low == 24 ? 24L : 1L << (8 * (width / 2));
+        return Long.compareUnsigned(arg, floor) >= 0;
+    }
+
+    private static String describeKey(CborValue k) {
+        if (k instanceof CborText t) {
+            return "\"" + t.value() + "\"";
+        }
+        return java.util.HexFormat.of().formatHex(encode(k));
+    }
+
+    @SuppressWarnings("unchecked")
+    static <T> T csilUnchecked(Object value) {
+        return (T) value;
     }
 
     public static long asI64(CborValue v) {
@@ -416,11 +500,25 @@ public final class CsilCbor {
     }
 
     public static <K, V> CborValue encMap(Map<K, V> m, Function<K, CborValue> kf, Function<V, CborValue> vf) {
+        // A dynamic map goes out in canonical key order: bytewise order of each key's
+        // encoding (RFC 8949 section 4.2.1), which is not the order of the Java keys.
+        List<byte[]> keys = new ArrayList<>(m.size());
         List<CborEntry> entries = new ArrayList<>(m.size());
         for (Map.Entry<K, V> e : m.entrySet()) {
-            entries.add(new CborEntry(kf.apply(e.getKey()), vf.apply(e.getValue())));
+            CborValue key = kf.apply(e.getKey());
+            keys.add(encode(key));
+            entries.add(new CborEntry(key, vf.apply(e.getValue())));
         }
-        return new CborMap(entries);
+        Integer[] order = new Integer[entries.size()];
+        for (int i = 0; i < order.length; i++) {
+            order[i] = i;
+        }
+        Arrays.sort(order, (x, y) -> Arrays.compareUnsigned(keys.get(x), keys.get(y)));
+        List<CborEntry> sorted = new ArrayList<>(entries.size());
+        for (int i : order) {
+            sorted.add(entries.get(i));
+        }
+        return new CborMap(sorted);
     }
 
     public static <E> List<E> decArray(CborValue v, Function<CborValue, E> f) {
@@ -433,6 +531,9 @@ public final class CsilCbor {
     }
 
     public static <K, V> Map<K, V> decMap(CborValue v, Function<CborValue, K> kf, Function<CborValue, V> vf) {
+        if (v instanceof CborMap x && !x.canonical()) {
+            throw new CsilCborException("csil cbor: map keys are not in canonical order");
+        }
         Map<K, V> out = new LinkedHashMap<>();
         for (CborEntry e : asMap(v)) {
             out.put(kf.apply(e.key()), vf.apply(e.val()));
@@ -455,15 +556,137 @@ public final class CsilCbor {
     }
 
     public static CborValue encTimestamp(Instant t) {
-        return new CborTag(0, new CborText(t.toString()));
+        java.time.OffsetDateTime u = t.atOffset(java.time.ZoneOffset.UTC);
+        int year = u.getYear();
+        if (year < 1 || year > 9999) {
+            throw new CsilCborException("csil cbor: timestamp year outside 0001-9999");
+        }
+        StringBuilder b = new StringBuilder(30);
+        timestampDigits(b, year, 4).append('-');
+        timestampDigits(b, u.getMonthValue(), 2).append('-');
+        timestampDigits(b, u.getDayOfMonth(), 2).append('T');
+        timestampDigits(b, u.getHour(), 2).append(':');
+        timestampDigits(b, u.getMinute(), 2).append(':');
+        timestampDigits(b, u.getSecond(), 2);
+        int nano = u.getNano();
+        if (nano != 0) {
+            b.append('.');
+            if (nano % 1_000_000 == 0) {
+                timestampDigits(b, nano / 1_000_000, 3);
+            } else if (nano % 1_000 == 0) {
+                timestampDigits(b, nano / 1_000, 6);
+            } else {
+                timestampDigits(b, nano, 9);
+            }
+        }
+        b.append('Z');
+        return new CborTag(0, new CborText(b.toString()));
+    }
+
+    private static StringBuilder timestampDigits(StringBuilder b, int value, int width) {
+        String text = Integer.toString(value);
+        for (int i = text.length(); i < width; i++) {
+            b.append('0');
+        }
+        return b.append(text);
     }
 
     public static Instant asTimestamp(CborValue v) {
         if (v instanceof CborTag t && t.num() == 0 && t.inner() instanceof CborText s) {
-            return Instant.parse(s.value());
+            return parseTimestamp(s.value());
         }
         throw new CsilCborException("csil cbor: expected CBOR tag 0 timestamp");
     }
+
+    private static int timestampField(String s, int at, int width) {
+        if (at + width > s.length()) {
+            throw new CsilCborException("csil cbor: invalid timestamp text");
+        }
+        int value = 0;
+        for (int i = at; i < at + width; i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') {
+                throw new CsilCborException("csil cbor: invalid timestamp text");
+            }
+            value = value * 10 + (c - '0');
+        }
+        return value;
+    }
+
+    private static void timestampSeparator(String s, int at, char a, char b) {
+        if (at >= s.length() || (s.charAt(at) != a && s.charAt(at) != b)) {
+            throw new CsilCborException("csil cbor: invalid timestamp text");
+        }
+    }
+
+    private static Instant parseTimestamp(String s) {
+        int year = timestampField(s, 0, 4);
+        timestampSeparator(s, 4, '-', '-');
+        int month = timestampField(s, 5, 2);
+        timestampSeparator(s, 7, '-', '-');
+        int day = timestampField(s, 8, 2);
+        timestampSeparator(s, 10, 'T', 't');
+        int hour = timestampField(s, 11, 2);
+        timestampSeparator(s, 13, ':', ':');
+        int minute = timestampField(s, 14, 2);
+        timestampSeparator(s, 16, ':', ':');
+        int second = timestampField(s, 17, 2);
+        if (year < 1 || month < 1 || month > 12 || day < 1
+                || day > java.time.YearMonth.of(year, month).lengthOfMonth()
+                || hour > 23 || minute > 59 || second > 59) {
+            throw new CsilCborException("csil cbor: invalid timestamp value");
+        }
+        int at = 19;
+        int nano = 0;
+        if (at < s.length() && s.charAt(at) == '.') {
+            int start = ++at;
+            while (at < s.length() && s.charAt(at) >= '0' && s.charAt(at) <= '9') {
+                at++;
+            }
+            int digits = at - start;
+            if (digits < 1 || digits > 9) {
+                throw new CsilCborException("csil cbor: invalid timestamp fraction");
+            }
+            nano = timestampField(s, start, digits);
+            for (int i = digits; i < 9; i++) {
+                nano *= 10;
+            }
+        }
+        if (at >= s.length()) {
+            throw new CsilCborException("csil cbor: timestamp has no offset");
+        }
+        char zone = s.charAt(at);
+        int offset;
+        if (zone == 'Z' || zone == 'z') {
+            offset = 0;
+            at += 1;
+        } else if (zone == '+' || zone == '-') {
+            int offsetHour = timestampField(s, at + 1, 2);
+            timestampSeparator(s, at + 3, ':', ':');
+            int offsetMinute = timestampField(s, at + 4, 2);
+            if (offsetHour > 23 || offsetMinute > 59) {
+                throw new CsilCborException("csil cbor: invalid timestamp offset");
+            }
+            offset = (zone == '-' ? -1 : 1) * (offsetHour * 3600 + offsetMinute * 60);
+            at += 6;
+        } else {
+            throw new CsilCborException("csil cbor: invalid timestamp offset");
+        }
+        if (at != s.length()) {
+            throw new CsilCborException("csil cbor: trailing timestamp text");
+        }
+        long epoch = LocalDate.of(year, month, day).toEpochDay() * 86_400L
+            + hour * 3_600L + minute * 60L + second - offset;
+        // The range is checked again after conversion to UTC, because an offset can move
+        // a written year 0001 or 9999 value outside it.
+        if (epoch < TIMESTAMP_MIN_EPOCH || epoch >= TIMESTAMP_END_EPOCH) {
+            throw new CsilCborException("csil cbor: timestamp year outside 0001-9999");
+        }
+        return Instant.ofEpochSecond(epoch, nano);
+    }
+
+    private static final long TIMESTAMP_MIN_EPOCH = LocalDate.of(1, 1, 1).toEpochDay() * 86_400L;
+    private static final long TIMESTAMP_END_EPOCH = LocalDate.of(10000, 1, 1).toEpochDay() * 86_400L;
 
     static CborValue encIdentityRef(IdentityRef v) {
         List<CborEntry> csilEntries = new ArrayList<>(4);

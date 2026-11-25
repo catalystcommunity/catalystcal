@@ -167,16 +167,24 @@ type IdentityRef struct {
 
 // User represents a structured data type
 type User struct {
-	UserId        UserID    `json:"user_id" yaml:"user_id"`
-	Domain        string    `json:"domain" yaml:"domain"`
-	Subject       string    `json:"subject" yaml:"subject"`
-	ApplicationId *string   `json:"application_id,omitempty" yaml:"application_id,omitempty"`
-	Handle        *string   `json:"handle,omitempty" yaml:"handle,omitempty"`
-	DisplayName   *string   `json:"display_name,omitempty" yaml:"display_name,omitempty"`
-	Email         *string   `json:"email,omitempty" yaml:"email,omitempty"`
-	Timezone      *string   `json:"timezone,omitempty" yaml:"timezone,omitempty"`
-	CreatedAt     time.Time `json:"created_at" yaml:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" yaml:"updated_at"`
+	// receive-only
+	UserId UserID `json:"user_id" yaml:"user_id"`
+	// receive-only
+	Domain string `json:"domain" yaml:"domain"`
+	// receive-only
+	Subject string `json:"subject" yaml:"subject"`
+	// receive-only
+	ApplicationId *string `json:"application_id,omitempty" yaml:"application_id,omitempty"`
+	// receive-only
+	Handle      *string `json:"handle,omitempty" yaml:"handle,omitempty"`
+	DisplayName *string `json:"display_name,omitempty" yaml:"display_name,omitempty"`
+	// receive-only
+	Email    *string `json:"email,omitempty" yaml:"email,omitempty"`
+	Timezone *string `json:"timezone,omitempty" yaml:"timezone,omitempty"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// receive-only
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // PersonSummary represents a structured data type
@@ -191,22 +199,33 @@ type PersonSummary struct {
 
 // Calendar represents a structured data type
 type Calendar struct {
-	CalendarId   CalendarID    `json:"calendar_id" yaml:"calendar_id"`
-	Owner        PersonSummary `json:"owner" yaml:"owner"`
-	Name         string        `json:"name" yaml:"name"`
-	Description  *string       `json:"description,omitempty" yaml:"description,omitempty"`
-	Color        *string       `json:"color,omitempty" yaml:"color,omitempty"`
-	Timezone     *string       `json:"timezone,omitempty" yaml:"timezone,omitempty"`
-	Kind         CalendarKind  `json:"kind" yaml:"kind"`
-	SourceUrl    *string       `json:"source_url,omitempty" yaml:"source_url,omitempty"`
-	LastSyncedAt *time.Time    `json:"last_synced_at,omitempty" yaml:"last_synced_at,omitempty"`
-	SyncError    *string       `json:"sync_error,omitempty" yaml:"sync_error,omitempty"`
-	IsDefault    bool          `json:"is_default" yaml:"is_default"`
-	Access       AccessRole    `json:"access" yaml:"access"`
-	AccessPath   AccessPath    `json:"access_path" yaml:"access_path"`
-	FeedPath     *string       `json:"feed_path,omitempty" yaml:"feed_path,omitempty"`
-	CreatedAt    time.Time     `json:"created_at" yaml:"created_at"`
-	UpdatedAt    time.Time     `json:"updated_at" yaml:"updated_at"`
+	// receive-only
+	CalendarId CalendarID `json:"calendar_id" yaml:"calendar_id"`
+	// receive-only
+	Owner       PersonSummary `json:"owner" yaml:"owner"`
+	Name        string        `json:"name" yaml:"name"`
+	Description *string       `json:"description,omitempty" yaml:"description,omitempty"`
+	Color       *string       `json:"color,omitempty" yaml:"color,omitempty"`
+	Timezone    *string       `json:"timezone,omitempty" yaml:"timezone,omitempty"`
+	// receive-only
+	Kind      CalendarKind `json:"kind" yaml:"kind"`
+	SourceUrl *string      `json:"source_url,omitempty" yaml:"source_url,omitempty"`
+	// receive-only
+	LastSyncedAt *time.Time `json:"last_synced_at,omitempty" yaml:"last_synced_at,omitempty"`
+	// receive-only
+	SyncError *string `json:"sync_error,omitempty" yaml:"sync_error,omitempty"`
+	// receive-only
+	IsDefault bool `json:"is_default" yaml:"is_default"`
+	// receive-only
+	Access AccessRole `json:"access" yaml:"access"`
+	// receive-only
+	AccessPath AccessPath `json:"access_path" yaml:"access_path"`
+	// receive-only
+	FeedPath *string `json:"feed_path,omitempty" yaml:"feed_path,omitempty"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// receive-only
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // CreateCalendarRequest represents a structured data type
@@ -246,14 +265,18 @@ type CalendarList struct {
 
 // Share represents a structured data type
 type Share struct {
-	ShareId          ShareID        `json:"share_id" yaml:"share_id"`
-	CalendarId       CalendarID     `json:"calendar_id" yaml:"calendar_id"`
-	Grantee          *IdentityRef   `json:"grantee,omitempty" yaml:"grantee,omitempty"`
-	GranteeGroupId   *GroupID       `json:"grantee_group_id,omitempty" yaml:"grantee_group_id,omitempty"`
-	Role             ShareRole      `json:"role" yaml:"role"`
-	GranteePerson    *PersonSummary `json:"grantee_person,omitempty" yaml:"grantee_person,omitempty"`
-	GranteeGroupName *string        `json:"grantee_group_name,omitempty" yaml:"grantee_group_name,omitempty"`
-	CreatedAt        time.Time      `json:"created_at" yaml:"created_at"`
+	// receive-only
+	ShareId        ShareID      `json:"share_id" yaml:"share_id"`
+	CalendarId     CalendarID   `json:"calendar_id" yaml:"calendar_id"`
+	Grantee        *IdentityRef `json:"grantee,omitempty" yaml:"grantee,omitempty"`
+	GranteeGroupId *GroupID     `json:"grantee_group_id,omitempty" yaml:"grantee_group_id,omitempty"`
+	Role           ShareRole    `json:"role" yaml:"role"`
+	// receive-only
+	GranteePerson *PersonSummary `json:"grantee_person,omitempty" yaml:"grantee_person,omitempty"`
+	// receive-only
+	GranteeGroupName *string `json:"grantee_group_name,omitempty" yaml:"grantee_group_name,omitempty"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
 }
 
 // ShareList represents a structured data type
@@ -263,22 +286,30 @@ type ShareList struct {
 
 // GroupMember represents a structured data type
 type GroupMember struct {
-	Identity  *IdentityRef   `json:"identity,omitempty" yaml:"identity,omitempty"`
-	GroupId   *GroupID       `json:"group_id,omitempty" yaml:"group_id,omitempty"`
-	Person    *PersonSummary `json:"person,omitempty" yaml:"person,omitempty"`
-	GroupName *string        `json:"group_name,omitempty" yaml:"group_name,omitempty"`
+	Identity *IdentityRef `json:"identity,omitempty" yaml:"identity,omitempty"`
+	GroupId  *GroupID     `json:"group_id,omitempty" yaml:"group_id,omitempty"`
+	// receive-only
+	Person *PersonSummary `json:"person,omitempty" yaml:"person,omitempty"`
+	// receive-only
+	GroupName *string `json:"group_name,omitempty" yaml:"group_name,omitempty"`
 }
 
 // Group represents a structured data type
 type Group struct {
-	GroupId     GroupID       `json:"group_id" yaml:"group_id"`
+	// receive-only
+	GroupId GroupID `json:"group_id" yaml:"group_id"`
+	// receive-only
 	Owner       PersonSummary `json:"owner" yaml:"owner"`
 	Name        string        `json:"name" yaml:"name"`
 	Description *string       `json:"description,omitempty" yaml:"description,omitempty"`
-	Revision    uint64        `json:"revision" yaml:"revision"`
-	Members     []GroupMember `json:"members" yaml:"members"`
-	CreatedAt   time.Time     `json:"created_at" yaml:"created_at"`
-	UpdatedAt   time.Time     `json:"updated_at" yaml:"updated_at"`
+	// receive-only
+	Revision uint64 `json:"revision" yaml:"revision"`
+	// receive-only
+	Members []GroupMember `json:"members" yaml:"members"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// receive-only
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // CreateGroupRequest represents a structured data type
@@ -309,16 +340,21 @@ type GroupList struct {
 
 // Delegation represents a structured data type
 type Delegation struct {
-	DelegationId   DelegationID   `json:"delegation_id" yaml:"delegation_id"`
-	Principal      PersonSummary  `json:"principal" yaml:"principal"`
-	Delegate       IdentityRef    `json:"delegate" yaml:"delegate"`
+	// receive-only
+	DelegationId DelegationID `json:"delegation_id" yaml:"delegation_id"`
+	// receive-only
+	Principal PersonSummary `json:"principal" yaml:"principal"`
+	Delegate  IdentityRef   `json:"delegate" yaml:"delegate"`
+	// receive-only
 	DelegatePerson *PersonSummary `json:"delegate_person,omitempty" yaml:"delegate_person,omitempty"`
 	Scopes         []Scope        `json:"scopes" yaml:"scopes"`
 	CalendarIds    []CalendarID   `json:"calendar_ids,omitempty" yaml:"calendar_ids,omitempty"`
 	Note           *string        `json:"note,omitempty" yaml:"note,omitempty"`
 	ExpiresAt      *time.Time     `json:"expires_at,omitempty" yaml:"expires_at,omitempty"`
-	CreatedAt      time.Time      `json:"created_at" yaml:"created_at"`
-	RevokedAt      *time.Time     `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// receive-only
+	RevokedAt *time.Time `json:"revoked_at,omitempty" yaml:"revoked_at,omitempty"`
 }
 
 // DelegationList represents a structured data type
@@ -340,14 +376,16 @@ type Recurrence struct {
 
 // Attendee represents a structured data type
 type Attendee struct {
-	Identity    *IdentityRef         `json:"identity,omitempty" yaml:"identity,omitempty"`
-	Email       *string              `json:"email,omitempty" yaml:"email,omitempty"`
-	Name        *string              `json:"name,omitempty" yaml:"name,omitempty"`
-	Role        *AttendeeRole        `json:"role,omitempty" yaml:"role,omitempty"`
-	Status      *ParticipationStatus `json:"status,omitempty" yaml:"status,omitempty"`
-	Rsvp        *bool                `json:"rsvp,omitempty" yaml:"rsvp,omitempty"`
-	Person      *PersonSummary       `json:"person,omitempty" yaml:"person,omitempty"`
-	RespondedBy *PersonSummary       `json:"responded_by,omitempty" yaml:"responded_by,omitempty"`
+	Identity *IdentityRef         `json:"identity,omitempty" yaml:"identity,omitempty"`
+	Email    *string              `json:"email,omitempty" yaml:"email,omitempty"`
+	Name     *string              `json:"name,omitempty" yaml:"name,omitempty"`
+	Role     *AttendeeRole        `json:"role,omitempty" yaml:"role,omitempty"`
+	Status   *ParticipationStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Rsvp     *bool                `json:"rsvp,omitempty" yaml:"rsvp,omitempty"`
+	// receive-only
+	Person *PersonSummary `json:"person,omitempty" yaml:"person,omitempty"`
+	// receive-only
+	RespondedBy *PersonSummary `json:"responded_by,omitempty" yaml:"responded_by,omitempty"`
 }
 
 // Reminder represents a structured data type
@@ -358,6 +396,7 @@ type Reminder struct {
 
 // Event represents a structured data type
 type Event struct {
+	// receive-only
 	EventId       EventID            `json:"event_id" yaml:"event_id"`
 	CalendarId    CalendarID         `json:"calendar_id" yaml:"calendar_id"`
 	Uid           *string            `json:"uid,omitempty" yaml:"uid,omitempty"`
@@ -376,19 +415,28 @@ type Event struct {
 	Transparency  *EventTransparency `json:"transparency,omitempty" yaml:"transparency,omitempty"`
 	Visibility    *EventVisibility   `json:"visibility,omitempty" yaml:"visibility,omitempty"`
 	Recurrence    *Recurrence        `json:"recurrence,omitempty" yaml:"recurrence,omitempty"`
-	MasterEventId *EventID           `json:"master_event_id,omitempty" yaml:"master_event_id,omitempty"`
-	RecurrenceId  *time.Time         `json:"recurrence_id,omitempty" yaml:"recurrence_id,omitempty"`
-	Attendees     []Attendee         `json:"attendees,omitempty" yaml:"attendees,omitempty"`
-	Reminders     []Reminder         `json:"reminders,omitempty" yaml:"reminders,omitempty"`
-	Categories    []string           `json:"categories,omitempty" yaml:"categories,omitempty"`
-	Color         *string            `json:"color,omitempty" yaml:"color,omitempty"`
-	Organizer     *PersonSummary     `json:"organizer,omitempty" yaml:"organizer,omitempty"`
-	CreatedBy     *PersonSummary     `json:"created_by,omitempty" yaml:"created_by,omitempty"`
-	UpdatedBy     *PersonSummary     `json:"updated_by,omitempty" yaml:"updated_by,omitempty"`
-	UpdatedVia    *ActingVia         `json:"updated_via,omitempty" yaml:"updated_via,omitempty"`
-	Sequence      int64              `json:"sequence" yaml:"sequence"`
-	CreatedAt     time.Time          `json:"created_at" yaml:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at" yaml:"updated_at"`
+	// receive-only
+	MasterEventId *EventID `json:"master_event_id,omitempty" yaml:"master_event_id,omitempty"`
+	// receive-only
+	RecurrenceId *time.Time `json:"recurrence_id,omitempty" yaml:"recurrence_id,omitempty"`
+	Attendees    []Attendee `json:"attendees,omitempty" yaml:"attendees,omitempty"`
+	Reminders    []Reminder `json:"reminders,omitempty" yaml:"reminders,omitempty"`
+	Categories   []string   `json:"categories,omitempty" yaml:"categories,omitempty"`
+	Color        *string    `json:"color,omitempty" yaml:"color,omitempty"`
+	// receive-only
+	Organizer *PersonSummary `json:"organizer,omitempty" yaml:"organizer,omitempty"`
+	// receive-only
+	CreatedBy *PersonSummary `json:"created_by,omitempty" yaml:"created_by,omitempty"`
+	// receive-only
+	UpdatedBy *PersonSummary `json:"updated_by,omitempty" yaml:"updated_by,omitempty"`
+	// receive-only
+	UpdatedVia *ActingVia `json:"updated_via,omitempty" yaml:"updated_via,omitempty"`
+	// receive-only
+	Sequence int64 `json:"sequence" yaml:"sequence"`
+	// receive-only
+	CreatedAt time.Time `json:"created_at" yaml:"created_at"`
+	// receive-only
+	UpdatedAt time.Time `json:"updated_at" yaml:"updated_at"`
 }
 
 // Occurrence represents a structured data type

@@ -5,11 +5,11 @@
 import PackageDescription
 
 let package = Package(
-name: "CatalystCalClient",
-products: [
-.library(name: "CatalystCalClient", targets: ["CatalystCalClient"]),
-],
-targets: [
-.target(name: "CatalystCalClient"),
-]
+  name: "CatalystCalClient",
+  products: [
+    .library(name: "CatalystCalClient", targets: ["CatalystCalClient"])
+  ],
+  targets: [
+    .target(name: "CatalystCalClient")
+  ]
 )
